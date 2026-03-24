@@ -8,8 +8,10 @@
     "dev:frontend": "vite",
     "dev:backend": "cd backend && bun run dev",
     "dev:all": "bun run dev:backend & bun run dev:frontend",
-    "build": "tsc -b && vite build",
+    "build": "vite build",
     "build:backend": "cd backend && bun run build",
+    "build:all": "bun run build && bun run build:backend",
+    "start": "bun tui.ts --production",
     "lint": "eslint .",
     "preview": "vite preview"
   },

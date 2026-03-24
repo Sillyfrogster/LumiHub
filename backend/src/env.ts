@@ -15,6 +15,7 @@ const envSchema = z.object({
   DISCORD_AUTH_URL: z.string().default('https://discord.com/oauth2/authorize?'),
   JWT_SECRET: z.string().default('super-secret-development-key-change-in-production'),
   FRONTEND_URL: z.string().default('http://localhost:5173'),
+  LUMIHUB_PUBLIC_URL: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -43,4 +44,5 @@ export const env = {
   DISCORD_AUTH_URL: parsed.data.DISCORD_AUTH_URL,
   JWT_SECRET: parsed.data.JWT_SECRET,
   FRONTEND_URL: parsed.data.FRONTEND_URL,
+  LUMIHUB_PUBLIC_URL: parsed.data.LUMIHUB_PUBLIC_URL || parsed.data.FRONTEND_URL,
 };

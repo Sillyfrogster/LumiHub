@@ -13,6 +13,18 @@ const auth = new Hono();
 auth.get('/discord', (c) => {
     const generatedState = randomUUID();
 
+    // Store return_to URL so we can redirect back after login
+    const returnTo = c.req.query('return_to');
+    if (returnTo) {
+        setCookie(c, 'oauth_return_to', returnTo, {
+            httpOnly: true,
+            secure: env.NODE_ENV === 'production',
+            path: '/',
+            maxAge: 60 * 10,
+            sameSite: 'Lax',
+        });
+    }
+
     setCookie(c, 'oauth_state', generatedState, {
         httpOnly: true,
         secure: env.NODE_ENV === 'production',
@@ -65,6 +77,12 @@ auth.get('/discord/callback', async (c) => {
         sameSite: 'Strict'
     });
 
+    // Redirect to return_to URL if set (e.g. from Lumiverse PKCE link flow), otherwise home
+    const returnTo = getCookie(c, 'oauth_return_to');
+    if (returnTo) {
+        deleteCookie(c, 'oauth_return_to', { path: '/' });
+        return c.redirect(returnTo);
+    }
     return c.redirect('/');
 })
 

@@ -1,11 +1,12 @@
 import { useEffect } from 'react';
-import { X, Download, Star, Users, ArrowLeft, ExternalLink, Image, Sparkles, FileText } from 'lucide-react';
+import { X, Download, Star, Users, ArrowLeft, ExternalLink, Image, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { UnifiedCharacterCard } from '../../types/character';
 import type { ChubCharacterCard } from '../../types/chub';
 import type { LumiHubCharacter } from '../../types/character';
 import { downloadCharacter } from '../../api/characters';
 import CharacterTabs from './CharacterTabs';
+import InstallButton from './InstallButton';
 import styles from './CharacterModal.module.css';
 
 interface Props {
@@ -91,10 +92,11 @@ const CharacterModal: React.FC<Props> = ({ card, onClose }) => {
               <div className={styles.heroActions}>
                 {isChub ? (
                   <>
-                    <button className={styles.installBtn}>
-                      <Sparkles size={16} />
-                      Install to Lumiverse
-                    </button>
+                    <InstallButton
+                      characterId={card.id}
+                      source="chub"
+                      className={styles.installBtn}
+                    />
                     <a href={chubData?.pageUrl} target="_blank" rel="noreferrer" className={styles.secondaryBtn}>
                       <ExternalLink size={14} />
                       View on Chub
@@ -102,10 +104,11 @@ const CharacterModal: React.FC<Props> = ({ card, onClose }) => {
                   </>
                 ) : (
                   <>
-                    <button className={styles.installBtn}>
-                      <Sparkles size={16} />
-                      Install to Lumiverse
-                    </button>
+                    <InstallButton
+                      characterId={card.id}
+                      source="lumihub"
+                      className={styles.installBtn}
+                    />
                     <button className={styles.secondaryBtn} onClick={handleDownloadJson}>
                       <Download size={14} />
                       JSON

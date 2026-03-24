@@ -92,6 +92,63 @@ characters.delete('/:id', requireAuth, async (c) => {
   return c.json({ message: 'Character deleted successfully' });
 });
 
+/** Export character as CCSv3 JSON card (public, no auth required). */
+characters.get('/:id/card', async (c) => {
+  const character = await CharacterService.getCharacterById(c.req.param('id'));
+  if (!character) {
+    return c.json({ error: 'Not Found', message: 'Character not found', statusCode: 404 }, 404);
+  }
+
+  // Build CCSv3-formatted card
+  const card = {
+    spec: 'chara_card_v3',
+    spec_version: '3.0',
+    data: {
+      name: character.name,
+      description: character.description,
+      personality: character.personality,
+      scenario: character.scenario,
+      first_mes: character.first_mes,
+      mes_example: character.mes_example,
+      alternate_greetings: character.alternate_greetings,
+      group_only_greetings: character.group_only_greetings,
+      system_prompt: character.system_prompt,
+      post_history_instructions: character.post_history_instructions,
+      creator: character.creator,
+      creator_notes: character.creator_notes,
+      creator_notes_multilingual: character.creator_notes_multilingual,
+      character_version: character.character_version,
+      tags: character.tags,
+      nickname: character.nickname,
+      source: character.source,
+      assets: character.assets,
+      character_book: character.character_book,
+      extensions: character.extensions,
+      creation_date: character.creation_date,
+      modification_date: character.modification_date,
+    },
+  };
+
+  // Include avatar as base64 if available
+  let avatarBase64: string | undefined;
+  let avatarMime: string | undefined;
+  if (character.image_path) {
+    try {
+      const { env } = await import('../env.ts');
+      const path = await import('path');
+      const imgPath = path.resolve(env.UPLOADS_DIR, character.image_path.replace(/^uploads\//, ''));
+      const file = Bun.file(imgPath);
+      if (await file.exists()) {
+        const buf = await file.arrayBuffer();
+        avatarBase64 = Buffer.from(buf).toString('base64');
+        avatarMime = file.type || 'image/png';
+      }
+    } catch { /* avatar unavailable, skip */ }
+  }
+
+  return c.json({ card, avatarBase64, avatarMime });
+});
+
 /** Increment download counter */
 characters.post('/:id/download', async (c) => {
   const result = await CharacterService.incrementDownloads(c.req.param('id'));

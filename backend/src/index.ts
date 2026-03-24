@@ -3,7 +3,7 @@ import { connectDB } from './db/connection.ts';
 import { initNSFWModel } from './services/nsfw.service.ts';
 import { env } from './env.ts';
 import { logger } from './utils/logger.ts';
-import app from './app.ts';
+import app, { websocket } from './app.ts';
 
 /** Connects to the database, initializes services, and starts the HTTP server. */
 async function start() {
@@ -15,7 +15,9 @@ async function start() {
 
     const server = Bun.serve({
       port: env.PORT,
+      hostname: '0.0.0.0',
       fetch: app.fetch,
+      websocket,
     });
 
     logger.info(`Server running on http://localhost:${server.port}`);

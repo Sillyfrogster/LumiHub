@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Download, Star, Users, ExternalLink, Image, Sparkles, FileText } from 'lucide-react';
+import { ArrowLeft, Download, Star, Users, ExternalLink, Image, FileText } from 'lucide-react';
 import type { UnifiedCharacterCard } from '../../types/character';
 import type { ChubCharacterCard } from '../../types/chub';
 import type { LumiHubCharacter } from '../../types/character';
 import { getCharacter } from '../../api/characters';
 import { fromLumiHub } from '../../types/character';
 import CharacterTabs from '../../components/characters/CharacterTabs';
+import InstallButton from '../../components/characters/InstallButton';
 import styles from './CharacterDetail.module.css';
 
 const CharacterDetail: React.FC = () => {
@@ -126,18 +127,22 @@ const CharacterDetail: React.FC = () => {
           <div className={styles.actions}>
             {isChub ? (
               <>
-                <button className={styles.installBtn}>
-                  <Sparkles size={16} /> Install to Lumiverse
-                </button>
+                <InstallButton
+                  characterId={card.id}
+                  source="chub"
+                  className={styles.installBtn}
+                />
                 <a href={chubData?.pageUrl} target="_blank" rel="noreferrer" className={styles.secondaryBtn}>
                   <ExternalLink size={14} /> View on Chub
                 </a>
               </>
             ) : (
               <>
-                <button className={styles.installBtn}>
-                  <Sparkles size={16} /> Install to Lumiverse
-                </button>
+                <InstallButton
+                  characterId={card.id}
+                  source="lumihub"
+                  className={styles.installBtn}
+                />
                 <button className={styles.secondaryBtn} onClick={handleDownloadPng}>
                   <Image size={14} /> Download PNG
                 </button>

@@ -1,12 +1,16 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { serveStatic } from 'hono/bun';
+import { upgradeWebSocket, websocket } from 'hono/bun';
 import { errorHandler, notFound } from './middleware/error.middleware.ts';
 import charactersRoutes from './routes/characters.routes.ts';
 import authRoutes from './routes/auth.routes.ts';
 import userRoutes from './routes/user.routes.ts';
+import linkRoutes from './routes/link.routes.ts';
 import { logger } from './utils/logger.ts';
 import { env } from './env.ts';
+import { validateLinkToken, updateLastSeen } from './services/link.service.ts';
+import { instanceManager } from './ws/instance-connections.ts';
 
 const app = new Hono();
 
@@ -26,10 +30,80 @@ app.use('*', async (c, next) => {
 
 app.use('/uploads/*', serveStatic({ root: './uploads', rewriteRequestPath: (p) => p.replace(/^\/uploads/, '') }));
 
+// Serve built frontend in production
+if (env.NODE_ENV === 'production') {
+  app.use('/*', serveStatic({ root: '../dist' }));
+}
+
 app.use('*', errorHandler);
 app.route('/api/v1/characters', charactersRoutes);
 app.route('/api/v1/auth', authRoutes);
 app.route('/api/v1/user', userRoutes);
+app.route('/api/v1/link', linkRoutes);
+
+// WebSocket endpoint for Lumiverse instance connections
+app.get('/api/v1/ws/instance', upgradeWebSocket((c) => {
+  let instanceId: string | null = null;
+  let userId: string | null = null;
+
+  return {
+    async onOpen(_event, ws) {
+      const url = new URL(c.req.url);
+      const token = url.searchParams.get('token');
+      if (!token) {
+        ws.close(1008, 'Token required');
+        return;
+      }
+
+      const instance = await validateLinkToken(token);
+      if (!instance) {
+        ws.close(1008, 'Invalid or revoked token');
+        return;
+      }
+
+      instanceId = instance.id;
+      userId = instance.user_id;
+
+      const raw = (ws as any).raw as import('bun').ServerWebSocket<unknown>;
+      if (raw) {
+        instanceManager.register(instanceId, userId, raw);
+      }
+      await updateLastSeen(instanceId);
+
+      ws.send(JSON.stringify({
+        type: 'auth_ok',
+        id: crypto.randomUUID(),
+        payload: { instanceId, userId },
+        timestamp: Date.now(),
+      }));
+
+      logger.info(`[WS] Instance ${instance.instance_name} (${instanceId}) connected`);
+    },
+    onMessage(event, _ws) {
+      if (!instanceId) return;
+      const raw = (_ws as any).raw as import('bun').ServerWebSocket<unknown>;
+      if (raw) {
+        instanceManager.handleMessage(raw, event.data as string);
+      }
+    },
+    onClose(_event, _ws) {
+      if (instanceId) {
+        logger.info(`[WS] Instance ${instanceId} disconnected`);
+      }
+      const raw = (_ws as any).raw as import('bun').ServerWebSocket<unknown>;
+      if (raw) {
+        instanceManager.unregister(raw);
+      }
+    },
+  };
+}));
+
+// SPA fallback — serve index.html for non-API routes in production
+if (env.NODE_ENV === 'production') {
+  app.get('*', serveStatic({ root: '../dist', path: '/index.html' }));
+}
+
 app.notFound(notFound);
 
 export default app;
+export { websocket };

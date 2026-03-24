@@ -48,6 +48,9 @@ const SYM = {
   spark: '\u2022',     // •
 };
 
+// CLI args
+const isProduction = process.argv.includes('--production') || process.argv.includes('-p');
+
 // State
 let renderer: CliRenderer;
 let backendProc: Subprocess | null = null;
@@ -123,15 +126,20 @@ function spawnBackend() {
   for (const child of backendScrollbox.content.getChildren()) {
     backendScrollbox.content.remove(child.id);
   }
-  appendLog(backendScrollbox, 'Starting backend...', COLORS.primaryText);
+  const mode = isProduction ? 'production' : 'development';
+  appendLog(backendScrollbox, `Starting backend (${mode})...`, COLORS.primaryText);
+
+  const backendCmd = isProduction
+    ? ['bun', 'src/index.ts']
+    : ['bun', '--watch', 'src/index.ts'];
 
   // @ts-ignore
-  backendProc = Bun.spawn(['bun', '--watch', 'src/index.ts'], {
+  backendProc = Bun.spawn(backendCmd, {
     // @ts-ignore
     cwd: `${import.meta.dir}/backend`,
     stdout: 'pipe',
     stderr: 'pipe',
-    env: { ...process.env, FORCE_COLOR: '0' },
+    env: { ...process.env, FORCE_COLOR: '0', NODE_ENV: mode },
   });
 
   pipeStream(backendProc.stdout, backendScrollbox);
@@ -139,6 +147,11 @@ function spawnBackend() {
 }
 
 function spawnFrontend() {
+  if (isProduction) {
+    appendLog(frontendScrollbox, 'Production mode — frontend served by backend', COLORS.success);
+    return;
+  }
+
   if (frontendProc) {
     frontendProc.kill();
     frontendProc = null;
@@ -313,8 +326,8 @@ async function main() {
   });
 
   const statusEnv = new TextRenderable(renderer, {
-    content: 'development',
-    fg: COLORS.textDim,
+    content: isProduction ? 'production' : 'development',
+    fg: isProduction ? COLORS.success : COLORS.textDim,
   });
 
   const statusSep1 = new TextRenderable(renderer, {
