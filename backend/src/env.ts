@@ -16,6 +16,7 @@ const envSchema = z.object({
   JWT_SECRET: z.string().default('super-secret-development-key-change-in-production'),
   FRONTEND_URL: z.string().default('http://localhost:5173'),
   LUMIHUB_PUBLIC_URL: z.string().optional(),
+  MODERATOR_DISCORD_IDS: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -45,4 +46,7 @@ export const env = {
   JWT_SECRET: parsed.data.JWT_SECRET,
   FRONTEND_URL: parsed.data.FRONTEND_URL,
   LUMIHUB_PUBLIC_URL: parsed.data.LUMIHUB_PUBLIC_URL || parsed.data.FRONTEND_URL,
+  MODERATOR_DISCORD_IDS: parsed.data.MODERATOR_DISCORD_IDS
+    ? parsed.data.MODERATOR_DISCORD_IDS.split(',').map(id => id.trim()).filter(Boolean)
+    : [],
 };

@@ -143,7 +143,7 @@ link.delete('/instances/:id', requireAuth, async (c) => {
 link.post('/install', requireAuth, async (c) => {
     const userId = c.get('userId');
     const body = await c.req.json();
-    const { instance_id, character_id, source } = body;
+    const { instance_id, character_id, source, include_worldbook } = body;
 
     if (!instance_id || !character_id) {
         return c.json({ error: 'instance_id and character_id are required' }, 400);
@@ -169,6 +169,7 @@ link.post('/install', requireAuth, async (c) => {
             characterId: character_id,
             characterName: character_id,
             importUrl: `https://chub.ai/characters/${character_id}`,
+            importEmbeddedWorldbook: !!include_worldbook,
         };
     } else {
         // For LumiHub characters, fetch the card
@@ -186,6 +187,7 @@ link.post('/install', requireAuth, async (c) => {
                 characterId: character_id,
                 characterName: character.name,
                 importUrl: `${env.LUMIHUB_PUBLIC_URL}/api/v1/characters/${character_id}/charx`,
+                importEmbeddedWorldbook: !!include_worldbook,
             };
         } else {
             // Simple character — send inline card data + avatar
@@ -223,6 +225,7 @@ link.post('/install', requireAuth, async (c) => {
                 characterId: character_id,
                 characterName: character.name,
                 cardData,
+                importEmbeddedWorldbook: !!include_worldbook,
             };
 
             // Include avatar if available
@@ -281,13 +284,53 @@ link.post('/install-worldbook', requireAuth, async (c) => {
     let payload: Record<string, unknown>;
 
     if (source === 'chub') {
-        // Chub lorebook — send the gateway URL for Lumiverse to fetch
+        // Chub lorebook — fetch from Chub API ourselves and send inline
         const apiPath = worldbook_id.replace(/^lorebooks\//, '');
+        const chubUrl = `https://api.chub.ai/api/lorebooks/${apiPath}?full=true`;
+
+        let chubRes: Response;
+        try {
+            chubRes = await fetch(chubUrl, {
+                headers: { 'Accept': 'application/json', 'User-Agent': 'LumiHub' },
+            });
+        } catch (err: any) {
+            return c.json({ error: `Failed to reach Chub API: ${err.message}` }, 502);
+        }
+
+        if (!chubRes.ok) {
+            // Try gateway as fallback
+            const gwUrl = `https://gateway.chub.ai/api/lorebooks/${apiPath}?full=true`;
+            try {
+                chubRes = await fetch(gwUrl, {
+                    headers: { 'Accept': 'application/json', 'User-Agent': 'LumiHub' },
+                });
+            } catch (err: any) {
+                return c.json({ error: `Failed to reach Chub API: ${err.message}` }, 502);
+            }
+            if (!chubRes.ok) {
+                return c.json({ error: `Chub API returned ${chubRes.status} for lorebook "${apiPath}"` }, 502);
+            }
+        }
+
+        const chubData = (await chubRes.json()) as Record<string, any>;
+        const def = chubData.node?.definition;
+        if (!def) {
+            return c.json({ error: 'No definition found in Chub lorebook response' }, 502);
+        }
+
+        const rawEntries = def.embedded_lorebook?.entries || [];
+        const name = def.name || apiPath.split('/').pop() || worldbook_id;
+        const description = def.description || '';
+
         payload = {
             source: 'chub',
             worldbookId: worldbook_id,
-            worldbookName: worldbook_id,
-            importUrl: `https://gateway.chub.ai/api/lorebooks/${apiPath}?full=true`,
+            worldbookName: name,
+            worldbookData: {
+                name,
+                description,
+                entries: rawEntries,
+            },
         };
     } else {
         // LumiHub worldbook — send inline entries

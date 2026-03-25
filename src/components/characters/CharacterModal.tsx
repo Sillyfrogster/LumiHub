@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, Download, Star, Heart, Users, ArrowLeft, ExternalLink, Image, FileText, Package, Trash2 } from 'lucide-react';
+import { X, Download, Star, Heart, Users, ArrowLeft, ExternalLink, Image, FileText, Package, Trash2, Code2, ThumbsUp } from 'lucide-react';
 import { useCharacterImages } from '../../hooks/useCharacterImages';
 import { useAuth } from '../../hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
@@ -11,6 +11,7 @@ import { downloadCharacter, deleteCharacter } from '../../api/characters';
 import CharacterTabs from './CharacterTabs';
 import InstallButton from './InstallButton';
 import LazyImage from '../shared/LazyImage';
+import ScrollFadeRow from '../shared/ScrollFadeRow';
 import styles from './CharacterModal.module.css';
 
 interface Props {
@@ -40,6 +41,11 @@ const CharacterModal: React.FC<Props> = ({ card, onClose }) => {
 
   const isOwner = !isChub && user && lumiData?.owner?.id === user.id;
   const displayAvatar = heroUrl || card.avatarUrl;
+
+  const lumiCharBook = lumiData?.character_book as { entries?: unknown[] } | null | undefined;
+  const hasEmbeddedLorebook = isChub || (lumiCharBook?.entries?.length ?? 0) > 0;
+  const lumiverseModules = lumiData?.extensions?.lumiverse_modules as { regex_scripts?: unknown[] } | undefined;
+  const regexScriptCount = lumiverseModules?.regex_scripts?.length ?? 0;
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -84,14 +90,14 @@ const CharacterModal: React.FC<Props> = ({ card, onClose }) => {
     : String(card.downloads);
 
   return (
-    <div className={styles.overlay} onClick={onClose}>
+    <div className={styles.overlay} onClick={onClose} role="dialog" aria-modal="true" aria-label={`${card.name} character details`}>
       <div className={styles.panel} onClick={(e) => e.stopPropagation()}>
         <div className={styles.panelHeader}>
-          <button className={styles.backBtn} onClick={onClose}>
+          <button className={styles.backBtn} onClick={onClose} aria-label="Close character details">
             <ArrowLeft size={16} />
             <span>Back</span>
           </button>
-          <button className={styles.closeBtn} onClick={onClose}>
+          <button className={styles.closeBtn} onClick={onClose} aria-label="Close">
             <X size={18} />
           </button>
         </div>
@@ -142,23 +148,23 @@ const CharacterModal: React.FC<Props> = ({ card, onClose }) => {
                 )}
                 {lumiData?.character_version && <span className={styles.heroVersion}> · v{lumiData.character_version}</span>}
               </p>
-              <div className={styles.heroStats}>
+              <ScrollFadeRow className={styles.heroStats}>
                 {isChub ? (
                   <>
                     {card.downloads > 0 && <span className={styles.statChip}><Download size={13} />{card.downloads.toLocaleString()} Downloads</span>}
                     {(card.favorites ?? 0) > 0 && <span className={styles.statChip}><Heart size={13} />{card.favorites!.toLocaleString()} Favorites</span>}
                     {(card.stars ?? 0) > 0 && <span className={styles.statChip}><Star size={13} />{card.stars!.toLocaleString()} Stars</span>}
-                    {card.rating !== null && <span className={styles.statChip}><Star size={13} />{card.rating.toFixed(1)}</span>}
+                    {card.rating !== null && <span className={styles.statChip}><ThumbsUp size={13} />{card.rating.toFixed(1)}/5</span>}
                     {chubData?.chats !== undefined && <span className={styles.statChip}><Users size={13} />{chubData.chats.toLocaleString()} Chats</span>}
                     {chubData?.tokenCount !== undefined && <span className={styles.statChip}><FileText size={13} />{chubData.tokenCount.toLocaleString()} Tokens</span>}
                   </>
                 ) : (
                   <>
                     <span className={styles.statChip}><Download size={13} />{formattedDownloads} Downloads</span>
-                    {card.rating !== null && <span className={styles.statChip}><Star size={13} />{card.rating.toFixed(1)}</span>}
+                    {regexScriptCount > 0 && <span className={styles.statChip}><Code2 size={13} />{regexScriptCount} Regex</span>}
                   </>
                 )}
-              </div>
+              </ScrollFadeRow>
 
               <div className={styles.heroActions}>
                 {isChub ? (
@@ -166,6 +172,7 @@ const CharacterModal: React.FC<Props> = ({ card, onClose }) => {
                     <InstallButton
                       characterId={card.id}
                       source="chub"
+                      hasEmbeddedLorebook={hasEmbeddedLorebook}
                       className={styles.installBtn}
                     />
                     <a href={chubData?.pageUrl} target="_blank" rel="noreferrer" className={styles.secondaryBtn}>
@@ -178,6 +185,7 @@ const CharacterModal: React.FC<Props> = ({ card, onClose }) => {
                     <InstallButton
                       characterId={card.id}
                       source="lumihub"
+                      hasEmbeddedLorebook={hasEmbeddedLorebook}
                       className={styles.installBtn}
                     />
                     <button className={styles.secondaryBtn} onClick={handleDownloadJson}>
@@ -209,11 +217,11 @@ const CharacterModal: React.FC<Props> = ({ card, onClose }) => {
           </div>
 
           {card.tags.length > 0 && (
-            <div className={styles.tagsRow}>
+            <ScrollFadeRow className={styles.tagsRow}>
               {card.tags.map((tag, i) => (
                 <span key={i} className={styles.tag}>{tag}</span>
               ))}
-            </div>
+            </ScrollFadeRow>
           )}
 
           <CharacterTabs

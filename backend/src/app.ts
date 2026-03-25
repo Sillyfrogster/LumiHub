@@ -8,6 +8,7 @@ import worldbooksRoutes from './routes/worldbooks.routes.ts';
 import authRoutes from './routes/auth.routes.ts';
 import userRoutes from './routes/user.routes.ts';
 import linkRoutes from './routes/link.routes.ts';
+import moderationRoutes from './routes/moderation.routes.ts';
 import { logger } from './utils/logger.ts';
 import { env } from './env.ts';
 import { opengraphMiddleware, staticPageOgMiddleware } from './middleware/opengraph.middleware.ts';
@@ -43,6 +44,7 @@ app.route('/api/v1/worldbooks', worldbooksRoutes);
 app.route('/api/v1/auth', authRoutes);
 app.route('/api/v1/user', userRoutes);
 app.route('/api/v1/link', linkRoutes);
+app.route('/api/v1/moderation', moderationRoutes);
 
 // WebSocket endpoint for Lumiverse instance connections
 app.get('/api/v1/ws/instance', upgradeWebSocket((c) => {

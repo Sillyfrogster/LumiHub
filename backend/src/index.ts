@@ -4,6 +4,7 @@ import { initNSFWModel } from './services/nsfw.service.ts';
 import { env } from './env.ts';
 import { logger } from './utils/logger.ts';
 import app, { websocket } from './app.ts';
+import { instanceManager } from './ws/instance-connections.ts';
 
 /** Connects to the database, initializes services, and starts the HTTP server. */
 async function start() {
@@ -19,6 +20,8 @@ async function start() {
       fetch: app.fetch,
       websocket,
     });
+
+    instanceManager.startHeartbeat();
 
     logger.info(`Server running on http://localhost:${server.port}`);
     logger.info(`Environment: ${env.NODE_ENV}`);

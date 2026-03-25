@@ -2,13 +2,6 @@
   display: flex;
   gap: 0;
   border-bottom: 1px solid var(--lumihub-border);
-  overflow-x: auto;
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE/Edge */
-}
-
-.tabBar::-webkit-scrollbar {
-  display: none; /* Chrome/Safari */
 }
 
 .tab {
@@ -26,6 +19,7 @@
   white-space: nowrap;
   transition: color 0.15s ease, border-color 0.15s ease;
   font-family: var(--font-body);
+  flex-shrink: 0;
 }
 
 .tab:hover {
@@ -49,6 +43,8 @@
 
 .tabContent {
   padding: 24px 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .textBlock {
@@ -88,6 +84,7 @@
   color: var(--lumihub-text);
   white-space: pre-wrap;
   word-wrap: break-word;
+  overflow-wrap: anywhere;
   margin: 0;
   opacity: 0.9;
 }
@@ -487,4 +484,234 @@
   font-size: 13px;
   font-weight: 500;
   color: var(--lumihub-text);
+}
+
+/* Regex scripts section */
+.regexSection {
+  margin-top: 16px;
+  padding: 14px;
+  background: var(--lumihub-glass-bg, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--lumihub-glass-border, rgba(255, 255, 255, 0.06));
+  border-radius: 10px;
+}
+
+.regexSectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--lumihub-text);
+  margin: 0 0 10px;
+}
+
+.regexList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.regexItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--lumihub-glass-border, rgba(255, 255, 255, 0.06));
+  border-radius: 6px;
+  font-size: 12.5px;
+}
+
+.regexName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--lumihub-text);
+  font-weight: 500;
+}
+
+.regexTarget {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--lumihub-text-muted);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.regexPlacement {
+  font-size: 10px;
+  color: var(--lumihub-text-dim);
+  flex-shrink: 0;
+}
+
+.regexDisabled {
+  font-size: 10px;
+  color: var(--lumihub-text-dim);
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.regexHint {
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  color: var(--lumihub-text-dim);
+}
+
+/* ── Focus-visible ── */
+.tab:focus-visible {
+  outline: 2px solid var(--lumihub-primary);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+
+.viewProfileBtn:focus-visible {
+  outline: 2px solid var(--lumihub-primary);
+  outline-offset: 2px;
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2s;
+  }
+
+  .galleryTabImgWrap:hover {
+    transform: none;
+  }
+}
+
+/* ── Tablet (≤768px) ── */
+@media (max-width: 768px) {
+  .tab {
+    padding: 12px 14px;
+    font-size: 14px;
+    min-height: 44px;
+  }
+
+  .tabBadge {
+    font-size: 11px;
+    padding: 2px 7px;
+  }
+
+  .tabContent {
+    padding: 20px 0;
+  }
+
+  .descriptionText {
+    font-size: 15px;
+    line-height: 1.75;
+  }
+
+  .textBlockContent {
+    font-size: 14px;
+    padding: 14px 16px;
+    max-height: 400px;
+  }
+
+  .greetingContent {
+    font-size: 14px;
+    padding: 16px;
+    max-height: 400px;
+  }
+
+  .loreEntryHeader {
+    padding: 10px 12px;
+    flex-wrap: wrap;
+  }
+
+  .loreEntryName {
+    flex-basis: 100%;
+    white-space: normal;
+    margin-bottom: 6px;
+  }
+
+  .loreEntryMeta {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .loreKeys {
+    padding: 8px 12px;
+  }
+
+  .loreContent {
+    font-size: 13px;
+    padding: 14px 12px;
+    max-height: 240px;
+  }
+
+  .expressionsTabGrid {
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 10px;
+  }
+
+  .galleryTabGrid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 8px;
+  }
+
+  .creatorHeader {
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .viewProfileBtn {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+
+  .regexSection {
+    padding: 12px;
+  }
+
+  .regexItem {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 10px;
+  }
+
+  .regexPlacement {
+    flex-basis: 100%;
+  }
+}
+
+/* ── Small phone (≤480px) ── */
+@media (max-width: 480px) {
+  .tab {
+    padding: 12px 12px;
+    font-size: 13px;
+  }
+
+  .expressionsTabGrid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .galleryTabGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .creatorHeader {
+    flex-wrap: wrap;
+  }
+
+  .viewProfileBtn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .greetingCard {
+    border-radius: 6px;
+  }
+
+  .loreEntry {
+    border-radius: 6px;
+  }
 }

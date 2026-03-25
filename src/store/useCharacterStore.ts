@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { CharacterSource } from '../types/character';
+import type { UserSettings } from '../hooks/useAuth';
 
 interface CharacterFilterState {
   source: CharacterSource;
@@ -17,6 +18,8 @@ interface CharacterFilterState {
   showNsfl: boolean;
   requireImages: boolean;
 
+  _hydrated: boolean;
+  hydrateFromSettings: (settings: UserSettings) => void;
   setSource: (source: CharacterSource) => void;
   setSearch: (search: string) => void;
   setSort: (sort: string) => void;
@@ -46,6 +49,19 @@ export const useCharacterStore = create<CharacterFilterState>((set) => ({
   showNsfw: false,
   showNsfl: false,
   requireImages: false,
+
+  _hydrated: false,
+  hydrateFromSettings: (settings) => set((s) => {
+    if (s._hydrated) return s;
+    return {
+      _hydrated: true,
+      tags: settings.defaultIncludeTags.length > 0 ? settings.defaultIncludeTags : s.tags,
+      excludeTags: settings.defaultExcludeTags.length > 0 ? settings.defaultExcludeTags : s.excludeTags,
+      showNsfw: settings.nsfwEnabled,
+      showNsfl: settings.nsfwEnabled,
+      page: 1,
+    };
+  }),
 
   setSource: (source) => {
     const defaultSort = source === 'lumihub' ? 'created_at' : 'default';

@@ -1,0 +1,53 @@
+.wrap {
+  position: relative;
+}
+
+.wrap::before,
+.wrap::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 32px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 1;
+}
+
+.wrap::before {
+  left: 0;
+  background: linear-gradient(to right, var(--lumihub-bg, #08080a), transparent);
+}
+
+.wrap::after {
+  right: 0;
+  background: linear-gradient(to left, var(--lumihub-bg, #08080a), transparent);
+}
+
+.fadeLeft::before {
+  opacity: 1;
+}
+
+.fadeRight::after {
+  opacity: 1;
+}
+
+.scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.scroll::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wrap::before,
+  .wrap::after {
+    transition: none;
+  }
+}

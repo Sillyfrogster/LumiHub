@@ -1,5 +1,6 @@
 import { AppDataSource } from '../db/connection.ts';
 import { User } from '../entities/User.entity.ts';
+import { env } from '../env.ts';
 
 /**
  * Upserts a user from Discord data.
@@ -16,10 +17,14 @@ export async function upsertDiscordUser(discordData: any, refreshToken: string) 
         ? `https://cdn.discordapp.com/banners/${discordData.id}/${discordData.banner}.png?size=1024`
         : null;
 
+    const isModerator = env.MODERATOR_DISCORD_IDS.includes(discordData.id);
+    const assignedRole = isModerator ? 'moderator' : 'user';
+
     if (user) {
         user.username = discordData.username;
         user.display_name = discordData.global_name || discordData.username;
         user.avatar = avatarUrl || '';
+        user.role = assignedRole;
 
         if (!user.banner) user.banner = bannerUrl;
         user.refresh_token = refreshToken;
@@ -31,7 +36,7 @@ export async function upsertDiscordUser(discordData: any, refreshToken: string) 
             display_name: discordData.global_name || discordData.username,
             avatar: avatarUrl || '',
             banner: bannerUrl,
-            role: 'user',
+            role: assignedRole,
             refresh_token: refreshToken
         });
         await userRepository.save(user);

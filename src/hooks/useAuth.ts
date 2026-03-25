@@ -2,6 +2,13 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { useState, useEffect } from 'react';
 
+export interface UserSettings {
+  nsfwEnabled: boolean;
+  nsfwUnblurred: boolean;
+  defaultIncludeTags: string[];
+  defaultExcludeTags: string[];
+}
+
 export interface User {
   id: string;
   discordId: string;
@@ -9,8 +16,9 @@ export interface User {
   displayName: string;
   avatar: string | null;
   banner: string | null;
-  role: 'user' | 'admin' | 'mod';
+  role: 'user' | 'admin' | 'moderator';
   createdAt: string;
+  settings?: UserSettings;
 }
 
 interface AuthState {
@@ -36,9 +44,34 @@ let _fetchPromise: Promise<User | null> | null = null;
 
 async function fetchCurrentUser(): Promise<User | null> {
   if (!_fetchPromise) {
-    _fetchPromise = fetch('/api/v1/user/@me', { credentials: 'include' })
-      .then((res) => (res.ok ? res.json() : null))
-      .finally(() => { _fetchPromise = null; });
+    _fetchPromise = (async () => {
+      let res = await fetch('/api/v1/user/@me', { credentials: 'include' });
+
+      // Session expired — try refreshing the token
+      if (res.status === 401) {
+        const refreshRes = await fetch('/api/v1/auth/refresh', {
+          method: 'POST',
+          credentials: 'include',
+        });
+        if (refreshRes.ok) {
+          res = await fetch('/api/v1/user/@me', { credentials: 'include' });
+        }
+      }
+
+      if (!res.ok) return null;
+
+      const user: User = await res.json();
+
+      // Fetch settings in parallel — non-blocking, best-effort
+      try {
+        const settingsRes = await fetch('/api/v1/user/@me/settings', { credentials: 'include' });
+        if (settingsRes.ok) {
+          user.settings = await settingsRes.json();
+        }
+      } catch {}
+
+      return user;
+    })().finally(() => { _fetchPromise = null; });
   }
   return _fetchPromise;
 }
@@ -49,12 +82,7 @@ export function useAuth() {
   const [isLoading, setIsLoading] = useState(() => !useAuthStore.getState()._hasChecked);
 
   useEffect(() => {
-    const { _hasChecked } = useAuthStore.getState();
-    if (_hasChecked) {
-      setIsLoading(false);
-      return;
-    }
-
+    // Always re-validate session on mount, even if we have cached data
     fetchCurrentUser()
       .then((u) => setUser(u))
       .finally(() => setIsLoading(false));

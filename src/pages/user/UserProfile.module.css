@@ -108,23 +108,48 @@
   flex-shrink: 0;
 }
 
-.meta {
+.handle {
+  font-size: 14px;
+  color: var(--lumihub-text-muted);
+  margin: 4px 0 0;
+  font-weight: 500;
+}
+
+.statsRow {
+  max-width: 1200px;
+  margin: 16px auto 0;
+  padding: 0 40px;
+  display: flex;
+  align-items: center;
+}
+
+.stat {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.statValue {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--lumihub-text);
+  font-family: var(--font-heading);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.statLabel {
   font-size: 13px;
-  font-weight: 500;
   color: var(--lumihub-text-muted);
-  margin: 3px 0 0 0;
+  font-weight: 500;
 }
 
-.meta svg {
-  color: var(--lumihub-primary-muted);
-}
-
-.metaDot {
-  color: var(--lumihub-text-dim);
-  margin: 0 2px;
+.statDivider {
+  width: 1px;
+  height: 14px;
+  background: var(--lumihub-border);
+  margin: 0 16px;
 }
 
 .tabBarWrapper {
@@ -244,28 +269,80 @@
 
 @media (max-width: 768px) {
   .banner {
-    height: 140px;
+    height: 160px;
   }
 
   .profileHeader {
-    margin-top: -36px;
-    padding: 0 16px;
-    flex-wrap: wrap;
-    gap: 12px;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    margin-top: -44px;
+    padding: 0 20px;
+    gap: 6px;
   }
 
   .avatarWrapper {
-    width: 72px;
-    height: 72px;
+    width: 84px;
+    height: 84px;
+    border: 3px solid var(--lumihub-bg);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(216, 140, 154, 0.15);
+  }
+
+  .identity {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .nameRow {
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
   }
 
   .displayName {
-    font-size: 18px;
+    font-size: 20px;
+    text-align: center;
   }
 
-  .meta {
-    font-size: 12px;
-    flex-wrap: wrap;
+  .handle {
+    font-size: 13px;
+    margin-top: 2px;
+  }
+
+  .statsRow {
+    display: flex;
+    justify-content: center;
+    margin: 16px 16px 0;
+    padding: 14px 0;
+    background: var(--lumihub-bg-elevated);
+    border: 1px solid var(--lumihub-border);
+    border-radius: var(--lumihub-radius-lg);
+  }
+
+  .stat {
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    flex: 1;
+  }
+
+  .statValue {
+    font-size: 15px;
+  }
+
+  .statLabel {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 700;
+    color: var(--lumihub-text-dim);
+  }
+
+  .statDivider {
+    width: 1px;
+    height: 32px;
+    margin: 0;
   }
 
   .tabBarWrapper {

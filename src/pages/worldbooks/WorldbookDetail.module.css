@@ -2,6 +2,8 @@
   max-width: 1200px;
   margin: 0 auto;
   padding: 24px 40px 80px;
+  overflow-x: clip;
+  width: 100%;
 }
 
 .backBtn {
@@ -87,6 +89,8 @@
 .contentColumn {
   flex: 1;
   min-width: 0;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 .name {
@@ -107,7 +111,7 @@
 
 .stats {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
   margin-bottom: 16px;
 }
@@ -122,11 +126,13 @@
   font-size: 12px;
   font-weight: 600;
   color: var(--lumihub-text-muted);
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .tagsRow {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
   margin-bottom: 20px;
 }
@@ -139,6 +145,8 @@
   font-size: 11px;
   font-weight: 600;
   color: var(--lumihub-primary-text);
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .actions {
@@ -494,7 +502,27 @@
   font-size: 15px;
 }
 
-/* ── Responsive ── */
+/* ── Focus-visible ── */
+.backBtn:focus-visible,
+.backBtnLarge:focus-visible,
+.installBtn:focus-visible,
+.secondaryBtn:focus-visible,
+.dangerBtn:focus-visible,
+.expandBtn:focus-visible,
+.searchInput:focus-visible {
+  outline: 2px solid var(--lumihub-primary);
+  outline-offset: 2px;
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .loadingSkeleton {
+    animation: none;
+    opacity: 0.5;
+  }
+}
+
+/* ── Tablet (≤900px) ── */
 @media (max-width: 900px) {
   .page {
     padding: 16px 20px 60px;
@@ -511,22 +539,161 @@
   }
 
   .imageWrap {
-    aspect-ratio: 16/9;
+    aspect-ratio: 1;
     max-height: 240px;
+    max-width: 240px;
+    margin: 0 auto;
   }
 
   .searchWrap {
     width: 100%;
   }
+
+  .name {
+    font-size: 24px;
+  }
 }
 
+/* ── Mobile (≤600px) ── */
 @media (max-width: 600px) {
+  .page {
+    padding: 12px 16px calc(24px + env(safe-area-inset-bottom));
+  }
+
+  .backBtn {
+    min-height: 44px;
+    padding: 8px 12px;
+    font-size: 14px;
+    margin-bottom: 16px;
+  }
+
+  .imageWrap {
+    max-height: 200px;
+    max-width: 200px;
+  }
+
   .name {
     font-size: 22px;
+  }
+
+  .creator {
+    font-size: 14px;
+  }
+
+  .stats {
+    gap: 6px;
+  }
+
+  .statChip {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+
+  .tagsRow {
+    margin-bottom: 16px;
+  }
+
+  .actions {
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+
+  .installBtn {
+    width: 100%;
+    justify-content: center;
+    min-height: 48px;
+    font-size: 14px;
+    background: rgba(216, 140, 154, 0.15);
+    border: 1px solid rgba(216, 140, 154, 0.3);
+    color: var(--lumihub-primary-text);
+  }
+
+  .installBtn:hover {
+    background: rgba(216, 140, 154, 0.25);
+  }
+
+  .secondaryBtn,
+  .dangerBtn {
+    width: 100%;
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  .descriptionText {
+    font-size: 15px;
+    line-height: 1.75;
+  }
+
+  .entriesSection {
+    padding-top: 20px;
   }
 
   .entriesHeader {
     flex-direction: column;
     align-items: flex-start;
+    gap: 12px;
+  }
+
+  .entriesTitle {
+    font-size: 15px;
+  }
+
+  .searchInput {
+    font-size: 16px; /* Prevents iOS zoom on focus */
+    padding: 10px 10px 10px 34px;
+    min-height: 44px;
+  }
+
+  .entryCard {
+    border-radius: 8px;
+  }
+
+  .entryHeader {
+    padding: 12px;
+  }
+
+  .entryTitleRow {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .entryName {
+    flex-basis: 100%;
+    white-space: normal;
+    font-size: 14px;
+  }
+
+  .entryMeta {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .entryKeys {
+    padding: 8px 12px;
+    gap: 5px;
+  }
+
+  .entryKey,
+  .entryKeySecondary {
+    font-size: 12px;
+    padding: 3px 8px;
+  }
+
+  .entryContent {
+    font-size: 13px;
+    padding: 12px;
+    line-height: 1.65;
+  }
+
+  .entryContentClamped {
+    max-height: 120px;
+  }
+
+  .expandBtn {
+    padding: 10px 12px;
+    font-size: 13px;
+    min-height: 44px;
   }
 }

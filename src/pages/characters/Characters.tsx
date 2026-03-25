@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
 import { useCharacterStore } from '../../store/useCharacterStore';
 import { useCharacters } from '../../hooks/useCharacters';
 import { useAvailableTags } from '../../hooks/useAvailableTags';
@@ -46,6 +47,7 @@ function SkeletonGrid() {
 }
 
 const Characters = () => {
+  const { user } = useAuth();
   const {
     source, search, sort,
     tags, excludeTags,
@@ -53,7 +55,12 @@ const Characters = () => {
     setSource, setSearch, setSort,
     addTag, removeTag, addExcludeTag, removeExcludeTag,
     setMinTokens, setShowNsfw, setShowNsfl, setRequireImages,
+    hydrateFromSettings,
   } = useCharacterStore();
+
+  useEffect(() => {
+    if (user?.settings) hydrateFromSettings(user.settings);
+  }, [user?.settings, hydrateFromSettings]);
 
   const { characters, pagination, loading, loadingMore, hasNextPage, fetchNextPage, error } = useCharacters();
   const navigate = useNavigate();
@@ -235,6 +242,7 @@ const Characters = () => {
           <CharacterCard
             key={card.id}
             card={card}
+            blurNsfw={!user?.settings?.nsfwUnblurred}
             onClick={() => navigate(`/characters/${encodeURIComponent(card.id)}`, { state: { card } })}
           />
         ))}

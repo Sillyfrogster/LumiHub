@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
-import { ArrowLeft, BookOpen, Star, FileText, ExternalLink, Search, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
+import { ArrowLeft, BookOpen, Star, FileText, ExternalLink, Search, ChevronDown, ChevronUp, Trash2, Download, Heart, ThumbsUp } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../hooks/useAuth';
 import { getChubLorebookDetail } from '../../api/chub';
@@ -9,6 +9,7 @@ import { fromLumiHub } from '../../types/worldbook';
 import type { UnifiedWorldBook, ChubWorldBook, LumiWorldBook, WorldBookEntry } from '../../types/worldbook';
 import InstallButton from '../../components/characters/InstallButton';
 import LazyImage from '../../components/shared/LazyImage';
+import ScrollFadeRow from '../../components/shared/ScrollFadeRow';
 import styles from './WorldbookDetail.module.css';
 
 const WorldbookDetail: React.FC = () => {
@@ -138,9 +139,9 @@ const WorldbookDetail: React.FC = () => {
     : null;
 
   return (
-    <div className={styles.page}>
-      <button className={styles.backBtn} onClick={() => navigate(-1)}>
-        <ArrowLeft size={16} />
+    <main className={styles.page} aria-label={`${book.name} worldbook details`}>
+      <button className={styles.backBtn} onClick={() => navigate(-1)} aria-label="Go back">
+        <ArrowLeft size={16} aria-hidden="true" />
         <span>Back</span>
       </button>
 
@@ -164,27 +165,40 @@ const WorldbookDetail: React.FC = () => {
           <h1 className={styles.name}>{book.name}</h1>
           <p className={styles.creator}>by {book.creator}</p>
 
-          <div className={styles.stats}>
+          <ScrollFadeRow className={styles.stats}>
             {entryCount > 0 && (
               <span className={styles.statChip}><BookOpen size={13} />{entryCount} entries</span>
             )}
             {book.tokenCount > 0 && (
               <span className={styles.statChip}><FileText size={13} />{formattedTokens} tokens</span>
             )}
-            {book.downloads > 0 && (
-              <span className={styles.statChip}><Star size={13} />{formattedStars} stars</span>
+            {isChub ? (
+              <>
+                {chubData && (chubData as any).n_favorites > 0 && (
+                  <span className={styles.statChip}><Heart size={13} />{((chubData as any).n_favorites as number).toLocaleString()} favorites</span>
+                )}
+                {book.downloads > 0 && (
+                  <span className={styles.statChip}><Star size={13} />{formattedStars} stars</span>
+                )}
+                {book.rating !== null && book.rating > 0 && (
+                  <span className={styles.statChip}><ThumbsUp size={13} />{book.rating.toFixed(1)}/5 rating</span>
+                )}
+              </>
+            ) : (
+              <>
+                {book.downloads > 0 && (
+                  <span className={styles.statChip}><Download size={13} />{book.downloads} downloads</span>
+                )}
+              </>
             )}
-            {book.rating !== null && (
-              <span className={styles.statChip}><Star size={13} />{book.rating.toFixed(1)}</span>
-            )}
-          </div>
+          </ScrollFadeRow>
 
           {book.tags.length > 0 && (
-            <div className={styles.tagsRow}>
+            <ScrollFadeRow className={styles.tagsRow}>
               {book.tags.map((tag, i) => (
                 <span key={i} className={styles.tag}>{tag}</span>
               ))}
-            </div>
+            </ScrollFadeRow>
           )}
 
           <div className={styles.actions}>
@@ -230,13 +244,14 @@ const WorldbookDetail: React.FC = () => {
 
               {entries.length > 5 && (
                 <div className={styles.searchWrap}>
-                  <Search size={14} className={styles.searchIcon} />
+                  <Search size={14} className={styles.searchIcon} aria-hidden="true" />
                   <input
-                    type="text"
+                    type="search"
                     placeholder="Search entries..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className={styles.searchInput}
+                    aria-label="Search lorebook entries"
                   />
                 </div>
               )}
@@ -293,8 +308,13 @@ const WorldbookDetail: React.FC = () => {
                       </pre>
 
                       {isLong && (
-                        <button className={styles.expandBtn} onClick={() => toggleEntry(i)}>
-                          {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        <button
+                          className={styles.expandBtn}
+                          onClick={() => toggleEntry(i)}
+                          aria-expanded={isExpanded}
+                          aria-label={isExpanded ? `Collapse ${entry.name || `entry ${i + 1}`}` : `Expand ${entry.name || `entry ${i + 1}`}`}
+                        >
+                          {isExpanded ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
                           {isExpanded ? 'Show less' : 'Show more'}
                         </button>
                       )}
@@ -312,7 +332,7 @@ const WorldbookDetail: React.FC = () => {
           </div>
         </div>
       </div>
-    </div>
+    </main>
   );
 };
 

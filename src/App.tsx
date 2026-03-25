@@ -8,6 +8,7 @@ import WorldbookDetail from './pages/worldbooks/WorldbookDetail';
 import UserProfile from './pages/user/UserProfile';
 import Themes from './pages/themes/Themes';
 import Presets from './pages/presets/Presets';
+import Settings from './pages/settings/Settings';
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
           <Route path="themes" element={<Themes />} />
           <Route path="presets" element={<Presets />} />
           <Route path="user/:discordId" element={<UserProfile />} />
+          <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>
     </BrowserRouter>

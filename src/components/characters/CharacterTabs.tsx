@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, MessageSquare, Users, BookOpen, User, Smile, Images, Loader2 } from 'lucide-react';
+import { FileText, MessageSquare, Users, BookOpen, User, Smile, Images, Loader2, Code2 } from 'lucide-react';
 import { useCharacterImages } from '../../hooks/useCharacterImages';
 import { useChubCharacterDetail } from '../../hooks/useChubCharacterDetail';
 import LazyImage from '../shared/LazyImage';
+import ScrollFadeRow from '../shared/ScrollFadeRow';
 import type { UnifiedCharacterCard } from '../../types/character';
 import type { ChubCharacterCard } from '../../types/chub';
 import type { LumiHubCharacter } from '../../types/character';
 import type { WorldBookEntry } from '../../types/worldbook';
+import type { BundledRegexScript } from '../../utils/charxParser';
 import styles from './CharacterTabs.module.css';
 
 type TabId = 'overview' | 'prompts' | 'greetings' | 'lorebook' | 'expressions' | 'gallery' | 'creator';
@@ -101,9 +103,11 @@ const CharacterTabs: React.FC<CharacterTabsProps> = ({ card, tabBarClassName, ta
   // Lumiverse modules from extensions
   const lumiverseModules = lumiData?.extensions?.lumiverse_modules as {
     alternate_fields?: Record<string, Array<{ id: string; label: string; content: string }>>;
+    regex_scripts?: BundledRegexScript[];
   } | undefined;
   const alternateFields = lumiverseModules?.alternate_fields;
   const hasAltFields = alternateFields && Object.values(alternateFields).some((arr) => arr.length > 0);
+  const regexScripts = lumiverseModules?.regex_scripts ?? [];
 
   // Build tabs dynamically
   const tabs: TabDef[] = [
@@ -126,32 +130,36 @@ const CharacterTabs: React.FC<CharacterTabsProps> = ({ card, tabBarClassName, ta
 
   return (
     <>
-      <div className={`${styles.tabBar} ${tabBarClassName || ''}`}>
+      <ScrollFadeRow as="nav" className={`${styles.tabBar} ${tabBarClassName || ''}`} role="tablist" aria-label="Character details">
         {tabs.map((tab) => (
           <button
             key={tab.id}
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            aria-controls={`tabpanel-${tab.id}`}
+            id={`tab-${tab.id}`}
             className={`${styles.tab} ${activeTab === tab.id ? styles.tabActive : ''}`}
             onClick={() => setActiveTab(tab.id)}
           >
-            <tab.icon size={14} />
+            <tab.icon size={14} aria-hidden="true" />
             <span>{tab.label}</span>
             {tab.id === 'lorebook' && lorebookEntries.length > 0 && (
-              <span className={styles.tabBadge}>{lorebookEntries.length}</span>
+              <span className={styles.tabBadge} aria-label={`${lorebookEntries.length} entries`}>{lorebookEntries.length}</span>
             )}
             {tab.id === 'greetings' && greetingCount > 0 && (
-              <span className={styles.tabBadge}>{greetingCount}</span>
+              <span className={styles.tabBadge} aria-label={`${greetingCount} greetings`}>{greetingCount}</span>
             )}
             {tab.id === 'expressions' && expressionImages.length > 0 && (
-              <span className={styles.tabBadge}>{expressionImages.length}</span>
+              <span className={styles.tabBadge} aria-label={`${expressionImages.length} expressions`}>{expressionImages.length}</span>
             )}
             {tab.id === 'gallery' && galleryImages.length > 0 && (
-              <span className={styles.tabBadge}>{galleryImages.length}</span>
+              <span className={styles.tabBadge} aria-label={`${galleryImages.length} images`}>{galleryImages.length}</span>
             )}
           </button>
         ))}
-      </div>
+      </ScrollFadeRow>
 
-      <div className={`${styles.tabContent} ${tabContentClassName || ''}`}>
+      <div className={`${styles.tabContent} ${tabContentClassName || ''}`} role="tabpanel" id={`tabpanel-${activeTab}`} aria-labelledby={`tab-${activeTab}`}>
         {activeTab === 'overview' && (
           <div>
             {isChub && chubDefLoading ? (
@@ -160,6 +168,29 @@ const CharacterTabs: React.FC<CharacterTabsProps> = ({ card, tabBarClassName, ta
               <pre className={styles.descriptionText}>{description}</pre>
             ) : (
               <p className={styles.emptyText}>No description provided.</p>
+            )}
+            {regexScripts.length > 0 && (
+              <div className={styles.regexSection}>
+                <h4 className={styles.regexSectionHeader}>
+                  <Code2 size={14} />
+                  Bundled Regex Scripts ({regexScripts.length})
+                </h4>
+                <div className={styles.regexList}>
+                  {regexScripts.map((script, i) => (
+                    <div key={i} className={styles.regexItem}>
+                      <span className={styles.regexName}>{script.name}</span>
+                      <span className={styles.regexTarget}>{script.target}</span>
+                      <span className={styles.regexPlacement}>
+                        {script.placement.join(', ')}
+                      </span>
+                      {script.disabled && <span className={styles.regexDisabled}>Disabled</span>}
+                    </div>
+                  ))}
+                </div>
+                <p className={styles.regexHint}>
+                  These regex scripts will be installed alongside the character.
+                </p>
+              </div>
             )}
           </div>
         )}

@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
 import { useWorldbookStore } from '../../store/useWorldbookStore';
 import { useWorldbooks } from '../../hooks/useWorldbooks';
 import { useAvailableTags } from '../../hooks/useAvailableTags';
@@ -39,6 +40,7 @@ function SkeletonGrid() {
 }
 
 const Worldbooks = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const {
     source, search, sort,
@@ -47,7 +49,12 @@ const Worldbooks = () => {
     setSource, setSearch, setSort,
     addTag, removeTag, addExcludeTag, removeExcludeTag,
     setShowNsfw, setShowNsfl,
+    hydrateFromSettings,
   } = useWorldbookStore();
+
+  useEffect(() => {
+    if (user?.settings) hydrateFromSettings(user.settings);
+  }, [user?.settings, hydrateFromSettings]);
 
   const { worldbooks, loading, loadingMore, hasNextPage, fetchNextPage, error } = useWorldbooks();
 
@@ -180,6 +187,7 @@ const Worldbooks = () => {
         <WorldbookCard
           key={wb.id}
           worldbook={wb}
+          blurNsfw={!user?.settings?.nsfwUnblurred}
           onClick={() => navigate(`/worldbooks/${encodeURIComponent(wb.id)}`, { state: { worldbook: wb } })}
         />
       ))}

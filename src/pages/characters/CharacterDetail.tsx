@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Download, Star, Heart, Users, ExternalLink, Image, FileText, Package, Trash2 } from 'lucide-react';
+import { ArrowLeft, Download, Star, Heart, Users, ExternalLink, Image, FileText, Package, Trash2, ThumbsUp } from 'lucide-react';
 import { useCharacterImages } from '../../hooks/useCharacterImages';
 import { useAuth } from '../../hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
@@ -12,6 +12,7 @@ import { fromLumiHub } from '../../types/character';
 import CharacterTabs from '../../components/characters/CharacterTabs';
 import InstallButton from '../../components/characters/InstallButton';
 import LazyImage from '../../components/shared/LazyImage';
+import ScrollFadeRow from '../../components/shared/ScrollFadeRow';
 import styles from './CharacterDetail.module.css';
 
 function normalizeImagePath(p: string | null): string | null {
@@ -81,6 +82,10 @@ const CharacterDetail: React.FC = () => {
   const hasCharxAssets = (images?.length ?? 0) > 1;
   const isOwner = !isChub && user && lumiData?.owner?.id === user.id;
 
+  // Detect embedded lorebook for the install dropdown
+  const lumiCharBook = lumiData?.character_book as { entries?: unknown[] } | null | undefined;
+  const hasEmbeddedLorebook = isChub || (lumiCharBook?.entries?.length ?? 0) > 0;
+
   const displayAvatar = heroUrl || card.avatarUrl;
 
   const formattedDownloads = card.downloads > 1000
@@ -110,9 +115,9 @@ const CharacterDetail: React.FC = () => {
   };
 
   return (
-    <div className={styles.page}>
-      <button className={styles.backBtn} onClick={() => navigate(-1)}>
-        <ArrowLeft size={16} />
+    <main className={styles.page} aria-label={`${card.name} character details`}>
+      <button className={styles.backBtn} onClick={() => navigate(-1)} aria-label="Go back">
+        <ArrowLeft size={16} aria-hidden="true" />
         <span>Back</span>
       </button>
 
@@ -168,7 +173,7 @@ const CharacterDetail: React.FC = () => {
             )}
           </p>
 
-          <div className={styles.stats}>
+          <ScrollFadeRow className={styles.stats}>
             {isChub ? (
               <>
                 {card.downloads > 0 && (
@@ -181,7 +186,7 @@ const CharacterDetail: React.FC = () => {
                   <span className={styles.statChip}><Star size={13} />{card.stars!.toLocaleString()} stars</span>
                 )}
                 {card.rating !== null && (
-                  <span className={styles.statChip}><Star size={13} />{card.rating.toFixed(1)}</span>
+                  <span className={styles.statChip}><ThumbsUp size={13} />{card.rating.toFixed(1)}/5 rating</span>
                 )}
                 {chubData?.chats !== undefined && (
                   <span className={styles.statChip}><Users size={13} />{chubData.chats.toLocaleString()} chats</span>
@@ -193,19 +198,16 @@ const CharacterDetail: React.FC = () => {
             ) : (
               <>
                 <span className={styles.statChip}><Download size={13} />{formattedDownloads} downloads</span>
-                {card.rating !== null && (
-                  <span className={styles.statChip}><Star size={13} />{card.rating.toFixed(1)}</span>
-                )}
               </>
             )}
-          </div>
+          </ScrollFadeRow>
 
           {card.tags.length > 0 && (
-            <div className={styles.tagsRow}>
+            <ScrollFadeRow className={styles.tagsRow}>
               {card.tags.map((tag, i) => (
                 <span key={i} className={styles.tag}>{tag}</span>
               ))}
-            </div>
+            </ScrollFadeRow>
           )}
 
           <div className={styles.actions}>
@@ -214,6 +216,7 @@ const CharacterDetail: React.FC = () => {
                 <InstallButton
                   characterId={card.id}
                   source="chub"
+                  hasEmbeddedLorebook={hasEmbeddedLorebook}
                   className={styles.installBtn}
                 />
                 <a href={chubData?.pageUrl} target="_blank" rel="noreferrer" className={styles.secondaryBtn}>
@@ -225,6 +228,7 @@ const CharacterDetail: React.FC = () => {
                 <InstallButton
                   characterId={card.id}
                   source="lumihub"
+                  hasEmbeddedLorebook={hasEmbeddedLorebook}
                   className={styles.installBtn}
                 />
                 <button className={styles.secondaryBtn} onClick={handleDownloadPng}>
@@ -248,7 +252,7 @@ const CharacterDetail: React.FC = () => {
           <CharacterTabs card={card} />
         </div>
       </div>
-    </div>
+    </main>
   );
 };
 

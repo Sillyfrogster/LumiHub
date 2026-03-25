@@ -110,6 +110,9 @@ worldbooks.get('/:id/export', async (c) => {
   if (!wb) {
     return c.json({ error: 'Not Found', message: 'Worldbook not found', statusCode: 404 }, 404);
   }
+  if (wb.hidden) {
+    return c.json({ error: 'Unavailable', message: 'This content has been hidden by moderation', statusCode: 403 }, 403);
+  }
 
   const entries = WorldbookService.normalizeLorebookEntries(wb.entries);
   return c.json({
@@ -150,6 +153,9 @@ worldbooks.get('/:id', async (c) => {
   const wb = await WorldbookService.getWorldbookById(c.req.param('id'));
   if (!wb) {
     return c.json({ error: 'Not Found', message: 'Worldbook not found', statusCode: 404 }, 404);
+  }
+  if (wb.hidden) {
+    return c.json({ error: 'Unavailable', message: 'This content has been hidden by moderation', statusCode: 403 }, 403);
   }
   return c.json({ data: wb });
 });

@@ -1,5 +1,9 @@
 import type { ServerWebSocket } from "bun";
 import { randomUUID } from "crypto";
+import { logger } from "../utils/logger.ts";
+
+const HEARTBEAT_INTERVAL_MS = 30_000;
+const HEARTBEAT_TIMEOUT_MS = 10_000;
 
 export interface WSMessage {
     type: string;
@@ -24,6 +28,10 @@ class InstanceConnectionManager {
     private instanceToUser = new Map<string, string>();
     /** requestId -> pending request callback */
     private pendingRequests = new Map<string, PendingRequest>();
+    /** instanceId -> timestamp of last pong received */
+    private lastPong = new Map<string, number>();
+    /** Heartbeat interval handle */
+    private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 
     register(instanceId: string, userId: string, ws: ServerWebSocket<unknown>): void {
         // Close existing connection for this instance if any
@@ -36,6 +44,7 @@ class InstanceConnectionManager {
         this.connections.set(instanceId, ws);
         this.socketToInstance.set(ws, instanceId);
         this.instanceToUser.set(instanceId, userId);
+        this.lastPong.set(instanceId, Date.now());
     }
 
     unregister(ws: ServerWebSocket<unknown>): void {
@@ -43,6 +52,7 @@ class InstanceConnectionManager {
         if (instanceId) {
             this.connections.delete(instanceId);
             this.instanceToUser.delete(instanceId);
+            this.lastPong.delete(instanceId);
         }
         this.socketToInstance.delete(ws);
     }
@@ -108,7 +118,13 @@ class InstanceConnectionManager {
         }
 
         // Handle pong (heartbeat response)
-        if (msg.type === "pong") return;
+        if (msg.type === "pong") {
+            const instanceId = this.socketToInstance.get(ws);
+            if (instanceId) {
+                this.lastPong.set(instanceId, Date.now());
+            }
+            return;
+        }
 
         // Handle responses to pending requests
         if (msg.replyTo && this.pendingRequests.has(msg.replyTo)) {
@@ -137,6 +153,44 @@ class InstanceConnectionManager {
 
     get connectionCount(): number {
         return this.connections.size;
+    }
+
+    startHeartbeat(): void {
+        if (this.heartbeatInterval) return;
+
+        this.heartbeatInterval = setInterval(() => {
+            const now = Date.now();
+            const staleThreshold = now - HEARTBEAT_INTERVAL_MS - HEARTBEAT_TIMEOUT_MS;
+
+            for (const [instanceId, ws] of this.connections) {
+                const last = this.lastPong.get(instanceId) ?? 0;
+                if (last < staleThreshold) {
+                    logger.info(`[WS] Instance ${instanceId} missed heartbeat, disconnecting`);
+                    try { ws.close(1000, "Heartbeat timeout"); } catch {}
+                    this.unregister(ws);
+                    continue;
+                }
+
+                try {
+                    ws.send(JSON.stringify({
+                        type: "ping",
+                        id: randomUUID(),
+                        timestamp: now,
+                    }));
+                } catch {
+                    logger.info(`[WS] Failed to send ping to ${instanceId}, disconnecting`);
+                    try { ws.close(); } catch {}
+                    this.unregister(ws);
+                }
+            }
+        }, HEARTBEAT_INTERVAL_MS);
+    }
+
+    stopHeartbeat(): void {
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+        }
     }
 }
 

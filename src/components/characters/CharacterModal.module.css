@@ -82,6 +82,7 @@
 .panelScroll {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 0 0 40px 0;
 }
 
@@ -201,7 +202,7 @@
 
 .heroStats {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
   margin-bottom: 16px;
 }
@@ -216,6 +217,8 @@
   font-size: 12px;
   font-weight: 600;
   color: var(--lumihub-text-muted);
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .heroActions {
@@ -292,7 +295,7 @@
 
 .tagsRow {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
   padding: 0 24px 20px;
 }
@@ -305,6 +308,8 @@
   font-size: 11px;
   font-weight: 600;
   color: var(--lumihub-primary-text);
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .tabBarPadded {
@@ -315,7 +320,25 @@
   padding: 24px;
 }
 
-@media (max-width: 640px) {
+/* ── Focus-visible ── */
+.backBtn:focus-visible,
+.closeBtn:focus-visible,
+.installBtn:focus-visible,
+.secondaryBtn:focus-visible,
+.dangerBtn:focus-visible {
+  outline: 2px solid var(--lumihub-primary);
+  outline-offset: 2px;
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .panel {
+    animation: none;
+  }
+}
+
+/* ── Tablet (≤768px) ── */
+@media (max-width: 768px) {
   .overlay {
     padding: 0;
   }
@@ -323,30 +346,134 @@
   .panel {
     width: 100%;
     max-height: 100vh;
+    height: 100%;
     border-radius: 0;
+    border: none;
   }
 
+  .panelHeader {
+    padding: 12px 16px;
+    padding-top: max(12px, env(safe-area-inset-top));
+  }
+
+  .backBtn {
+    min-height: 44px;
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+
+  .closeBtn {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 10px;
+  }
+
+  .panelScroll {
+    padding-bottom: max(40px, calc(20px + env(safe-area-inset-bottom)));
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .heroImage {
+    height: 220px;
+  }
+
+  .heroInfo {
+    padding: 16px;
+  }
+
+  .heroName {
+    font-size: 20px;
+  }
+
+  .heroCreator {
+    font-size: 14px;
+    margin-bottom: 14px;
+  }
+
+  .heroStats {
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+
+  .statChip {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+
+  .heroActions {
+    gap: 8px;
+    width: 100%;
+  }
+
+  .installBtn {
+    flex: 1;
+    justify-content: center;
+    min-height: 44px;
+    font-size: 14px;
+    padding: 10px 16px;
+    background: rgba(216, 140, 154, 0.15);
+    border: 1px solid rgba(216, 140, 154, 0.3);
+    color: var(--lumihub-primary-text);
+  }
+
+  .installBtn:hover {
+    background: rgba(216, 140, 154, 0.25);
+  }
+
+  .secondaryBtn {
+    flex: 1;
+    justify-content: center;
+    min-height: 44px;
+    font-size: 13px;
+    padding: 10px 12px;
+  }
+
+  .dangerBtn {
+    min-height: 44px;
+    padding: 10px 14px;
+  }
+
+  .tagsRow {
+    padding: 0 16px 16px;
+    gap: 6px;
+  }
+
+  .tag {
+    padding: 4px 10px;
+    font-size: 12px;
+  }
+
+  .tabBarPadded {
+    padding: 0 16px;
+  }
+
+  .tabContentPadded {
+    padding: 20px 16px;
+  }
+}
+
+/* ── Small phone (≤480px) ── */
+@media (max-width: 480px) {
   .heroImage {
     height: 180px;
   }
 
-  .hero {
-    align-items: center;
-    text-align: center;
+  .heroInfo {
+    padding: 14px;
+  }
+
+  .heroName {
+    font-size: 18px;
   }
 
   .heroActions {
-    justify-content: center;
-    width: 100%;
+    flex-direction: column;
   }
 
   .installBtn,
-  .secondaryBtn {
-    flex: 1;
-    justify-content: center;
-  }
-
-  .heroStats {
+  .secondaryBtn,
+  .dangerBtn {
+    width: 100%;
     justify-content: center;
   }
 }

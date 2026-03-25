@@ -17,6 +17,7 @@ export async function listWorldbooks(params: ListQueryParams) {
 
   const qb = repo().createQueryBuilder('worldbook')
     .leftJoinAndSelect('worldbook.owner', 'owner')
+    .where('worldbook.hidden = false')
     .orderBy(`worldbook.${sortField}`, sortOrder)
     .skip(skip)
     .take(limit);
@@ -57,10 +58,11 @@ export async function listTags(search?: string) {
     params.push(`%${search}%`);
   }
 
+  const hiddenClause = where ? 'AND hidden = false' : 'WHERE hidden = false';
   const sql = `
     SELECT tag AS name, COUNT(*)::int AS count
     FROM worldbooks, jsonb_array_elements_text(tags) AS tag
-    ${where}
+    ${where} ${hiddenClause}
     GROUP BY tag
     ORDER BY count DESC
     LIMIT 200

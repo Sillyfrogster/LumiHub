@@ -1,11 +1,15 @@
+import { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { Home, Users, Book, Palette, Sparkles } from 'lucide-react';
+import { Home, Users, Book, Palette, Sparkles, User, LogIn, Settings, LogOut } from 'lucide-react';
 import clsx from 'clsx';
+import { useAuth } from '../../hooks/useAuth';
 import UserMenu from './UserMenu';
 import styles from './Layout.module.css';
 
 const Layout = () => {
   const location = useLocation();
+  const { user, isAuthenticated, logout } = useAuth();
+  const [accountOpen, setAccountOpen] = useState(false);
 
   const isActive = (path: string) => {
     if (path === '/') return location.pathname === '/';
@@ -61,6 +65,29 @@ const Layout = () => {
               <Sparkles size={18} strokeWidth={isActive('/presets') ? 2.5 : 2} />
               <span>Presets</span>
             </Link>
+
+            {isAuthenticated && user ? (
+              <button
+                type="button"
+                className={clsx(styles.navItem, styles.navAccount, accountOpen && styles.navItemActive)}
+                onClick={() => setAccountOpen(v => !v)}
+              >
+                {user.avatar ? (
+                  <img src={user.avatar} alt="" className={styles.navAvatar} />
+                ) : (
+                  <User size={18} />
+                )}
+                <span>Me</span>
+              </button>
+            ) : (
+              <a
+                href="/api/v1/auth/discord"
+                className={clsx(styles.navItem, styles.navAccount)}
+              >
+                <LogIn size={18} />
+                <span>Login</span>
+              </a>
+            )}
           </nav>
 
           <div className={styles.headerRight}>
@@ -72,6 +99,55 @@ const Layout = () => {
       <main className={styles.main}>
         <Outlet />
       </main>
+
+      {accountOpen && isAuthenticated && user && (
+        <>
+          <div className={styles.sheetBackdrop} onClick={() => setAccountOpen(false)} />
+          <div className={styles.sheet}>
+            <div className={styles.sheetHeader}>
+              {user.avatar ? (
+                <img src={user.avatar} alt="" className={styles.sheetAvatar} />
+              ) : (
+                <div className={styles.sheetAvatarFallback}>
+                  {user.displayName.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <div>
+                <p className={styles.sheetName}>{user.displayName}</p>
+                <p className={styles.sheetHandle}>@{user.username}</p>
+              </div>
+            </div>
+            <div className={styles.sheetDivider} />
+            <Link
+              to={`/user/${user.discordId}`}
+              className={styles.sheetItem}
+              onClick={() => setAccountOpen(false)}
+            >
+              <User size={18} />
+              <span>My Profile</span>
+            </Link>
+            <Link
+              to="/settings"
+              className={styles.sheetItem}
+              onClick={() => setAccountOpen(false)}
+            >
+              <Settings size={18} />
+              <span>Settings</span>
+            </Link>
+            <div className={styles.sheetDivider} />
+            <button
+              className={`${styles.sheetItem} ${styles.sheetLogout}`}
+              onClick={() => {
+                logout();
+                setAccountOpen(false);
+              }}
+            >
+              <LogOut size={18} />
+              <span>Log Out</span>
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 };

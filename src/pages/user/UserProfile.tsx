@@ -79,16 +79,27 @@ const UserProfile = () => {
               </div>
             )}
           </div>
-          <p className={styles.meta}>
-            @{profile.username}
-            <span className={styles.metaDot}>&middot;</span>
-            {formatCount(characters.length)} uploads
-            <span className={styles.metaDot}>&middot;</span>
-            {formatCount(totalDownloads)} downloads
-            <span className={styles.metaDot}>&middot;</span>
-            <Calendar size={12} />
-            Joined {new Date(profile.createdAt).toLocaleDateString()}
-          </p>
+          <p className={styles.handle}>@{profile.username}</p>
+        </div>
+      </div>
+
+      {/* stats */}
+      <div className={styles.statsRow}>
+        <div className={styles.stat}>
+          <span className={styles.statValue}>{formatCount(characters.length)}</span>
+          <span className={styles.statLabel}>Uploads</span>
+        </div>
+        <div className={styles.statDivider} />
+        <div className={styles.stat}>
+          <span className={styles.statValue}>{formatCount(totalDownloads)}</span>
+          <span className={styles.statLabel}>Downloads</span>
+        </div>
+        <div className={styles.statDivider} />
+        <div className={styles.stat}>
+          <span className={styles.statValue}>
+            {new Date(profile.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+          </span>
+          <span className={styles.statLabel}>Joined</span>
         </div>
       </div>
 

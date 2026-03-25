@@ -1,35 +1,51 @@
-import { useState } from 'react';
-import { Sparkles, Check, Loader2, WifiOff } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Sparkles, Check, Loader2, WifiOff, ChevronDown, BookOpen } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useLinkedInstances, useInstallToLumiverse } from '../../hooks/useLumiverse';
+import styles from './InstallButton.module.css';
 
 interface Props {
   characterId: string;
   source: 'lumihub' | 'chub';
+  hasEmbeddedLorebook?: boolean;
   className?: string;
 }
 
-const InstallButton: React.FC<Props> = ({ characterId, source, className }) => {
+const InstallButton: React.FC<Props> = ({ characterId, source, hasEmbeddedLorebook, className }) => {
   const { isAuthenticated } = useAuth();
   const { data: instances } = useLinkedInstances();
   const installMutation = useInstallToLumiverse();
   const [success, setSuccess] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const onlineInstances = instances?.filter((i) => i.is_online) ?? [];
   const hasLinked = (instances?.length ?? 0) > 0;
   const hasOnline = onlineInstances.length > 0;
+  const disabled = !hasOnline || installMutation.isPending;
 
-  const handleClick = async () => {
-    if (!hasOnline || installMutation.isPending) return;
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [menuOpen]);
 
-    // Use first online instance (could add picker for multiple in the future)
+  const doInstall = async (includeWorldbook: boolean) => {
+    setMenuOpen(false);
+    if (disabled) return;
+
     const targetInstance = onlineInstances[0];
-
     try {
       const result = await installMutation.mutateAsync({
         instanceId: targetInstance.id,
         characterId,
         source,
+        includeWorldbook,
       });
 
       if (result.success) {
@@ -38,6 +54,14 @@ const InstallButton: React.FC<Props> = ({ characterId, source, className }) => {
       }
     } catch {
       // Error is available via installMutation.error
+    }
+  };
+
+  const handleClick = () => {
+    if (hasEmbeddedLorebook && hasOnline && !installMutation.isPending) {
+      setMenuOpen(!menuOpen);
+    } else {
+      doInstall(false);
     }
   };
 
@@ -62,16 +86,40 @@ const InstallButton: React.FC<Props> = ({ characterId, source, className }) => {
     return `Install to ${onlineInstances[0].instance_name}`;
   };
 
+  const showDropdownArrow = hasEmbeddedLorebook && hasOnline && !installMutation.isPending && !success;
+
   return (
-    <button
-      className={className}
-      onClick={handleClick}
-      disabled={!hasOnline || installMutation.isPending}
-      title={getTitle()}
-    >
-      {getIcon()}
-      {getLabel()}
-    </button>
+    <div className={styles.installWrap} ref={menuRef}>
+      <button
+        className={className}
+        onClick={handleClick}
+        disabled={disabled}
+        title={getTitle()}
+      >
+        {getIcon()}
+        {getLabel()}
+        {showDropdownArrow && <ChevronDown size={12} className={styles.chevron} />}
+      </button>
+
+      {menuOpen && (
+        <div className={styles.dropdown}>
+          <button
+            className={styles.dropdownOption}
+            onMouseDown={(e) => { e.preventDefault(); doInstall(false); }}
+          >
+            <Sparkles size={14} />
+            <span>Install Character</span>
+          </button>
+          <button
+            className={styles.dropdownOption}
+            onMouseDown={(e) => { e.preventDefault(); doInstall(true); }}
+          >
+            <BookOpen size={14} />
+            <span>Install with Lorebook</span>
+          </button>
+        </div>
+      )}
+    </div>
   );
 };
 

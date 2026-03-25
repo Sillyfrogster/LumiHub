@@ -284,6 +284,9 @@
 }
 
 .charxSectionLabel {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   font-size: 11px;
   font-weight: 700;
   color: var(--lumihub-text-dim);
@@ -402,6 +405,41 @@
   font-weight: 600;
   color: var(--lumihub-text-dim);
   margin-right: 6px;
+}
+
+/* Regex scripts preview */
+.regexScriptsList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.regexScriptItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 6px;
+  font-size: 12.5px;
+}
+
+.regexScriptName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--lumihub-text);
+  font-weight: 500;
+}
+
+.regexScriptMeta {
+  font-size: 10.5px;
+  color: var(--lumihub-text-dim);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 @media (max-width: 600px) {

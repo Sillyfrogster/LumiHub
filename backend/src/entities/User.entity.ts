@@ -29,6 +29,21 @@ export class User {
     @Column({ type: 'varchar', length: 255, nullable: true })
     refresh_token: string | null;
 
+    @Column({ type: 'varchar', length: 255, nullable: true })
+    custom_display_name: string | null;
+
+    @Column({ type: 'boolean', default: false })
+    nsfw_enabled: boolean;
+
+    @Column({ type: 'boolean', default: false })
+    nsfw_unblurred: boolean;
+
+    @Column({ type: 'jsonb', default: [] })
+    default_include_tags: string[];
+
+    @Column({ type: 'jsonb', default: [] })
+    default_exclude_tags: string[];
+
     @CreateDateColumn()
     created_at: Date;
 }

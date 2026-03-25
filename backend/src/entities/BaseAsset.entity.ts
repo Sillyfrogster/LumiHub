@@ -32,6 +32,9 @@ export abstract class BaseAsset {
   @Column({ type: 'int', default: 0 })
   downloads: number;
 
+  @Column({ type: 'boolean', default: false })
+  hidden: boolean;
+
   @CreateDateColumn()
   created_at: Date;
 

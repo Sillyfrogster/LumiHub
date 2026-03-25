@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { WorldBookSource } from '../types/worldbook';
+import type { UserSettings } from '../hooks/useAuth';
 
 interface WorldbookFilterState {
   source: WorldBookSource;
@@ -13,6 +14,8 @@ interface WorldbookFilterState {
   showNsfw: boolean;
   showNsfl: boolean;
 
+  _hydrated: boolean;
+  hydrateFromSettings: (settings: UserSettings) => void;
   setSource: (source: WorldBookSource) => void;
   setSearch: (search: string) => void;
   setSort: (sort: string) => void;
@@ -35,6 +38,18 @@ export const useWorldbookStore = create<WorldbookFilterState>((set) => ({
 
   showNsfw: false,
   showNsfl: false,
+
+  _hydrated: false,
+  hydrateFromSettings: (settings) => set((s) => {
+    if (s._hydrated) return s;
+    return {
+      _hydrated: true,
+      tags: settings.defaultIncludeTags.length > 0 ? settings.defaultIncludeTags : s.tags,
+      excludeTags: settings.defaultExcludeTags.length > 0 ? settings.defaultExcludeTags : s.excludeTags,
+      showNsfw: settings.nsfwEnabled,
+      showNsfl: settings.nsfwEnabled,
+    };
+  }),
 
   setSource: (source) => {
     const defaultSort = source === 'lumihub' ? 'created_at' : 'default';

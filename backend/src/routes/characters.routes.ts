@@ -70,6 +70,9 @@ characters.get('/:id/card', async (c) => {
   if (!character) {
     return c.json({ error: 'Not Found', message: 'Character not found', statusCode: 404 }, 404);
   }
+  if (character.hidden) {
+    return c.json({ error: 'Unavailable', message: 'This content has been hidden by moderation', statusCode: 403 }, 403);
+  }
 
   // Build CCSv3-formatted card
   const card = {
@@ -137,6 +140,9 @@ characters.get('/:id/charx', async (c) => {
   const character = await CharacterService.getCharacterById(c.req.param('id'));
   if (!character) {
     return c.json({ error: 'Not Found', message: 'Character not found', statusCode: 404 }, 404);
+  }
+  if (character.hidden) {
+    return c.json({ error: 'Unavailable', message: 'This content has been hidden by moderation', statusCode: 403 }, 403);
   }
 
   const archive = await CharacterService.buildCharxArchive(c.req.param('id'));
@@ -215,6 +221,13 @@ characters.get('/:id', async (c) => {
     return c.json(
       { error: 'Not Found', message: 'Character not found', statusCode: 404 },
       404,
+    );
+  }
+
+  if (character.hidden) {
+    return c.json(
+      { error: 'Unavailable', message: 'This content has been hidden by moderation', statusCode: 403 },
+      403,
     );
   }
 

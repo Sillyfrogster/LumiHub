@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { useQueryClient } from '@tanstack/react-query';
-import { X, Upload, Image as ImageIcon, Check, AlertCircle, FileCheck, Package } from 'lucide-react';
+import { X, Upload, Image as ImageIcon, Check, AlertCircle, FileCheck, Package, Code2 } from 'lucide-react';
 import { createCharacter, createCharacterFromCharx } from '../../api/characters';
 import { useCharacterStore } from '../../store/useCharacterStore';
 import { parseCharacterPng } from '../../utils/pngParser';
@@ -222,6 +222,9 @@ const CreateCharacterModal: React.FC<Props> = ({ onClose }) => {
     const lorebook = charxData.card._raw?.character_book as { entries?: unknown[] } | undefined;
     if (lorebook?.entries?.length)
       charxBadges.push(`${lorebook.entries.length} lorebook entr${lorebook.entries.length !== 1 ? 'ies' : 'y'}`);
+    const regexScripts = charxData.lumiverseModules?.regex_scripts;
+    if (regexScripts?.length)
+      charxBadges.push(`${regexScripts.length} regex script${regexScripts.length !== 1 ? 's' : ''}`);
   }
 
   return (
@@ -355,6 +358,24 @@ const CreateCharacterModal: React.FC<Props> = ({ onClose }) => {
                     </div>
                   )
                 ))}
+              </div>
+            )}
+
+            {/* Charx: Regex scripts preview */}
+            {isCharx && charxData?.lumiverseModules?.regex_scripts && charxData.lumiverseModules.regex_scripts.length > 0 && (
+              <div className={styles.charxSection}>
+                <span className={styles.charxSectionLabel}>
+                  <Code2 size={14} />
+                  Regex Scripts
+                </span>
+                <div className={styles.regexScriptsList}>
+                  {charxData.lumiverseModules.regex_scripts.map((script, i) => (
+                    <div key={i} className={styles.regexScriptItem}>
+                      <span className={styles.regexScriptName}>{script.name}</span>
+                      <span className={styles.regexScriptMeta}>{script.target} · {script.placement.join(', ')}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 

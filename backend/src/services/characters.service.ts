@@ -23,6 +23,7 @@ export async function listCharacters(params: ListQueryParams) {
 
   const qb = repo().createQueryBuilder('character')
     .leftJoinAndSelect('character.owner', 'owner')
+    .where('character.hidden = false')
     .orderBy(`character.${sortField}`, sortOrder)
     .skip(skip)
     .take(limit);
@@ -68,10 +69,11 @@ export async function listTags(search?: string) {
     params.push(`%${search}%`);
   }
 
+  const hiddenClause = where ? 'AND hidden = false' : 'WHERE hidden = false';
   const sql = `
     SELECT tag AS name, COUNT(*)::int AS count
     FROM characters, jsonb_array_elements_text(tags) AS tag
-    ${where}
+    ${where} ${hiddenClause}
     GROUP BY tag
     ORDER BY count DESC
     LIMIT 200
@@ -354,8 +356,11 @@ export async function buildCharxArchive(characterId: string): Promise<Uint8Array
   if (altAvatars.length > 0) {
     modules.alternate_avatars = altAvatars;
   }
+  if (storedModules?.regex_scripts && Array.isArray(storedModules.regex_scripts) && storedModules.regex_scripts.length > 0) {
+    modules.regex_scripts = storedModules.regex_scripts;
+  }
 
-  const hasModules = modules.expressions || modules.alternate_fields || modules.alternate_avatars;
+  const hasModules = modules.expressions || modules.alternate_fields || modules.alternate_avatars || modules.regex_scripts;
   if (hasModules) {
     entries['lumiverse_modules.json'] = new TextEncoder().encode(JSON.stringify(modules, null, 2));
   }
