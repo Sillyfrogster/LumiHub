@@ -245,3 +245,52 @@ export const opengraphMiddleware: MiddlewareHandler = async (c, next) => {
 
   await next();
 };
+
+/**
+ * Homepage OG middleware — injects site-wide branding meta for the root URL
+ * and other non-content pages (characters list, worldbooks list, etc.).
+ */
+const STATIC_PAGE_META: Record<string, OGMeta> = {
+  '/': {
+    title: 'LumiHub — The Lumiverse Marketplace',
+    description: 'Discover, share, and install character cards, worldbooks, themes, and presets directly into your Lumiverse instance. Your one-stop hub for AI character content.',
+    image: `${env.LUMIHUB_PUBLIC_URL}/lumihub-mascot.png`,
+    url: env.LUMIHUB_PUBLIC_URL,
+  },
+  '/characters': {
+    title: 'Characters — LumiHub',
+    description: 'Browse thousands of AI character cards from LumiHub creators and Chub.ai. Install directly to your Lumiverse instance with one click.',
+    image: `${env.LUMIHUB_PUBLIC_URL}/lumihub-mascot.png`,
+    url: `${env.LUMIHUB_PUBLIC_URL}/characters`,
+  },
+  '/worldbooks': {
+    title: 'Worldbooks — LumiHub',
+    description: 'Explore lorebooks and worldbooks to enrich your AI characters with deep lore, world knowledge, and context.',
+    image: `${env.LUMIHUB_PUBLIC_URL}/lumihub-mascot.png`,
+    url: `${env.LUMIHUB_PUBLIC_URL}/worldbooks`,
+  },
+  '/themes': {
+    title: 'Themes — LumiHub',
+    description: 'Customize your Lumiverse with community-made UI themes and color palettes.',
+    image: `${env.LUMIHUB_PUBLIC_URL}/lumihub-mascot.png`,
+    url: `${env.LUMIHUB_PUBLIC_URL}/themes`,
+  },
+  '/presets': {
+    title: 'Presets — LumiHub',
+    description: 'Fine-tune your AI experience with community generation presets and templates.',
+    image: `${env.LUMIHUB_PUBLIC_URL}/lumihub-mascot.png`,
+    url: `${env.LUMIHUB_PUBLIC_URL}/presets`,
+  },
+};
+
+export const staticPageOgMiddleware: MiddlewareHandler = async (c, next) => {
+  const urlPath = new URL(c.req.url).pathname;
+  const meta = STATIC_PAGE_META[urlPath];
+
+  if (meta) {
+    const html = await getIndexHtml();
+    return c.html(injectMeta(html, meta));
+  }
+
+  await next();
+};

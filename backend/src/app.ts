@@ -10,7 +10,7 @@ import userRoutes from './routes/user.routes.ts';
 import linkRoutes from './routes/link.routes.ts';
 import { logger } from './utils/logger.ts';
 import { env } from './env.ts';
-import { opengraphMiddleware } from './middleware/opengraph.middleware.ts';
+import { opengraphMiddleware, staticPageOgMiddleware } from './middleware/opengraph.middleware.ts';
 import { validateLinkToken, updateLastSeen } from './services/link.service.ts';
 import { instanceManager } from './ws/instance-connections.ts';
 
@@ -101,8 +101,15 @@ app.get('/api/v1/ws/instance', upgradeWebSocket((c) => {
   };
 }));
 
-// OpenGraph meta injection for content routes (must be before SPA fallback)
+// OpenGraph meta injection (must be before SPA fallback)
 if (env.NODE_ENV === 'production') {
+  // Static pages (homepage, browse pages)
+  app.get('/', staticPageOgMiddleware);
+  app.get('/characters', staticPageOgMiddleware);
+  app.get('/worldbooks', staticPageOgMiddleware);
+  app.get('/themes', staticPageOgMiddleware);
+  app.get('/presets', staticPageOgMiddleware);
+  // Dynamic content pages
   app.get('/characters/:id', opengraphMiddleware);
   app.get('/worldbooks/:id', opengraphMiddleware);
   app.get('/presets/:id', opengraphMiddleware);
