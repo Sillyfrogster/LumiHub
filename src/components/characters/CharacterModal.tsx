@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
-import { X, Download, Star, Users, ArrowLeft, ExternalLink, Image, FileText } from 'lucide-react';
+import { useState } from 'react';
+import { X, Download, Star, Users, ArrowLeft, ExternalLink, Image, FileText, Package } from 'lucide-react';
+import { useCharacterImages } from '../../hooks/useCharacterImages';
 import { Link } from 'react-router-dom';
 import type { UnifiedCharacterCard } from '../../types/character';
 import type { ChubCharacterCard } from '../../types/chub';
@@ -14,10 +16,24 @@ interface Props {
   onClose: () => void;
 }
 
+function normalizeImagePath(path: string | null): string | null {
+  if (!path) return null;
+  let normalized = path.replace(/\\/g, '/');
+  if (!normalized.startsWith('uploads/')) normalized = `uploads/${normalized}`;
+  return `/${normalized}`;
+}
+
 const CharacterModal: React.FC<Props> = ({ card, onClose }) => {
   const isChub = card.source === 'chub';
   const chubData = isChub ? (card.raw as ChubCharacterCard) : null;
   const lumiData = !isChub ? (card.raw as LumiHubCharacter) : null;
+  const [heroUrl, setHeroUrl] = useState<string | null>(null);
+
+  const { data: images } = useCharacterImages(lumiData?.id);
+  const altAvatars = images?.filter((img) => img.image_type === 'avatar_alt') ?? [];
+  const hasCharxAssets = (images?.length ?? 0) > 1;
+
+  const displayAvatar = heroUrl || card.avatarUrl;
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -64,10 +80,30 @@ const CharacterModal: React.FC<Props> = ({ card, onClose }) => {
         <div className={styles.panelScroll}>
           <div className={styles.hero}>
             <div className={styles.heroImage}>
-              {card.avatarUrl ? (
-                <img src={card.avatarUrl} alt={card.name} className={styles.heroImg} />
+              {displayAvatar ? (
+                <img src={displayAvatar} alt={card.name} className={styles.heroImg} />
               ) : (
                 <div className={styles.heroPlaceholder}>{card.name.charAt(0)}</div>
+              )}
+              {altAvatars.length > 0 && (
+                <div className={styles.altAvatarThumbs}>
+                  <img
+                    src={card.avatarUrl ?? ''}
+                    alt="Default"
+                    className={`${styles.altAvatarThumb} ${!heroUrl ? styles.altAvatarThumbActive : ''}`}
+                    onClick={() => setHeroUrl(null)}
+                  />
+                  {altAvatars.map((img) => (
+                    <img
+                      key={img.id}
+                      src={normalizeImagePath(img.file_path) ?? ''}
+                      alt={img.label || 'Alt'}
+                      title={img.label || undefined}
+                      className={`${styles.altAvatarThumb} ${heroUrl === normalizeImagePath(img.file_path) ? styles.altAvatarThumbActive : ''}`}
+                      onClick={() => setHeroUrl(normalizeImagePath(img.file_path))}
+                    />
+                  ))}
+                </div>
               )}
             </div>
             <div className={styles.heroInfo}>
@@ -118,6 +154,12 @@ const CharacterModal: React.FC<Props> = ({ card, onClose }) => {
                         <Image size={14} />
                         PNG
                       </button>
+                    )}
+                    {hasCharxAssets && (
+                      <a href={`/api/v1/characters/${card.id}/charx`} download className={styles.secondaryBtn}>
+                        <Package size={14} />
+                        .charx
+                      </a>
                     )}
                   </>
                 )}

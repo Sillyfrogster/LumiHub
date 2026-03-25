@@ -1,21 +1,29 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, MessageSquare, Users, BookOpen, User } from 'lucide-react';
+import { FileText, MessageSquare, Users, BookOpen, User, Smile, Images } from 'lucide-react';
+import { useCharacterImages } from '../../hooks/useCharacterImages';
 import type { UnifiedCharacterCard } from '../../types/character';
 import type { ChubCharacterCard } from '../../types/chub';
 import type { LumiHubCharacter } from '../../types/character';
 import type { WorldBookEntry } from '../../types/worldbook';
 import styles from './CharacterTabs.module.css';
 
-type TabId = 'overview' | 'prompts' | 'greetings' | 'lorebook' | 'creator';
+type TabId = 'overview' | 'prompts' | 'greetings' | 'lorebook' | 'expressions' | 'gallery' | 'creator';
 
-const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
-  { id: 'overview', label: 'Overview', icon: FileText },
-  { id: 'prompts', label: 'Prompts', icon: MessageSquare },
-  { id: 'greetings', label: 'Greetings', icon: Users },
-  { id: 'lorebook', label: 'Lorebook', icon: BookOpen },
-  { id: 'creator', label: 'Creator', icon: User },
-];
+interface TabDef {
+  id: TabId;
+  label: string;
+  icon: React.ElementType;
+}
+
+function normalizeImagePath(path: string | null): string | null {
+  if (!path) return null;
+  let normalized = path.replace(/\\/g, '/');
+  if (!normalized.startsWith('uploads/')) {
+    normalized = `uploads/${normalized}`;
+  }
+  return `/${normalized}`;
+}
 
 function TextBlock({ label, content }: { label: string; content?: string | null }) {
   if (!content?.trim()) return null;
@@ -29,9 +37,7 @@ function TextBlock({ label, content }: { label: string; content?: string | null 
 
 interface CharacterTabsProps {
   card: UnifiedCharacterCard;
-  /** Optional extra padding class for tab bar (e.g. modal needs horizontal padding) */
   tabBarClassName?: string;
-  /** Optional extra padding class for tab content */
   tabContentClassName?: string;
 }
 
@@ -46,10 +52,40 @@ const CharacterTabs: React.FC<CharacterTabsProps> = ({ card, tabBarClassName, ta
   const characterBook = lumiData?.character_book as { entries?: WorldBookEntry[] } | null | undefined;
   const lorebookEntries: WorldBookEntry[] = characterBook?.entries ?? [];
 
+  // Fetch character images for LumiHub characters
+  const { data: images } = useCharacterImages(lumiData?.id);
+
+  const expressionImages = images?.filter((img) => img.image_type === 'expression') ?? [];
+  const galleryImages = images?.filter((img) => img.image_type === 'gallery') ?? [];
+
+  // Lumiverse modules from extensions
+  const lumiverseModules = lumiData?.extensions?.lumiverse_modules as {
+    alternate_fields?: Record<string, Array<{ id: string; label: string; content: string }>>;
+  } | undefined;
+  const alternateFields = lumiverseModules?.alternate_fields;
+  const hasAltFields = alternateFields && Object.values(alternateFields).some((arr) => arr.length > 0);
+
+  // Build tabs dynamically
+  const tabs: TabDef[] = [
+    { id: 'overview', label: 'Overview', icon: FileText },
+    { id: 'prompts', label: 'Prompts', icon: MessageSquare },
+    { id: 'greetings', label: 'Greetings', icon: Users },
+    { id: 'lorebook', label: 'Lorebook', icon: BookOpen },
+  ];
+
+  if (expressionImages.length > 0) {
+    tabs.push({ id: 'expressions', label: 'Expressions', icon: Smile });
+  }
+  if (galleryImages.length > 0) {
+    tabs.push({ id: 'gallery', label: 'Gallery', icon: Images });
+  }
+
+  tabs.push({ id: 'creator', label: 'Creator', icon: User });
+
   return (
     <>
       <div className={`${styles.tabBar} ${tabBarClassName || ''}`}>
-        {TABS.map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab.id}
             className={`${styles.tab} ${activeTab === tab.id ? styles.tabActive : ''}`}
@@ -62,6 +98,12 @@ const CharacterTabs: React.FC<CharacterTabsProps> = ({ card, tabBarClassName, ta
             )}
             {tab.id === 'greetings' && lumiData?.alternate_greetings && lumiData.alternate_greetings.length > 0 && (
               <span className={styles.tabBadge}>{lumiData.alternate_greetings.length + 1}</span>
+            )}
+            {tab.id === 'expressions' && expressionImages.length > 0 && (
+              <span className={styles.tabBadge}>{expressionImages.length}</span>
+            )}
+            {tab.id === 'gallery' && galleryImages.length > 0 && (
+              <span className={styles.tabBadge}>{galleryImages.length}</span>
             )}
           </button>
         ))}
@@ -91,6 +133,26 @@ const CharacterTabs: React.FC<CharacterTabsProps> = ({ card, tabBarClassName, ta
                 <TextBlock label="Message Examples" content={lumiData?.mes_example} />
                 {!lumiData?.personality && !lumiData?.scenario && !lumiData?.system_prompt && !lumiData?.post_history_instructions && !lumiData?.mes_example && (
                   <p className={styles.emptyText}>No prompt data defined for this character.</p>
+                )}
+
+                {/* Alternate fields */}
+                {hasAltFields && (
+                  <div className={styles.altFieldsSection}>
+                    <h4 className={styles.altFieldsHeader}>Alternate Fields</h4>
+                    {Object.entries(alternateFields!).map(([field, entries]) => (
+                      entries.length > 0 && (
+                        <div key={field} className={styles.altFieldBlock}>
+                          <div className={styles.altFieldBlockHeader}>{field}</div>
+                          {entries.map((entry) => (
+                            <div key={entry.id} className={styles.altFieldEntry}>
+                              <div className={styles.altFieldEntryLabel}>{entry.label}</div>
+                              <div className={styles.altFieldEntryContent}>{entry.content}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    ))}
+                  </div>
                 )}
               </>
             )}
@@ -154,6 +216,48 @@ const CharacterTabs: React.FC<CharacterTabsProps> = ({ card, tabBarClassName, ta
               <p className={styles.emptyText}>
                 {isChub ? 'Install this character to view embedded lorebook data.' : 'No embedded lorebook for this character.'}
               </p>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'expressions' && (
+          <div>
+            {expressionImages.length > 0 ? (
+              <div className={styles.expressionsTabGrid}>
+                {expressionImages.map((img) => (
+                  <div key={img.id} className={styles.expressionTabItem}>
+                    <img
+                      src={normalizeImagePath(img.file_path) ?? ''}
+                      alt={img.label || 'Expression'}
+                      className={styles.expressionTabImg}
+                      loading="lazy"
+                    />
+                    <span className={styles.expressionTabLabel}>{img.label || 'Unnamed'}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className={styles.emptyText}>No expression images.</p>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'gallery' && (
+          <div>
+            {galleryImages.length > 0 ? (
+              <div className={styles.galleryTabGrid}>
+                {galleryImages.map((img) => (
+                  <img
+                    key={img.id}
+                    src={normalizeImagePath(img.file_path) ?? ''}
+                    alt="Gallery"
+                    className={styles.galleryTabImg}
+                    loading="lazy"
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className={styles.emptyText}>No gallery images.</p>
             )}
           </div>
         )}

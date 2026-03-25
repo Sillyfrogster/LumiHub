@@ -1,11 +1,12 @@
 import { Hono } from 'hono';
 import { uploadMiddleware, type UploadEnv } from '../middleware/upload.middleware.ts';
+import { charxUploadMiddleware, type CharxEnv } from '../middleware/charx.middleware.ts';
 import { requireAuth, type AuthEnv } from '../middleware/requireAuth.middleware.ts';
 import * as CharacterService from '../services/characters.service.ts';
 import type { ListQueryParams } from '../types/api.ts';
 
 type CharacterEnv = {
-  Variables: UploadEnv['Variables'] & AuthEnv['Variables'];
+  Variables: UploadEnv['Variables'] & AuthEnv['Variables'] & CharxEnv['Variables'];
 };
 
 const characters = new Hono<CharacterEnv>();
@@ -147,6 +148,53 @@ characters.get('/:id/card', async (c) => {
   }
 
   return c.json({ card, avatarBase64, avatarMime });
+});
+
+/** Import character from .charx file (requires login) */
+characters.post('/charx', requireAuth, charxUploadMiddleware, async (c) => {
+  const data = c.get('characterData');
+  const imagePath = c.get('imagePath');
+  const charxImages = c.get('charxImages');
+  const lumiverseModules = c.get('lumiverseModules');
+  const ownerId = c.get('userId');
+
+  const character = await CharacterService.createCharacterFromCharx(
+    data, imagePath, charxImages, lumiverseModules, ownerId,
+  );
+
+  return c.json({ id: character.id, message: 'Character imported from .charx' }, 201);
+});
+
+/** Get all images for a character (public) */
+characters.get('/:id/images', async (c) => {
+  const character = await CharacterService.getCharacterById(c.req.param('id'));
+  if (!character) {
+    return c.json({ error: 'Not Found', message: 'Character not found', statusCode: 404 }, 404);
+  }
+
+  const images = await CharacterService.getCharacterImages(c.req.param('id'));
+  return c.json({ data: images });
+});
+
+/** Export character as .charx archive (public) */
+characters.get('/:id/charx', async (c) => {
+  const character = await CharacterService.getCharacterById(c.req.param('id'));
+  if (!character) {
+    return c.json({ error: 'Not Found', message: 'Character not found', statusCode: 404 }, 404);
+  }
+
+  const archive = await CharacterService.buildCharxArchive(c.req.param('id'));
+  if (!archive) {
+    return c.json({ error: 'Server Error', message: 'Failed to build archive', statusCode: 500 }, 500);
+  }
+
+  const filename = CharacterService.sanitizeFilename(character.name) + '.charx';
+  return new Response(archive, {
+    headers: {
+      'Content-Type': 'application/zip',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    },
+  });
 });
 
 /** Increment download counter */

@@ -8,6 +8,7 @@ import { Preset } from '../entities/Preset.entity.ts';
 import { Theme } from '../entities/Theme.entity.ts';
 import { LinkedInstance } from '../entities/LinkedInstance.entity.ts';
 import { LinkCode } from '../entities/LinkCode.entity.ts';
+import { CharacterImage } from '../entities/CharacterImage.entity.ts';
 import { PostgresQueryRunner } from 'typeorm/driver/postgres/PostgresQueryRunner.js';
 
 /** Serializes queries to work around TypeORM issue #12055. */
@@ -36,7 +37,7 @@ export const AppDataSource = new DataSource({
   url: env.DATABASE_URL,
   synchronize: env.NODE_ENV === 'development',
   logging: ['error'],
-  entities: [Character, User, Worldbook, Preset, Theme, LinkedInstance, LinkCode],
+  entities: [Character, User, Worldbook, Preset, Theme, LinkedInstance, LinkCode, CharacterImage],
   extra: { max: 20 },
 });
 

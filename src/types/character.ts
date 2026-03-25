@@ -39,6 +39,18 @@ export interface LumiHubCharacter {
   updated_at: string;
 }
 
+export interface CharacterImage {
+  id: string;
+  character_id: string;
+  image_type: 'avatar' | 'avatar_alt' | 'expression' | 'gallery';
+  label: string | null;
+  file_path: string;
+  mime_type: string;
+  file_size: number;
+  sort_order: number;
+  created_at: string;
+}
+
 export type CharacterSource = 'lumihub' | 'chub';
 
 /** Normalized display card used across the UI regardless of source. */

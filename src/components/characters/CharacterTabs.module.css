@@ -239,6 +239,129 @@
   overflow-y: auto;
 }
 
+/* ── Expressions Tab ── */
+.expressionsTabGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 12px;
+}
+
+.expressionTabItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.expressionTabImg {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--lumihub-glass-border);
+  background: rgba(0, 0, 0, 0.15);
+  transition: border-color 0.15s ease;
+}
+
+.expressionTabImg:hover {
+  border-color: var(--lumihub-primary-020);
+}
+
+.expressionTabLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--lumihub-text-muted);
+  text-align: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Gallery Tab ── */
+.galleryTabGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.galleryTabImg {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--lumihub-glass-border);
+  background: rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.galleryTabImg:hover {
+  border-color: var(--lumihub-primary-020);
+  transform: scale(1.02);
+}
+
+/* ── Alt Fields ── */
+.altFieldsSection {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.altFieldsHeader {
+  font-family: var(--font-heading);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--lumihub-primary-muted);
+  margin: 0;
+}
+
+.altFieldBlock {
+  border: 1px solid var(--lumihub-glass-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.altFieldBlockHeader {
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--lumihub-glass-border);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--lumihub-text-muted);
+  text-transform: capitalize;
+}
+
+.altFieldEntry {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--lumihub-glass-border);
+}
+
+.altFieldEntry:last-child {
+  border-bottom: none;
+}
+
+.altFieldEntryLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--lumihub-primary-text);
+  margin-bottom: 4px;
+}
+
+.altFieldEntryContent {
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--lumihub-text-muted);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
 .creatorTab {
   display: flex;
   flex-direction: column;

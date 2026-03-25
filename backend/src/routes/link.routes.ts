@@ -170,61 +170,73 @@ link.post('/install', requireAuth, async (c) => {
             importUrl: `https://chub.ai/characters/${character_id}`,
         };
     } else {
-        // For LumiHub characters, fetch the card and send inline
+        // For LumiHub characters, fetch the card
         const character = await CharacterService.getCharacterById(character_id);
         if (!character) {
             return c.json({ error: 'Character not found' }, 404);
         }
 
-        // Build CCSv3 card data
-        const cardData = {
-            spec: 'chara_card_v3',
-            spec_version: '3.0',
-            data: {
-                name: character.name,
-                description: character.description,
-                personality: character.personality,
-                scenario: character.scenario,
-                first_mes: character.first_mes,
-                mes_example: character.mes_example,
-                alternate_greetings: character.alternate_greetings,
-                group_only_greetings: character.group_only_greetings,
-                system_prompt: character.system_prompt,
-                post_history_instructions: character.post_history_instructions,
-                creator: character.creator,
-                creator_notes: character.creator_notes,
-                creator_notes_multilingual: character.creator_notes_multilingual,
-                character_version: character.character_version,
-                tags: character.tags,
-                nickname: character.nickname,
-                source: character.source,
-                assets: character.assets,
-                character_book: character.character_book,
-                extensions: character.extensions,
-                creation_date: character.creation_date,
-                modification_date: character.modification_date,
-            },
-        };
+        // If character has charx assets (expressions, gallery, etc.), send a download URL
+        // so Lumiverse fetches the full .charx archive directly
+        const hasAssets = await CharacterService.hasCharxAssets(character_id);
+        if (hasAssets) {
+            payload = {
+                source: 'lumihub',
+                characterId: character_id,
+                characterName: character.name,
+                importUrl: `${env.LUMIHUB_PUBLIC_URL}/api/v1/characters/${character_id}/charx`,
+            };
+        } else {
+            // Simple character — send inline card data + avatar
+            const cardData = {
+                spec: 'chara_card_v3',
+                spec_version: '3.0',
+                data: {
+                    name: character.name,
+                    description: character.description,
+                    personality: character.personality,
+                    scenario: character.scenario,
+                    first_mes: character.first_mes,
+                    mes_example: character.mes_example,
+                    alternate_greetings: character.alternate_greetings,
+                    group_only_greetings: character.group_only_greetings,
+                    system_prompt: character.system_prompt,
+                    post_history_instructions: character.post_history_instructions,
+                    creator: character.creator,
+                    creator_notes: character.creator_notes,
+                    creator_notes_multilingual: character.creator_notes_multilingual,
+                    character_version: character.character_version,
+                    tags: character.tags,
+                    nickname: character.nickname,
+                    source: character.source,
+                    assets: character.assets,
+                    character_book: character.character_book,
+                    extensions: character.extensions,
+                    creation_date: character.creation_date,
+                    modification_date: character.modification_date,
+                },
+            };
 
-        payload = {
-            source: 'lumihub',
-            characterId: character_id,
-            characterName: character.name,
-            cardData,
-        };
+            payload = {
+                source: 'lumihub',
+                characterId: character_id,
+                characterName: character.name,
+                cardData,
+            };
 
-        // Include avatar if available
-        if (character.image_path) {
-            try {
-                const path = await import('path');
-                const imgPath = path.resolve(env.UPLOADS_DIR, character.image_path.replace(/^uploads\//, ''));
-                const file = Bun.file(imgPath);
-                if (await file.exists()) {
-                    const buf = await file.arrayBuffer();
-                    payload.avatarBase64 = Buffer.from(buf).toString('base64');
-                    payload.avatarMime = file.type || 'image/png';
-                }
-            } catch { /* avatar unavailable, proceed without */ }
+            // Include avatar if available
+            if (character.image_path) {
+                try {
+                    const path = await import('path');
+                    const imgPath = path.resolve(env.UPLOADS_DIR, character.image_path.replace(/^uploads\//, ''));
+                    const file = Bun.file(imgPath);
+                    if (await file.exists()) {
+                        const buf = await file.arrayBuffer();
+                        payload.avatarBase64 = Buffer.from(buf).toString('base64');
+                        payload.avatarMime = file.type || 'image/png';
+                    }
+                } catch { /* avatar unavailable, proceed without */ }
+            }
         }
     }
 

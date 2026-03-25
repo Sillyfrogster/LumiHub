@@ -1,4 +1,4 @@
-import type { LumiHubCharacter } from '../types/character';
+import type { LumiHubCharacter, CharacterImage } from '../types/character';
 
 const BASE = '/api/v1/characters';
 
@@ -95,6 +95,31 @@ export async function updateCharacter(
 export async function deleteCharacter(id: string): Promise<void> {
   const res = await fetch(`${BASE}/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error(`Failed to delete character: ${res.status}`);
+}
+
+/** Creates a character from a .charx file upload. */
+export async function createCharacterFromCharx(
+  data: Record<string, unknown>,
+  charxFile: File,
+): Promise<CreateResponse> {
+  const form = new FormData();
+  form.append('character_data', JSON.stringify(data));
+  form.append('charx_file', charxFile);
+
+  const res = await fetch(`${BASE}/charx`, { method: 'POST', body: form });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || `Failed to import .charx: ${res.status}`);
+  }
+  return res.json();
+}
+
+/** Fetches all images for a character. */
+export async function getCharacterImages(id: string): Promise<CharacterImage[]> {
+  const res = await fetch(`${BASE}/${id}/images`);
+  if (!res.ok) return [];
+  const json = await res.json();
+  return json.data;
 }
 
 /** Increments the download counter and returns the new count. */

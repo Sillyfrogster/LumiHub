@@ -8,6 +8,7 @@
     "start": "bun src/index.ts"
   },
   "dependencies": {
+    "fflate": "^0.8.2",
     "hono": "^4.7.11",
     "pg": "^8.20.0",
     "reflect-metadata": "^0.2.2",
