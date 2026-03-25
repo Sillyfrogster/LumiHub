@@ -1,0 +1,236 @@
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 48px 40px 80px;
+}
+
+/* ── Hero ── */
+.hero {
+  text-align: center;
+  margin-bottom: 56px;
+}
+
+.heroIcon {
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(216, 140, 154, 0.15), rgba(232, 165, 178, 0.08));
+  border: 1px solid rgba(216, 140, 154, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  color: var(--lumihub-primary);
+}
+
+.heroTitle {
+  font-family: var(--font-heading);
+  font-size: clamp(24px, 3.5vw, 32px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--lumihub-text);
+  margin: 0 0 10px;
+}
+
+.heroAccent {
+  background: linear-gradient(135deg, #ffc8dd 0%, #b185db 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.heroSub {
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--lumihub-text-muted);
+  margin: 0 auto;
+  max-width: 500px;
+}
+
+/* ── Preset Cards ── */
+.presetGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+  margin-bottom: 56px;
+}
+
+.presetCard {
+  position: relative;
+  border-radius: 14px;
+  border: 1px solid var(--lumihub-glass-border);
+  background: var(--lumihub-bg-elevated);
+  padding: 22px;
+  overflow: hidden;
+  transition: border-color 0.25s ease, transform 0.25s ease;
+}
+
+.presetCard:hover {
+  border-color: var(--lumihub-glass-border-hover);
+  transform: translateY(-2px);
+}
+
+.presetHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.presetIconWrap {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.presetName {
+  font-family: var(--font-heading);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--lumihub-text);
+  margin: 0 0 2px;
+}
+
+.presetAuthor {
+  font-size: 12px;
+  color: var(--lumihub-text-dim);
+  margin: 0;
+}
+
+/* Fake parameter sliders */
+.paramList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.param {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.paramRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.paramLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--lumihub-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.paramValue {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--lumihub-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.paramTrack {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  position: relative;
+  overflow: hidden;
+}
+
+.paramFill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.lockedOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 8, 10, 0.5);
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+
+.presetCard:hover .lockedOverlay {
+  opacity: 1;
+}
+
+.lockedBadge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: rgba(8, 8, 10, 0.85);
+  border: 1px solid var(--lumihub-glass-border);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--lumihub-text-muted);
+}
+
+/* ── Bottom CTA ── */
+.ctaSection {
+  text-align: center;
+  padding: 40px;
+  border-radius: 16px;
+  border: 1px solid var(--lumihub-glass-border);
+  background: linear-gradient(180deg, rgba(216, 140, 154, 0.04) 0%, transparent 100%);
+}
+
+.ctaTitle {
+  font-family: var(--font-heading);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--lumihub-text);
+  margin: 0 0 8px;
+}
+
+.ctaDesc {
+  font-size: 14px;
+  color: var(--lumihub-text-muted);
+  margin: 0 0 20px;
+  max-width: 440px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.6;
+}
+
+.ctaButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  background: var(--lumihub-primary-010);
+  border: 1px solid var(--lumihub-primary-015);
+  border-radius: 10px;
+  color: var(--lumihub-primary-text);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--font-heading);
+  cursor: default;
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding: 32px 20px 60px;
+  }
+
+  .presetGrid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+}

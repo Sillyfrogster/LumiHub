@@ -1,0 +1,50 @@
+.skeleton {
+  aspect-ratio: 2/3;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--lumihub-glass-border);
+  overflow: hidden;
+  position: relative;
+}
+
+.skeletonShimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.04) 50%,
+    transparent 70%
+  );
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.createBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: rgba(255, 200, 221, 0.08);
+  color: var(--lumihub-primary);
+  border: 1px solid rgba(255, 200, 221, 0.2);
+  border-radius: 8px;
+  font-family: var(--font-heading);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+
+.createBtn:hover {
+  background: rgba(255, 200, 221, 0.13);
+  border-color: rgba(255, 200, 221, 0.35);
+}
+
+.createBtn:active {
+  transform: scale(0.98);
+}

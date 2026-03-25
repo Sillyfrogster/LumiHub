@@ -28,6 +28,13 @@ characters.get('/', async (c) => {
   return c.json(result);
 });
 
+/** List distinct tags used across all characters */
+characters.get('/tags', async (c) => {
+  const search = c.req.query('search') || undefined;
+  const tags = await CharacterService.listTags(search);
+  return c.json({ tags });
+});
+
 /** Create character (requires login) */
 characters.post('/', requireAuth, uploadMiddleware, async (c) => {
   const data = c.get('characterData');

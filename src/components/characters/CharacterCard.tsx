@@ -1,5 +1,5 @@
 import type { UnifiedCharacterCard } from '../../types/character';
-import { Star, Download, Eye } from 'lucide-react';
+import { Star, Heart, Download, Eye } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import LazyImage from '../shared/LazyImage';
@@ -21,10 +21,7 @@ const CharacterCard: React.FC<Props> = ({ card, blurNsfw = true, onClick }) => {
     setRevealed((r) => !r);
   };
 
-  const formattedDownloads =
-    card.downloads > 1000
-      ? `${(card.downloads / 1000).toFixed(1)}k`
-      : String(card.downloads);
+  const fmt = (n: number) => n > 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
 
   return (
     <div className={styles.card} onClick={onClick}>
@@ -78,10 +75,18 @@ const CharacterCard: React.FC<Props> = ({ card, blurNsfw = true, onClick }) => {
                 card.creator
               )}
             </span>
-            <span className={styles.downloads}>
-              {card.source === 'chub' ? <Star size={11} /> : <Download size={11} />}
-              {formattedDownloads}
-            </span>
+            {card.source === 'chub' ? (
+              <>
+                {card.downloads > 0 && (
+                  <span className={styles.downloads}><Download size={11} />{fmt(card.downloads)}</span>
+                )}
+                {(card.favorites ?? 0) > 0 && (
+                  <span className={styles.downloads}><Heart size={11} />{fmt(card.favorites!)}</span>
+                )}
+              </>
+            ) : (
+              <span className={styles.downloads}><Download size={11} />{fmt(card.downloads)}</span>
+            )}
           </div>
         </div>
       </div>

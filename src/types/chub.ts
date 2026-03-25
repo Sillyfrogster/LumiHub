@@ -12,6 +12,7 @@ export interface ChubCharacter {
   ratingCount?: number;
   starCount?: number;
   n_favorites?: number;
+  downloadCount?: number;
   nChats?: number;
   nMessages?: number;
   forksCount?: number;
@@ -112,6 +113,7 @@ export interface ChubCharacterCard {
   ratingCount?: number;
   starCount?: number;
   favorites?: number;
+  downloadCount?: number;
   chats?: number;
   messages?: number;
   forks?: number;

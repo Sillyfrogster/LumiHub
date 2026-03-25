@@ -127,53 +127,78 @@ interface FilterTagInputProps {
   tags: string[];
   onAdd: (tag: string) => void;
   onRemove: (tag: string) => void;
+  availableTags: { name: string; count: number }[];
+  loading?: boolean;
+  onSearchChange: (search: string) => void;
   placeholder?: string;
   variant?: 'include' | 'exclude';
+}
+
+function formatCount(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}m`;
+  if (n >= 10_000) return `${Math.round(n / 1000)}k`;
+  if (n >= 1_000) return `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k`;
+  return String(n);
 }
 
 export const FilterTagInput: React.FC<FilterTagInputProps> = ({
   tags,
   onAdd,
   onRemove,
-  placeholder = 'Add tag…',
+  availableTags,
+  loading = false,
+  onSearchChange,
+  placeholder = 'Search tags…',
   variant = 'include',
 }) => {
   const [value, setValue] = React.useState('');
+  const [open, setOpen] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
-
-  const commit = (raw: string) => {
-    const tag = raw.trim().toLowerCase();
-    if (tag && !tags.includes(tag)) {
-      onAdd(tag);
-    }
-    setValue('');
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault();
-      commit(value);
-    }
-    if (e.key === 'Backspace' && !value && tags.length > 0) {
-      onRemove(tags[tags.length - 1]);
-    }
-  };
-
-  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
-    const pasted = e.clipboardData.getData('text');
-    if (pasted.includes(',')) {
-      e.preventDefault();
-      pasted.split(',').forEach((t) => commit(t));
-    }
-  };
+  const wrapRef = React.useRef<HTMLDivElement>(null);
 
   const isExclude = variant === 'exclude';
+  const selectedSet = React.useMemo(() => new Set(tags.map((t) => t.toLowerCase())), [tags]);
+
+  // Close on outside click
+  React.useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  // Propagate search changes (debounced by caller or immediate)
+  React.useEffect(() => {
+    const timer = setTimeout(() => onSearchChange(value), 250);
+    return () => clearTimeout(timer);
+  }, [value, onSearchChange]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      setOpen(false);
+      inputRef.current?.blur();
+    }
+  };
+
+  const toggleTag = (tagName: string) => {
+    const normalized = tagName.toLowerCase();
+    if (selectedSet.has(normalized)) {
+      onRemove(normalized);
+    } else {
+      onAdd(normalized);
+    }
+    setValue('');
+    onSearchChange('');
+    inputRef.current?.focus();
+  };
 
   return (
-    <div
-      className={styles.tagInputWrap}
-      onClick={() => inputRef.current?.focus()}
-    >
+    <div className={styles.tagCombobox} ref={wrapRef}>
+      {/* Selected chips */}
       {tags.length > 0 && (
         <div className={styles.tagChips}>
           {tags.map((tag) => (
@@ -185,10 +210,7 @@ export const FilterTagInput: React.FC<FilterTagInputProps> = ({
               <button
                 type="button"
                 className={styles.tagChipRemove}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRemove(tag);
-                }}
+                onClick={() => onRemove(tag)}
                 aria-label={`Remove ${tag}`}
               >
                 ×
@@ -197,19 +219,61 @@ export const FilterTagInput: React.FC<FilterTagInputProps> = ({
           ))}
         </div>
       )}
-      <input
-        ref={inputRef}
-        type="text"
-        className={styles.tagInput}
-        value={value}
-        onChange={(e) => setValue(e.target.value.replace(',', ''))}
-        onKeyDown={handleKeyDown}
-        onPaste={handlePaste}
-        onBlur={() => { if (value.trim()) commit(value); }}
-        placeholder={tags.length === 0 ? placeholder : ''}
-        spellCheck={false}
-        autoComplete="off"
-      />
+
+      {/* Search input */}
+      <div className={`${styles.tagInputWrap} ${open ? styles.tagInputWrapOpen : ''}`}>
+        <input
+          ref={inputRef}
+          type="text"
+          className={styles.tagInput}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onFocus={() => setOpen(true)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          spellCheck={false}
+          autoComplete="off"
+        />
+        {loading && <span className={styles.tagSpinner} />}
+      </div>
+
+      {/* Dropdown */}
+      {open && (
+        <div className={styles.tagDropdown}>
+          {loading && availableTags.length === 0 ? (
+            <div className={styles.tagDropdownEmpty}>Loading tags…</div>
+          ) : availableTags.length === 0 ? (
+            <div className={styles.tagDropdownEmpty}>No tags found</div>
+          ) : (
+            <div className={styles.tagDropdownList}>
+              {availableTags.map((t) => {
+                const isSelected = selectedSet.has(t.name.toLowerCase());
+                return (
+                  <button
+                    key={t.name}
+                    type="button"
+                    className={`${styles.tagOption} ${isSelected ? (isExclude ? styles.tagOptionSelectedExclude : styles.tagOptionSelected) : ''}`}
+                    onMouseDown={(e) => {
+                      e.preventDefault(); // prevent blur
+                      toggleTag(t.name);
+                    }}
+                  >
+                    <span className={styles.tagOptionCheck}>
+                      {isSelected ? '✓' : ''}
+                    </span>
+                    <span className={styles.tagOptionName}>{t.name}</span>
+                    {t.count > 0 && (
+                      <span className={styles.tagOptionCount}>
+                        {formatCount(t.count)}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

@@ -92,6 +92,7 @@ export function transformChubCharacter(node: ChubCharacter): ChubCharacterCard {
     ratingCount: node.ratingCount,
     starCount: node.starCount,
     favorites: node.n_favorites,
+    downloadCount: node.downloadCount,
     chats: node.nChats,
     messages: node.nMessages,
     forks: node.forksCount,
@@ -240,6 +241,54 @@ export async function searchChubLorebooks(options: ChubLorebookSearchOptions = {
   } catch (error) {
     console.error('[LumiHub] Chub lorebook search error:', error);
     throw error;
+  }
+}
+
+// ── Tag listing ──────────────────────────────────────────────
+
+export interface ChubTag {
+  name: string;
+  count: number;
+}
+
+/** Fetches available tags from Chub.ai with optional search filtering. */
+export async function fetchChubTags(search?: string, namespace?: string): Promise<ChubTag[]> {
+  const url = `${CHUB_GATEWAY_BASE}/tags`;
+
+  try {
+    const body: Record<string, string> = {};
+    if (search) body.search = search;
+    if (namespace) body.namespace = namespace;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+      mode: 'cors',
+    });
+
+    if (!response.ok) {
+      throw new Error(`Chub tags API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const tags = (data.tags || []) as Array<{
+      name: string;
+      non_private_projects_count: number;
+    }>;
+
+    return tags
+      .filter((t) => t.name && t.name !== 'ROOT')
+      .map((t) => ({
+        name: t.name,
+        count: t.non_private_projects_count ?? 0,
+      }));
+  } catch (error) {
+    console.error('[LumiHub] Chub tags API error:', error);
+    return [];
   }
 }
 

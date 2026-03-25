@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCharacterStore } from '../../store/useCharacterStore';
 import { useCharacters } from '../../hooks/useCharacters';
+import { useAvailableTags } from '../../hooks/useAvailableTags';
 import CharacterCard from '../../components/characters/CharacterCard';
 import CreateCharacterModal from '../../components/characters/CreateCharacterModal';
 import { Sparkles, Globe, Calendar, Download, CaseSensitive, Flame, Plus } from 'lucide-react';
@@ -61,6 +62,10 @@ const Characters = () => {
   const [localSearch, setLocalSearch] = useState(search);
   const [localMinTokens, setLocalMinTokens] = useState(minTokens);
   const [mobileFilters, setMobileFilters] = useState(false);
+  const [tagSearch, setTagSearch] = useState('');
+  const [excludeTagSearch, setExcludeTagSearch] = useState('');
+  const { data: availableTags = [], isLoading: tagsLoading } = useAvailableTags(source, 'characters', tagSearch);
+  const { data: availableExcludeTags = [], isLoading: excludeTagsLoading } = useAvailableTags(source, 'characters', excludeTagSearch);
 
   // Debounce search
   useEffect(() => {
@@ -168,7 +173,10 @@ const Characters = () => {
                 tags={tags}
                 onAdd={addTag}
                 onRemove={removeTag}
-                placeholder="Add tag…"
+                availableTags={availableTags}
+                loading={tagsLoading}
+                onSearchChange={setTagSearch}
+                placeholder="Search tags…"
                 variant="include"
               />
             </FilterSection>
@@ -179,7 +187,10 @@ const Characters = () => {
                   tags={excludeTags}
                   onAdd={addExcludeTag}
                   onRemove={removeExcludeTag}
-                  placeholder="Exclude tag…"
+                  availableTags={availableExcludeTags}
+                  loading={excludeTagsLoading}
+                  onSearchChange={setExcludeTagSearch}
+                  placeholder="Search tags…"
                   variant="exclude"
                 />
               </FilterSection>

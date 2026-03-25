@@ -58,6 +58,30 @@ export async function listCharacters(params: ListQueryParams) {
   };
 }
 
+/** Returns distinct tags used across all characters, with usage counts. */
+export async function listTags(search?: string) {
+  const params: unknown[] = [];
+  let where = '';
+
+  if (search) {
+    where = 'WHERE tag ILIKE $1';
+    params.push(`%${search}%`);
+  }
+
+  const sql = `
+    SELECT tag AS name, COUNT(*)::int AS count
+    FROM characters, jsonb_array_elements_text(tags) AS tag
+    ${where}
+    GROUP BY tag
+    ORDER BY count DESC
+    LIMIT 200
+  `;
+
+  const rows: { name: string; count: number }[] =
+    await AppDataSource.query(sql, params);
+  return rows;
+}
+
 /** Finds a single character by its UUID. */
 export async function getCharacterById(id: string) {
   return repo().findOneBy({ id });

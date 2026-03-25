@@ -65,6 +65,8 @@ export interface UnifiedCharacterCard {
   nsfw: boolean;
   avatarUrl: string | null;
   downloads: number;
+  stars?: number;
+  favorites?: number;
   rating: number | null;
   createdAt: string | null;
   source: CharacterSource;
@@ -111,7 +113,9 @@ export function fromChub(card: ChubCharacterCard): UnifiedCharacterCard {
     tags: card.tags,
     nsfw: card.nsfw,
     avatarUrl: card.avatarUrl,
-    downloads: card.starCount ?? 0,
+    downloads: card.downloadCount ?? 0,
+    stars: card.starCount ?? 0,
+    favorites: card.favorites ?? 0,
     rating: card.rating ?? null,
     createdAt: card.createdAt ?? null,
     source: 'chub',

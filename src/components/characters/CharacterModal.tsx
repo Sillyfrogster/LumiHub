@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, Download, Star, Users, ArrowLeft, ExternalLink, Image, FileText, Package, Trash2 } from 'lucide-react';
+import { X, Download, Star, Heart, Users, ArrowLeft, ExternalLink, Image, FileText, Package, Trash2 } from 'lucide-react';
 import { useCharacterImages } from '../../hooks/useCharacterImages';
 import { useAuth } from '../../hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
@@ -143,10 +143,21 @@ const CharacterModal: React.FC<Props> = ({ card, onClose }) => {
                 {lumiData?.character_version && <span className={styles.heroVersion}> · v{lumiData.character_version}</span>}
               </p>
               <div className={styles.heroStats}>
-                <span className={styles.statChip}><Download size={13} />{formattedDownloads} Downloads</span>
-                {card.rating !== null && <span className={styles.statChip}><Star size={13} />{card.rating.toFixed(1)}</span>}
-                {isChub && chubData?.interactions !== undefined && <span className={styles.statChip}><Users size={13} />{chubData.interactions.toLocaleString()} Chats</span>}
-                {chubData?.tokenCount !== undefined && <span className={styles.statChip}><FileText size={13} />{chubData.tokenCount.toLocaleString()} Tokens</span>}
+                {isChub ? (
+                  <>
+                    {card.downloads > 0 && <span className={styles.statChip}><Download size={13} />{card.downloads.toLocaleString()} Downloads</span>}
+                    {(card.favorites ?? 0) > 0 && <span className={styles.statChip}><Heart size={13} />{card.favorites!.toLocaleString()} Favorites</span>}
+                    {(card.stars ?? 0) > 0 && <span className={styles.statChip}><Star size={13} />{card.stars!.toLocaleString()} Stars</span>}
+                    {card.rating !== null && <span className={styles.statChip}><Star size={13} />{card.rating.toFixed(1)}</span>}
+                    {chubData?.chats !== undefined && <span className={styles.statChip}><Users size={13} />{chubData.chats.toLocaleString()} Chats</span>}
+                    {chubData?.tokenCount !== undefined && <span className={styles.statChip}><FileText size={13} />{chubData.tokenCount.toLocaleString()} Tokens</span>}
+                  </>
+                ) : (
+                  <>
+                    <span className={styles.statChip}><Download size={13} />{formattedDownloads} Downloads</span>
+                    {card.rating !== null && <span className={styles.statChip}><Star size={13} />{card.rating.toFixed(1)}</span>}
+                  </>
+                )}
               </div>
 
               <div className={styles.heroActions}>

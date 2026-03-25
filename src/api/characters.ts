@@ -130,3 +130,13 @@ export async function downloadCharacter(id: string): Promise<{ downloads: number
   if (!res.ok) throw new Error(`Failed to record download: ${res.status}`);
   return res.json();
 }
+
+/** Fetches distinct tags used across all LumiHub characters. */
+export async function listCharacterTags(search?: string): Promise<{ name: string; count: number }[]> {
+  const qs = new URLSearchParams();
+  if (search) qs.set('search', search);
+  const res = await fetch(`${BASE}/tags?${qs}`);
+  if (!res.ok) return [];
+  const json = await res.json();
+  return json.tags ?? [];
+}

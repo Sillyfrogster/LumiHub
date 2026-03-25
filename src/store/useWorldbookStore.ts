@@ -1,0 +1,73 @@
+import { create } from 'zustand';
+import type { WorldBookSource } from '../types/worldbook';
+
+interface WorldbookFilterState {
+  source: WorldBookSource;
+  search: string;
+  sort: string;
+
+  // Tag filters (shared across sources)
+  tags: string[];
+  excludeTags: string[];
+
+  showNsfw: boolean;
+  showNsfl: boolean;
+
+  setSource: (source: WorldBookSource) => void;
+  setSearch: (search: string) => void;
+  setSort: (sort: string) => void;
+  addTag: (tag: string) => void;
+  removeTag: (tag: string) => void;
+  addExcludeTag: (tag: string) => void;
+  removeExcludeTag: (tag: string) => void;
+  clearTags: () => void;
+  setShowNsfw: (showNsfw: boolean) => void;
+  setShowNsfl: (showNsfl: boolean) => void;
+}
+
+export const useWorldbookStore = create<WorldbookFilterState>((set) => ({
+  source: 'chub',
+  search: '',
+  sort: 'default',
+
+  tags: [],
+  excludeTags: [],
+
+  showNsfw: false,
+  showNsfl: false,
+
+  setSource: (source) => {
+    const defaultSort = source === 'lumihub' ? 'created_at' : 'default';
+    set({ source, sort: defaultSort, tags: [], excludeTags: [] });
+  },
+
+  setSearch: (search) => set({ search }),
+
+  setSort: (sort) => set({ sort }),
+
+  addTag: (tag) => set((s) => {
+    const normalized = tag.trim().toLowerCase();
+    if (!normalized || s.tags.includes(normalized)) return s;
+    return { tags: [...s.tags, normalized] };
+  }),
+
+  removeTag: (tag) => set((s) => ({
+    tags: s.tags.filter((t) => t !== tag),
+  })),
+
+  addExcludeTag: (tag) => set((s) => {
+    const normalized = tag.trim().toLowerCase();
+    if (!normalized || s.excludeTags.includes(normalized)) return s;
+    return { excludeTags: [...s.excludeTags, normalized] };
+  }),
+
+  removeExcludeTag: (tag) => set((s) => ({
+    excludeTags: s.excludeTags.filter((t) => t !== tag),
+  })),
+
+  clearTags: () => set({ tags: [], excludeTags: [] }),
+
+  setShowNsfw: (showNsfw) => set({ showNsfw }),
+
+  setShowNsfl: (showNsfl) => set({ showNsfl }),
+}));
