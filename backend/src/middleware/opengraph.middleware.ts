@@ -212,13 +212,75 @@ async function themeMeta(id: string): Promise<OGMeta | null> {
   }
 }
 
+// ── Chub character embeds ──────────────────────────────────────────────────
+
+async function chubCharacterMeta(fullPath: string): Promise<OGMeta | null> {
+  try {
+    const res = await fetch(
+      `https://gateway.chub.ai/api/characters/${fullPath}?full=true`,
+      { headers: { 'Accept': 'application/json', 'User-Agent': 'LumiHub' } },
+    );
+    if (!res.ok) return null;
+
+    const data = (await res.json()) as Record<string, any>;
+    const node = data.node;
+    if (!node) return null;
+
+    const name: string = node.definition?.name || node.name || fullPath;
+    const creator = fullPath.includes('/') ? fullPath.split('/')[0] : 'Unknown';
+    const avatarUrl: string | null = node.max_res_url || node.avatar_url || null;
+
+    const tokenCount: number = node.nTokens ?? 0;
+    const starCount: number = node.starCount ?? 0;
+    const rating: number = node.rating ?? 0;
+    const downloadCount: number | undefined = node.downloadCount;
+
+    const facts: string[] = [];
+    if (tokenCount > 0) facts.push(`${tokenCount.toLocaleString()} tokens`);
+    if (rating > 0) facts.push(`${rating.toFixed(1)} rating`);
+    if (starCount > 0) facts.push(`${starCount.toLocaleString()} stars`);
+    if (downloadCount && downloadCount > 0) facts.push(`${downloadCount.toLocaleString()} downloads`);
+
+    const definition = node.definition;
+    if (definition?.embedded_lorebook?.entries?.length > 0) {
+      const count = definition.embedded_lorebook.entries.length;
+      facts.push(`${count} lorebook entr${count === 1 ? 'y' : 'ies'}`);
+    }
+    if (definition?.alternate_greetings?.length > 0) {
+      facts.push(`${definition.alternate_greetings.length} alternate greeting${definition.alternate_greetings.length === 1 ? '' : 's'}`);
+    }
+
+    let description: string;
+    if (facts.length > 0) {
+      description = `${name} by ${creator} — ${facts.join(', ')}. Browse and install on LumiHub.`;
+    } else {
+      description = `${name} by ${creator}. Browse and install on LumiHub.`;
+    }
+
+    return {
+      title: `${name} by ${creator} - LumiHub`,
+      description: truncate(description, 300),
+      image: avatarUrl,
+      type: 'article',
+      url: `${env.LUMIHUB_PUBLIC_URL}/characters/${encodeURIComponent(fullPath)}`,
+    };
+  } catch (err) {
+    logger.warn('[OG] Failed to build Chub character meta:', err);
+    return null;
+  }
+}
+
 // ── Route patterns ─────────────────────────────────────────────────────────
 
-const OG_ROUTES: Array<{ pattern: RegExp; handler: (id: string) => Promise<OGMeta | null> }> = [
-  { pattern: /^\/characters\/([0-9a-f-]{36})$/i, handler: characterMeta },
-  { pattern: /^\/worldbooks\/([0-9a-f-]{36})$/i, handler: worldbookMeta },
-  { pattern: /^\/presets\/([0-9a-f-]{36})$/i, handler: presetMeta },
-  { pattern: /^\/themes\/([0-9a-f-]{36})$/i, handler: themeMeta },
+const OG_ROUTES: Array<{ pattern: RegExp; handler: (groups: string[]) => Promise<OGMeta | null> }> = [
+  { pattern: /^\/characters\/([0-9a-f-]{36})$/i, handler: ([id]) => characterMeta(id) },
+  { pattern: /^\/worldbooks\/([0-9a-f-]{36})$/i, handler: ([id]) => worldbookMeta(id) },
+  { pattern: /^\/presets\/([0-9a-f-]{36})$/i, handler: ([id]) => presetMeta(id) },
+  { pattern: /^\/themes\/([0-9a-f-]{36})$/i, handler: ([id]) => themeMeta(id) },
+  // Chub characters: encoded form /characters/Creator%2Fname
+  { pattern: /^\/characters\/([^/]+%2[Ff][^/]+)$/, handler: ([encoded]) => chubCharacterMeta(decodeURIComponent(encoded)) },
+  // Chub characters: decoded form /characters/Creator/name
+  { pattern: /^\/characters\/([^/]+)\/([^/]+)$/, handler: ([creator, name]) => chubCharacterMeta(`${creator}/${name}`) },
 ];
 
 /**
@@ -232,8 +294,7 @@ export const opengraphMiddleware: MiddlewareHandler = async (c, next) => {
   for (const route of OG_ROUTES) {
     const match = urlPath.match(route.pattern);
     if (match) {
-      const id = match[1];
-      const meta = await route.handler(id);
+      const meta = await route.handler(match.slice(1));
       if (meta) {
         const html = await getIndexHtml();
         const injected = injectMeta(html, meta);

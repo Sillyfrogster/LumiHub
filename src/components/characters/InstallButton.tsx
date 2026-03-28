@@ -69,8 +69,11 @@ const InstallButton: React.FC<Props> = ({ characterId, source, card, worldBook, 
       if (result.success) {
         setSuccess(true);
         setTimeout(() => setSuccess(false), 2000);
-        // Refresh manifest so the button updates to "Update Card" for future visits
-        queryClient.invalidateQueries({ queryKey: ['link', 'manifest'] });
+        // Refresh manifest so the button updates to "Update Card".
+        // Delay to allow Lumiverse's debounced manifest_sync (5s) to reach LumiHub first.
+        setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ['link', 'manifest'] });
+        }, 6000);
       }
     } catch {
       // Error is available via installMutation.error

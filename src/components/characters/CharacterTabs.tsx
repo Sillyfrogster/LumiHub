@@ -1,9 +1,13 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { fromChub } from '../../types/character';
 import { FileText, MessageSquare, Users, BookOpen, User, Smile, Images, Loader2, Code2 } from 'lucide-react';
 import { useCharacterImages } from '../../hooks/useCharacterImages';
 import { useChubCharacterDetail } from '../../hooks/useChubCharacterDetail';
+import { useChubGallery } from '../../hooks/useChubGallery';
+import { useChubCreator } from '../../hooks/useChubCreator';
 import LazyImage from '../shared/LazyImage';
+import Lightbox, { type LightboxImage } from '../shared/Lightbox';
 import ScrollFadeRow from '../shared/ScrollFadeRow';
 import type { UnifiedCharacterCard } from '../../types/character';
 import type { ChubCharacterCard } from '../../types/chub';
@@ -56,6 +60,8 @@ interface CharacterTabsProps {
 
 const CharacterTabs: React.FC<CharacterTabsProps> = ({ card, tabBarClassName, tabContentClassName }) => {
   const [activeTab, setActiveTab] = useState<TabId>('overview');
+  const [lightbox, setLightbox] = useState<{ images: LightboxImage[]; index: number } | null>(null);
+  const navigate = useNavigate();
 
   const isChub = card.source === 'chub';
   const chubCard = isChub ? (card.raw as ChubCharacterCard) : null;
@@ -131,6 +137,15 @@ const CharacterTabs: React.FC<CharacterTabsProps> = ({ card, tabBarClassName, ta
   // Fetch character images for LumiHub characters
   const { data: images } = useCharacterImages(lumiData?.id);
 
+  // Fetch gallery images for Chub characters
+  const { data: chubGallery, isLoading: chubGalleryLoading } = useChubGallery(
+    chubCard?.projectId,
+    chubCard?.hasGallery,
+  );
+
+  // Fetch Chub creator profile
+  const { data: chubCreator } = useChubCreator(isChub ? card.creator : undefined);
+
   const expressionImages = images?.filter((img) => img.image_type === 'expression') ?? [];
   const galleryImages = images?.filter((img) => img.image_type === 'gallery') ?? [];
 
@@ -149,7 +164,8 @@ const CharacterTabs: React.FC<CharacterTabsProps> = ({ card, tabBarClassName, ta
   if (expressionImages.length > 0) {
     tabs.push({ id: 'expressions', label: 'Expressions', icon: Smile });
   }
-  if (galleryImages.length > 0) {
+  const hasGalleryTab = galleryImages.length > 0 || (chubCard?.hasGallery && (chubGallery?.length ?? 0) > 0);
+  if (hasGalleryTab) {
     tabs.push({ id: 'gallery', label: 'Gallery', icon: Images });
   }
 
@@ -181,8 +197,10 @@ const CharacterTabs: React.FC<CharacterTabsProps> = ({ card, tabBarClassName, ta
             {tab.id === 'expressions' && expressionImages.length > 0 && (
               <span className={styles.tabBadge} aria-label={`${expressionImages.length} expressions`}>{expressionImages.length}</span>
             )}
-            {tab.id === 'gallery' && galleryImages.length > 0 && (
-              <span className={styles.tabBadge} aria-label={`${galleryImages.length} images`}>{galleryImages.length}</span>
+            {tab.id === 'gallery' && hasGalleryTab && (
+              <span className={styles.tabBadge} aria-label={`${galleryImages.length || chubGallery?.length || 0} images`}>
+                {galleryImages.length || chubGallery?.length || 0}
+              </span>
             )}
           </button>
         ))}
@@ -356,8 +374,15 @@ const CharacterTabs: React.FC<CharacterTabsProps> = ({ card, tabBarClassName, ta
           <div>
             {expressionImages.length > 0 ? (
               <div className={styles.expressionsTabGrid}>
-                {expressionImages.map((img) => (
-                  <div key={img.id} className={styles.expressionTabItem}>
+                {expressionImages.map((img, i) => (
+                  <div
+                    key={img.id}
+                    className={styles.expressionTabItem}
+                    onClick={() => setLightbox({
+                      images: expressionImages.map((e) => ({ src: normalizeImagePath(e.file_path)!, alt: e.label || 'Expression' })),
+                      index: i,
+                    })}
+                  >
                     <LazyImage
                       src={normalizeImagePath(img.file_path)}
                       alt={img.label || 'Expression'}
@@ -379,7 +404,7 @@ const CharacterTabs: React.FC<CharacterTabsProps> = ({ card, tabBarClassName, ta
           <div>
             {galleryImages.length > 0 ? (
               <div className={styles.galleryTabGrid}>
-                {galleryImages.map((img) => (
+                {galleryImages.map((img, i) => (
                   <LazyImage
                     key={img.id}
                     src={normalizeImagePath(img.file_path)}
@@ -387,6 +412,29 @@ const CharacterTabs: React.FC<CharacterTabsProps> = ({ card, tabBarClassName, ta
                     className={styles.galleryTabImg}
                     containerClassName={styles.galleryTabImgWrap}
                     spinnerSize={18}
+                    onClick={() => setLightbox({
+                      images: galleryImages.map((g) => ({ src: normalizeImagePath(g.file_path)!, alt: 'Gallery' })),
+                      index: i,
+                    })}
+                  />
+                ))}
+              </div>
+            ) : chubGalleryLoading ? (
+              <LoadingBlock />
+            ) : chubGallery && chubGallery.length > 0 ? (
+              <div className={styles.galleryTabGrid}>
+                {chubGallery.map((img, i) => (
+                  <LazyImage
+                    key={img.uuid}
+                    src={img.primary_image_path}
+                    alt={img.description || 'Gallery'}
+                    className={styles.galleryTabImg}
+                    containerClassName={styles.galleryTabImgWrap}
+                    spinnerSize={18}
+                    onClick={() => setLightbox({
+                      images: chubGallery.map((g) => ({ src: g.primary_image_path, alt: g.description || 'Gallery' })),
+                      index: i,
+                    })}
                   />
                 ))}
               </div>
@@ -402,12 +450,14 @@ const CharacterTabs: React.FC<CharacterTabsProps> = ({ card, tabBarClassName, ta
               <div className={styles.creatorAvatar}>
                 {lumiData?.owner?.avatar ? (
                   <LazyImage src={lumiData.owner.avatar} alt={card.creator} />
+                ) : chubCreator?.avatarUrl ? (
+                  <LazyImage src={chubCreator.avatarUrl} alt={card.creator} />
                 ) : (
                   <User size={32} />
                 )}
               </div>
               <div className={styles.creatorMain}>
-                <h3 className={styles.creatorName}>{card.creator}</h3>
+                <h3 className={styles.creatorName}>{chubCreator?.displayName || card.creator}</h3>
                 <p className={styles.creatorSubtitle}>
                   {lumiData?.owner ? 'Verified Creator' : isChub ? 'Chub Creator' : 'Guest Contributor'}
                 </p>
@@ -417,7 +467,35 @@ const CharacterTabs: React.FC<CharacterTabsProps> = ({ card, tabBarClassName, ta
                   View Profile
                 </Link>
               )}
+              {isChub && (
+                <a
+                  href={`https://chub.ai/users/${card.creator}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.viewProfileBtn}
+                >
+                  Chub Profile
+                </a>
+              )}
             </div>
+
+            {/* Chub creator stats */}
+            {chubCreator && (
+              <div className={styles.creatorStats}>
+                <div className={styles.statItem}>
+                  <span className={styles.statValue}>{chubCreator.followers.toLocaleString()}</span>
+                  <span className={styles.statLabel}>Followers</span>
+                </div>
+                <div className={styles.statItem}>
+                  <span className={styles.statValue}>{chubCreator.following.toLocaleString()}</span>
+                  <span className={styles.statLabel}>Following</span>
+                </div>
+                <div className={styles.statItem}>
+                  <span className={styles.statValue}>{chubCreator.projectCount}</span>
+                  <span className={styles.statLabel}>Characters</span>
+                </div>
+              </div>
+            )}
 
             <div className={styles.creatorMeta}>
               <TextBlock label="Creator Notes" content={lumiData?.creator_notes || undefined} />
@@ -440,9 +518,48 @@ const CharacterTabs: React.FC<CharacterTabsProps> = ({ card, tabBarClassName, ta
                 </div>
               )}
             </div>
+
+            {/* More by this creator */}
+            {chubCreator && chubCreator.topCharacters.length > 0 && (
+              <div className={styles.moreByCreator}>
+                <h4 className={styles.moreByHeader}>More by {chubCreator.displayName}</h4>
+                <div className={styles.moreByGrid}>
+                  {chubCreator.topCharacters
+                    .filter((c) => c.id !== card.id)
+                    .slice(0, 5)
+                    .map((c) => (
+                      <div
+                        key={c.id}
+                        className={styles.moreByCard}
+                        onClick={() => navigate(`/characters/${encodeURIComponent(c.id)}`, { state: { card: fromChub(c) } })}
+                      >
+                        <div className={styles.moreByImgWrap}>
+                          <LazyImage
+                            src={c.avatarUrl}
+                            alt={c.name}
+                            className={styles.moreByImg}
+                          />
+                        </div>
+                        <div className={styles.moreByInfo}>
+                          <span className={styles.moreByName}>{c.name}</span>
+                          <span className={styles.moreByStars}>{c.starCount?.toLocaleString() ?? 0} stars</span>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      {lightbox && (
+        <Lightbox
+          images={lightbox.images}
+          startIndex={lightbox.index}
+          onClose={() => setLightbox(null)}
+        />
+      )}
     </>
   );
 };

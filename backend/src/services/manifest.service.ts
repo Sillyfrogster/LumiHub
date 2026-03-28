@@ -24,19 +24,26 @@ export interface ManifestEntry {
 export async function syncManifest(instanceId: string, entries: ManifestEntry[]): Promise<void> {
     const repository = repo();
 
-    // Build the set of incoming slugs (type-qualified to avoid cross-type collisions)
-    const incomingKeys = new Set(entries.map((e) => `${e.type}:${e.slug}`));
+    // Build the set of incoming slugs (keyed on slug alone to match the DB unique constraint)
+    const incomingSlugs = new Set(entries.map((e) => e.slug));
 
     // Delete entries that are no longer in the manifest
     const existing = await repository.find({ where: { instance_id: instanceId } });
-    const toDelete = existing.filter((e) => !incomingKeys.has(`${e.entry_type}:${e.slug}`));
+    const toDelete = existing.filter((e) => !incomingSlugs.has(e.slug));
     if (toDelete.length > 0) {
         await repository.remove(toDelete);
     }
 
-    // Upsert all incoming entries
+    // Deduplicate by slug — the DB constraint is (instance_id, slug) without entry_type,
+    // so two entries with the same slug (e.g. duplicate characters, or a character and
+    // worldbook sharing a creator/name) would violate the constraint. Last entry wins.
     if (entries.length > 0) {
-        const upsertRows = entries.map((e) => ({
+        const deduped = new Map<string, ManifestEntry>();
+        for (const e of entries) {
+            deduped.set(e.slug, e);
+        }
+
+        const upsertRows = [...deduped.values()].map((e) => ({
             instance_id: instanceId,
             slug: e.slug,
             entry_type: e.type,

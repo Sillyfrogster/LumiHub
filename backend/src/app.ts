@@ -115,6 +115,7 @@ if (env.NODE_ENV === 'production') {
   app.get('/presets', staticPageOgMiddleware);
   // Dynamic content pages
   app.get('/characters/:id', opengraphMiddleware);
+  app.get('/characters/:creator/:name', opengraphMiddleware); // Chub cards: decoded /Creator/name
   app.get('/worldbooks/:id', opengraphMiddleware);
   app.get('/presets/:id', opengraphMiddleware);
   app.get('/themes/:id', opengraphMiddleware);

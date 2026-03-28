@@ -76,6 +76,7 @@ export function transformChubCharacter(node: ChubCharacter): ChubCharacterCard {
 
   return {
     id: fullPath,
+    projectId: node.id,
     name: node.name || 'Unnamed',
     creator,
     tagline: node.tagline,
@@ -83,7 +84,8 @@ export function transformChubCharacter(node: ChubCharacter): ChubCharacterCard {
     tags: node.topics || [],
     nsfw: isNsfw,
     isNsfwImage: node.nsfw_image || false,
-    avatarUrl: `https://avatars.charhub.io/avatars/${fullPath}/avatar.webp`,
+    hasGallery: node.hasGallery || false,
+    avatarUrl: node.max_res_url || node.avatar_url || `https://avatars.charhub.io/avatars/${fullPath}/avatar.webp`,
     highResUrl: `https://avatars.charhub.io/avatars/${fullPath}/chara_card_v2.png`,
     pageUrl: `https://chub.ai/characters/${fullPath}`,
     downloadUrl: `https://avatars.charhub.io/avatars/${fullPath}/chara_card_v2.png`,
@@ -221,7 +223,7 @@ export async function searchChubLorebooks(options: ChubLorebookSearchOptions = {
         topics: node.topics || [],
         nsfw: !!(node as any).nsfw,
         nsfw_image: !!(node as any).nsfw_image,
-        avatarUrl: `https://avatars.charhub.io/avatars/${fullPath}/avatar.webp`,
+        avatarUrl: node.max_res_url || node.avatar_url || `https://avatars.charhub.io/avatars/${fullPath}/avatar.webp`,
         nTokens: node.nTokens ?? 0,
         starCount: node.starCount ?? 0,
         rating: node.rating ?? 0,
@@ -241,6 +243,55 @@ export async function searchChubLorebooks(options: ChubLorebookSearchOptions = {
   } catch (error) {
     console.error('[LumiHub] Chub lorebook search error:', error);
     throw error;
+  }
+}
+
+// ── Creator profile ─────────────────────────────────────────
+
+export interface ChubCreatorProfile {
+  username: string;
+  displayName: string;
+  avatarUrl: string | null;
+  bio: string;
+  followers: number;
+  following: number;
+  projectCount: number;
+  /** Top characters by star count, already transformed for LumiHub navigation. */
+  topCharacters: ChubCharacterCard[];
+}
+
+/** Fetches a Chub creator's public profile by username. */
+export async function getChubCreatorProfile(username: string): Promise<ChubCreatorProfile | null> {
+  const url = `${CHUB_GATEWAY_BASE}/api/users/${encodeURIComponent(username)}`;
+
+  try {
+    const response = await fetch(url, {
+      headers: { 'Accept': 'application/json' },
+      mode: 'cors',
+    });
+
+    if (!response.ok) return null;
+
+    const data = await response.json();
+
+    const projects = data.projects?.nodes ?? [];
+    // Sort by stars descending and take top 5
+    const topNodes = [...projects]
+      .sort((a: any, b: any) => (b.starCount ?? 0) - (a.starCount ?? 0))
+      .slice(0, 5);
+
+    return {
+      username: data.username ?? username,
+      displayName: data.name || data.username || username,
+      avatarUrl: data.avatar_url || null,
+      bio: data.bio ?? '',
+      followers: data.n_followers ?? 0,
+      following: data.n_followees ?? 0,
+      projectCount: data.projects?.count ?? projects.length,
+      topCharacters: topNodes.map(transformChubCharacter),
+    };
+  } catch {
+    return null;
   }
 }
 
@@ -288,6 +339,40 @@ export async function fetchChubTags(search?: string, namespace?: string): Promis
       }));
   } catch (error) {
     console.error('[LumiHub] Chub tags API error:', error);
+    return [];
+  }
+}
+
+// ── Gallery ─────────────────────────────────────────────────
+
+export interface ChubGalleryImage {
+  uuid: string;
+  primary_image_path: string;
+  nsfw_image: boolean;
+  description: string | null;
+}
+
+/** Fetches gallery images for a Chub character by its numeric project ID. */
+export async function getChubCharacterGallery(projectId: number): Promise<ChubGalleryImage[]> {
+  const url = `${CHUB_GATEWAY_BASE}/api/gallery/project/${projectId}`;
+
+  try {
+    const response = await fetch(url, {
+      headers: { 'Accept': 'application/json' },
+      mode: 'cors',
+    });
+
+    if (!response.ok) return [];
+
+    const data = await response.json();
+    const nodes: ChubGalleryImage[] = (data.nodes || []).map((n: any) => ({
+      uuid: n.uuid,
+      primary_image_path: n.primary_image_path,
+      nsfw_image: n.nsfw_image ?? false,
+      description: n.description ?? null,
+    }));
+    return nodes;
+  } catch {
     return [];
   }
 }

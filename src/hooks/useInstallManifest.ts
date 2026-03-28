@@ -48,6 +48,30 @@ export function getWorldBookSlug(book: UnifiedWorldBook): string {
   return `${creator}/${name}`;
 }
 
+// ── Fuzzy slug matching ───────────────────────────────────────────────
+
+/**
+ * High-confidence guess: checks if a manifest entry likely represents the same card.
+ * Both conditions must pass:
+ *   1. Creator slugs match exactly
+ *   2. One name slug includes the other (handles hex suffixes, truncated names, etc.)
+ */
+function isLikelySlugMatch(entrySlug: string, cardCreator: string, cardName: string): boolean {
+  const slashIdx = entrySlug.indexOf('/');
+  if (slashIdx === -1) return false;
+
+  const entryCreator = entrySlug.slice(0, slashIdx);
+  const entryName = entrySlug.slice(slashIdx + 1);
+
+  const creator = slugify(cardCreator || 'unknown');
+  const name = slugify(cardName || 'unnamed');
+
+  if (entryCreator !== creator) return false;
+  // Require the shorter side to be at least 3 chars to avoid false positives
+  if (entryName.length < 3 || name.length < 3) return false;
+  return entryName.includes(name) || name.includes(entryName);
+}
+
 // ── Dismissed guess tracking ──────────────────────────────────────────
 
 const DISMISSED_KEY = 'lumihub:dismissed-install-guesses';
@@ -98,14 +122,14 @@ export function useIsInstalled(card?: UnifiedCharacterCard): { isInstalled: bool
   const entry = data.entries.find((e) => e.slug === slug && e.type === 'character') ?? null;
   if (entry) return { isInstalled: true, isGuess: false, entry };
 
-  // Fallback: older Lumiverse installs may have a derived slug instead of the Chub fullPath
-  if (card.source === 'chub') {
-    const derived = `${slugify(card.creator || 'unknown')}/${slugify(card.name || 'unnamed')}`;
-    if (derived !== slug) {
-      const guessEntry = data.entries.find((e) => e.slug === derived && e.type === 'character') ?? null;
-      if (guessEntry && !getDismissedGuesses().has(slug)) {
-        return { isInstalled: true, isGuess: true, entry: guessEntry };
-      }
+  // Fuzzy fallback: creator must match exactly, card name must be included in the entry
+  // (or vice versa). Handles hex suffixes in Chub slugs, name truncation, etc.
+  if (card.source === 'chub' && !getDismissedGuesses().has(slug)) {
+    const guessEntry = data.entries.find(
+      (e) => e.type === 'character' && isLikelySlugMatch(e.slug, card.creator, card.name),
+    ) ?? null;
+    if (guessEntry) {
+      return { isInstalled: true, isGuess: true, entry: guessEntry };
     }
   }
 
@@ -121,14 +145,12 @@ export function useIsWorldBookInstalled(book?: UnifiedWorldBook): { isInstalled:
   const entry = data.entries.find((e) => e.slug === slug && e.type === 'worldbook') ?? null;
   if (entry) return { isInstalled: true, isGuess: false, entry };
 
-  // Fallback: older Lumiverse installs may have a derived slug instead of the Chub fullPath
-  if (book.source === 'chub') {
-    const derived = `${slugify(book.creator || 'unknown')}/${slugify(book.name || 'unnamed')}`;
-    if (derived !== slug) {
-      const guessEntry = data.entries.find((e) => e.slug === derived && e.type === 'worldbook') ?? null;
-      if (guessEntry && !getDismissedGuesses().has(slug)) {
-        return { isInstalled: true, isGuess: true, entry: guessEntry };
-      }
+  if (book.source === 'chub' && !getDismissedGuesses().has(slug)) {
+    const guessEntry = data.entries.find(
+      (e) => e.type === 'worldbook' && isLikelySlugMatch(e.slug, book.creator, book.name),
+    ) ?? null;
+    if (guessEntry) {
+      return { isInstalled: true, isGuess: true, entry: guessEntry };
     }
   }
 

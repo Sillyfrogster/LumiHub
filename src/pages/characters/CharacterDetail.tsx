@@ -8,10 +8,12 @@ import type { UnifiedCharacterCard } from '../../types/character';
 import type { ChubCharacterCard } from '../../types/chub';
 import type { LumiHubCharacter } from '../../types/character';
 import { getCharacter, deleteCharacter } from '../../api/characters';
-import { fromLumiHub } from '../../types/character';
+import { searchChubCharacters, transformChubCharacter } from '../../api/chub';
+import { fromLumiHub, fromChub } from '../../types/character';
 import CharacterTabs from '../../components/characters/CharacterTabs';
 import InstallButton from '../../components/characters/InstallButton';
 import LazyImage from '../../components/shared/LazyImage';
+import Lightbox from '../../components/shared/Lightbox';
 import ScrollFadeRow from '../../components/shared/ScrollFadeRow';
 import styles from './CharacterDetail.module.css';
 
@@ -36,6 +38,18 @@ const CharacterDetail: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [heroUrl, setHeroUrl] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [heroLightbox, setHeroLightbox] = useState(false);
+
+  // Sync card state when navigating between cards (same component, new route state).
+  // Keyed on `id` so it only fires when the URL actually changes.
+  useEffect(() => {
+    if (!passedCard) return;
+    setCard(passedCard);
+    setLoading(false);
+    setError(null);
+    setHeroUrl(null);
+    setHeroLightbox(false);
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Derive character data (may be null while loading)
   const isChub = card?.source === 'chub';
@@ -48,11 +62,31 @@ const CharacterDetail: React.FC = () => {
   useEffect(() => {
     if (passedCard || !id) return;
 
+    const decodedId = decodeURIComponent(id);
+    const isUUID = /^[0-9a-f-]{36}$/i.test(decodedId);
+
     setLoading(true);
-    getCharacter(id)
-      .then((res) => setCard(fromLumiHub(res.data)))
-      .catch(() => setError('Character not found.'))
-      .finally(() => setLoading(false));
+
+    if (isUUID) {
+      getCharacter(decodedId)
+        .then((res) => setCard(fromLumiHub(res.data)))
+        .catch(() => setError('Character not found.'))
+        .finally(() => setLoading(false));
+    } else {
+      // Chub fullPath (creator/card-name) — search for the exact card
+      const chubPath = decodedId;
+      searchChubCharacters({ search: chubPath, limit: 10 })
+        .then((result) => {
+          const match = result.nodes.find((n) => n.fullPath === chubPath);
+          if (match) {
+            setCard(fromChub(transformChubCharacter(match)));
+          } else {
+            setError('Character not found on Chub.');
+          }
+        })
+        .catch(() => setError('Failed to load character from Chub.'))
+        .finally(() => setLoading(false));
+    }
   }, [id, passedCard]);
 
   if (loading) {
@@ -85,7 +119,9 @@ const CharacterDetail: React.FC = () => {
   // Detect embedded lorebook for the install dropdown (single character_book or multi world_books)
   const lumiCharBook = lumiData?.character_book as { entries?: unknown[] } | null | undefined;
   const lumiWorldBooks = (lumiData?.extensions?.lumiverse_modules as any)?.world_books as Array<{ entries?: unknown[] }> | undefined;
-  const hasEmbeddedLorebook = isChub
+  const chubDef = isChub ? (card.raw as any)?.definition : null;
+  const chubHasLorebook = !!(chubDef?.character_book?.entries?.length || chubDef?.embedded_lorebook?.entries?.length);
+  const hasEmbeddedLorebook = chubHasLorebook
     || (lumiCharBook?.entries?.length ?? 0) > 0
     || (lumiWorldBooks?.some((b) => (b.entries?.length ?? 0) > 0) ?? false);
 
@@ -133,6 +169,8 @@ const CharacterDetail: React.FC = () => {
                 alt={card.name}
                 className={styles.image}
                 fallback={<div className={styles.imagePlaceholder}>{card.name.charAt(0)}</div>}
+                onClick={() => setHeroLightbox(true)}
+                style={{ cursor: 'pointer' }}
               />
             ) : (
               <div className={styles.imagePlaceholder}>{card.name.charAt(0)}</div>
@@ -257,6 +295,12 @@ const CharacterDetail: React.FC = () => {
           <CharacterTabs card={card} />
         </div>
       </div>
+      {heroLightbox && displayAvatar && (
+        <Lightbox
+          images={[{ src: displayAvatar, alt: card.name }]}
+          onClose={() => setHeroLightbox(false)}
+        />
+      )}
     </main>
   );
 };

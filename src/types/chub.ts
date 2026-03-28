@@ -1,5 +1,5 @@
 export interface ChubCharacter {
-  id: string;
+  id: number;
   fullPath: string;
   name: string;
   tagline?: string;
@@ -7,6 +7,9 @@ export interface ChubCharacter {
   topics?: string[];
   nsfw?: boolean;
   nsfw_image?: boolean;
+  avatar_url?: string;
+  max_res_url?: string;
+  hasGallery?: boolean;
   nTokens?: number;
   rating?: number;
   ratingCount?: number;
@@ -82,6 +85,8 @@ export interface ChubCharacterDetail {
     description: string;
     tagline: string;
     topics: string[];
+    avatar_url?: string;
+    max_res_url?: string;
     starCount: number;
     nChats: number;
     nMessages: number;
@@ -97,6 +102,8 @@ export interface ChubCharacterDetail {
 
 export interface ChubCharacterCard {
   id: string;
+  /** Numeric Chub project ID, used for gallery API calls. */
+  projectId: number;
   name: string;
   creator: string;
   tagline?: string;
@@ -104,6 +111,7 @@ export interface ChubCharacterCard {
   tags: string[];
   nsfw: boolean;
   isNsfwImage?: boolean;
+  hasGallery: boolean;
   avatarUrl: string;
   highResUrl?: string;
   pageUrl: string;

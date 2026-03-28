@@ -337,6 +337,7 @@
   flex-direction: column;
   align-items: center;
   gap: 6px;
+  cursor: pointer;
 }
 
 .expressionTabImgWrap {
@@ -549,6 +550,116 @@
   font-size: 13px;
   font-weight: 500;
   color: var(--lumihub-text);
+}
+
+/* ── Creator stats ── */
+.creatorStats {
+  display: flex;
+  gap: 2px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.statItem {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 14px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--lumihub-glass-border);
+}
+
+.statItem:first-child { border-radius: 10px 0 0 10px; }
+.statItem:last-child { border-radius: 0 10px 10px 0; }
+
+.statValue {
+  font-family: var(--font-heading);
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+.statLabel {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--lumihub-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ── More by creator ── */
+.moreByCreator {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.moreByHeader {
+  font-family: var(--font-heading);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--lumihub-text-muted);
+  margin: 0;
+}
+
+.moreByGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.moreByCard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--lumihub-glass-border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.moreByCard:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--lumihub-primary-020);
+}
+
+.moreByImgWrap {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.moreByImg {
+  border-radius: 8px;
+}
+
+.moreByInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.moreByName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--lumihub-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.moreByStars {
+  font-size: 11px;
+  color: var(--lumihub-text-muted);
 }
 
 /* Regex scripts section */

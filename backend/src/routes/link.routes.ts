@@ -172,6 +172,33 @@ link.post('/install', requireAuth, async (c) => {
             importEmbeddedWorldbook: !!include_worldbook,
             chubSlug: (chub_slug || character_id).toLowerCase(),
         };
+
+        // Fetch gallery image URLs if the character has a gallery
+        try {
+            const chubDetailRes = await fetch(
+                `https://gateway.chub.ai/api/characters/${character_id}?full=true`,
+                { headers: { 'Accept': 'application/json', 'User-Agent': 'LumiHub' } },
+            );
+            if (chubDetailRes.ok) {
+                const chubDetail = await chubDetailRes.json() as Record<string, any>;
+                const projectId = chubDetail.node?.id;
+                if (projectId && chubDetail.node?.hasGallery) {
+                    const galleryRes = await fetch(
+                        `https://gateway.chub.ai/api/gallery/project/${projectId}`,
+                        { headers: { 'Accept': 'application/json', 'User-Agent': 'LumiHub' } },
+                    );
+                    if (galleryRes.ok) {
+                        const galleryData = await galleryRes.json() as Record<string, any>;
+                        const urls = (galleryData.nodes || [])
+                            .filter((n: any) => n.primary_image_path)
+                            .map((n: any) => n.primary_image_path as string);
+                        if (urls.length > 0) {
+                            payload.galleryImageUrls = urls;
+                        }
+                    }
+                }
+            }
+        } catch { /* gallery fetch is best-effort */ }
     } else {
         // For LumiHub characters, fetch the card
         const character = await CharacterService.getCharacterById(character_id);
