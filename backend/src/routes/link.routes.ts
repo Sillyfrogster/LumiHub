@@ -143,7 +143,7 @@ link.delete('/instances/:id', requireAuth, async (c) => {
 link.post('/install', requireAuth, async (c) => {
     const userId = c.get('userId');
     const body = await c.req.json();
-    const { instance_id, character_id, source, include_worldbook } = body;
+    const { instance_id, character_id, source, include_worldbook, chub_slug } = body;
 
     if (!instance_id || !character_id) {
         return c.json({ error: 'instance_id and character_id are required' }, 400);
@@ -170,7 +170,35 @@ link.post('/install', requireAuth, async (c) => {
             characterName: character_id,
             importUrl: `https://chub.ai/characters/${character_id}`,
             importEmbeddedWorldbook: !!include_worldbook,
+            chubSlug: (chub_slug || character_id).toLowerCase(),
         };
+
+        // Fetch gallery image URLs if the character has a gallery
+        try {
+            const chubDetailRes = await fetch(
+                `https://gateway.chub.ai/api/characters/${character_id}?full=true`,
+                { headers: { 'Accept': 'application/json', 'User-Agent': 'LumiHub' } },
+            );
+            if (chubDetailRes.ok) {
+                const chubDetail = await chubDetailRes.json() as Record<string, any>;
+                const projectId = chubDetail.node?.id;
+                if (projectId && chubDetail.node?.hasGallery) {
+                    const galleryRes = await fetch(
+                        `https://gateway.chub.ai/api/gallery/project/${projectId}`,
+                        { headers: { 'Accept': 'application/json', 'User-Agent': 'LumiHub' } },
+                    );
+                    if (galleryRes.ok) {
+                        const galleryData = await galleryRes.json() as Record<string, any>;
+                        const urls = (galleryData.nodes || [])
+                            .filter((n: any) => n.primary_image_path)
+                            .map((n: any) => n.primary_image_path as string);
+                        if (urls.length > 0) {
+                            payload.galleryImageUrls = urls;
+                        }
+                    }
+                }
+            }
+        } catch { /* gallery fetch is best-effort */ }
     } else {
         // For LumiHub characters, fetch the card
         const character = await CharacterService.getCharacterById(character_id);
@@ -368,6 +396,39 @@ link.post('/install-worldbook', requireAuth, async (c) => {
     } catch (err: any) {
         return c.json({ error: err.message || 'Install request failed' }, 504);
     }
+});
+
+/**
+ * Get the install manifest for the user's linked instance.
+ * Returns the list of characters and world books installed on their Lumiverse instance.
+ * Optional ?type=character|worldbook filter.
+ */
+link.get('/manifest', requireAuth, async (c) => {
+    const userId = c.get('userId');
+    const type = c.req.query('type') as 'character' | 'worldbook' | undefined;
+    const ManifestService = await import('../services/manifest.service.ts');
+
+    const result = await ManifestService.getManifestForUser(userId, type || undefined);
+    if (!result) {
+        return c.json({ entries: [], instance_id: null });
+    }
+    return c.json({ entries: result.entries, instance_id: result.instanceId });
+});
+
+/**
+ * Quick check if a specific slug is installed on the user's linked instance.
+ */
+link.get('/manifest/check', requireAuth, async (c) => {
+    const userId = c.get('userId');
+    const slug = c.req.query('slug');
+    if (!slug) return c.json({ error: 'slug query parameter is required' }, 400);
+
+    const ManifestService = await import('../services/manifest.service.ts');
+    const result = await ManifestService.getManifestForUser(userId);
+    if (!result) return c.json({ installed: false });
+
+    const entry = await ManifestService.checkSlug(result.instanceId, slug);
+    return c.json({ installed: !!entry, entry });
 });
 
 export default link;

@@ -140,6 +140,22 @@ class InstanceConnectionManager {
             // Could store capabilities in the future
             return;
         }
+
+        // Handle manifest sync from Lumiverse instances
+        if (msg.type === "manifest_sync") {
+            const instanceId = this.socketToInstance.get(ws);
+            if (instanceId && msg.payload) {
+                const { entries } = msg.payload as { entries: Array<{ slug: string; type: 'character' | 'worldbook'; name: string; creator: string; source: string; installed_at: number | null }> };
+                if (Array.isArray(entries)) {
+                    import('../services/manifest.service.ts').then((svc) => {
+                        svc.syncManifest(instanceId, entries).catch((err) => {
+                            logger.warn(`[WS] Failed to sync manifest for ${instanceId}:`, err);
+                        });
+                    });
+                }
+            }
+            return;
+        }
     }
 
     /** Force-disconnect an instance. */

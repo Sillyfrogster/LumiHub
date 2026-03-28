@@ -204,7 +204,7 @@ const WorldbookDetail: React.FC = () => {
           <div className={styles.actions}>
             {isChub ? (
               <>
-                <InstallButton characterId={book.id} source="chub" className={styles.installBtn} />
+                <InstallButton characterId={book.id} source="chub" worldBook={book} className={styles.installBtn} />
                 {chubPageUrl && (
                   <a href={chubPageUrl} target="_blank" rel="noreferrer" className={styles.secondaryBtn}>
                     <ExternalLink size={14} /> View on Chub
@@ -213,7 +213,7 @@ const WorldbookDetail: React.FC = () => {
               </>
             ) : (
               <>
-                <InstallButton characterId={book.id} source="lumihub" className={styles.installBtn} />
+                <InstallButton characterId={book.id} source="lumihub" worldBook={book} className={styles.installBtn} />
                 {isOwner && (
                   <button className={styles.dangerBtn} onClick={handleDelete} disabled={deleting}>
                     <Trash2 size={14} />

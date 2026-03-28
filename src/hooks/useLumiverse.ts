@@ -28,6 +28,7 @@ async function installToInstance(params: {
   characterId: string;
   source: 'lumihub' | 'chub';
   includeWorldbook?: boolean;
+  chubSlug?: string;
 }): Promise<InstallResult> {
   const res = await fetch('/api/v1/link/install', {
     method: 'POST',
@@ -38,6 +39,7 @@ async function installToInstance(params: {
       character_id: params.characterId,
       source: params.source,
       include_worldbook: params.includeWorldbook ?? false,
+      chub_slug: params.chubSlug,
     }),
   });
   return res.json();

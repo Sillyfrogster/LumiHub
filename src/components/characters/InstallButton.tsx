@@ -1,20 +1,32 @@
 import { useState, useRef, useEffect } from 'react';
-import { Sparkles, Check, Loader2, WifiOff, ChevronDown, BookOpen } from 'lucide-react';
+import { Sparkles, Check, Loader2, WifiOff, ChevronDown, BookOpen, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useLinkedInstances, useInstallToLumiverse } from '../../hooks/useLumiverse';
+import { useIsInstalled, useIsWorldBookInstalled, getCardSlug, dismissInstallGuess } from '../../hooks/useInstallManifest';
+import { useQueryClient } from '@tanstack/react-query';
+import type { UnifiedCharacterCard } from '../../types/character';
+import type { UnifiedWorldBook } from '../../types/worldbook';
 import styles from './InstallButton.module.css';
 
 interface Props {
   characterId: string;
   source: 'lumihub' | 'chub';
+  card?: UnifiedCharacterCard;
+  worldBook?: UnifiedWorldBook;
   hasEmbeddedLorebook?: boolean;
   className?: string;
 }
 
-const InstallButton: React.FC<Props> = ({ characterId, source, hasEmbeddedLorebook, className }) => {
+const InstallButton: React.FC<Props> = ({ characterId, source, card, worldBook, hasEmbeddedLorebook, className }) => {
   const { isAuthenticated } = useAuth();
   const { data: instances } = useLinkedInstances();
   const installMutation = useInstallToLumiverse();
+  const { isInstalled: isCharInstalled, isGuess: isCharGuess } = useIsInstalled(card);
+  const { isInstalled: isWbInstalled } = useIsWorldBookInstalled(worldBook);
+  const [dismissed, setDismissed] = useState(false);
+  const isInstalled = (isCharInstalled && !(isCharGuess && dismissed)) || isWbInstalled;
+  const isGuess = isCharGuess && !dismissed;
+  const queryClient = useQueryClient();
   const [success, setSuccess] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -35,6 +47,11 @@ const InstallButton: React.FC<Props> = ({ characterId, source, hasEmbeddedLorebo
     return () => document.removeEventListener('mousedown', handler);
   }, [menuOpen]);
 
+  const handleDismissGuess = () => {
+    if (card) dismissInstallGuess(getCardSlug(card));
+    setDismissed(true);
+  };
+
   const doInstall = async (includeWorldbook: boolean) => {
     setMenuOpen(false);
     if (disabled) return;
@@ -46,11 +63,17 @@ const InstallButton: React.FC<Props> = ({ characterId, source, hasEmbeddedLorebo
         characterId,
         source,
         includeWorldbook,
+        chubSlug: source === 'chub' ? characterId.toLowerCase() : undefined,
       });
 
       if (result.success) {
         setSuccess(true);
         setTimeout(() => setSuccess(false), 2000);
+        // Refresh manifest so the button updates to "Update Card".
+        // Delay to allow Lumiverse's debounced manifest_sync (5s) to reach LumiHub first.
+        setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ['link', 'manifest'] });
+        }, 6000);
       }
     } catch {
       // Error is available via installMutation.error
@@ -65,18 +88,21 @@ const InstallButton: React.FC<Props> = ({ characterId, source, hasEmbeddedLorebo
     }
   };
 
+  const isWorldBook = !!worldBook;
+  const updateLabel = isWorldBook ? 'Update Book' : 'Update Card';
+
   const getLabel = () => {
-    if (installMutation.isPending) return 'Installing...';
-    if (success) return 'Installed';
-    if (installMutation.isError || (installMutation.data && !installMutation.data.success)) return 'Install Failed';
-    return 'Install to Lumiverse';
+    if (installMutation.isPending) return isInstalled ? 'Updating...' : 'Installing...';
+    if (success) return isInstalled ? 'Updated' : 'Installed';
+    if (installMutation.isError || (installMutation.data && !installMutation.data.success)) return isInstalled ? 'Update Failed' : 'Install Failed';
+    return isInstalled ? updateLabel : 'Install to Lumiverse';
   };
 
   const getIcon = () => {
     if (installMutation.isPending) return <Loader2 size={16} className="spin" />;
     if (success) return <Check size={16} />;
     if (!isAuthenticated || !hasOnline) return <WifiOff size={16} />;
-    return <Sparkles size={16} />;
+    return isInstalled ? <RefreshCw size={16} /> : <Sparkles size={16} />;
   };
 
   const getTitle = () => {
@@ -118,6 +144,12 @@ const InstallButton: React.FC<Props> = ({ characterId, source, hasEmbeddedLorebo
             <span>Install with Lorebook</span>
           </button>
         </div>
+      )}
+
+      {isGuess && !installMutation.isPending && !success && (
+        <button className={styles.guessHint} onClick={handleDismissGuess}>
+          Not this card?
+        </button>
       )}
     </div>
   );
