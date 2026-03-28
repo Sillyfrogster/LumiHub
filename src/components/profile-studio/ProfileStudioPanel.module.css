@@ -1,0 +1,82 @@
+.panel {
+  position: fixed;
+  z-index: 1500;
+  display: flex;
+  flex-direction: column;
+  background: var(--lumihub-bg);
+  border: 1px solid var(--lumihub-border);
+  border-radius: var(--lumihub-radius);
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+  overflow: hidden;
+  animation: panelFadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes panelFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.minimized {
+  height: auto !important;
+}
+
+.content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.resizeHandle {
+  position: absolute;
+}
+
+.resizeRight {
+  top: 42px;
+  right: -3px;
+  width: 6px;
+  bottom: 0;
+  cursor: ew-resize;
+}
+
+.resizeBottom {
+  bottom: -3px;
+  left: 0;
+  right: 0;
+  height: 6px;
+  cursor: ns-resize;
+}
+
+.resizeCorner {
+  bottom: -4px;
+  right: -4px;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+}
+
+.resizeCorner::after {
+  content: '';
+  position: absolute;
+  bottom: 5px;
+  right: 5px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--lumihub-text-dim);
+  border-bottom: 2px solid var(--lumihub-text-dim);
+  opacity: 0.4;
+  transition: opacity var(--lumihub-transition-fast);
+}
+
+.resizeCorner:hover::after {
+  opacity: 0.8;
+}

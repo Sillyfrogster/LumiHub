@@ -17,15 +17,15 @@ const Layout = () => {
   };
 
   return (
-    <div className={styles.shell}>
-      <header className={styles.header}>
+    <div className={styles.shell} data-studio="shell">
+      <header className={styles.header} data-studio="header">
         <div className={styles.headerInner}>
           <Link to="/" className={styles.brand}>
             <Sparkles className={styles.brandIcon} size={22} strokeWidth={2.5} />
             <span className={styles.brandText}>LumiHub</span>
           </Link>
 
-          <nav className={styles.nav}>
+          <nav className={styles.nav} data-studio="nav">
             <Link
               to="/"
               className={clsx(styles.navItem, isActive('/') && styles.navItemActive)}
@@ -96,7 +96,7 @@ const Layout = () => {
         </div>
       </header>
 
-      <main className={styles.main}>
+      <main className={styles.main} data-studio="main">
         <Outlet />
       </main>
 

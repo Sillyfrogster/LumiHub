@@ -1,0 +1,120 @@
+.wrapper {
+  position: relative;
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--lumihub-text-dim);
+  cursor: pointer;
+  transition: all var(--lumihub-transition-fast);
+}
+
+.trigger:hover {
+  color: var(--lumihub-text);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--lumihub-border);
+}
+
+.triggerActive {
+  color: var(--lumihub-primary);
+  background: var(--lumihub-primary-010);
+  border-color: var(--lumihub-primary-015);
+}
+
+.dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 280px;
+  max-height: 360px;
+  background: var(--lumihub-bg);
+  border: 1px solid var(--lumihub-border);
+  border-radius: var(--lumihub-radius);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+  z-index: 1600;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: dropdownIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--lumihub-text-muted);
+  font-family: var(--font-heading);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--lumihub-border);
+  flex-shrink: 0;
+}
+
+.list {
+  overflow-y: auto;
+  flex: 1;
+  padding: 4px 0;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 12px;
+  background: none;
+  border: none;
+  color: var(--lumihub-text);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--lumihub-transition-fast);
+}
+
+.item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.itemName {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.itemSelector {
+  font-size: 10px;
+  color: var(--lumihub-text-dim);
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.empty {
+  padding: 20px 12px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--lumihub-text-dim);
+}

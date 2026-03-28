@@ -1,24 +1,21 @@
-import { useState, useMemo, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { User, Shield, LayoutGrid, Users, Settings, Palette, Edit3 } from 'lucide-react';
+import { useMemo, useEffect, useCallback, useRef } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
+import { User, Edit3 } from 'lucide-react';
+import DOMPurify from 'dompurify';
 import { useUserProfile } from '../../hooks/useUserProfile';
-import { useCharacters } from '../../hooks/useCharacters';
 import { useAuth } from '../../hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
-import clsx from 'clsx';
-import CharacterCard from '../../components/characters/CharacterCard';
-import LazyImage from '../../components/shared/LazyImage';
-import CSSProfileEditor from './CSSProfileEditor';
+import { saveProfile, resetProfile } from '../../api/profile';
+import { useProfileStudioStore } from '../../store/useProfileStudioStore';
+import { useElementPicker } from '../../hooks/useElementPicker';
+import { generateRuleStub } from '../../utils/selectorGenerator';
+import DefaultProfileTemplate from '../../components/profile/DefaultProfileTemplate';
+import ProfileStudioPanel from '../../components/profile-studio/ProfileStudioPanel';
+import ElementHighlight from '../../components/profile-studio/ElementHighlight';
+import BeginnerContextMenu from '../../components/profile-studio/BeginnerContextMenu';
 import styles from './UserProfile.module.css';
 
-type FilterTab = 'characters' | 'worldbooks' | 'presets' | 'themes';
-
-const TABS: { id: FilterTab; label: string; icon: React.ElementType }[] = [
-  { id: 'characters', label: 'Characters', icon: Users },
-  { id: 'worldbooks', label: 'Worldbooks', icon: LayoutGrid },
-  { id: 'themes', label: 'Themes', icon: Palette },
-  { id: 'presets', label: 'Presets', icon: Settings },
-];
+const STYLE_TAG_ID = 'lumihub-profile-custom-css';
 
 interface UserProfileProps {
   previewMode?: boolean;
@@ -27,58 +24,152 @@ interface UserProfileProps {
 
 const UserProfile = ({ previewMode = false, previewDiscordId }: UserProfileProps) => {
   const { discordId: routeDiscordId } = useParams<{ discordId: string }>();
+  const [searchParams] = useSearchParams();
   const discordId = previewMode ? previewDiscordId : routeDiscordId;
-  const navigate = useNavigate();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  
-  const { data: profile, isLoading: profileLoading, error: profileError } = useUserProfile(discordId || '');
-  const [activeTab, setActiveTab] = useState<FilterTab>('characters');
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const [activeCss, setActiveCss] = useState<string>('');
 
-  const { characters, loading: charactersLoading } = useCharacters({
-    ownerId: profile?.id,
-    ignoreStore: true,
-    enabled: !!profile?.id,
+  const { data: profile, isLoading: profileLoading, error: profileError } = useUserProfile(discordId || '');
+
+  const studio = useProfileStudioStore();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const isOwner = user?.discordId === profile?.discordId;
+  const studioParam = searchParams.get('studio');
+  const forceReset = studioParam === 'reset';
+  const forceStudio = studioParam === '1' || forceReset;
+
+  const handleElementSelect = useCallback(
+    (element: HTMLElement) => {
+      if (studio.editorMode === 'advanced') {
+        const stub = generateRuleStub(element);
+        studio.setDraftCss(studio.draftCss + '\n' + stub);
+        studio.setTab('css');
+      }
+      if (studio.editorMode === 'beginner' && studio.isPickerActive) {
+        studio.togglePicker();
+      }
+    },
+    [studio.editorMode, studio.draftCss, studio.isPickerActive]
+  );
+
+  const {
+    hoveredElement,
+    hoveredRect,
+    selectedElement,
+    selectedRect,
+    clearSelection,
+  } = useElementPicker({
+    isActive: studio.isOpen && studio.isPickerActive,
+    onDeactivate: () => studio.togglePicker(),
+    onSelect: handleElementSelect,
   });
 
   useEffect(() => {
-    if (isEditorOpen && profile) {
-      setActiveCss(profile.customCss || '');
+    if (forceReset && isOwner) {
+      resetProfile().then(() => {
+        queryClient.invalidateQueries({ queryKey: ['userProfile', discordId] });
+      });
     }
-  }, [isEditorOpen, profile]);
+  }, [forceReset, isOwner, discordId, queryClient]);
 
-  const scopedCss = useMemo(() => {
-    const rawCss = isEditorOpen ? activeCss : (profile?.customCss || '');
-    if (!rawCss) return '';
-    
-    let safe = rawCss;
-    safe = safe.replace(/expression\s*\(/gi, '');
-    safe = safe.replace(/url\s*\(\s*['"]?javascript:/gi, 'url(');
-    safe = safe.replace(/behavior\s*:/gi, 'blocked:');
-    safe = safe.replace(/-moz-binding\s*:/gi, 'blocked:');
-    
-    const rules = safe.split('}').filter(r => r.trim().length > 0);
-    const scopedRules = rules.map(rule => {
-        const trimmed = rule.trim();
-        if (trimmed.startsWith('@')) return rule + '}';
-        const parts = rule.split('{');
-        if (parts.length !== 2) return rule + '}'; // Malformed
-        const selectors = parts[0].split(',').map(s => {
-            const trimmedSel = s.trim();
-            if (!trimmedSel) return '';
-            if (trimmedSel === ':root' || trimmedSel === 'body' || trimmedSel === 'html') {
-                return '#lumihub-user-profile';
-            }
-            if (trimmedSel.startsWith('#lumihub-user-profile')) return trimmedSel;
-            return `#lumihub-user-profile ${trimmedSel}`;
-        });
-        return `${selectors.filter(Boolean).join(', ')} {${parts[1]}}`;
+  useEffect(() => {
+    if (forceStudio && isOwner && profile && !studio.isOpen) {
+      studio.open(profile.customHtml, profile.customCss);
+    }
+  }, [forceStudio, isOwner, profile]);
+
+  useEffect(() => {
+    if (!isOwner || previewMode) return;
+
+    const handler = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'E') {
+        e.preventDefault();
+        if (studio.isOpen) {
+          studio.close();
+        } else if (profile) {
+          studio.open(profile.customHtml, profile.customCss);
+        }
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [isOwner, previewMode, studio.isOpen, profile]);
+
+  useEffect(() => {
+    const cssContent = studio.isOpen ? studio.draftCss : (profile?.customCss || '');
+
+    if (forceStudio && !studio.isOpen) {
+      const existing = document.getElementById(STYLE_TAG_ID);
+      if (existing) existing.remove();
+      return;
+    }
+
+    if (!cssContent) {
+      const existing = document.getElementById(STYLE_TAG_ID);
+      if (existing) existing.remove();
+      return;
+    }
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      let styleTag = document.getElementById(STYLE_TAG_ID) as HTMLStyleElement | null;
+      if (!styleTag) {
+        styleTag = document.createElement('style');
+        styleTag.id = STYLE_TAG_ID;
+        document.head.appendChild(styleTag);
+      }
+      styleTag.textContent = cssContent;
+    }, studio.isOpen ? 300 : 0);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [studio.isOpen, studio.draftCss, profile?.customCss, forceStudio]);
+
+  useEffect(() => {
+    return () => {
+      const tag = document.getElementById(STYLE_TAG_ID);
+      if (tag) tag.remove();
+    };
+  }, []);
+
+  const displayHtml = useMemo(() => {
+    if (forceStudio && !studio.isOpen) return null;
+
+    const rawHtml = studio.isOpen ? studio.draftHtml : (profile?.customHtml || '');
+    if (!rawHtml) return null;
+
+    return DOMPurify.sanitize(rawHtml, {
+      FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'input', 'textarea', 'select', 'button', 'link', 'meta', 'base'],
+      FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur', 'onsubmit', 'onchange', 'oninput', 'onkeydown', 'onkeyup', 'onkeypress'],
+      ALLOW_DATA_ATTR: true,
     });
+  }, [studio.isOpen, studio.draftHtml, profile?.customHtml, forceStudio]);
 
-    return scopedRules.join('\n');
-  }, [profile?.customCss, activeCss, isEditorOpen]);
+  const handleSave = useCallback(async () => {
+    studio.setSaving(true);
+    try {
+      await saveProfile({ html: studio.draftHtml, css: studio.draftCss });
+      studio.markClean();
+      queryClient.invalidateQueries({ queryKey: ['userProfile', discordId] });
+    } catch (err) {
+      console.error('Failed to save profile:', err);
+      alert('Failed to save profile. Please try again.');
+    } finally {
+      studio.setSaving(false);
+    }
+  }, [studio.draftHtml, studio.draftCss, discordId, queryClient]);
+
+  const handleReset = useCallback(async () => {
+    try {
+      await resetProfile();
+      studio.open(null, null);
+      queryClient.invalidateQueries({ queryKey: ['userProfile', discordId] });
+    } catch (err) {
+      console.error('Failed to reset profile:', err);
+    }
+  }, [discordId, queryClient]);
 
   if (profileLoading) {
     return <div className={styles.loadingState}>Loading profile...</div>;
@@ -94,158 +185,51 @@ const UserProfile = ({ previewMode = false, previewDiscordId }: UserProfileProps
     );
   }
 
-  const isOwner = user?.discordId === profile.discordId;
-  const totalDownloads = characters.reduce((sum, c) => sum + c.downloads, 0);
-  const formatCount = (n: number) => n > 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
-
   return (
-    <div 
-      id="lumihub-user-profile" 
-      className={clsx(styles.pageWrapper, isEditorOpen && styles.editorOpen)}
-    >
-      {scopedCss && <style>{scopedCss}</style>}
+    <div className={styles.pageWrapper} data-studio="page-wrapper">
+      {/* Profile Studio open button */}
+      {isOwner && !previewMode && !studio.isOpen && (
+        <button
+          className={styles.editThemeBtn}
+          onClick={() => studio.open(profile.customHtml, profile.customCss)}
+          data-studio="edit-button"
+        >
+          <Edit3 size={16} /> Edit Profile
+        </button>
+      )}
 
-      <div className={styles.profileContainer}>
-        {/* banner */}
-        <div className={`${styles.banner} profile-banner`}>
-          {profile.banner ? (
-            <LazyImage src={profile.banner} alt="" className={styles.bannerImage} />
-          ) : (
-            <div className={styles.bannerFallback} />
-          )}
-          <div className={styles.bannerOverlay} />
-        </div>
+      {/* Render custom HTML or default template */}
+      {displayHtml ? (
+        <div
+          className={styles.customContent}
+          data-studio="custom-content"
+          dangerouslySetInnerHTML={{ __html: displayHtml }}
+        />
+      ) : (
+        <DefaultProfileTemplate profile={profile} />
+      )}
 
-        {/* header */}
-        <div className={`${styles.profileHeader} profile-header`}>
-          <div className={`${styles.avatarWrapper} profile-avatar`}>
-            {profile.avatar ? (
-              <LazyImage src={profile.avatar} alt={profile.displayName || profile.username} className={styles.avatar} />
-            ) : (
-              <div className={styles.avatarFallback}>
-                {(profile.displayName || profile.username).charAt(0).toUpperCase()}
-              </div>
-            )}
-          </div>
+      {/* Element picker highlight overlays */}
+      {studio.isOpen && (studio.isPickerActive || (studio.editorMode === 'beginner' && selectedElement)) && (
+        <ElementHighlight
+          hoveredElement={studio.isPickerActive ? hoveredElement : null}
+          hoveredRect={studio.isPickerActive ? hoveredRect : null}
+          selectedElement={selectedElement}
+          selectedRect={selectedRect}
+        />
+      )}
 
-          <div className={`${styles.identity} profile-identity`}>
-            <div className={`${styles.nameRow} profile-name-row`}>
-              <h1 className={`${styles.displayName} profile-name`}>{profile.displayName || profile.username}</h1>
-              {profile.role && profile.role !== 'user' && (
-                <div className={`${styles.roleBadge} profile-role`}>
-                  <Shield size={11} />
-                  {profile.role.charAt(0).toUpperCase() + profile.role.slice(1)}
-                </div>
-              )}
-            </div>
-            <p className={`${styles.handle} profile-handle`}>@{profile.username}</p>
-          </div>
+      {/* Beginner mode context menu for selected element */}
+      {studio.isOpen && studio.editorMode === 'beginner' && selectedElement && selectedRect && (
+        <BeginnerContextMenu element={selectedElement} rect={selectedRect} onClose={clearSelection} />
+      )}
 
-          {isOwner && !previewMode && !isEditorOpen && (
-            <div className={`${styles.ownerActions} profile-actions`}>
-              <button className={styles.editThemeBtn} onClick={() => setIsEditorOpen(true)}>
-                <Edit3 size={16} /> Edit Theme
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* stats */}
-        <div className={`${styles.statsRow} profile-stats`}>
-          <div className={styles.stat}>
-            <span className={styles.statValue}>{formatCount(characters.length)}</span>
-            <span className={styles.statLabel}>Uploads</span>
-          </div>
-          <div className={styles.statDivider} />
-          <div className={styles.stat}>
-            <span className={styles.statValue}>{formatCount(totalDownloads)}</span>
-            <span className={styles.statLabel}>Downloads</span>
-          </div>
-          <div className={styles.statDivider} />
-          <div className={styles.stat}>
-            <span className={styles.statValue}>
-              {new Date(profile.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-            </span>
-            <span className={styles.statLabel}>Joined</span>
-          </div>
-        </div>
-
-        {/* tab bar */}
-        <div className={`${styles.tabBarWrapper} profile-tabs`}>
-          <div className={styles.tabBar}>
-            {TABS.map((tab) => (
-              <button
-                key={tab.id}
-                className={`${styles.tab} ${activeTab === tab.id ? styles.tabActive : ''}`}
-                onClick={() => setActiveTab(tab.id)}
-              >
-                <tab.icon size={15} />
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className={`${styles.content} profile-content`}>
-          {activeTab === 'characters' && (
-            <>
-              {charactersLoading ? (
-                <div className={styles.gridLoading}>Loading characters...</div>
-              ) : characters.length > 0 ? (
-                <div className={styles.assetGrid}>
-                  {characters.map((card) => (
-                    <CharacterCard
-                      key={card.id}
-                      card={card}
-                      onClick={() => navigate(`/characters/${encodeURIComponent(card.id)}`, { state: { card } })}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className={styles.emptyState}>
-                  <Users size={40} opacity={0.4} />
-                  <h3>No Characters Yet</h3>
-                  <p>This user hasn't uploaded any public characters.</p>
-                </div>
-              )}
-            </>
-          )}
-
-          {activeTab === 'worldbooks' && (
-            <div className={styles.emptyState}>
-              <LayoutGrid size={40} opacity={0.4} />
-              <h3>No Worldbooks Yet</h3>
-              <p>This user hasn't published any worldbooks.</p>
-            </div>
-          )}
-          {activeTab === 'presets' && (
-            <div className={styles.emptyState}>
-              <Settings size={40} opacity={0.4} />
-              <h3>No Presets Yet</h3>
-              <p>When preset sharing launches, this creator's published generation settings will appear here.</p>
-            </div>
-          )}
-          {activeTab === 'themes' && (
-            <div className={styles.emptyState}>
-              <Palette size={40} opacity={0.4} />
-              <h3>No Themes Yet</h3>
-              <p>When theme support launches, this creator's custom color palettes and UI themes will appear here.</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {isEditorOpen && (
-        <CSSProfileEditor 
-          currentCss={activeCss} 
-          onChange={setActiveCss}
-          onClose={(saved) => {
-            setIsEditorOpen(false);
-            if (saved) {
-               queryClient.invalidateQueries({ queryKey: ['user-profile', discordId] });
-            }
-          }} 
+      {/* Profile Studio floating panel */}
+      {studio.isOpen && (
+        <ProfileStudioPanel
+          onSave={handleSave}
+          onReset={handleReset}
+          onSelectElement={handleElementSelect}
         />
       )}
     </div>

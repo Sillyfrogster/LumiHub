@@ -3,6 +3,7 @@ import { jwt } from 'hono/jwt';
 import { env } from '../env.ts';
 import { AppDataSource } from '../db/connection.ts';
 import { User } from '../entities/User.entity.ts';
+import { sanitizeProfileHtml, sanitizeProfileCss } from '../services/profile-sanitizer.service.ts';
 
 const users = new Hono();
 
@@ -23,6 +24,7 @@ users.get('/profile/:discordId', async (c) => {
         avatar: user.avatar,
         banner: user.banner,
         customCss: user.custom_css,
+        customHtml: user.custom_html,
         role: user.role,
         createdAt: user.created_at
     });
@@ -35,34 +37,56 @@ users.use('/*', jwt({
     alg: 'HS256'
 }));
 
-/** Update custom CSS */
-users.put('/@me/profile-css', async (c) => {
+/** Save profile HTML and/or CSS (Profile Studio) */
+users.put('/@me/profile', async (c) => {
     const payload = c.get('jwtPayload') as { id: string };
     const userRepository = AppDataSource.getRepository(User);
     const user = await userRepository.findOneBy({ id: payload.id });
 
     if (!user) {
-        return c.json({ error: "User not found" }, 404);
+        return c.json({ error: 'User not found' }, 404);
     }
 
     const body = await c.req.json();
-    let css = body.css || '';
 
-    // Basic sanitization
-    css = css.replace(/expression\s*\(/gi, '');
-    css = css.replace(/url\s*\(\s*['"]?javascript:/gi, 'url(');
-    css = css.replace(/behavior\s*:/gi, 'blocked:');
-    css = css.replace(/-moz-binding\s*:/gi, 'blocked:');
-
-    // Limit size
-    if (css.length > 50000) {
-        return c.json({ error: "CSS too large" }, 400);
+    if (typeof body.html === 'string') {
+        if (body.html.length > 100000) {
+            return c.json({ error: 'HTML too large (max 100KB)' }, 400);
+        }
+        user.custom_html = body.html.trim().length > 0 ? sanitizeProfileHtml(body.html) : null;
     }
 
-    user.custom_css = css;
+    if (typeof body.css === 'string') {
+        if (body.css.length > 50000) {
+            return c.json({ error: 'CSS too large (max 50KB)' }, 400);
+        }
+        user.custom_css = body.css.trim().length > 0 ? sanitizeProfileCss(body.css) : null;
+    }
+
     await userRepository.save(user);
 
-    return c.json({ message: 'Profile CSS updated', css: user.custom_css });
+    return c.json({
+        message: 'Profile updated',
+        html: user.custom_html,
+        css: user.custom_css,
+    });
+});
+
+/** Reset profile to defaults */
+users.post('/@me/profile/reset', async (c) => {
+    const payload = c.get('jwtPayload') as { id: string };
+    const userRepository = AppDataSource.getRepository(User);
+    const user = await userRepository.findOneBy({ id: payload.id });
+
+    if (!user) {
+        return c.json({ error: 'User not found' }, 404);
+    }
+
+    user.custom_html = null;
+    user.custom_css = null;
+    await userRepository.save(user);
+
+    return c.json({ message: 'Profile reset to default' });
 });
 
 /** Get current user preferences */

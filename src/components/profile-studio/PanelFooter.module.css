@@ -1,0 +1,153 @@
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-top: 1px solid var(--lumihub-border);
+  background: var(--lumihub-bg-elevated);
+  flex-shrink: 0;
+}
+
+.status {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.statusClean {
+  color: var(--lumihub-success);
+}
+
+.statusDirty {
+  color: var(--lumihub-warning);
+}
+
+.statusSaving {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--lumihub-text-muted);
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.saveBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  background: var(--lumihub-primary);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-heading);
+  cursor: pointer;
+  transition: all var(--lumihub-transition-fast);
+}
+
+.saveBtn:hover:not(:disabled) {
+  background: var(--lumihub-primary-hover);
+  box-shadow: 0 2px 12px rgba(216, 140, 154, 0.3);
+}
+
+.saveBtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.resetBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: none;
+  border: 1px solid var(--lumihub-border);
+  border-radius: 6px;
+  color: var(--lumihub-text-dim);
+  cursor: pointer;
+  transition: all var(--lumihub-transition-fast);
+}
+
+.resetBtn:hover {
+  color: var(--lumihub-danger);
+  border-color: rgba(255, 77, 77, 0.3);
+  background: rgba(255, 77, 77, 0.06);
+}
+
+.guideBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: none;
+  border: 1px solid var(--lumihub-border);
+  border-radius: 6px;
+  color: var(--lumihub-text-dim);
+  cursor: pointer;
+  transition: all var(--lumihub-transition-fast);
+}
+
+.guideBtn:hover {
+  color: var(--lumihub-primary);
+  border-color: rgba(216, 140, 154, 0.3);
+  background: var(--lumihub-primary-010);
+}
+
+.confirmGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.confirmText {
+  font-size: 11px;
+  color: var(--lumihub-danger);
+  font-weight: 600;
+}
+
+.confirmYes {
+  padding: 4px 10px;
+  background: var(--lumihub-danger);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.confirmYes:hover {
+  background: #ff3333;
+}
+
+.confirmNo {
+  padding: 4px 10px;
+  background: none;
+  color: var(--lumihub-text-muted);
+  border: 1px solid var(--lumihub-border);
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.confirmNo:hover {
+  color: var(--lumihub-text);
+  background: rgba(255, 255, 255, 0.04);
+}

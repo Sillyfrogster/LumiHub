@@ -1,0 +1,53 @@
+.editorWrapper {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #0d0d0f;
+}
+
+.editor {
+  flex: 1;
+  overflow: auto;
+}
+
+/* CodeMirror theme overrides */
+:global(.cm-editor) {
+  height: 100%;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 12.5px;
+}
+
+:global(.cm-editor .cm-scroller) {
+  padding: 8px 0;
+}
+
+:global(.cm-editor .cm-gutters) {
+  background: #0d0d0f;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+:global(.cm-editor .cm-activeLineGutter) {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+:global(.cm-editor .cm-activeLine) {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+:global(.cm-editor .cm-cursor) {
+  border-left-color: var(--lumihub-primary);
+}
+
+:global(.cm-editor .cm-selectionBackground) {
+  background: rgba(216, 140, 154, 0.15) !important;
+}
+
+:global(.cm-editor.cm-focused .cm-selectionBackground) {
+  background: rgba(216, 140, 154, 0.2) !important;
+}
+
+:global(.cm-editor .cm-placeholder) {
+  color: var(--lumihub-text-dim);
+  font-style: italic;
+}

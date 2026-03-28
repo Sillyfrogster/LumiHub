@@ -1,0 +1,126 @@
+.menu {
+  position: fixed;
+  z-index: 1450;
+  width: 280px;
+  max-height: 400px;
+  background: var(--lumihub-bg-elevated);
+  border: 1px solid var(--lumihub-border);
+  border-radius: var(--lumihub-radius);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: fadeIn 0.15s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--lumihub-border);
+  flex-shrink: 0;
+}
+
+.headerInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.closeBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: none;
+  border: none;
+  color: var(--lumihub-text-dim);
+  cursor: pointer;
+  border-radius: 5px;
+  flex-shrink: 0;
+  transition: all var(--lumihub-transition-fast);
+}
+
+.closeBtn:hover {
+  color: var(--lumihub-text);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.elementName {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--lumihub-text);
+  font-family: var(--font-heading);
+}
+
+.selectorName {
+  font-size: 10px;
+  color: var(--lumihub-text-dim);
+  font-family: 'JetBrains Mono', monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.body::-webkit-scrollbar {
+  width: 4px;
+}
+
+.body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 12px;
+  background: none;
+  border: none;
+  color: var(--lumihub-text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-heading);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: color var(--lumihub-transition-fast);
+}
+
+.sectionHeader:hover {
+  color: var(--lumihub-text);
+}
+
+.sectionBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 12px 8px;
+}

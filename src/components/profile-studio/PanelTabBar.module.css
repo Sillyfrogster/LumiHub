@@ -1,0 +1,35 @@
+.tabBar {
+  display: flex;
+  border-bottom: 1px solid var(--lumihub-border);
+  background: var(--lumihub-bg-elevated);
+  flex-shrink: 0;
+}
+
+.tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--lumihub-text-dim);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-heading);
+  cursor: pointer;
+  transition: all var(--lumihub-transition-fast);
+  white-space: nowrap;
+}
+
+.tab:hover {
+  color: var(--lumihub-text-muted);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.tabActive {
+  color: var(--lumihub-primary);
+  border-bottom-color: var(--lumihub-primary);
+}

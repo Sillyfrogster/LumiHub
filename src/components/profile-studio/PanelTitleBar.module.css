@@ -1,0 +1,125 @@
+.titleBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 42px;
+  padding: 0 10px 0 14px;
+  background: var(--lumihub-bg-elevated);
+  border-bottom: 1px solid var(--lumihub-border);
+  border-radius: var(--lumihub-radius) var(--lumihub-radius) 0 0;
+  cursor: grab;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.titleBar:active {
+  cursor: grabbing;
+}
+
+.title {
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-heading);
+  color: var(--lumihub-text);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.modeToggle {
+  display: flex;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+  border: 1px solid var(--lumihub-border);
+  overflow: hidden;
+}
+
+.modeBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 24px;
+  background: none;
+  border: none;
+  color: var(--lumihub-text-dim);
+  cursor: pointer;
+  transition: all var(--lumihub-transition-fast);
+}
+
+.modeBtn:hover {
+  color: var(--lumihub-text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.modeBtnActive {
+  color: var(--lumihub-primary);
+  background: var(--lumihub-primary-010);
+}
+
+.toolBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--lumihub-text-dim);
+  cursor: pointer;
+  transition: all var(--lumihub-transition-fast);
+}
+
+.toolBtn:hover:not(:disabled) {
+  color: var(--lumihub-text);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--lumihub-border);
+}
+
+.toolBtn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.toolBtnActive {
+  color: var(--lumihub-primary);
+  background: var(--lumihub-primary-010);
+  border-color: var(--lumihub-primary-015);
+}
+
+.divider {
+  width: 1px;
+  height: 16px;
+  background: var(--lumihub-border);
+  margin: 0 2px;
+}
+
+.windowBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  background: none;
+  border: none;
+  color: var(--lumihub-text-dim);
+  cursor: pointer;
+  transition: all var(--lumihub-transition-fast);
+}
+
+.windowBtn:hover {
+  color: var(--lumihub-text);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.closeBtn:hover {
+  color: #fff;
+  background: var(--lumihub-danger);
+}

@@ -17,6 +17,9 @@ export class User {
     @Column({ type: 'text', nullable: true })
     custom_css: string | null;
 
+    @Column({ type: 'text', nullable: true })
+    custom_html: string | null;
+
     @Column({ type: 'varchar', length: 255, nullable: true })
     display_name: string;
 

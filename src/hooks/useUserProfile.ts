@@ -8,6 +8,7 @@ export interface UserProfileData {
   avatar: string | null;
   banner: string | null;
   customCss: string | null;
+  customHtml: string | null;
   role: string;
   createdAt: string;
 }

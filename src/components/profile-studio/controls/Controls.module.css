@@ -1,0 +1,248 @@
+.controlRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+}
+
+.label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--lumihub-text-muted);
+  white-space: nowrap;
+  min-width: 60px;
+  flex-shrink: 0;
+}
+
+.colorGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.colorInput {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--lumihub-border);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.colorInput::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+.colorInput::-webkit-color-swatch {
+  border: none;
+  border-radius: 4px;
+}
+
+.colorInput::-moz-color-swatch {
+  border: none;
+  border-radius: 4px;
+}
+
+.textInput,
+.numberField {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--lumihub-border);
+  border-radius: 6px;
+  color: var(--lumihub-text);
+  font-size: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  outline: none;
+  transition: border-color var(--lumihub-transition-fast);
+}
+
+.textInput:focus,
+.numberField:focus {
+  border-color: var(--lumihub-primary);
+}
+
+.textInput::placeholder {
+  color: var(--lumihub-text-dim);
+}
+
+.numberGroup {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.numberField {
+  border-radius: 6px 0 0 6px;
+  text-align: center;
+  -moz-appearance: textfield;
+}
+
+.numberField::-webkit-inner-spin-button,
+.numberField::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.numberBtnGroup {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--lumihub-border);
+  border-left: none;
+  border-radius: 0 6px 6px 0;
+  overflow: hidden;
+}
+
+.numberBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: none;
+  color: var(--lumihub-text-dim);
+  cursor: pointer;
+  font-size: 8px;
+  padding: 0;
+  transition: all var(--lumihub-transition-fast);
+}
+
+.numberBtn:hover {
+  color: var(--lumihub-text);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.unitLabel {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--lumihub-text-dim);
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+.selectInput {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--lumihub-border);
+  border-radius: 6px;
+  color: var(--lumihub-text);
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color var(--lumihub-transition-fast);
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23888' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 24px;
+}
+
+.selectInput:focus {
+  border-color: var(--lumihub-primary);
+}
+
+.selectInput option {
+  background: var(--lumihub-bg-elevated);
+  color: var(--lumihub-text);
+}
+
+.buttonGroup {
+  display: flex;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+  border: 1px solid var(--lumihub-border);
+  overflow: hidden;
+}
+
+.groupBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 26px;
+  padding: 0 6px;
+  background: none;
+  border: none;
+  border-right: 1px solid var(--lumihub-border);
+  color: var(--lumihub-text-dim);
+  cursor: pointer;
+  font-size: 11px;
+  transition: all var(--lumihub-transition-fast);
+}
+
+.groupBtn:last-child {
+  border-right: none;
+}
+
+.groupBtn:hover {
+  color: var(--lumihub-text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.groupBtnActive {
+  color: var(--lumihub-primary);
+  background: var(--lumihub-primary-010);
+}
+
+.fourSideWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.fourSideRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.fourSideField {
+  flex: 1;
+  min-width: 0;
+  height: 24px;
+  padding: 0 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--lumihub-border);
+  border-radius: 4px;
+  color: var(--lumihub-text);
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  text-align: center;
+  outline: none;
+  transition: border-color var(--lumihub-transition-fast);
+  -moz-appearance: textfield;
+}
+
+.fourSideField::-webkit-inner-spin-button,
+.fourSideField::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.fourSideField:focus {
+  border-color: var(--lumihub-primary);
+}
+
+.fourSideLabel {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--lumihub-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  width: 10px;
+  text-align: center;
+  flex-shrink: 0;
+}

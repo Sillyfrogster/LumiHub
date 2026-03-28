@@ -10,6 +10,7 @@
   "dependencies": {
     "fflate": "^0.8.2",
     "hono": "^4.7.11",
+    "isomorphic-dompurify": "^3.7.1",
     "pg": "^8.20.0",
     "reflect-metadata": "^0.2.2",
     "sharp": "^0.33.5",

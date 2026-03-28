@@ -1,0 +1,60 @@
+.hoverOverlay {
+  position: fixed;
+  z-index: 1400;
+  pointer-events: none;
+  border: 2px solid rgba(100, 149, 237, 0.8);
+  background: rgba(100, 149, 237, 0.08);
+  transition: all 0.05s ease;
+}
+
+.selectedOverlay {
+  position: fixed;
+  z-index: 1400;
+  pointer-events: none;
+  border: 2px solid var(--lumihub-primary);
+  background: rgba(216, 140, 154, 0.06);
+}
+
+.tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  background: rgba(20, 20, 24, 0.95);
+  border: 1px solid rgba(100, 149, 237, 0.4);
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(100, 149, 237, 1);
+  font-family: var(--font-heading);
+  white-space: nowrap;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.tooltipSelector {
+  font-weight: 400;
+  font-size: 10px;
+  color: var(--lumihub-text-dim);
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+.tooltipSelected {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  padding: 4px 10px;
+  background: rgba(20, 20, 24, 0.95);
+  border: 1px solid var(--lumihub-primary-015);
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--lumihub-primary);
+  font-family: var(--font-heading);
+  white-space: nowrap;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
