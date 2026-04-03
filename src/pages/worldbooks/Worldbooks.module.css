@@ -48,3 +48,56 @@
 .createBtn:active {
   transform: scale(0.98);
 }
+
+.authorInputWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--lumihub-glass-border);
+  border-radius: 8px;
+  padding: 0 10px;
+  height: 36px;
+  transition: border-color 0.15s ease;
+}
+
+.authorInputWrap:focus-within {
+  border-color: var(--lumihub-primary-020);
+}
+
+.authorIcon {
+  color: var(--lumihub-text-dim);
+  flex-shrink: 0;
+}
+
+.authorInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--lumihub-text);
+  font-size: 13px;
+  font-family: var(--font-body);
+  min-width: 0;
+}
+
+.authorInput::placeholder {
+  color: var(--lumihub-text-muted);
+}
+
+.authorClear {
+  background: none;
+  border: none;
+  color: var(--lumihub-text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s ease;
+}
+
+.authorClear:hover {
+  color: var(--lumihub-text);
+}

@@ -44,6 +44,7 @@ export interface ChubSearchOptions {
   requireImages?: boolean;
   includeForks?: boolean;
   venus?: boolean;
+  creator?: string;
 }
 
 export interface ChubCharacterDefinition {

@@ -6,7 +6,7 @@ import { useCharacters } from '../../hooks/useCharacters';
 import { useAvailableTags } from '../../hooks/useAvailableTags';
 import CharacterCard from '../../components/characters/CharacterCard';
 import CreateCharacterModal from '../../components/characters/CreateCharacterModal';
-import { Sparkles, Globe, Calendar, Download, CaseSensitive, Flame, Plus } from 'lucide-react';
+import { Sparkles, Globe, Calendar, Download, CaseSensitive, Flame, Plus, User } from 'lucide-react';
 import type { CharacterSource } from '../../types/character';
 import BrowsePage from '../../layouts/browse/BrowsePage';
 import {
@@ -29,7 +29,7 @@ const SORT_OPTIONS_LUMIHUB = [
 ];
 
 const SORT_OPTIONS_CHUB = [
-  { key: 'default', label: 'Trending', icon: <Flame size={14} /> },
+  { key: 'trending', label: 'Trending', icon: <Flame size={14} /> },
   { key: 'created_at', label: 'Newest', icon: <Calendar size={14} /> },
   { key: 'download_count', label: 'Most Downloaded', icon: <Download size={14} /> },
 ];
@@ -51,10 +51,11 @@ const Characters = () => {
   const {
     source, search, sort,
     tags, excludeTags,
-    minTokens, showNsfw, showNsfl, requireImages,
-    setSource, setSearch, setSort,
+    minTokens, showNsfw, showNsfl, requireImages, authorSearch,
+    setSource, setSearch, setSort, setPage,
     addTag, removeTag, addExcludeTag, removeExcludeTag,
     setMinTokens, setShowNsfw, setShowNsfl, setRequireImages,
+    setAuthorSearch,
     hydrateFromSettings,
   } = useCharacterStore();
 
@@ -62,11 +63,12 @@ const Characters = () => {
     if (user?.settings) hydrateFromSettings(user.settings);
   }, [user?.settings, hydrateFromSettings]);
 
-  const { characters, pagination, loading, loadingMore, hasNextPage, fetchNextPage, error } = useCharacters();
+  const { characters, pagination, loading, loadingMore, error } = useCharacters();
   const navigate = useNavigate();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [localSearch, setLocalSearch] = useState(search);
+  const [localAuthorSearch, setLocalAuthorSearch] = useState(authorSearch);
   const [localMinTokens, setLocalMinTokens] = useState(minTokens);
   const [mobileFilters, setMobileFilters] = useState(false);
   const [tagSearch, setTagSearch] = useState('');
@@ -77,22 +79,30 @@ const Characters = () => {
   // Debounce search
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (localSearch !== search) {
-        setSearch(localSearch);
-      }
+      if (localSearch !== search) setSearch(localSearch);
     }, 400);
     return () => clearTimeout(timer);
   }, [localSearch, search, setSearch]);
 
+  // Debounce author search (500ms)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (localAuthorSearch !== authorSearch) setAuthorSearch(localAuthorSearch);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [localAuthorSearch, authorSearch, setAuthorSearch]);
+
   // Debounce min tokens (2s)
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (localMinTokens !== minTokens) {
-        setMinTokens(localMinTokens);
-      }
+      if (localMinTokens !== minTokens) setMinTokens(localMinTokens);
     }, 2000);
     return () => clearTimeout(timer);
   }, [localMinTokens, minTokens, setMinTokens]);
+
+  // Sync local state when store resets (e.g. source change)
+  useEffect(() => { setLocalSearch(search); }, [search]);
+  useEffect(() => { setLocalAuthorSearch(authorSearch); }, [authorSearch]);
 
   const handleSearchSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
@@ -100,6 +110,13 @@ const Characters = () => {
   }, [localSearch, setSearch]);
 
   const sortOptions = source === 'lumihub' ? SORT_OPTIONS_LUMIHUB : SORT_OPTIONS_CHUB;
+
+  // Filter-blocked message: shown when Chub returns 0 results but filters are restrictive
+  const isChub = source === 'chub';
+  const hasActiveFilters = isChub && (minTokens > 0 || !showNsfw || !showNsfl);
+  const filterBlockedMessage = (isChub && !loading && characters.length === 0 && (search || authorSearch) && hasActiveFilters)
+    ? `Characters matching your search exist but may be hidden. Try lowering the minimum token count, or enabling NSFW/NSFL content in the filters.`
+    : undefined;
 
   return (
     <>
@@ -127,12 +144,13 @@ const Characters = () => {
         loading={loading}
         error={error}
         itemsCount={characters.length}
+        filterBlockedMessage={filterBlockedMessage}
         pagination={{
           page: pagination.page,
           total: pagination.total,
           totalPages: pagination.totalPages,
-          hasNextPage,
-          fetchNextPage,
+          hasNextPage: pagination.hasNextPage,
+          onPageChange: setPage,
           loadingMore,
         }}
         mobileFiltersOpen={mobileFilters}
@@ -174,6 +192,31 @@ const Characters = () => {
                 ))}
               </FilterSortList>
             </FilterSection>
+
+            {source === 'chub' && (
+              <FilterSection label="Author">
+                <div className={styles.authorInputWrap}>
+                  <User size={13} className={styles.authorIcon} />
+                  <input
+                    type="text"
+                    className={styles.authorInput}
+                    placeholder="Filter by username…"
+                    value={localAuthorSearch}
+                    onChange={(e) => setLocalAuthorSearch(e.target.value)}
+                  />
+                  {localAuthorSearch && (
+                    <button
+                      className={styles.authorClear}
+                      onClick={() => { setLocalAuthorSearch(''); setAuthorSearch(''); }}
+                      type="button"
+                      aria-label="Clear author filter"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              </FilterSection>
+            )}
 
             <FilterSection label="Include Tags">
               <FilterTagInput

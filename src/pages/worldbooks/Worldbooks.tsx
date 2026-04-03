@@ -6,8 +6,8 @@ import { useWorldbooks } from '../../hooks/useWorldbooks';
 import { useAvailableTags } from '../../hooks/useAvailableTags';
 import WorldbookCard from '../../components/worldbooks/WorldbookCard';
 import CreateWorldbookModal from '../../components/worldbooks/CreateWorldbookModal';
-import { Sparkles, Globe, Calendar, Flame, Download, Plus } from 'lucide-react';
-import type { WorldBookSource } from '../../types/worldbook';
+import { Sparkles, Globe, Calendar, Flame, Download, Plus, User } from 'lucide-react';
+import type { WorldBookSource, UnifiedWorldBook } from '../../types/worldbook';
 import BrowsePage from '../../layouts/browse/BrowsePage';
 import {
   FilterSidebar,
@@ -21,8 +21,13 @@ import {
 } from '../../layouts/browse/FilterSidebar';
 import styles from './Worldbooks.module.css';
 
+const SORT_OPTIONS_LUMIHUB = [
+  { key: 'created_at', label: 'Newest', icon: <Calendar size={14} /> },
+  { key: 'download_count', label: 'Most Downloaded', icon: <Download size={14} /> },
+];
+
 const SORT_OPTIONS_CHUB = [
-  { key: 'default', label: 'Trending', icon: <Flame size={14} /> },
+  { key: 'trending', label: 'Trending', icon: <Flame size={14} /> },
   { key: 'created_at', label: 'Newest', icon: <Calendar size={14} /> },
   { key: 'download_count', label: 'Most Downloaded', icon: <Download size={14} /> },
 ];
@@ -45,10 +50,11 @@ const Worldbooks = () => {
   const {
     source, search, sort,
     tags, excludeTags,
-    showNsfw, showNsfl,
-    setSource, setSearch, setSort,
+    showNsfw, showNsfl, authorSearch,
+    setSource, setSearch, setSort, setPage,
     addTag, removeTag, addExcludeTag, removeExcludeTag,
     setShowNsfw, setShowNsfl,
+    setAuthorSearch,
     hydrateFromSettings,
   } = useWorldbookStore();
 
@@ -56,10 +62,11 @@ const Worldbooks = () => {
     if (user?.settings) hydrateFromSettings(user.settings);
   }, [user?.settings, hydrateFromSettings]);
 
-  const { worldbooks, loading, loadingMore, hasNextPage, fetchNextPage, error } = useWorldbooks();
+  const { worldbooks, pagination, loading, loadingMore, error } = useWorldbooks();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [localSearch, setLocalSearch] = useState(search);
+  const [localAuthorSearch, setLocalAuthorSearch] = useState(authorSearch);
   const [mobileFilters, setMobileFilters] = useState(false);
   const [tagSearch, setTagSearch] = useState('');
   const [excludeTagSearch, setExcludeTagSearch] = useState('');
@@ -73,10 +80,28 @@ const Worldbooks = () => {
     return () => clearTimeout(timer);
   }, [localSearch, search, setSearch]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (localAuthorSearch !== authorSearch) setAuthorSearch(localAuthorSearch);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [localAuthorSearch, authorSearch, setAuthorSearch]);
+
+  useEffect(() => { setLocalSearch(search); }, [search]);
+  useEffect(() => { setLocalAuthorSearch(authorSearch); }, [authorSearch]);
+
   const handleSearchSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     setSearch(localSearch);
   }, [localSearch, setSearch]);
+
+  const sortOptions = source === 'lumihub' ? SORT_OPTIONS_LUMIHUB : SORT_OPTIONS_CHUB;
+
+  const isChub = source === 'chub';
+  const hasActiveFilters = isChub && (!showNsfw || !showNsfl);
+  const filterBlockedMessage = (isChub && !loading && worldbooks.length === 0 && (search || localAuthorSearch) && hasActiveFilters)
+    ? `Worldbooks matching your search may be hidden by your content filters. Try enabling NSFW or NSFL to see more results.`
+    : undefined;
 
   return (
     <>
@@ -98,12 +123,13 @@ const Worldbooks = () => {
       loading={loading}
       error={error}
       itemsCount={worldbooks.length}
+      filterBlockedMessage={filterBlockedMessage}
       pagination={{
-        page: 1,
+        page: pagination.page,
         total: 0,
-        totalPages: 0,
-        hasNextPage,
-        fetchNextPage,
+        totalPages: pagination.totalPages,
+        hasNextPage: pagination.hasNextPage,
+        onPageChange: setPage,
         loadingMore,
       }}
       mobileFiltersOpen={mobileFilters}
@@ -134,7 +160,7 @@ const Worldbooks = () => {
 
           <FilterSection label="Sort By">
             <FilterSortList>
-              {SORT_OPTIONS_CHUB.map((opt) => (
+              {sortOptions.map((opt) => (
                 <FilterSortOption
                   key={opt.key}
                   label={opt.label}
@@ -145,6 +171,31 @@ const Worldbooks = () => {
               ))}
             </FilterSortList>
           </FilterSection>
+
+          {source === 'chub' && (
+            <FilterSection label="Author">
+              <div className={styles.authorInputWrap}>
+                <User size={13} className={styles.authorIcon} />
+                <input
+                  type="text"
+                  className={styles.authorInput}
+                  placeholder="Filter by username…"
+                  value={localAuthorSearch}
+                  onChange={(e) => setLocalAuthorSearch(e.target.value)}
+                />
+                {localAuthorSearch && (
+                  <button
+                    className={styles.authorClear}
+                    onClick={() => { setLocalAuthorSearch(''); setAuthorSearch(''); }}
+                    type="button"
+                    aria-label="Clear author filter"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            </FilterSection>
+          )}
 
           <FilterSection label="Include Tags">
             <FilterTagInput
@@ -183,7 +234,7 @@ const Worldbooks = () => {
         </FilterSidebar>
       }
     >
-      {worldbooks.map((wb) => (
+      {worldbooks.map((wb: UnifiedWorldBook) => (
         <WorldbookCard
           key={wb.id}
           worldbook={wb}

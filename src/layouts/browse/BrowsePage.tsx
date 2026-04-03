@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from 'react';
-import { Search, X, SlidersHorizontal, Sparkles, Loader2 } from 'lucide-react';
+import React from 'react';
+import { Search, X, SlidersHorizontal, Sparkles, ChevronLeft, ChevronRight, Loader2, Info } from 'lucide-react';
 import clsx from 'clsx';
 import styles from './BrowsePage.module.css';
 
@@ -7,9 +7,8 @@ interface PaginationProps {
   page: number;
   totalPages: number;
   total: number;
-  onPageChange?: (page: number) => void;
   hasNextPage?: boolean;
-  fetchNextPage?: () => void;
+  onPageChange?: (page: number) => void;
   loadingMore?: boolean;
 }
 
@@ -29,6 +28,8 @@ interface BrowsePageProps {
   pagination: PaginationProps;
   emptyStateTitle?: string;
   emptyStateDesc?: string;
+  /** Shown instead of the generic empty state when results exist but are hidden by filters. */
+  filterBlockedMessage?: string;
   mobileFiltersOpen: boolean;
   onToggleMobileFilters: () => void;
   SkeletonGrid: React.ComponentType;
@@ -50,28 +51,14 @@ const BrowsePage: React.FC<BrowsePageProps> = ({
   pagination,
   emptyStateTitle = 'No results found',
   emptyStateDesc = 'Try adjusting your search or filters.',
+  filterBlockedMessage,
   mobileFiltersOpen,
   onToggleMobileFilters,
   SkeletonGrid,
 }) => {
-  const sentinelRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el) return;
-    if (!pagination.hasNextPage || pagination.loadingMore) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          pagination.fetchNextPage?.();
-        }
-      },
-      { rootMargin: '400px' },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [pagination.hasNextPage, pagination.loadingMore, pagination.fetchNextPage]);
+  const hasPrev = pagination.page > 1;
+  const hasNext = pagination.hasNextPage ?? false;
+  const canPage = hasPrev || hasNext;
 
   return (
     <div className={styles.page}>
@@ -138,7 +125,7 @@ const BrowsePage: React.FC<BrowsePageProps> = ({
           <div className={styles.resultInfo}>
             {pagination.total > 0
               ? `Showing ${itemsCount} of ${pagination.total} results`
-              : `Showing ${itemsCount} results`}
+              : `Page ${pagination.page} · ${itemsCount} results`}
           </div>
         )}
 
@@ -148,6 +135,12 @@ const BrowsePage: React.FC<BrowsePageProps> = ({
             <SkeletonGrid />
           ) : itemsCount > 0 ? (
             children
+          ) : filterBlockedMessage ? (
+            <div className={clsx(styles.emptyState, styles.filterBlocked)}>
+              <Info size={28} />
+              <h3>Results hidden by filters</h3>
+              <p>{filterBlockedMessage}</p>
+            </div>
           ) : (
             <div className={styles.emptyState}>
               <Sparkles size={28} />
@@ -157,12 +150,36 @@ const BrowsePage: React.FC<BrowsePageProps> = ({
           )}
         </div>
 
-        {/* Infinite scroll sentinel */}
-        {!loading && pagination.hasNextPage && (
-          <div ref={sentinelRef} className={styles.sentinelWrap}>
-            {pagination.loadingMore && (
-              <Loader2 size={24} className={styles.spinner} />
-            )}
+        {/* Pagination controls */}
+        {!loading && canPage && (
+          <div className={styles.pagination}>
+            <button
+              className={styles.pageBtn}
+              disabled={!hasPrev || loading}
+              onClick={() => pagination.onPageChange?.(pagination.page - 1)}
+              aria-label="Previous page"
+            >
+              <ChevronLeft size={16} />
+              Prev
+            </button>
+
+            <span className={styles.pageIndicator}>
+              {pagination.loadingMore ? (
+                <Loader2 size={14} className={styles.pageSpinner} />
+              ) : (
+                `Page ${pagination.page}`
+              )}
+            </span>
+
+            <button
+              className={styles.pageBtn}
+              disabled={!hasNext || loading}
+              onClick={() => pagination.onPageChange?.(pagination.page + 1)}
+              aria-label="Next page"
+            >
+              Next
+              <ChevronRight size={16} />
+            </button>
           </div>
         )}
       </div>

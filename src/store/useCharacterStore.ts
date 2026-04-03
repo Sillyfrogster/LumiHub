@@ -17,6 +17,7 @@ interface CharacterFilterState {
   showNsfw: boolean;
   showNsfl: boolean;
   requireImages: boolean;
+  authorSearch: string;
 
   _hydrated: boolean;
   hydrateFromSettings: (settings: UserSettings) => void;
@@ -33,6 +34,7 @@ interface CharacterFilterState {
   setShowNsfw: (showNsfw: boolean) => void;
   setShowNsfl: (showNsfl: boolean) => void;
   setRequireImages: (requireImages: boolean) => void;
+  setAuthorSearch: (authorSearch: string) => void;
 }
 
 /** Stores filter UI state for characters, delegating actual fetching to React Query */
@@ -49,6 +51,7 @@ export const useCharacterStore = create<CharacterFilterState>((set) => ({
   showNsfw: false,
   showNsfl: false,
   requireImages: false,
+  authorSearch: '',
 
   _hydrated: false,
   hydrateFromSettings: (settings) => set((s) => {
@@ -64,8 +67,8 @@ export const useCharacterStore = create<CharacterFilterState>((set) => ({
   }),
 
   setSource: (source) => {
-    const defaultSort = source === 'lumihub' ? 'created_at' : 'default';
-    set({ source, sort: defaultSort, page: 1, tags: [], excludeTags: [] });
+    const defaultSort = source === 'lumihub' ? 'created_at' : 'trending';
+    set({ source, sort: defaultSort, page: 1, tags: [], excludeTags: [], authorSearch: '' });
   },
 
   setSearch: (search) => {
@@ -118,5 +121,9 @@ export const useCharacterStore = create<CharacterFilterState>((set) => ({
 
   setRequireImages: (requireImages) => {
     set({ requireImages, page: 1 });
+  },
+
+  setAuthorSearch: (authorSearch) => {
+    set({ authorSearch, page: 1 });
   },
 }));

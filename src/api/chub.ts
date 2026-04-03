@@ -33,6 +33,10 @@ export async function searchChubCharacters(options: ChubSearchOptions = {}): Pro
     params.append('excludetopics', options.excludeTags);
   }
 
+  if (options.creator) {
+    params.append('username', options.creator);
+  }
+
   const url = `${CHUB_GATEWAY_BASE}/search?${params}`;
 
   try {
@@ -160,6 +164,7 @@ export interface ChubLorebookSearchOptions {
   nsfl?: boolean;
   tags?: string;
   excludeTags?: string;
+  creator?: string;
 }
 
 export interface ChubLorebookSearchResult {
@@ -189,6 +194,10 @@ export async function searchChubLorebooks(options: ChubLorebookSearchOptions = {
 
   if (options.excludeTags) {
     params.append('excludetopics', options.excludeTags);
+  }
+
+  if (options.creator) {
+    params.append('username', options.creator);
   }
 
   const url = `${CHUB_GATEWAY_BASE}/search?${params}`;

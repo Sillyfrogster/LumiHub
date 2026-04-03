@@ -1,9 +1,8 @@
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useCharacterStore } from '../store/useCharacterStore';
 import { listCharacters } from '../api/characters';
 import { searchChubCharacters, transformChubCharacter } from '../api/chub';
 import { fromLumiHub, fromChub } from '../types/character';
-import { useMemo } from 'react';
 
 const PAGE_SIZE = 48;
 
@@ -12,22 +11,24 @@ export function useCharacters(params: { ownerId?: string, ignoreStore?: boolean,
   const source = params.ignoreStore ? 'lumihub' : store.source;
   const search = params.ignoreStore ? '' : store.search;
   const sort = params.ignoreStore ? 'created_at' : store.sort;
+  const page = params.ignoreStore ? 1 : store.page;
   const tags = store.tags;
   const excludeTags = store.excludeTags;
   const minTokens = store.minTokens;
   const showNsfw = store.showNsfw;
   const showNsfl = store.showNsfl;
   const requireImages = store.requireImages;
+  const authorSearch = params.ignoreStore ? '' : store.authorSearch;
 
   const tagsKey = tags.join(',');
   const excludeTagsKey = excludeTags.join(',');
 
-  const query = useInfiniteQuery({
-    queryKey: ['characters', source, search, sort, tagsKey, excludeTagsKey, minTokens, showNsfw, showNsfl, requireImages, params.ownerId],
-    queryFn: async ({ pageParam = 1 }) => {
+  const query = useQuery({
+    queryKey: ['characters', source, search, sort, page, tagsKey, excludeTagsKey, minTokens, showNsfw, showNsfl, requireImages, authorSearch, params.ownerId],
+    queryFn: async () => {
       if (source === 'lumihub') {
         const res = await listCharacters({
-          page: pageParam,
+          page,
           limit: PAGE_SIZE,
           sort,
           order: 'desc',
@@ -37,64 +38,53 @@ export function useCharacters(params: { ownerId?: string, ignoreStore?: boolean,
         });
         return {
           characters: res.data.map(fromLumiHub),
-          page: pageParam,
-          hasMore: pageParam < res.pagination.totalPages,
+          page,
+          hasMore: page < res.pagination.totalPages,
           total: res.pagination.total,
+          totalPages: res.pagination.totalPages,
         };
       } else {
         const res = await searchChubCharacters({
           search: search || undefined,
           sort: sort as any,
           limit: PAGE_SIZE,
-          page: pageParam,
+          page,
           nsfw: showNsfw,
           nsfl: showNsfl,
           minTokens,
           requireImages,
           tags: tagsKey || undefined,
           excludeTags: excludeTagsKey || undefined,
+          creator: authorSearch || undefined,
         });
         return {
           characters: res.nodes.map(transformChubCharacter).map(fromChub),
           page: res.page,
           hasMore: res.hasMore,
           total: 0,
+          totalPages: 0,
         };
       }
     },
-    initialPageParam: 1,
-    getNextPageParam: (lastPage) => {
-      if (lastPage.hasMore) {
-        return lastPage.page + 1;
-      }
-      return undefined;
-    },
     enabled: params.enabled !== false,
     staleTime: 1000 * 60 * 5,
+    placeholderData: (prev) => prev,
   });
 
-  const allCharacters = useMemo(
-    () => query.data?.pages.flatMap((p) => p.characters) ?? [],
-    [query.data],
-  );
-
-  const lastPage = query.data?.pages[query.data.pages.length - 1];
+  const data = query.data;
 
   return {
-    characters: allCharacters,
+    characters: data?.characters ?? [],
     pagination: {
-      page: lastPage?.page ?? 1,
+      page: data?.page ?? page,
       limit: PAGE_SIZE,
-      total: lastPage?.total ?? 0,
-      totalPages: 0,
-      hasNextPage: query.hasNextPage ?? false,
-      fetchNextPage: query.fetchNextPage,
-      loadingMore: query.isFetchingNextPage,
+      total: data?.total ?? 0,
+      totalPages: data?.totalPages ?? 0,
+      hasNextPage: data?.hasMore ?? false,
     },
     loading: query.isLoading,
-    loadingMore: query.isFetchingNextPage,
-    hasNextPage: query.hasNextPage ?? false,
-    fetchNextPage: query.fetchNextPage,
-    error: query.error ? query.error.message : null,
+    loadingMore: query.isFetching && !query.isLoading,
+    hasNextPage: data?.hasMore ?? false,
+    error: query.error ? (query.error as Error).message : null,
   };
 }
