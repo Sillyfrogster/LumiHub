@@ -233,6 +233,9 @@ link.post('/install', requireAuth, async (c) => {
         if (!character) {
             return c.json({ error: 'Character not found' }, 404);
         }
+        if (character.hidden) {
+            return c.json({ error: 'Character is unavailable' }, 403);
+        }
 
         // If character has charx assets (expressions, gallery, etc.), send a download URL
         // so Lumiverse fetches the full .charx archive directly
@@ -392,6 +395,7 @@ link.post('/install-worldbook', requireAuth, async (c) => {
         // LumiHub worldbook — send inline entries
         const wb = await WorldbookService.getWorldbookById(worldbook_id);
         if (!wb) return c.json({ error: 'Worldbook not found' }, 404);
+        if (wb.hidden) return c.json({ error: 'Worldbook is unavailable' }, 403);
 
         const entries = WorldbookService.normalizeLorebookEntries(wb.entries);
         payload = {
