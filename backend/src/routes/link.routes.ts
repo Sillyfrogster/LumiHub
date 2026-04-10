@@ -10,6 +10,27 @@ import { verifySessionToken } from '../services/auth.service.ts';
 
 const link = new Hono<AuthEnv>();
 
+function escapeHtml(value: string): string {
+    return value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function buildSafeHttpUrl(rawUrl: string, path: string): string | null {
+    try {
+        const url = new URL(rawUrl);
+        if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+            return null;
+        }
+        return new URL(path, url).toString();
+    } catch {
+        return null;
+    }
+}
+
 /**
  * PKCE Authorization endpoint.
  * The Lumiverse instance redirects the user's browser here.
@@ -45,8 +66,14 @@ link.get('/authorize', async (c, next) => {
         return c.json({ error: 'redirect_origin is required' }, 400);
     }
 
+    const approveHref = buildSafeHttpUrl(redirectOrigin, '/api/v1/lumihub/callback?code=');
+    if (!approveHref) {
+        return c.json({ error: 'redirect_origin must be a valid http(s) URL' }, 400);
+    }
+
     const userId = c.get('userId');
     const code = await LinkService.createAuthorizationCode(userId, codeChallenge, instanceName, redirectOrigin);
+    const callbackHref = `${approveHref}${encodeURIComponent(code)}`;
 
     // Return an HTML approval page
     const html = `<!DOCTYPE html>
@@ -73,10 +100,10 @@ link.get('/authorize', async (c, next) => {
 <body>
   <div class="card">
     <h1>Link Lumiverse Instance</h1>
-    <p>Allow <span class="instance-name">${instanceName.replace(/[<>&"]/g, '')}</span> to connect to your LumiHub account?</p>
+        <p>Allow <span class="instance-name">${escapeHtml(instanceName)}</span> to connect to your LumiHub account?</p>
     <p>This will let you install characters directly from LumiHub to this Lumiverse instance.</p>
     <div class="actions">
-      <a class="btn approve" href="${redirectOrigin}/api/v1/lumihub/callback?code=${code}">Approve</a>
+            <a class="btn approve" href="${escapeHtml(callbackHref)}">Approve</a>
       <button class="deny" onclick="window.close()">Deny</button>
     </div>
   </div>

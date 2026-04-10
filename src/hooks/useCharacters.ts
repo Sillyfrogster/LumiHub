@@ -13,12 +13,12 @@ export function useCharacters(params: { ownerId?: string, ignoreStore?: boolean,
   const sort = params.ignoreStore ? 'created_at' : store.sort;
   const page = params.ignoreStore ? 1 : store.page;
   const infiniteScroll = params.ignoreStore ? false : store.infiniteScroll;
-  const tags = store.tags;
-  const excludeTags = store.excludeTags;
-  const minTokens = store.minTokens;
-  const showNsfw = store.showNsfw;
-  const showNsfl = store.showNsfl;
-  const requireImages = store.requireImages;
+  const tags = params.ignoreStore ? [] : store.tags;
+  const excludeTags = params.ignoreStore ? [] : store.excludeTags;
+  const minTokens = params.ignoreStore ? 0 : store.minTokens;
+  const showNsfw = params.ignoreStore ? true : store.showNsfw;
+  const showNsfl = params.ignoreStore ? true : store.showNsfl;
+  const requireImages = params.ignoreStore ? false : store.requireImages;
   const authorSearch = params.ignoreStore ? '' : store.authorSearch;
 
   const tagsKey = tags.join(',');

@@ -9,6 +9,19 @@ import { User } from '../entities/User.entity.ts';
 
 const auth = new Hono();
 
+function normalizeReturnTo(returnTo: string, requestUrl: string): string | null {
+    try {
+        const target = new URL(returnTo, requestUrl);
+        const allowedOrigin = new URL(requestUrl).origin;
+        if (target.origin !== allowedOrigin) {
+            return null;
+        }
+        return target.toString();
+    } catch {
+        return null;
+    }
+}
+
 /** Redirect to Discord OAuth */
 auth.get('/discord', (c) => {
     const generatedState = randomUUID();
@@ -16,7 +29,11 @@ auth.get('/discord', (c) => {
     // Store return_to URL so we can redirect back after login
     const returnTo = c.req.query('return_to');
     if (returnTo) {
-        setCookie(c, 'oauth_return_to', returnTo, {
+        const safeReturnTo = normalizeReturnTo(returnTo, c.req.url);
+        if (!safeReturnTo) {
+            return c.json({ error: 'Invalid return_to URL' }, 400);
+        }
+        setCookie(c, 'oauth_return_to', safeReturnTo, {
             httpOnly: true,
             secure: env.NODE_ENV === 'production',
             path: '/',
@@ -81,7 +98,10 @@ auth.get('/discord/callback', async (c) => {
     const returnTo = getCookie(c, 'oauth_return_to');
     if (returnTo) {
         deleteCookie(c, 'oauth_return_to', { path: '/' });
-        return c.redirect(returnTo);
+        const safeReturnTo = normalizeReturnTo(returnTo, c.req.url);
+        if (safeReturnTo) {
+            return c.redirect(safeReturnTo);
+        }
     }
     return c.redirect('/');
 })
