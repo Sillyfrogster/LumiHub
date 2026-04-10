@@ -1,5 +1,12 @@
 import { toThumbnailUrl, toUploadUrl } from '../utils/media';
 
+interface LumiHubOwner {
+  id: string;
+  discord_id: string;
+  username: string;
+  avatar: string | null;
+}
+
 export interface WorldBookEntry {
   keys: string[];
   content: string;
@@ -24,11 +31,12 @@ export interface LumiWorldBook {
   description: string;
   entries: WorldBookEntry[];
   tags: string[];
-  creator: string;
+  creator?: string;
   image_path: string | null;
   downloads: number;
   created_at: string;
   updated_at: string;
+  owner?: LumiHubOwner | null;
 }
 
 export interface ChubWorldBook {
@@ -62,6 +70,8 @@ export interface UnifiedWorldBook {
   tags: string[];
   nsfw: boolean;
   creator: string;
+  creatorUsername?: string;
+  creatorDiscordId?: string;
   avatarUrl: string | null;
   previewUrl?: string | null;
   downloads: number;
@@ -80,7 +90,9 @@ export function fromLumiHub(wb: LumiWorldBook): UnifiedWorldBook {
     tokenCount: 0,
     tags: wb.tags,
     nsfw: wb.tags.some((t) => t.toLowerCase() === 'nsfw'),
-    creator: wb.creator || 'Unknown',
+    creator: wb.owner?.username || wb.creator || 'Unknown',
+    creatorUsername: wb.owner?.username,
+    creatorDiscordId: wb.owner?.discord_id,
     avatarUrl: toUploadUrl(wb.image_path),
     previewUrl: toThumbnailUrl(wb.image_path),
     downloads: wb.downloads,

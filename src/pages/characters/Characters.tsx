@@ -9,6 +9,7 @@ import CreateCharacterModal from '../../components/characters/CreateCharacterMod
 import { Sparkles, Globe, Calendar, Download, CaseSensitive, Flame, Plus, User } from 'lucide-react';
 import type { CharacterSource } from '../../types/character';
 import BrowsePage from '../../layouts/browse/BrowsePage';
+import { resolveBrowsePagination } from '../../utils/browsePagination';
 import {
   FilterSidebar,
   FilterSection,
@@ -52,10 +53,11 @@ const Characters = () => {
     source, search, sort,
     tags, excludeTags,
     minTokens, showNsfw, showNsfl, requireImages, authorSearch,
-    setSource, setSearch, setSort, setPage,
+    infiniteScroll,
+    setSource, setSearch, setSort,
     addTag, removeTag, addExcludeTag, removeExcludeTag,
     setMinTokens, setShowNsfw, setShowNsfl, setRequireImages,
-    setAuthorSearch,
+    setAuthorSearch, setInfiniteScroll,
     hydrateFromSettings,
   } = useCharacterStore();
 
@@ -63,7 +65,7 @@ const Characters = () => {
     if (user?.settings) hydrateFromSettings(user.settings);
   }, [user?.settings, hydrateFromSettings]);
 
-  const { characters, pagination, loading, loadingMore, error } = useCharacters();
+  const { characters, pagination, loading, error } = useCharacters();
   const navigate = useNavigate();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -145,14 +147,9 @@ const Characters = () => {
         error={error}
         itemsCount={characters.length}
         filterBlockedMessage={filterBlockedMessage}
-        pagination={{
-          page: pagination.page,
-          total: pagination.total,
-          totalPages: pagination.totalPages,
-          hasNextPage: pagination.hasNextPage,
-          onPageChange: setPage,
-          loadingMore,
-        }}
+        infiniteScroll={infiniteScroll}
+        onToggleInfiniteScroll={setInfiniteScroll}
+        pagination={resolveBrowsePagination(pagination)}
         mobileFiltersOpen={mobileFilters}
         onToggleMobileFilters={() => setMobileFilters(!mobileFilters)}
         SkeletonGrid={SkeletonGrid}

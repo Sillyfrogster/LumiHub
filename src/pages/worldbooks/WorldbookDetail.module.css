@@ -109,6 +109,16 @@
   margin: 0 0 16px 0;
 }
 
+.creatorLink {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.creatorLink:hover {
+  color: var(--lumihub-text);
+}
+
 .stats {
   display: flex;
   flex-wrap: nowrap;

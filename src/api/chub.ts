@@ -1,4 +1,4 @@
-import type { ChubCharacter, ChubSearchResult, ChubSearchOptions, ChubCharacterCard, ChubCharacterDetail, ChubCharacterDefinition } from '../types/chub';
+import type { ChubCharacter, ChubSearchOptions, ChubCharacterCard, ChubCharacterDetail, ChubCharacterDefinition } from '../types/chub';
 import type { ChubWorldBook } from '../types/worldbook';
 
 const CHUB_GATEWAY_BASE = (typeof import.meta.env !== 'undefined' && import.meta.env.DEV)
@@ -6,6 +6,13 @@ const CHUB_GATEWAY_BASE = (typeof import.meta.env !== 'undefined' && import.meta
   : 'https://gateway.chub.ai';
 
 const CHUB_DEFAULT_PAGE_SIZE = 48;
+
+export interface ChubSearchResult {
+  nodes: ChubCharacter[];
+  page: number;
+  hasMore: boolean;
+  total: number;
+}
 
 /** Searches for characters on Chub.ai with the given filter options. */
 export async function searchChubCharacters(options: ChubSearchOptions = {}): Promise<ChubSearchResult> {
@@ -62,7 +69,8 @@ export async function searchChubCharacters(options: ChubSearchOptions = {}): Pro
     return {
       nodes,
       page: options.page || 1,
-      hasMore: nodes.length >= limit,
+      hasMore: nodes.length >= limit && (options.page || 1) < 100, // Capping pages at 100 max
+      total: actualData.count || actualData.total || 0,
     };
   } catch (error) {
     console.error('[LumiHub] Chub API error:', error);
@@ -171,6 +179,7 @@ export interface ChubLorebookSearchResult {
   nodes: ChubWorldBook[];
   page: number;
   hasMore: boolean;
+  total: number;
 }
 
 /** Searches for lorebooks on Chub.ai. */
@@ -248,6 +257,7 @@ export async function searchChubLorebooks(options: ChubLorebookSearchOptions = {
       nodes,
       page: options.page || 1,
       hasMore: rawNodes.length >= limit,
+      total: actualData.count || actualData.total || 0,
     };
   } catch (error) {
     console.error('[LumiHub] Chub lorebook search error:', error);
@@ -316,8 +326,10 @@ export async function fetchChubTags(search?: string, namespace?: string): Promis
   const url = `${CHUB_GATEWAY_BASE}/tags`;
 
   try {
-    const body: Record<string, string> = {};
-    if (search) body.search = search;
+    const body: Record<string, any> = {
+      search: search || '',
+      first: 50
+    };
     if (namespace) body.namespace = namespace;
 
     const response = await fetch(url, {

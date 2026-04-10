@@ -33,6 +33,8 @@ interface BrowsePageProps {
   mobileFiltersOpen: boolean;
   onToggleMobileFilters: () => void;
   SkeletonGrid: React.ComponentType;
+  infiniteScroll?: boolean;
+  onToggleInfiniteScroll?: (enabled: boolean) => void;
 }
 
 const BrowsePage: React.FC<BrowsePageProps> = ({
@@ -55,10 +57,26 @@ const BrowsePage: React.FC<BrowsePageProps> = ({
   mobileFiltersOpen,
   onToggleMobileFilters,
   SkeletonGrid,
+  infiniteScroll = false,
+  onToggleInfiniteScroll,
 }) => {
   const hasPrev = pagination.page > 1;
   const hasNext = pagination.hasNextPage ?? false;
   const canPage = hasPrev || hasNext;
+
+  const observerRef = React.useRef<IntersectionObserver | null>(null);
+  const sentinelRef = React.useCallback((node: HTMLDivElement | null) => {
+    if (loading || pagination.loadingMore) return;
+    if (observerRef.current) observerRef.current.disconnect();
+
+    observerRef.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && pagination.hasNextPage && infiniteScroll) {
+        pagination.onPageChange?.(pagination.page + 1);
+      }
+    });
+
+    if (node) observerRef.current.observe(node);
+  }, [loading, pagination.loadingMore, pagination.hasNextPage, infiniteScroll, pagination.onPageChange, pagination.page]);
 
   return (
     <div className={styles.page}>
@@ -103,16 +121,32 @@ const BrowsePage: React.FC<BrowsePageProps> = ({
           <div className={styles.topBarRow}>
             <h1 className={styles.pageTitle}>{title}</h1>
 
-            {headerActions && (
-              <div className={styles.headerActions}>
-                {headerActions}
-              </div>
-            )}
+            <div className={styles.topBarActions}>
+              {headerActions && (
+                <div className={styles.headerActions}>
+                  {headerActions}
+                </div>
+              )}
 
-            <button className={styles.mobileFilterBtn} onClick={onToggleMobileFilters}>
-              <SlidersHorizontal size={16} />
-              Filters
-            </button>
+              {onToggleInfiniteScroll && (
+                <div className={styles.toggleContainer}>
+                  <span>Infinite Scroll</span>
+                  <label className={styles.switch}>
+                    <input 
+                      type="checkbox" 
+                      checked={infiniteScroll} 
+                      onChange={(e) => onToggleInfiniteScroll(e.target.checked)} 
+                    />
+                    <span className={styles.slider}></span>
+                  </label>
+                </div>
+              )}
+
+              <button className={styles.mobileFilterBtn} onClick={onToggleMobileFilters}>
+                <SlidersHorizontal size={16} />
+                Filters
+              </button>
+            </div>
           </div>
         </div>
 
@@ -151,7 +185,7 @@ const BrowsePage: React.FC<BrowsePageProps> = ({
         </div>
 
         {/* Pagination controls */}
-        {!loading && canPage && (
+        {!loading && canPage && !infiniteScroll && (
           <div className={styles.pagination}>
             <button
               className={styles.pageBtn}
@@ -180,6 +214,13 @@ const BrowsePage: React.FC<BrowsePageProps> = ({
               Next
               <ChevronRight size={16} />
             </button>
+          </div>
+        )}
+
+        {/* Infinite scroll */}
+        {infiniteScroll && hasNext && (
+          <div ref={sentinelRef} className={styles.sentinelWrap}>
+            {pagination.loadingMore && <Loader2 size={24} className={styles.pageSpinner} />}
           </div>
         )}
       </div>

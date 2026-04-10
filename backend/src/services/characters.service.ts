@@ -86,7 +86,7 @@ export async function listTags(search?: string) {
 
 /** Finds a single character by its UUID. */
 export async function getCharacterById(id: string) {
-  return repo().findOneBy({ id });
+  return repo().findOne({ where: { id }, relations: ['owner'] });
 }
 
 /** Creates and persists a new character entity. */

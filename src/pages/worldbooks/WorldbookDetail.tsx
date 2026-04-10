@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useLocation, useNavigate } from 'react-router-dom';
+import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, BookOpen, Star, FileText, ExternalLink, Search, ChevronDown, ChevronUp, Trash2, Download, Heart, ThumbsUp } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../hooks/useAuth';
@@ -163,7 +163,16 @@ const WorldbookDetail: React.FC = () => {
 
         <div className={styles.contentColumn}>
           <h1 className={styles.name}>{book.name}</h1>
-          <p className={styles.creator}>by {book.creator}</p>
+          <p className={styles.creator}>
+            by{' '}
+            {book.creatorDiscordId ? (
+              <Link to={`/user/${book.creatorDiscordId}`} className={styles.creatorLink}>
+                {book.creator}
+              </Link>
+            ) : (
+              book.creator
+            )}
+          </p>
 
           <ScrollFadeRow className={styles.stats}>
             {entryCount > 0 && (

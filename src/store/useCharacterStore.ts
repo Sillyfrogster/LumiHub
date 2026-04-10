@@ -7,6 +7,7 @@ interface CharacterFilterState {
   search: string;
   sort: string;
   page: number;
+  infiniteScroll: boolean;
 
   // Tag filters (shared across sources)
   tags: string[];
@@ -35,6 +36,7 @@ interface CharacterFilterState {
   setShowNsfl: (showNsfl: boolean) => void;
   setRequireImages: (requireImages: boolean) => void;
   setAuthorSearch: (authorSearch: string) => void;
+  setInfiniteScroll: (infiniteScroll: boolean) => void;
 }
 
 /** Stores filter UI state for characters, delegating actual fetching to React Query */
@@ -43,6 +45,7 @@ export const useCharacterStore = create<CharacterFilterState>((set) => ({
   search: '',
   sort: 'created_at',
   page: 1,
+  infiniteScroll: false,
 
   tags: [],
   excludeTags: [],
@@ -125,5 +128,9 @@ export const useCharacterStore = create<CharacterFilterState>((set) => ({
 
   setAuthorSearch: (authorSearch) => {
     set({ authorSearch, page: 1 });
+  },
+  
+  setInfiniteScroll: (infiniteScroll) => {
+    set({ infiniteScroll });
   },
 }));

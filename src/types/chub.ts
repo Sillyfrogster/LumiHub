@@ -27,6 +27,7 @@ export interface ChubSearchResult {
   nodes: ChubCharacter[];
   page: number;
   hasMore: boolean;
+  total: number;
 }
 
 export type ChubSortOption = 'default' | 'rating' | 'trending' | 'created_at' | 'download_count' | 'n_tokens';

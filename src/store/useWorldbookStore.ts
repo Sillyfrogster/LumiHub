@@ -7,6 +7,7 @@ interface WorldbookFilterState {
   search: string;
   sort: string;
   page: number;
+  infiniteScroll: boolean;
 
   // Tag filters (shared across sources)
   tags: string[];
@@ -30,6 +31,7 @@ interface WorldbookFilterState {
   setShowNsfw: (showNsfw: boolean) => void;
   setShowNsfl: (showNsfl: boolean) => void;
   setAuthorSearch: (authorSearch: string) => void;
+  setInfiniteScroll: (infiniteScroll: boolean) => void;
 }
 
 export const useWorldbookStore = create<WorldbookFilterState>((set) => ({
@@ -37,6 +39,7 @@ export const useWorldbookStore = create<WorldbookFilterState>((set) => ({
   search: '',
   sort: 'trending',
   page: 1,
+  infiniteScroll: false,
 
   tags: [],
   excludeTags: [],
@@ -98,4 +101,6 @@ export const useWorldbookStore = create<WorldbookFilterState>((set) => ({
   setShowNsfl: (showNsfl) => set({ showNsfl, page: 1 }),
 
   setAuthorSearch: (authorSearch) => set({ authorSearch, page: 1 }),
+  
+  setInfiniteScroll: (infiniteScroll) => set({ infiniteScroll }),
 }));

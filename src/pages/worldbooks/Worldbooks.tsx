@@ -9,6 +9,7 @@ import CreateWorldbookModal from '../../components/worldbooks/CreateWorldbookMod
 import { Sparkles, Globe, Calendar, Flame, Download, Plus, User } from 'lucide-react';
 import type { WorldBookSource, UnifiedWorldBook } from '../../types/worldbook';
 import BrowsePage from '../../layouts/browse/BrowsePage';
+import { resolveBrowsePagination } from '../../utils/browsePagination';
 import {
   FilterSidebar,
   FilterSection,
@@ -50,11 +51,11 @@ const Worldbooks = () => {
   const {
     source, search, sort,
     tags, excludeTags,
-    showNsfw, showNsfl, authorSearch,
-    setSource, setSearch, setSort, setPage,
+    showNsfw, showNsfl, authorSearch, infiniteScroll,
+    setSource, setSearch, setSort,
     addTag, removeTag, addExcludeTag, removeExcludeTag,
     setShowNsfw, setShowNsfl,
-    setAuthorSearch,
+    setAuthorSearch, setInfiniteScroll,
     hydrateFromSettings,
   } = useWorldbookStore();
 
@@ -62,7 +63,7 @@ const Worldbooks = () => {
     if (user?.settings) hydrateFromSettings(user.settings);
   }, [user?.settings, hydrateFromSettings]);
 
-  const { worldbooks, pagination, loading, loadingMore, error } = useWorldbooks();
+  const { worldbooks, pagination, loading, error } = useWorldbooks();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [localSearch, setLocalSearch] = useState(search);
@@ -124,14 +125,9 @@ const Worldbooks = () => {
       error={error}
       itemsCount={worldbooks.length}
       filterBlockedMessage={filterBlockedMessage}
-      pagination={{
-        page: pagination.page,
-        total: 0,
-        totalPages: pagination.totalPages,
-        hasNextPage: pagination.hasNextPage,
-        onPageChange: setPage,
-        loadingMore,
-      }}
+      infiniteScroll={infiniteScroll}
+      onToggleInfiniteScroll={setInfiniteScroll}
+      pagination={resolveBrowsePagination(pagination)}
       mobileFiltersOpen={mobileFilters}
       onToggleMobileFilters={() => setMobileFilters(!mobileFilters)}
       SkeletonGrid={SkeletonGrid}
