@@ -25,6 +25,14 @@ export interface WorldBookEntry {
   [key: string]: unknown;
 }
 
+export function normalizeWorldbookEntries(raw: unknown): WorldBookEntry[] {
+  if (Array.isArray(raw)) return raw;
+  if (raw && typeof raw === 'object') {
+    return Object.values(raw as Record<string, WorldBookEntry>);
+  }
+  return [];
+}
+
 export interface LumiWorldBook {
   id: string;
   name: string;
@@ -82,11 +90,13 @@ export interface UnifiedWorldBook {
 }
 
 export function fromLumiHub(wb: LumiWorldBook): UnifiedWorldBook {
+  const entries = normalizeWorldbookEntries(wb.entries);
+
   return {
     id: wb.id,
     name: wb.name,
     description: wb.description?.slice(0, 200) || '',
-    entryCount: wb.entries?.length ?? 0,
+    entryCount: entries.length,
     tokenCount: 0,
     tags: wb.tags,
     nsfw: wb.tags.some((t) => t.toLowerCase() === 'nsfw'),

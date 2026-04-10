@@ -5,6 +5,7 @@ import { AppDataSource } from '../db/connection.ts';
 import { Character } from '../entities/Character.entity.ts';
 import { CharacterImage } from '../entities/CharacterImage.entity.ts';
 import { logger } from '../utils/logger.ts';
+import { UPLOAD_PATHS } from '../utils/constants.ts';
 import type { ValidatedCharacterData } from '../middleware/upload.middleware.ts';
 import type { CharxImageEntry, LumiverseModules } from '../middleware/charx.middleware.ts';
 import type { ListQueryParams } from '../types/api.ts';
@@ -376,10 +377,28 @@ export function sanitizeFilename(name: string): string {
 /** Removes an image file from the filesystem. */
 async function deleteImageFile(relativePath: string) {
   try {
-    const absolute = path.resolve(relativePath);
+    const absolute = resolveUploadPath(relativePath);
+    if (!absolute) {
+      logger.warn(`Refusing to delete path outside uploads root: ${relativePath}`);
+      return;
+    }
     await unlink(absolute);
     logger.info(`Deleted image file: ${absolute}`);
   } catch (err) {
     logger.warn(`Could not delete image file: ${relativePath}`, err);
   }
+}
+
+function resolveUploadPath(relativePath: string): string | null {
+  const uploadsRoot = path.resolve(UPLOAD_PATHS.ROOT);
+  const normalized = relativePath.replace(/^\/+/, '');
+  const absolute = path.resolve(uploadsRoot, normalized.startsWith(`${UPLOAD_PATHS.ROOT}/`)
+    ? normalized.slice(UPLOAD_PATHS.ROOT.length + 1)
+    : normalized);
+
+  if (absolute === uploadsRoot || absolute.startsWith(`${uploadsRoot}${path.sep}`)) {
+    return absolute;
+  }
+
+  return null;
 }

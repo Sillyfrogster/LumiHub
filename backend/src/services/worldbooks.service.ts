@@ -3,6 +3,7 @@ import path from 'node:path';
 import { AppDataSource } from '../db/connection.ts';
 import { Worldbook } from '../entities/Worldbook.entity.ts';
 import { logger } from '../utils/logger.ts';
+import { UPLOAD_PATHS } from '../utils/constants.ts';
 import type { ListQueryParams } from '../types/api.ts';
 
 const repo = () => AppDataSource.getRepository(Worldbook);
@@ -107,7 +108,12 @@ export async function deleteWorldbook(id: string) {
 
   if (existing.image_path) {
     try {
-      const absolute = path.resolve(existing.image_path);
+      const absolute = resolveUploadPath(existing.image_path);
+      if (!absolute) {
+        logger.warn(`Refusing to delete path outside uploads root: ${existing.image_path}`);
+        await repo().remove(existing);
+        return true;
+      }
       await unlink(absolute);
       logger.info(`Deleted worldbook image: ${absolute}`);
     } catch (err) {
@@ -178,4 +184,18 @@ export function parseLorebookFile(json: Record<string, any>): {
   }
 
   return { name: 'Imported Worldbook', description: '', entries: [] };
+}
+
+function resolveUploadPath(relativePath: string): string | null {
+  const uploadsRoot = path.resolve(UPLOAD_PATHS.ROOT);
+  const normalized = relativePath.replace(/^\/+/, '');
+  const absolute = path.resolve(uploadsRoot, normalized.startsWith(`${UPLOAD_PATHS.ROOT}/`)
+    ? normalized.slice(UPLOAD_PATHS.ROOT.length + 1)
+    : normalized);
+
+  if (absolute === uploadsRoot || absolute.startsWith(`${uploadsRoot}${path.sep}`)) {
+    return absolute;
+  }
+
+  return null;
 }

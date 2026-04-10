@@ -74,10 +74,28 @@ export async function processProfileVideo(tempFilePath: string): Promise<{ fileP
 
 export async function deleteAssetFile(relativePath: string) {
     if (!relativePath.startsWith(UPLOAD_PATHS.PROFILE_ASSETS)) return;
-    const fullPath = path.resolve(relativePath);
+    const fullPath = resolveUploadPath(relativePath);
+    if (!fullPath) {
+        logger.error(`Refusing to delete path outside uploads root: ${relativePath}`);
+        return;
+    }
     try {
         await unlink(fullPath);
     } catch (e) {
         logger.error(`Failed to delete asset file: ${fullPath}`, e);
     }
+}
+
+function resolveUploadPath(relativePath: string): string | null {
+    const uploadsRoot = path.resolve(UPLOAD_PATHS.ROOT);
+    const normalized = relativePath.replace(/^\/+/, '');
+    const absolute = path.resolve(uploadsRoot, normalized.startsWith(`${UPLOAD_PATHS.ROOT}/`)
+        ? normalized.slice(UPLOAD_PATHS.ROOT.length + 1)
+        : normalized);
+
+    if (absolute === uploadsRoot || absolute.startsWith(`${uploadsRoot}${path.sep}`)) {
+        return absolute;
+    }
+
+    return null;
 }

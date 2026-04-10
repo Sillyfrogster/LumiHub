@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../hooks/useAuth';
 import { getChubLorebookDetail } from '../../api/chub';
 import { getWorldbook, deleteWorldbook } from '../../api/worldbooks';
-import { fromLumiHub } from '../../types/worldbook';
+import { fromLumiHub, normalizeWorldbookEntries } from '../../types/worldbook';
 import type { UnifiedWorldBook, ChubWorldBook, LumiWorldBook, WorldBookEntry } from '../../types/worldbook';
 import InstallButton from '../../components/characters/InstallButton';
 import LazyImage from '../../components/shared/LazyImage';
@@ -101,7 +101,7 @@ const WorldbookDetail: React.FC = () => {
     constant: e.constant,
   })) ?? [];
 
-  const lumiEntries: WorldBookEntry[] = lumiData?.entries ?? [];
+  const lumiEntries: WorldBookEntry[] = normalizeWorldbookEntries(lumiData?.entries);
   const entries = isChub ? chubEntries : lumiEntries;
   const entryCount = entries.length || book.entryCount;
 
