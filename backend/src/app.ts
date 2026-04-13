@@ -11,6 +11,8 @@ import linkRoutes from './routes/link.routes.ts';
 import moderationRoutes from './routes/moderation.routes.ts';
 import profileAssetsRoutes from './routes/profile-assets.routes.ts';
 import mediaRoutes, { uploadCacheControl } from './routes/media.routes.ts';
+import leaderboardRoutes from './routes/leaderboard.routes.ts';
+import favoritesRoutes from './routes/favorites.routes.ts';
 import { logger } from './utils/logger.ts';
 import { env } from './env.ts';
 import { opengraphMiddleware, staticPageOgMiddleware } from './middleware/opengraph.middleware.ts';
@@ -56,6 +58,8 @@ app.route('/api/v1/user', userRoutes);
 app.route('/api/v1/users', userRoutes);
 app.route('/api/v1/link', linkRoutes);
 app.route('/api/v1/links', linkRoutes);
+app.route('/api/v1/leaderboard', leaderboardRoutes);
+app.route('/api/v1/favorites', favoritesRoutes);
 app.route('/api/v1/moderation', moderationRoutes);
 app.route('/api/v1/profile-assets', profileAssetsRoutes);
 
@@ -124,6 +128,7 @@ if (env.NODE_ENV === 'production') {
   app.get('/worldbooks', staticPageOgMiddleware);
   app.get('/themes', staticPageOgMiddleware);
   app.get('/presets', staticPageOgMiddleware);
+  app.get('/leaderboard', staticPageOgMiddleware);
   // Dynamic content pages
   app.get('/characters/:id', opengraphMiddleware);
   app.get('/characters/:creator/:name', opengraphMiddleware); // Chub cards: decoded /Creator/name

@@ -132,6 +132,11 @@ export async function downloadCharacter(id: string): Promise<{ downloads: number
   return res.json();
 }
 
+/** Increments the view counter (best-effort, no auth required). */
+export async function viewCharacter(id: string): Promise<void> {
+  fetch(`${BASE}/${id}/view`, { method: 'POST' }).catch(() => {});
+}
+
 /** Fetches distinct tags used across all LumiHub characters. */
 export async function listCharacterTags(search?: string): Promise<{ name: string; count: number }[]> {
   const qs = new URLSearchParams();

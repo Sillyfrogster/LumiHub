@@ -42,6 +42,8 @@ export interface LumiWorldBook {
   creator?: string;
   image_path: string | null;
   downloads: number;
+  views: number;
+  favorites: number;
   created_at: string;
   updated_at: string;
   owner?: LumiHubOwner | null;
@@ -83,6 +85,8 @@ export interface UnifiedWorldBook {
   avatarUrl: string | null;
   previewUrl?: string | null;
   downloads: number;
+  views: number;
+  favorites: number;
   rating: number | null;
   createdAt: string | null;
   source: WorldBookSource;
@@ -106,6 +110,8 @@ export function fromLumiHub(wb: LumiWorldBook): UnifiedWorldBook {
     avatarUrl: toUploadUrl(wb.image_path),
     previewUrl: toThumbnailUrl(wb.image_path),
     downloads: wb.downloads,
+    views: wb.views,
+    favorites: wb.favorites,
     rating: null,
     createdAt: wb.created_at,
     source: 'lumihub',
@@ -128,6 +134,8 @@ export function fromChubLorebook(lb: ChubWorldBook): UnifiedWorldBook {
     avatarUrl: lb.avatarUrl,
     previewUrl: lb.avatarUrl,
     downloads: lb.starCount,
+    views: 0,
+    favorites: 0,
     rating: lb.rating ?? null,
     createdAt: lb.createdAt,
     source: 'chub',

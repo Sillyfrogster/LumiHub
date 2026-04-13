@@ -131,6 +131,15 @@ worldbooks.post('/:id/download', async (c) => {
   return c.json(result);
 });
 
+/** Increment view counter */
+worldbooks.post('/:id/view', async (c) => {
+  const result = await WorldbookService.incrementViews(c.req.param('id'));
+  if (!result) {
+    return c.json({ error: 'Not Found', message: 'Worldbook not found', statusCode: 404 }, 404);
+  }
+  return c.json(result);
+});
+
 /** Delete worldbook (requires login + ownership) */
 worldbooks.delete('/:id', requireAuth, async (c) => {
   const id = c.req.param('id');

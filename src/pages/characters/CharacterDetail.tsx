@@ -7,7 +7,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { UnifiedCharacterCard } from '../../types/character';
 import type { ChubCharacterCard } from '../../types/chub';
 import type { LumiHubCharacter } from '../../types/character';
-import { getCharacter, deleteCharacter } from '../../api/characters';
+import { getCharacter, deleteCharacter, viewCharacter } from '../../api/characters';
 import { searchChubCharacters, transformChubCharacter } from '../../api/chub';
 import { fromLumiHub, fromChub } from '../../types/character';
 import CharacterTabs from '../../components/characters/CharacterTabs';
@@ -58,6 +58,11 @@ const CharacterDetail: React.FC = () => {
 
   // Hooks must be called unconditionally (before any early returns)
   const { data: images } = useCharacterImages(lumiData?.id);
+
+  // Fire view increment once per UUID card visit
+  useEffect(() => {
+    if (lumiData?.id) viewCharacter(lumiData.id);
+  }, [lumiData?.id]);
 
   useEffect(() => {
     if (passedCard || !id) return;

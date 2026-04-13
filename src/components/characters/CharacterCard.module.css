@@ -186,3 +186,46 @@
   font-weight: 600;
   flex-shrink: 0;
 }
+
+/* ── Favorite button ──────────────────────── */
+
+.favBtn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(10, 10, 12, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 4px 8px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  z-index: 4;
+  transition: all var(--lumihub-transition-fast);
+  line-height: 1;
+}
+
+.favBtn:hover:not(:disabled) {
+  color: var(--lumihub-primary);
+  border-color: var(--lumihub-primary);
+  background: rgba(216, 140, 154, 0.12);
+}
+
+.favBtn:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.favBtnActive {
+  color: var(--lumihub-primary);
+  border-color: rgba(216, 140, 154, 0.4);
+  background: rgba(216, 140, 154, 0.12);
+}
+
+.favCount {
+  font-size: 10px;
+}
