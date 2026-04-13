@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { Home, Users, Book, Palette, Sparkles, User, LogIn, Settings, LogOut } from 'lucide-react';
+import { Home, Users, Book, Palette, Sparkles, User, LogIn, Settings, LogOut, Trophy } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '../../hooks/useAuth';
 import UserMenu from './UserMenu';
@@ -64,6 +64,14 @@ const Layout = () => {
             >
               <Sparkles size={18} strokeWidth={isActive('/presets') ? 2.5 : 2} />
               <span>Presets</span>
+            </Link>
+
+            <Link
+              to="/leaderboard"
+              className={clsx(styles.navItem, isActive('/leaderboard') && styles.navItemActive)}
+            >
+              <Trophy size={18} strokeWidth={isActive('/leaderboard') ? 2.5 : 2} />
+              <span>Leaderboard</span>
             </Link>
 
             {isAuthenticated && user ? (

@@ -1,7 +1,9 @@
 import type { UnifiedCharacterCard } from '../../types/character';
 import { Star, Heart, Download, Eye } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
+import { toggleFavorite } from '../../api/favorites';
 import LazyImage from '../shared/LazyImage';
 import styles from './CharacterCard.module.css';
 
@@ -13,13 +15,40 @@ interface Props {
 
 /** Renders a single character tile in the browse grid. */
 const CharacterCard: React.FC<Props> = ({ card, blurNsfw = true, onClick }) => {
+  const { isAuthenticated } = useAuth();
   const [revealed, setRevealed] = useState(false);
   const shouldBlur = card.nsfw && blurNsfw && !revealed;
+
+  const [favorited, setFavorited] = useState(false);
+  const [favCount, setFavCount] = useState(card.favorites ?? 0);
+  const [favPending, setFavPending] = useState(false);
 
   const handleReveal = (e: React.MouseEvent) => {
     e.stopPropagation();
     setRevealed((r) => !r);
   };
+
+  const handleFav = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isAuthenticated || card.source !== 'lumihub') return;
+    if (favPending) return;
+    setFavPending(true);
+    // Optimistic update
+    const next = !favorited;
+    setFavorited(next);
+    setFavCount((c) => c + (next ? 1 : -1));
+    try {
+      const result = await toggleFavorite('character', card.id);
+      setFavorited(result.favorited);
+      setFavCount(result.favorites);
+    } catch {
+      // Revert
+      setFavorited(!next);
+      setFavCount((c) => c + (next ? -1 : 1));
+    } finally {
+      setFavPending(false);
+    }
+  }, [isAuthenticated, card.source, card.id, favorited, favPending]);
 
   const fmt = (n: number) => n > 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
 
@@ -56,6 +85,21 @@ const CharacterCard: React.FC<Props> = ({ card, blurNsfw = true, onClick }) => {
             <Star size={10} />
             {card.rating.toFixed(1)}
           </div>
+        )}
+
+        {/* Favorite button — LumiHub cards only */}
+        {card.source === 'lumihub' && (
+          <button
+            className={`${styles.favBtn} ${favorited ? styles.favBtnActive : ''}`}
+            onClick={handleFav}
+            title={isAuthenticated ? (favorited ? 'Remove favorite' : 'Add to favorites') : 'Log in to favorite'}
+            aria-label={favorited ? 'Remove favorite' : 'Add to favorites'}
+            aria-pressed={favorited}
+            disabled={favPending}
+          >
+            <Heart size={12} fill={favorited ? 'currentColor' : 'none'} />
+            {favCount > 0 && <span className={styles.favCount}>{fmt(favCount)}</span>}
+          </button>
         )}
 
         {/* Gradient with overlaid text */}

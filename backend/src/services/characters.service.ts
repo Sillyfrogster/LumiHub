@@ -169,6 +169,21 @@ export async function incrementDownloads(id: string) {
   return { downloads: result.raw[0]?.downloads as number };
 }
 
+/** Atomically increments the view counter for a character. */
+export async function incrementViews(id: string) {
+  const result = await repo()
+    .createQueryBuilder()
+    .update(Character)
+    .set({ views: () => 'views + 1' })
+    .where('id = :id', { id })
+    .returning('views')
+    .execute();
+
+  if (result.affected === 0) return null;
+
+  return { views: result.raw[0]?.views as number };
+}
+
 /** Creates a character from a .charx import with all associated images. */
 export async function createCharacterFromCharx(
   data: ValidatedCharacterData,

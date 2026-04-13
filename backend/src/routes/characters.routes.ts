@@ -162,6 +162,15 @@ characters.get('/:id/charx', async (c) => {
   });
 });
 
+/** Increment view counter */
+characters.post('/:id/view', async (c) => {
+  const result = await CharacterService.incrementViews(c.req.param('id'));
+  if (!result) {
+    return c.json({ error: 'Not Found', message: 'Character not found', statusCode: 404 }, 404);
+  }
+  return c.json(result);
+});
+
 /** Increment download counter */
 characters.post('/:id/download', async (c) => {
   const result = await CharacterService.incrementDownloads(c.req.param('id'));

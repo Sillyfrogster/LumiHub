@@ -4,7 +4,7 @@ import { ArrowLeft, BookOpen, Star, FileText, ExternalLink, Search, ChevronDown,
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../hooks/useAuth';
 import { getChubLorebookDetail } from '../../api/chub';
-import { getWorldbook, deleteWorldbook } from '../../api/worldbooks';
+import { getWorldbook, deleteWorldbook, viewWorldbook } from '../../api/worldbooks';
 import { fromLumiHub, normalizeWorldbookEntries } from '../../types/worldbook';
 import type { UnifiedWorldBook, ChubWorldBook, LumiWorldBook, WorldBookEntry } from '../../types/worldbook';
 import InstallButton from '../../components/characters/InstallButton';
@@ -48,6 +48,11 @@ const WorldbookDetail: React.FC = () => {
       .catch(() => setError('Worldbook not found.'))
       .finally(() => setLoading(false));
   }, [id, passedBook]);
+
+  // Fire view increment once per LumiHub worldbook visit
+  useEffect(() => {
+    if (lumiData?.id) viewWorldbook(lumiData.id);
+  }, [lumiData?.id]);
 
   if (loading) {
     return (

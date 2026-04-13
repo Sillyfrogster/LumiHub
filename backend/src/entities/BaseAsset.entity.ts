@@ -32,6 +32,12 @@ export abstract class BaseAsset {
   @Column({ type: 'int', default: 0 })
   downloads: number;
 
+  @Column({ type: 'int', default: 0 })
+  views: number;
+
+  @Column({ type: 'int', default: 0 })
+  favorites: number;
+
   @Column({ type: 'boolean', default: false })
   hidden: boolean;
 

@@ -133,6 +133,20 @@ export async function incrementDownloads(id: string) {
   return { downloads: wb.downloads };
 }
 
+export async function incrementViews(id: string) {
+  const result = await repo()
+    .createQueryBuilder()
+    .update(Worldbook)
+    .set({ views: () => 'views + 1' })
+    .where('id = :id', { id })
+    .returning('views')
+    .execute();
+
+  if (result.affected === 0) return null;
+
+  return { views: result.raw[0]?.views as number };
+}
+
 /**
  * Normalizes entries from multiple lorebook formats into a standard array.
  * Accepts: Lumiverse export, CCSv3 character_book, SillyTavern lorebooks.

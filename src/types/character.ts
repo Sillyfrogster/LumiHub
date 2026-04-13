@@ -35,6 +35,8 @@ export interface LumiHubCharacter {
   modification_date: number | null;
   image_path: string | null;
   downloads: number;
+  views: number;
+  favorites: number;
   owner?: { id: string, discord_id: string, username: string, avatar: string | null } | null;
   created_at: string;
   updated_at: string;
@@ -67,6 +69,7 @@ export interface UnifiedCharacterCard {
   avatarUrl: string | null;
   previewUrl?: string | null;
   downloads: number;
+  views: number;
   stars?: number;
   favorites?: number;
   rating: number | null;
@@ -89,6 +92,8 @@ export function fromLumiHub(char: LumiHubCharacter): UnifiedCharacterCard {
     avatarUrl: toUploadUrl(char.image_path),
     previewUrl: toThumbnailUrl(char.image_path),
     downloads: char.downloads,
+    views: char.views,
+    favorites: char.favorites,
     rating: null,
     createdAt: char.created_at,
     source: 'lumihub',

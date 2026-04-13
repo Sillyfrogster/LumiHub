@@ -53,6 +53,11 @@ export async function deleteWorldbook(id: string): Promise<void> {
   if (!res.ok) throw new Error(`Failed to delete worldbook: ${res.status}`);
 }
 
+/** Increments the view counter (best-effort, no auth required). */
+export async function viewWorldbook(id: string): Promise<void> {
+  fetch(`${BASE}/${id}/view`, { method: 'POST' }).catch(() => {});
+}
+
 export async function exportWorldbook(id: string) {
   const res = await fetch(`${BASE}/${id}/export`);
   if (!res.ok) throw new Error(`Failed to export worldbook: ${res.status}`);

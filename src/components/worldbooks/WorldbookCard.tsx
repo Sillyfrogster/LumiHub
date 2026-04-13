@@ -1,7 +1,9 @@
-import { Star, Download, BookOpen, Eye } from 'lucide-react';
-import { useState } from 'react';
+import { Star, Download, BookOpen, Eye, Heart } from 'lucide-react';
+import { useState, useCallback } from 'react';
 import LazyImage from '../shared/LazyImage';
 import type { UnifiedWorldBook } from '../../types/worldbook';
+import { useAuth } from '../../hooks/useAuth';
+import { toggleFavorite } from '../../api/favorites';
 import styles from '../characters/CharacterCard.module.css';
 
 interface Props {
@@ -11,13 +13,40 @@ interface Props {
 }
 
 const WorldbookCard: React.FC<Props> = ({ worldbook, blurNsfw = true, onClick }) => {
+  const { isAuthenticated } = useAuth();
   const [revealed, setRevealed] = useState(false);
   const shouldBlur = worldbook.nsfw && blurNsfw && !revealed;
+
+  const [favorited, setFavorited] = useState(false);
+  const [favCount, setFavCount] = useState(worldbook.favorites ?? 0);
+  const [favPending, setFavPending] = useState(false);
 
   const handleReveal = (e: React.MouseEvent) => {
     e.stopPropagation();
     setRevealed((r) => !r);
   };
+
+  const handleFav = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isAuthenticated || worldbook.source !== 'lumihub') return;
+    if (favPending) return;
+    setFavPending(true);
+    const next = !favorited;
+    setFavorited(next);
+    setFavCount((c) => c + (next ? 1 : -1));
+    try {
+      const result = await toggleFavorite('worldbook', worldbook.id);
+      setFavorited(result.favorited);
+      setFavCount(result.favorites);
+    } catch {
+      setFavorited(!next);
+      setFavCount((c) => c + (next ? -1 : 1));
+    } finally {
+      setFavPending(false);
+    }
+  }, [isAuthenticated, worldbook.source, worldbook.id, favorited, favPending]);
+
+  const fmt = (n: number) => n > 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
 
   const formattedStars =
     worldbook.downloads > 1000
@@ -59,6 +88,21 @@ const WorldbookCard: React.FC<Props> = ({ worldbook, blurNsfw = true, onClick })
             <Star size={10} />
             {worldbook.rating.toFixed(1)}
           </div>
+        )}
+
+        {/* Favorite button — LumiHub worldbooks only */}
+        {worldbook.source === 'lumihub' && (
+          <button
+            className={`${styles.favBtn} ${favorited ? styles.favBtnActive : ''}`}
+            onClick={handleFav}
+            title={isAuthenticated ? (favorited ? 'Remove favorite' : 'Add to favorites') : 'Log in to favorite'}
+            aria-label={favorited ? 'Remove favorite' : 'Add to favorites'}
+            aria-pressed={favorited}
+            disabled={favPending}
+          >
+            <Heart size={12} fill={favorited ? 'currentColor' : 'none'} />
+            {favCount > 0 && <span className={styles.favCount}>{fmt(favCount)}</span>}
+          </button>
         )}
 
         <div className={styles.scrim}>
