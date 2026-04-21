@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { AppDataSource } from '../db/connection.ts';
 import { Character } from '../entities/Character.entity.ts';
 import { CharacterImage } from '../entities/CharacterImage.entity.ts';
@@ -9,7 +10,8 @@ import { env } from '../env.ts';
 import { logger } from '../utils/logger.ts';
 import type { MiddlewareHandler } from 'hono';
 
-const INDEX_PATH = path.resolve('../dist/index.html');
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+const INDEX_PATH = path.resolve(moduleDir, '../../../dist/index.html');
 let cachedIndexHtml: string | null = null;
 
 async function getIndexHtml(): Promise<string> {
@@ -17,7 +19,8 @@ async function getIndexHtml(): Promise<string> {
   try {
     const file = Bun.file(INDEX_PATH);
     cachedIndexHtml = await file.text();
-  } catch {
+  } catch (err) {
+    logger.warn(`[OG] Failed to load SPA index.html from "${INDEX_PATH}". Falling back to minimal HTML shell.`, err);
     cachedIndexHtml = '<!doctype html><html><head></head><body><div id="root"></div></body></html>';
   }
   return cachedIndexHtml;
@@ -341,6 +344,12 @@ const STATIC_PAGE_META: Record<string, OGMeta> = {
     description: 'Fine-tune your AI experience with community generation presets and templates.',
     image: `${env.LUMIHUB_PUBLIC_URL}/lumihub-mascot.png`,
     url: `${env.LUMIHUB_PUBLIC_URL}/presets`,
+  },
+  '/leaderboard': {
+    title: 'Leaderboard — LumiHub',
+    description: 'See top creators, trending content, and community favorites across LumiHub.',
+    image: `${env.LUMIHUB_PUBLIC_URL}/lumihub-mascot.png`,
+    url: `${env.LUMIHUB_PUBLIC_URL}/leaderboard`,
   },
 };
 
