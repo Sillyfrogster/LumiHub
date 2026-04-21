@@ -37,6 +37,7 @@ export interface AssetLeaderboardEntry {
 
 export interface CreatorLeaderboardEntry {
   userId: string;
+  discordId: string | null;
   username: string;
   displayName: string | null;
   avatar: string | null;
@@ -101,6 +102,7 @@ export async function getCreatorLeaderboard(
   const sql = `
     SELECT
       u.id                      AS "userId",
+      u.discord_id              AS "discordId",
       u.username,
       u.display_name            AS "displayName",
       u.avatar,
@@ -123,6 +125,7 @@ export async function getCreatorLeaderboard(
 
   return rows.map((r) => ({
     userId: r.userId,
+    discordId: r.discordId ?? null,
     username: r.username,
     displayName: r.displayName ?? null,
     avatar: r.avatar ?? null,

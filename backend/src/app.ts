@@ -43,9 +43,13 @@ app.use('/uploads/*', async (c, next) => {
 });
 app.use('/uploads/*', serveStatic({ root: './' }));
 
-// Serve built frontend in production
+// Serve built frontend assets in production (keep SPA routes handled by OG + index fallback)
 if (env.NODE_ENV === 'production') {
-  app.use('/*', serveStatic({ root: '../dist' }));
+  app.use('/assets/*', serveStatic({ root: '../dist' }));
+  app.get('/favicon.svg', serveStatic({ root: '../dist', path: '/favicon.svg' }));
+  app.get('/icons.svg', serveStatic({ root: '../dist', path: '/icons.svg' }));
+  app.get('/radia.png', serveStatic({ root: '../dist', path: '/radia.png' }));
+  app.get('/lumihub-mascot.png', serveStatic({ root: '../dist', path: '/lumihub-mascot.png' }));
 }
 
 app.use('*', errorHandler);

@@ -17,6 +17,7 @@ export interface AssetLeaderboardEntry {
 
 export interface CreatorLeaderboardEntry {
   userId: string;
+  discordId: string | null;
   username: string;
   displayName: string | null;
   avatar: string | null;

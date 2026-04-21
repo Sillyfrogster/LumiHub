@@ -113,13 +113,13 @@ const Leaderboard: React.FC = () => {
 
               if (type === 'creators') {
                 const c = entry as CreatorLeaderboardEntry;
-                const avatarSrc = c.avatar
-                  ? `https://cdn.discordapp.com/avatars/${c.userId}/${c.avatar}.webp?size=64`
+                const avatarSrc = c.avatar && c.discordId
+                  ? `https://cdn.discordapp.com/avatars/${c.discordId}/${c.avatar}.webp?size=64`
                   : null;
                 return (
                   <Link
                     key={c.userId}
-                    to={`/user/${c.userId}`}
+                    to={c.discordId ? `/user/${c.discordId}` : "/leaderboard"}
                     className={`${styles.row} ${rankClass ?? ''}`}
                   >
                     <span className={styles.rank}>{i + 1}</span>
