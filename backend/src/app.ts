@@ -13,6 +13,7 @@ import profileAssetsRoutes from './routes/profile-assets.routes.ts';
 import mediaRoutes, { uploadCacheControl } from './routes/media.routes.ts';
 import leaderboardRoutes from './routes/leaderboard.routes.ts';
 import favoritesRoutes from './routes/favorites.routes.ts';
+import presetsRoutes from './routes/presets.routes.ts';
 import { logger } from './utils/logger.ts';
 import { env } from './env.ts';
 import { opengraphMiddleware, staticPageOgMiddleware } from './middleware/opengraph.middleware.ts';
@@ -62,6 +63,7 @@ app.route('/api/v1/leaderboard', leaderboardRoutes);
 app.route('/api/v1/favorites', favoritesRoutes);
 app.route('/api/v1/moderation', moderationRoutes);
 app.route('/api/v1/profile-assets', profileAssetsRoutes);
+app.route('/api/v1/presets', presetsRoutes);
 
 // WebSocket endpoint for Lumiverse instance connections
 app.get('/api/v1/ws/instance', upgradeWebSocket((c) => {
