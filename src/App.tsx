@@ -8,6 +8,7 @@ import WorldbookDetail from './pages/worldbooks/WorldbookDetail';
 import UserProfile from './pages/user/UserProfile';
 import Themes from './pages/themes/Themes';
 import Presets from './pages/presets/Presets';
+import PresetDetail from './pages/presets/PresetDetail';
 import Settings from './pages/settings/Settings';
 import Leaderboard from './pages/leaderboard/Leaderboard';
 
@@ -23,6 +24,7 @@ function App() {
           <Route path="worldbooks/:id" element={<WorldbookDetail />} />
           <Route path="themes" element={<Themes />} />
           <Route path="presets" element={<Presets />} />
+          <Route path="presets/:id" element={<PresetDetail />} />
           <Route path="user/:discordId" element={<UserProfile />} />
           <Route path="settings" element={<Settings />} />
           <Route path="leaderboard" element={<Leaderboard />} />

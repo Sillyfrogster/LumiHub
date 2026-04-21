@@ -1,6 +1,6 @@
 import { apiFetch } from './client';
 
-export type FavoriteAssetType = 'character' | 'worldbook';
+export type FavoriteAssetType = 'character' | 'worldbook' | 'preset';
 
 export interface ToggleFavoriteResult {
   favorited: boolean;

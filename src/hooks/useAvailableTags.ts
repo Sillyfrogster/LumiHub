@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchChubTags } from '../api/chub';
 import { listCharacterTags } from '../api/characters';
 import { listWorldbookTags } from '../api/worldbooks';
+import { listPresetTags } from '../api/presets';
 
 export interface AvailableTag {
   name: string;
@@ -9,7 +10,7 @@ export interface AvailableTag {
 }
 
 type Source = 'lumihub' | 'chub';
-type ContentType = 'characters' | 'worldbooks';
+type ContentType = 'characters' | 'worldbooks' | 'presets';
 
 /**
  * Fetches available tags for the given source and content type.
@@ -29,6 +30,9 @@ export function useAvailableTags(
       } else {
         if (contentType === 'worldbooks') {
           return listWorldbookTags(search || undefined);
+        }
+        if (contentType === 'presets') {
+          return listPresetTags(search || undefined);
         }
         return listCharacterTags(search || undefined);
       }
