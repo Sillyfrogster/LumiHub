@@ -38,7 +38,14 @@ leaderboard.get('/', async (c) => {
   const type = rawType as LeaderboardType;
   const metric = rawMetric as LeaderboardMetric;
   const period = rawPeriod as LeaderboardPeriod;
-  const limit = rawLimit ? Number(rawLimit) : undefined;
+
+  let limit: number | undefined;
+  if (rawLimit !== undefined) {
+    limit = Number(rawLimit);
+    if (!Number.isInteger(limit) || !Number.isFinite(limit)) {
+      return c.json({ error: 'Bad Request', message: 'Invalid limit. Must be a finite integer.', statusCode: 400 }, 400);
+    }
+  }
 
   const params = { type, metric, period, limit };
 
