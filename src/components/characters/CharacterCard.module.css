@@ -106,6 +106,24 @@
   border-color: rgba(255, 255, 255, 0.1);
 }
 
+.aiWarningBadge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(220, 38, 38, 0.9);
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  z-index: 4;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.4);
+}
+
 .ratingBadge {
   position: absolute;
   top: 12px;

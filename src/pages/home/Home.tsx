@@ -3,21 +3,29 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Users, Book, Palette, Sparkles, ArrowRight, Plug, Zap, Shield, TrendingUp } from 'lucide-react';
 import { listCharacters } from '../../api/characters';
 import { fromLumiHub, type UnifiedCharacterCard } from '../../types/character';
+import { useAuth } from '../../hooks/useAuth';
 import CharacterCard from '../../components/characters/CharacterCard';
 import LazyImage from '../../components/shared/LazyImage';
 import styles from './Home.module.css';
 
 const Home = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [trending, setTrending] = useState<UnifiedCharacterCard[]>([]);
   const [trendingLoading, setTrendingLoading] = useState(true);
 
   useEffect(() => {
     listCharacters({ sort: 'downloads', order: 'desc', limit: 12 })
-      .then((res) => setTrending(res.data.map(fromLumiHub)))
+      .then((res) => {
+        let cards = res.data.map(fromLumiHub);
+        if (!user?.settings?.nsfwEnabled) {
+          cards = cards.filter(c => !c.nsfw);
+        }
+        setTrending(cards);
+      })
       .catch((err) => console.error('Failed to fetch popular characters:', err))
       .finally(() => setTrendingLoading(false));
-  }, []);
+  }, [user?.settings?.nsfwEnabled]);
 
   return (
     <div className={styles.page}>

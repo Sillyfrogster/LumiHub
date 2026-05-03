@@ -1,8 +1,9 @@
 import type { UnifiedCharacterCard } from '../../types/character';
-import { Star, Heart, Download, Eye } from 'lucide-react';
-import { useState, useCallback } from 'react';
+import { Star, Heart, Download, Eye, AlertTriangle } from 'lucide-react';
+import { useState, useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { useNsfwScanner } from '../../hooks/useNsfwScanner';
 import { toggleFavorite } from '../../api/favorites';
 import LazyImage from '../shared/LazyImage';
 import styles from './CharacterCard.module.css';
@@ -11,6 +12,7 @@ interface Props {
   card: UnifiedCharacterCard;
   blurNsfw?: boolean;
   onClick?: () => void;
+  aiDetectedNsfw?: boolean;
 }
 
 /** Renders a single character tile in the browse grid. */
@@ -78,6 +80,14 @@ const CharacterCard: React.FC<Props> = ({ card, blurNsfw = true, onClick }) => {
         <div className={`${styles.sourceBadge} ${card.source === 'chub' ? styles.sourceBadgeChub : ''}`}>
           {card.source === 'lumihub' ? 'LumiHub' : 'Chub'}
         </div>
+
+        {/* AI NSFW detection badge */}
+        {aiDetectedNsfw && !card.nsfw && (
+          <div className={styles.aiWarningBadge} title="AI-detected NSFW content">
+            <AlertTriangle size={10} />
+            AI
+          </div>
+        )}
 
         {/* Rating badge */}
         {card.rating !== null && card.rating > 4.5 && (

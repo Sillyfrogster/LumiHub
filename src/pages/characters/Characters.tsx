@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useCharacterStore } from '../../store/useCharacterStore';
 import { useCharacters } from '../../hooks/useCharacters';
 import { useAvailableTags } from '../../hooks/useAvailableTags';
+import { useNsfwScanner } from '../../hooks/useNsfwScanner';
 import CharacterCard from '../../components/characters/CharacterCard';
 import CreateCharacterModal from '../../components/characters/CreateCharacterModal';
 import { Sparkles, Globe, Calendar, Download, CaseSensitive, Flame, Plus, User } from 'lucide-react';
@@ -49,6 +50,7 @@ function SkeletonGrid() {
 
 const Characters = () => {
   const { user } = useAuth();
+  const { scanImage } = useNsfwScanner();
   const {
     source, search, sort,
     tags, excludeTags,
@@ -69,6 +71,7 @@ const Characters = () => {
   const navigate = useNavigate();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [aiDetections, setAiDetections] = useState<Map<string, boolean>>(new Map());
   const [localSearch, setLocalSearch] = useState(search);
   const [localAuthorSearch, setLocalAuthorSearch] = useState(authorSearch);
   const [localMinTokens, setLocalMinTokens] = useState(minTokens);
@@ -112,6 +115,21 @@ const Characters = () => {
   }, [localSearch, setSearch]);
 
   const sortOptions = source === 'lumihub' ? SORT_OPTIONS_LUMIHUB : SORT_OPTIONS_CHUB;
+
+  // Preemptively scan Chub character avatars when NSFW is disabled
+  useEffect(() => {
+    if (source !== 'chub' || !user?.settings || user.settings.nsfwEnabled) return;
+
+    characters.forEach((card) => {
+      if (!aiDetections.has(card.id) && card.avatarUrl) {
+        scanImage(card.avatarUrl).then((result) => {
+          if (result.isNsfw) {
+            setAiDetections((prev) => new Map(prev).set(card.id, true));
+          }
+        });
+      }
+    });
+  }, [characters, source, user?.settings, user?.settings?.nsfwEnabled, scanImage, aiDetections]);
 
   // Filter-blocked message: shown when Chub returns 0 results but filters are restrictive
   const isChub = source === 'chub';
@@ -278,14 +296,22 @@ const Characters = () => {
           </FilterSidebar>
         }
       >
-        {characters.map((card) => (
-          <CharacterCard
-            key={card.id}
-            card={card}
-            blurNsfw={!user?.settings?.nsfwUnblurred}
-            onClick={() => navigate(`/characters/${encodeURIComponent(card.id)}`, { state: { card } })}
-          />
-        ))}
+        {characters
+          .filter((card) => {
+            if (!user?.settings?.nsfwEnabled && aiDetections.has(card.id)) {
+              return false;
+            }
+            return true;
+          })
+          .map((card) => (
+            <CharacterCard
+              key={card.id}
+              card={card}
+              blurNsfw={!user?.settings?.nsfwUnblurred}
+              aiDetectedNsfw={aiDetections.has(card.id)}
+              onClick={() => navigate(`/characters/${encodeURIComponent(card.id)}`, { state: { card } })}
+            />
+          ))}
       </BrowsePage>
 
       {/* Create Modal */}
