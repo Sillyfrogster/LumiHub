@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { fromChub } from '../../types/character';
-import { FileText, MessageSquare, Users, BookOpen, User, Smile, Images, Loader2, Code2, Eye } from 'lucide-react';
+import { FileText, MessageSquare, Users, BookOpen, User, Smile, Images, Loader2, Code2, Eye, AlertTriangle } from 'lucide-react';
 import { useCharacterImages } from '../../hooks/useCharacterImages';
 import { useChubCharacterDetail } from '../../hooks/useChubCharacterDetail';
 import { useChubGallery } from '../../hooks/useChubGallery';
 import { useChubCreator } from '../../hooks/useChubCreator';
 import { useAuth } from '../../hooks/useAuth';
+import { useNsfwScanner } from '../../hooks/useNsfwScanner';
 import LazyImage from '../shared/LazyImage';
 import Lightbox, { type LightboxImage } from '../shared/Lightbox';
 import ScrollFadeRow from '../shared/ScrollFadeRow';
@@ -15,6 +16,7 @@ import type { ChubCharacterCard } from '../../types/chub';
 import type { LumiHubCharacter } from '../../types/character';
 import type { WorldBookEntry } from '../../types/worldbook';
 import type { BundledRegexScript } from '../../utils/charxParser';
+import type { NsfwPrediction } from '../../hooks/useNsfwScanner';
 import styles from './CharacterTabs.module.css';
 
 type TabId = 'overview' | 'prompts' | 'greetings' | 'lorebook' | 'expressions' | 'gallery' | 'creator';
@@ -63,8 +65,10 @@ const CharacterTabs: React.FC<CharacterTabsProps> = ({ card, tabBarClassName, ta
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [lightbox, setLightbox] = useState<{ images: LightboxImage[]; index: number } | null>(null);
   const [revealedNsfwGalleryImages, setRevealedNsfwGalleryImages] = useState<Set<string>>(new Set());
+  const [scannedImages, setScannedImages] = useState<Map<string, NsfwPrediction>>(new Map());
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { scanImage } = useNsfwScanner();
 
   const isChub = card.source === 'chub';
   const chubCard = isChub ? (card.raw as ChubCharacterCard) : null;
@@ -152,6 +156,19 @@ const CharacterTabs: React.FC<CharacterTabsProps> = ({ card, tabBarClassName, ta
 
   const expressionImages = images?.filter((img) => img.image_type === 'expression') ?? [];
   const galleryImages = images?.filter((img) => img.image_type === 'gallery') ?? [];
+
+  // Scan Chub gallery images for NSFW content
+  useEffect(() => {
+    if (activeTab !== 'gallery' || !chubGallery || chubGallery.length === 0) return;
+
+    chubGallery.forEach((img) => {
+      if (!scannedImages.has(img.uuid)) {
+        scanImage(img.primary_image_path).then((result) => {
+          setScannedImages((prev) => new Map(prev).set(img.uuid, result));
+        });
+      }
+    });
+  }, [activeTab, chubGallery, scannedImages, scanImage]);
 
   const alternateFields = lumiverseModules?.alternate_fields;
   const hasAltFields = alternateFields && Object.values(alternateFields).some((arr) => arr.length > 0);
@@ -430,12 +447,18 @@ const CharacterTabs: React.FC<CharacterTabsProps> = ({ card, tabBarClassName, ta
                 {chubGallery
                   .filter((img) => {
                     if (!shouldBlurNsfw && img.nsfw_image) return false;
+                    const scannedResult = scannedImages.get(img.uuid);
+                    if (!shouldBlurNsfw && scannedResult?.isNsfw) return false;
                     return true;
                   })
                   .map((img, i) => {
-                    const isNsfw = img.nsfw_image && shouldBlurNsfw;
+                    const flaggedNsfw = img.nsfw_image;
+                    const scannedResult = scannedImages.get(img.uuid);
+                    const detectedNsfw = scannedResult?.isNsfw;
+                    const isNsfw = (flaggedNsfw || detectedNsfw) && shouldBlurNsfw;
                     const isRevealed = revealedNsfwGalleryImages.has(img.uuid);
                     const shouldBlur = isNsfw && !isRevealed;
+                    const hasWarning = detectedNsfw && !flaggedNsfw;
 
                     return (
                       <div
@@ -444,7 +467,6 @@ const CharacterTabs: React.FC<CharacterTabsProps> = ({ card, tabBarClassName, ta
                         style={{ position: 'relative' }}
                       >
                         <LazyImage
-                          key={img.uuid}
                           src={img.primary_image_path}
                           alt={img.description || 'Gallery'}
                           className={`${styles.galleryTabImg} ${shouldBlur ? styles.imageBlurred : ''}`}
@@ -456,27 +478,47 @@ const CharacterTabs: React.FC<CharacterTabsProps> = ({ card, tabBarClassName, ta
                             } else {
                               setLightbox({
                                 images: chubGallery
-                                  .filter((g) => !g.nsfw_image || !shouldBlurNsfw)
+                                  .filter((g) => {
+                                    const gScanned = scannedImages.get(g.uuid);
+                                    if (!shouldBlurNsfw && (g.nsfw_image || gScanned?.isNsfw)) return false;
+                                    return true;
+                                  })
                                   .map((g) => ({ src: g.primary_image_path, alt: g.description || 'Gallery' })),
                                 index: chubGallery.findIndex((g) => g.uuid === img.uuid),
                               });
                             }
                           }}
                         />
+                        {hasWarning && (
+                          <div
+                            className={styles.nsfwBadge}
+                            title="AI-detected NSFW content"
+                            style={{
+                              position: 'absolute',
+                              top: 4,
+                              right: 4,
+                              zIndex: 10,
+                              background: 'rgba(255, 100, 100, 0.9)',
+                              color: '#fff',
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              fontSize: '10px',
+                              fontWeight: 700,
+                            }}
+                          >
+                            <AlertTriangle size={10} />
+                            AI
+                          </div>
+                        )}
                         {shouldBlur && (
                           <div
                             className={styles.revealOverlay}
                             onClick={(e) => {
                               e.stopPropagation();
                               setRevealedNsfwGalleryImages((prev) => new Set([...prev, img.uuid]));
-                            }}
-                            style={{
-                              position: 'absolute',
-                              inset: 0,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              cursor: 'pointer',
                             }}
                           >
                             <Eye size={16} />
