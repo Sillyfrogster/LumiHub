@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { fromChub } from '../../types/character';
-import { FileText, MessageSquare, Users, BookOpen, User, Smile, Images, Loader2, Code2 } from 'lucide-react';
+import { FileText, MessageSquare, Users, BookOpen, User, Smile, Images, Loader2, Code2, Eye } from 'lucide-react';
 import { useCharacterImages } from '../../hooks/useCharacterImages';
 import { useChubCharacterDetail } from '../../hooks/useChubCharacterDetail';
 import { useChubGallery } from '../../hooks/useChubGallery';
 import { useChubCreator } from '../../hooks/useChubCreator';
+import { useAuth } from '../../hooks/useAuth';
 import LazyImage from '../shared/LazyImage';
 import Lightbox, { type LightboxImage } from '../shared/Lightbox';
 import ScrollFadeRow from '../shared/ScrollFadeRow';
@@ -61,11 +62,14 @@ interface CharacterTabsProps {
 const CharacterTabs: React.FC<CharacterTabsProps> = ({ card, tabBarClassName, tabContentClassName }) => {
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [lightbox, setLightbox] = useState<{ images: LightboxImage[]; index: number } | null>(null);
+  const [revealedNsfwGalleryImages, setRevealedNsfwGalleryImages] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const isChub = card.source === 'chub';
   const chubCard = isChub ? (card.raw as ChubCharacterCard) : null;
   const lumiData = !isChub ? (card.raw as LumiHubCharacter) : null;
+  const shouldBlurNsfw = !user?.settings?.nsfwUnblurred;
 
   // Lazy-load full Chub definition when viewing a Chub character
   const { data: chubDef, isLoading: chubDefLoading } = useChubCharacterDetail(
@@ -423,20 +427,65 @@ const CharacterTabs: React.FC<CharacterTabsProps> = ({ card, tabBarClassName, ta
               <LoadingBlock />
             ) : chubGallery && chubGallery.length > 0 ? (
               <div className={styles.galleryTabGrid}>
-                {chubGallery.map((img, i) => (
-                  <LazyImage
-                    key={img.uuid}
-                    src={img.primary_image_path}
-                    alt={img.description || 'Gallery'}
-                    className={styles.galleryTabImg}
-                    containerClassName={styles.galleryTabImgWrap}
-                    spinnerSize={18}
-                    onClick={() => setLightbox({
-                      images: chubGallery.map((g) => ({ src: g.primary_image_path, alt: g.description || 'Gallery' })),
-                      index: i,
-                    })}
-                  />
-                ))}
+                {chubGallery
+                  .filter((img) => {
+                    if (!shouldBlurNsfw && img.nsfw_image) return false;
+                    return true;
+                  })
+                  .map((img, i) => {
+                    const isNsfw = img.nsfw_image && shouldBlurNsfw;
+                    const isRevealed = revealedNsfwGalleryImages.has(img.uuid);
+                    const shouldBlur = isNsfw && !isRevealed;
+
+                    return (
+                      <div
+                        key={img.uuid}
+                        className={styles.galleryImgWrapper}
+                        style={{ position: 'relative' }}
+                      >
+                        <LazyImage
+                          key={img.uuid}
+                          src={img.primary_image_path}
+                          alt={img.description || 'Gallery'}
+                          className={`${styles.galleryTabImg} ${shouldBlur ? styles.imageBlurred : ''}`}
+                          containerClassName={styles.galleryTabImgWrap}
+                          spinnerSize={18}
+                          onClick={() => {
+                            if (shouldBlur) {
+                              setRevealedNsfwGalleryImages((prev) => new Set([...prev, img.uuid]));
+                            } else {
+                              setLightbox({
+                                images: chubGallery
+                                  .filter((g) => !g.nsfw_image || !shouldBlurNsfw)
+                                  .map((g) => ({ src: g.primary_image_path, alt: g.description || 'Gallery' })),
+                                index: chubGallery.findIndex((g) => g.uuid === img.uuid),
+                              });
+                            }
+                          }}
+                        />
+                        {shouldBlur && (
+                          <div
+                            className={styles.revealOverlay}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setRevealedNsfwGalleryImages((prev) => new Set([...prev, img.uuid]));
+                            }}
+                            style={{
+                              position: 'absolute',
+                              inset: 0,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <Eye size={16} />
+                            <span style={{ marginLeft: '0.5rem' }}>Reveal</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
               </div>
             ) : (
               <p className={styles.emptyText}>No gallery images.</p>

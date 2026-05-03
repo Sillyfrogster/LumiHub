@@ -138,24 +138,24 @@ export async function getChubCharacterDetail(fullPath: string): Promise<ChubChar
 }
 
 /** Fetches trending characters from Chub.ai. */
-export async function getTrendingCharacters(limit = 24): Promise<ChubCharacterCard[]> {
+export async function getTrendingCharacters(limit = 24, includeNsfw = false): Promise<ChubCharacterCard[]> {
   const result = await searchChubCharacters({
     sort: 'trending',
     limit,
     page: 1,
-    nsfw: false,
+    nsfw: includeNsfw,
   });
 
   return result.nodes.map(transformChubCharacter);
 }
 
 /** Fetches top-rated characters from Chub.ai. */
-export async function getFeaturedCharacters(limit = 24): Promise<ChubCharacterCard[]> {
+export async function getFeaturedCharacters(limit = 24, includeNsfw = false): Promise<ChubCharacterCard[]> {
   const result = await searchChubCharacters({
     sort: 'rating',
     limit,
     page: 1,
-    nsfw: false,
+    nsfw: includeNsfw,
   });
 
   return result.nodes.map(transformChubCharacter);
