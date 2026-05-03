@@ -157,9 +157,9 @@ const CharacterTabs: React.FC<CharacterTabsProps> = ({ card, tabBarClassName, ta
   const expressionImages = images?.filter((img) => img.image_type === 'expression') ?? [];
   const galleryImages = images?.filter((img) => img.image_type === 'gallery') ?? [];
 
-  // Scan Chub gallery images for NSFW content
+  // Scan Chub gallery images for NSFW content (only if NSFW is disabled)
   useEffect(() => {
-    if (activeTab !== 'gallery' || !chubGallery || chubGallery.length === 0) return;
+    if (activeTab !== 'gallery' || !chubGallery || chubGallery.length === 0 || user?.settings?.nsfwEnabled) return;
 
     chubGallery.forEach((img) => {
       if (!scannedImages.has(img.uuid)) {
@@ -168,7 +168,7 @@ const CharacterTabs: React.FC<CharacterTabsProps> = ({ card, tabBarClassName, ta
         });
       }
     });
-  }, [activeTab, chubGallery, scannedImages, scanImage]);
+  }, [activeTab, chubGallery, scannedImages, scanImage, user?.settings?.nsfwEnabled]);
 
   const alternateFields = lumiverseModules?.alternate_fields;
   const hasAltFields = alternateFields && Object.values(alternateFields).some((arr) => arr.length > 0);
