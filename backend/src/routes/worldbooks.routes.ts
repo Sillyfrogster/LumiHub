@@ -3,9 +3,13 @@ import { requireAuth, type AuthEnv } from '../middleware/requireAuth.middleware.
 import * as WorldbookService from '../services/worldbooks.service.ts';
 import { FILE_SIZE_LIMITS, UPLOAD_PATHS } from '../utils/constants.ts';
 import type { ListQueryParams } from '../types/api.ts';
-import crypto from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
-import path from 'node:path';
+import {
+  isIntakeError,
+  parseJsonImport,
+  readString,
+  readTags,
+  savePreviewImage,
+} from '../assets/asset-intake.ts';
 
 const worldbooks = new Hono<AuthEnv>();
 
@@ -36,68 +40,32 @@ worldbooks.post('/', requireAuth, async (c) => {
   const ownerId = c.get('userId');
   const formData = await c.req.formData();
 
-  // Parse worldbook JSON file or inline data
-  const jsonFile = formData.get('worldbook_file') as File | null;
-  const inlineData = formData.get('worldbook_data') as string | null;
-  const imageFile = formData.get('image') as File | null;
-  const nameOverride = formData.get('name') as string | null;
-  const descOverride = formData.get('description') as string | null;
-  const tagsRaw = formData.get('tags') as string | null;
-
-  let parsed: { name: string; description: string; entries: Record<string, any>[] };
-
-  if (jsonFile) {
-    if (jsonFile.size > FILE_SIZE_LIMITS.WORLDBOOK) {
-      return c.json({ error: 'Bad Request', message: 'Worldbook file exceeds 5MB limit', statusCode: 400 }, 400);
-    }
-    const text = await jsonFile.text();
-    try {
-      const json = JSON.parse(text);
-      parsed = WorldbookService.parseLorebookFile(json);
-    } catch {
-      return c.json({ error: 'Bad Request', message: 'Invalid JSON file', statusCode: 400 }, 400);
-    }
-  } else if (inlineData) {
-    try {
-      const json = JSON.parse(inlineData);
-      parsed = WorldbookService.parseLorebookFile(json);
-    } catch {
-      return c.json({ error: 'Bad Request', message: 'Invalid worldbook_data JSON', statusCode: 400 }, 400);
-    }
-  } else {
-    return c.json({ error: 'Bad Request', message: 'worldbook_file or worldbook_data is required', statusCode: 400 }, 400);
-  }
+  const parsed = await parseJsonImport(formData, {
+    fileField: 'worldbook_file',
+    dataField: 'worldbook_data',
+    fileLimit: FILE_SIZE_LIMITS.WORLDBOOK,
+    fileLimitMessage: 'Worldbook file exceeds 5MB limit',
+    missingMessage: 'worldbook_file or worldbook_data is required',
+    invalidMessage: 'Invalid worldbook JSON',
+    normalize: (input) => WorldbookService.parseLorebookFile(input as Record<string, any>),
+  });
+  if (isIntakeError(parsed)) return c.json(parsed.error, 400);
 
   if (parsed.entries.length === 0) {
     return c.json({ error: 'Bad Request', message: 'No valid lorebook entries found', statusCode: 400 }, 400);
   }
 
-  // Process optional image
-  let imagePath: string | undefined;
-  if (imageFile && imageFile.size > 0) {
-    if (imageFile.size > FILE_SIZE_LIMITS.IMAGE) {
-      return c.json({ error: 'Bad Request', message: 'Image exceeds 5MB limit', statusCode: 400 }, 400);
-    }
-    const ext = imageFile.name?.split('.').pop()?.toLowerCase() || 'png';
-    const filename = `${crypto.randomUUID()}.${ext}`;
-    const dir = UPLOAD_PATHS.WORLDBOOKS;
-    await mkdir(dir, { recursive: true });
-    const buf = Buffer.from(await imageFile.arrayBuffer());
-    const fullPath = path.join(dir, filename);
-    await writeFile(fullPath, buf);
-    imagePath = fullPath;
-  }
-
-  const tags = tagsRaw ? tagsRaw.split(',').map((t) => t.trim()).filter(Boolean) : [];
+  const image = await savePreviewImage(formData.get('image'), UPLOAD_PATHS.WORLDBOOKS);
+  if (isIntakeError(image)) return c.json(image.error, 400);
 
   const worldbook = await WorldbookService.createWorldbook(
     {
-      name: nameOverride || parsed.name,
-      description: descOverride || parsed.description,
-      tags,
+      name: readString(formData, 'name') || parsed.name,
+      description: readString(formData, 'description') || parsed.description,
+      tags: readTags(formData),
       entries: parsed.entries,
     },
-    imagePath,
+    image.path ?? undefined,
     ownerId,
   );
 

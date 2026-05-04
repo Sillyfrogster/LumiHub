@@ -2,34 +2,27 @@ import { Hono } from 'hono';
 import { requireModerator } from '../middleware/requireModerator.middleware.ts';
 import type { AuthEnv } from '../middleware/requireAuth.middleware.ts';
 import { AppDataSource } from '../db/connection.ts';
-import { Character } from '../entities/Character.entity.ts';
-import { Worldbook } from '../entities/Worldbook.entity.ts';
-import { Preset } from '../entities/Preset.entity.ts';
-import { Theme } from '../entities/Theme.entity.ts';
 import { logger } from '../utils/logger.ts';
+import {
+  getHubAssetByRouteSlug,
+  HUB_ASSET_ROUTE_SLUGS,
+  isHubAssetRouteSlug,
+  type HubAssetRouteSlug,
+} from '../assets/asset-registry.ts';
 
 const moderation = new Hono<AuthEnv>();
 moderation.use('*', requireModerator);
 
-const CONTENT_TYPES = {
-  characters: Character,
-  worldbooks: Worldbook,
-  presets: Preset,
-  themes: Theme,
-} as const;
-
-type ContentType = keyof typeof CONTENT_TYPES;
-
-function getRepo(type: ContentType) {
-  return AppDataSource.getRepository(CONTENT_TYPES[type]);
+function getRepo(type: HubAssetRouteSlug) {
+  return AppDataSource.getRepository(getHubAssetByRouteSlug(type).entity);
 }
 
 /** List all hidden content across all types */
 moderation.get('/hidden', async (c) => {
   const results: Record<string, any[]> = {};
 
-  for (const [type, entity] of Object.entries(CONTENT_TYPES)) {
-    const items = await AppDataSource.getRepository(entity).find({
+  for (const type of HUB_ASSET_ROUTE_SLUGS) {
+    const items = await getRepo(type).find({
       where: { hidden: true },
       order: { updated_at: 'DESC' },
     });
@@ -43,8 +36,8 @@ moderation.get('/hidden', async (c) => {
 
 /** Hide a piece of content */
 moderation.patch('/:type/:id/hide', async (c) => {
-  const type = c.req.param('type') as ContentType;
-  if (!CONTENT_TYPES[type]) {
+  const type = c.req.param('type');
+  if (!isHubAssetRouteSlug(type)) {
     return c.json({ error: 'Bad Request', message: `Invalid content type: ${type}`, statusCode: 400 }, 400);
   }
 
@@ -63,8 +56,8 @@ moderation.patch('/:type/:id/hide', async (c) => {
 
 /** Unhide a piece of content */
 moderation.patch('/:type/:id/unhide', async (c) => {
-  const type = c.req.param('type') as ContentType;
-  if (!CONTENT_TYPES[type]) {
+  const type = c.req.param('type');
+  if (!isHubAssetRouteSlug(type)) {
     return c.json({ error: 'Bad Request', message: `Invalid content type: ${type}`, statusCode: 400 }, 400);
   }
 
@@ -83,8 +76,8 @@ moderation.patch('/:type/:id/unhide', async (c) => {
 
 /** Delete content (moderator override — bypasses ownership check) */
 moderation.delete('/:type/:id', async (c) => {
-  const type = c.req.param('type') as ContentType;
-  if (!CONTENT_TYPES[type]) {
+  const type = c.req.param('type');
+  if (!isHubAssetRouteSlug(type)) {
     return c.json({ error: 'Bad Request', message: `Invalid content type: ${type}`, statusCode: 400 }, 400);
   }
 

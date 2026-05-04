@@ -13,9 +13,9 @@ export class Favorite {
   @Column({ type: 'uuid' })
   user_id: string;
 
-  /** Discriminator so the same table covers both characters and worldbooks. */
+  /** Discriminator so the same table covers multiple asset types. */
   @Column({ type: 'varchar', length: 32 })
-  asset_type: 'character' | 'worldbook';
+  asset_type: 'character' | 'worldbook' | 'theme' | 'preset';
 
   @Column({ type: 'uuid' })
   asset_id: string;

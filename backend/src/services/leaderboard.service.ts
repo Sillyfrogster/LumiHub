@@ -1,6 +1,8 @@
 import { AppDataSource } from '../db/connection.ts';
+import { getHubAssetByRouteSlug, type HubAssetRouteSlug } from '../assets/asset-registry.ts';
 
-export type LeaderboardType = 'characters' | 'worldbooks' | 'creators';
+export type LeaderboardAssetType = Extract<HubAssetRouteSlug, 'characters' | 'worldbooks'>;
+export type LeaderboardType = LeaderboardAssetType | 'creators';
 export type LeaderboardMetric = 'downloads' | 'favorites';
 export type LeaderboardPeriod = 'week' | 'month' | 'all';
 
@@ -48,10 +50,10 @@ export interface CreatorLeaderboardEntry {
 
 /** Returns the top N characters or worldbooks ordered by the requested metric. */
 export async function getAssetLeaderboard(
-  params: LeaderboardParams,
+  params: LeaderboardParams & { type: LeaderboardAssetType },
 ): Promise<AssetLeaderboardEntry[]> {
   const limit = Math.min(Math.max(params.limit ?? 25, 1), 100);
-  const table = params.type === 'characters' ? 'characters' : 'worldbooks';
+  const table = getHubAssetByRouteSlug(params.type).tableName;
   const periodClause = periodWhere('a', params.period);
   const orderCol = params.metric === 'favorites' ? 'a.favorites' : 'a.downloads';
 

@@ -5,5 +5,20 @@ import { BaseAsset } from './BaseAsset.entity.ts';
 @Entity('themes')
 export class Theme extends BaseAsset {
   @Column({ type: 'jsonb', default: {} })
-  colors: Record<string, string>;
+  config: Record<string, any>;
+
+  @Column({ type: 'jsonb', default: [] })
+  tags: string[];
+
+  @Column({ type: 'int', default: 1 })
+  schema_version: number;
+
+  @Column({ type: 'jsonb', default: {} })
+  compatibility: Record<string, any>;
+
+  @Column({ type: 'text', nullable: true })
+  custom_css: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  asset_bundle_id: string | null;
 }

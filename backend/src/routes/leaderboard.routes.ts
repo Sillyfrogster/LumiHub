@@ -2,13 +2,15 @@ import { Hono } from 'hono';
 import * as LeaderboardService from '../services/leaderboard.service.ts';
 import type {
   LeaderboardType,
+  LeaderboardAssetType,
   LeaderboardMetric,
   LeaderboardPeriod,
 } from '../services/leaderboard.service.ts';
+import { LEADERBOARD_ASSET_ROUTE_SLUGS } from '../assets/asset-registry.ts';
 
 const leaderboard = new Hono();
 
-const VALID_TYPES: LeaderboardType[] = ['characters', 'worldbooks', 'creators'];
+const VALID_TYPES: LeaderboardType[] = [...LEADERBOARD_ASSET_ROUTE_SLUGS, 'creators'] as LeaderboardType[];
 const VALID_METRICS: LeaderboardMetric[] = ['downloads', 'favorites'];
 const VALID_PERIODS: LeaderboardPeriod[] = ['week', 'month', 'all'];
 
@@ -52,7 +54,7 @@ leaderboard.get('/', async (c) => {
   const data =
     type === 'creators'
       ? await LeaderboardService.getCreatorLeaderboard(params)
-      : await LeaderboardService.getAssetLeaderboard(params);
+      : await LeaderboardService.getAssetLeaderboard({ ...params, type: type as LeaderboardAssetType });
 
   return c.json({ data });
 });

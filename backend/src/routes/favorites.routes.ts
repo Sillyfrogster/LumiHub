@@ -2,19 +2,15 @@ import { Hono } from 'hono';
 import { requireAuth, type AuthEnv } from '../middleware/requireAuth.middleware.ts';
 import { AppDataSource } from '../db/connection.ts';
 import { Favorite } from '../entities/Favorite.entity.ts';
-import { Character } from '../entities/Character.entity.ts';
-import { Worldbook } from '../entities/Worldbook.entity.ts';
+import { getHubAsset, isHubAssetType, type HubAssetType } from '../assets/asset-registry.ts';
 
 const favorites = new Hono<AuthEnv>();
 
 const favRepo = () => AppDataSource.getRepository(Favorite);
 
-const VALID_ASSET_TYPES = ['character', 'worldbook'] as const;
-type AssetType = (typeof VALID_ASSET_TYPES)[number];
-
 /**
  * POST /api/v1/favorites/toggle
- * Body: { assetType: 'character'|'worldbook', assetId: '<uuid>' }
+ * Body: { assetType: 'character'|'worldbook'|'theme'|'preset', assetId: '<uuid>' }
  * Toggles the favorite — adds it if missing, removes it if present.
  * Also atomically updates the favorites counter on the asset row.
  * Returns { favorited: boolean, favorites: number }
@@ -27,16 +23,14 @@ favorites.post('/toggle', requireAuth, async (c) => {
     return c.json({ error: 'Bad Request', message: 'assetType and assetId are required', statusCode: 400 }, 400);
   }
 
-  const assetType: AssetType = body.assetType;
+  const assetType: HubAssetType = body.assetType;
   const assetId: string = body.assetId;
 
-  if (!VALID_ASSET_TYPES.includes(assetType)) {
-    return c.json({ error: 'Bad Request', message: 'assetType must be "character" or "worldbook"', statusCode: 400 }, 400);
+  if (!isHubAssetType(assetType)) {
+    return c.json({ error: 'Bad Request', message: 'assetType must be a valid asset type', statusCode: 400 }, 400);
   }
 
-  const assetRepo = assetType === 'character'
-    ? AppDataSource.getRepository(Character)
-    : AppDataSource.getRepository(Worldbook);
+  const assetRepo = AppDataSource.getRepository(getHubAsset(assetType).entity);
 
   const asset = await assetRepo.findOneBy({ id: assetId });
   if (!asset) {
@@ -75,10 +69,10 @@ favorites.post('/toggle', requireAuth, async (c) => {
  */
 favorites.get('/check', requireAuth, async (c) => {
   const userId = c.get('userId');
-  const assetType = c.req.query('assetType') as AssetType | undefined;
+  const assetType = c.req.query('assetType');
   const assetId = c.req.query('assetId');
 
-  if (!assetType || !assetId || !VALID_ASSET_TYPES.includes(assetType)) {
+  if (!assetType || !assetId || !isHubAssetType(assetType)) {
     return c.json({ error: 'Bad Request', message: 'Valid assetType and assetId query params are required', statusCode: 400 }, 400);
   }
 

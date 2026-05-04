@@ -5,6 +5,8 @@ import { upgradeWebSocket, websocket } from 'hono/bun';
 import { errorHandler, notFound } from './middleware/error.middleware.ts';
 import charactersRoutes from './routes/characters.routes.ts';
 import worldbooksRoutes from './routes/worldbooks.routes.ts';
+import themesRoutes from './routes/themes.routes.ts';
+import presetsRoutes from './routes/presets.routes.ts';
 import authRoutes from './routes/auth.routes.ts';
 import userRoutes from './routes/user.routes.ts';
 import linkRoutes from './routes/link.routes.ts';
@@ -55,6 +57,8 @@ if (env.NODE_ENV === 'production') {
 app.use('*', errorHandler);
 app.route('/api/v1/characters', charactersRoutes);
 app.route('/api/v1/worldbooks', worldbooksRoutes);
+app.route('/api/v1/themes', themesRoutes);
+app.route('/api/v1/presets', presetsRoutes);
 app.route('/api/v1/auth', authRoutes);
 app.route('/api/v1/media', mediaRoutes);
 app.route('/api/v1/users/me/assets', profileAssetsRoutes);
