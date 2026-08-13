@@ -1,7 +1,6 @@
 package asset
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -9,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
+	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
 	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -29,43 +29,43 @@ func NewService(pool *pgxpool.Pool, reg *format.Registry, store storage.Store) *
 	return &Service{pool: pool, reg: reg, store: store}
 }
 
-// detectHeadBytes is how much of a file a module gets to recognise it by.
-const detectHeadBytes = 512
-
 // Create stores the upload, reads what it can from it, and publishes one
 // catalog entry. Nothing is committed unless every step succeeds.
 //
-// The file is never held whole. It is hashed and counted as it is written, and
-// the module reads it back from storage, so the memory this costs does not
-// grow with the size of the upload.
+// The file is never held whole. Storage hashes and counts it while writing,
+// then the shared probe reads bounded ranges from the stored blob.
 func (s *Service) Create(ctx context.Context, in CreateInput) (Asset, error) {
 	assetID := uuid.New()
 	revisionID := uuid.New()
-
-	file := bufio.NewReaderSize(in.File, detectHeadBytes)
-	head, err := file.Peek(detectHeadBytes)
-	if err != nil && !errors.Is(err, io.EOF) {
-		return Asset{}, fmt.Errorf("read upload: %w", err)
-	}
-	module := s.reg.Detect(in.Filename, head)
 
 	// The file is written before the transaction on purpose. A failed
 	// transaction leaves an unreferenced file, which a sweeper can collect.
 	// Writing it after would let a committed row point at a file that is
 	// not there yet, which is the worse of the two failures.
-	stored, err := s.store.Put(ctx, file)
+	stored, err := s.store.Put(ctx, in.File)
 	if err != nil {
 		return Asset{}, fmt.Errorf("store upload: %w", err)
 	}
 
-	parsed, err := s.parseStored(ctx, module, stored.ID)
+	inspected, err := probe.Inspect(ctx, s.store, stored.ID, stored.ByteSize, in.Filename)
 	if err != nil {
-		return Asset{}, err
+		return Asset{}, fmt.Errorf("probe upload: %w", err)
+	}
+	resolution, claimed, err := s.reg.Resolve(inspected)
+	if err != nil {
+		return Asset{}, fmt.Errorf("resolve upload format: %w", err)
+	}
+	parsed := format.Parsed{Format: "unknown"}
+	if claimed {
+		parsed, err = resolution.Module.Parse(ctx, inspected, resolution.Claim)
+		if err != nil {
+			return Asset{}, fmt.Errorf("parse upload: %w", err)
+		}
 	}
 
 	kind := parsed.Kind
 	passthroughPlatform := (*string)(nil)
-	if s.reg.IsFallback(module) {
+	if !claimed {
 		kind = in.Kind
 		if kind == "" {
 			return Asset{}, errors.New("a passthrough upload needs a kind")
@@ -73,10 +73,10 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Asset, error) {
 		passthroughPlatform = parsed.PassthroughPlatform
 	} else {
 		if kind == "" {
-			return Asset{}, fmt.Errorf("format module %q did not declare a kind", module.ID())
+			return Asset{}, fmt.Errorf("format module %q did not declare a kind", resolution.Module.ID())
 		}
 		if parsed.PassthroughPlatform != nil {
-			return Asset{}, fmt.Errorf("format module %q returned a passthrough platform", module.ID())
+			return Asset{}, fmt.Errorf("format module %q returned a passthrough platform", resolution.Module.ID())
 		}
 	}
 	discovery := in.Discovery
@@ -135,22 +135,6 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Asset, error) {
 
 	a.CurrentRevisionID = revisionID
 	return a, nil
-}
-
-// parseStored gives the module the stored file rather than a copy held in
-// memory.
-func (s *Service) parseStored(ctx context.Context, module format.Module, blobID uuid.UUID) (format.Parsed, error) {
-	stored, err := s.store.Open(ctx, blobID)
-	if err != nil {
-		return format.Parsed{}, fmt.Errorf("reopen stored upload: %w", err)
-	}
-	defer stored.Close()
-
-	parsed, err := module.Parse(ctx, stored)
-	if err != nil {
-		return format.Parsed{}, fmt.Errorf("parse upload: %w", err)
-	}
-	return parsed, nil
 }
 
 // orElse prefers the uploader's catalog metadata. A module only fills in

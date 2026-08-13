@@ -12,7 +12,7 @@ func TestDownloadReturnsTheExactUploadedBytes(t *testing.T) {
 	r, session := newVerifiedTestRouter(t)
 
 	// Not valid UTF-8 and not valid JSON, so any re-encoding would show up.
-	original := []byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0xff, 0xfe}
+	original := []byte{0x00, 0xff, 0xfe, 0x10, 0x80}
 
 	rec := send(t, r, authorized(uploadRequest(t, exampleMetadata("Exact"), original), session))
 	if rec.Code != http.StatusCreated {

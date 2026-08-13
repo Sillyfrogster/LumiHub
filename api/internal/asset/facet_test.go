@@ -3,37 +3,39 @@ package asset
 import (
 	"bytes"
 	"context"
-	"io"
 	"testing"
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
+	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
 	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
 	"github.com/Sillyfrogster/LumiHub/api/internal/testdb"
 	"github.com/google/uuid"
 )
 
 /** A module that always emits the facets it was built with */
-type facetModule struct{ facets []format.Facet }
+type facetModule struct {
+	claimsFirstPayload
+	facets []format.Facet
+}
 
-func (facetModule) ID() string                 { return "facets" }
-func (facetModule) Detect(string, []byte) bool { return true }
-func (m facetModule) Parse(context.Context, io.Reader) (format.Parsed, error) {
-	return format.Parsed{Format: "test", Facets: m.facets}, nil
+func (facetModule) ID() string { return "facets" }
+func (m facetModule) Parse(context.Context, probe.Result, format.Claim) (format.Parsed, error) {
+	return format.Parsed{Kind: "character", Format: "test", Facets: m.facets}, nil
 }
 
 func TestListMatchesEveryRequestedFacet(t *testing.T) {
 	pool := testdb.Connect(t)
 	blob, _ := storage.NewStore(pool, t.TempDir())
 
-	reg := format.NewRegistry(facetModule{facets: []format.Facet{
+	reg := registryWithModule(t, facetModule{facets: []format.Facet{
 		{Key: "pack_type", Value: "lumia"},
 		{Key: "has_expressions", Value: "true"},
 	}})
 	svc := NewService(pool, reg, blob)
 
 	if _, err := svc.Create(context.Background(), CreateInput{
-		OwnerID: uuid.New(), Kind: "preset", Filename: "p.bin",
-		File: bytes.NewReader([]byte("p")), Name: "Pack", Discovery: "listed",
+		OwnerID: uuid.New(), Kind: "preset", Filename: "p.json",
+		File: bytes.NewReader([]byte("{}")), Name: "Pack", Discovery: "listed",
 	}); err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -65,14 +67,14 @@ func TestListRequiresAllFacetsNotAny(t *testing.T) {
 	pool := testdb.Connect(t)
 	blob, _ := storage.NewStore(pool, t.TempDir())
 
-	reg := format.NewRegistry(facetModule{facets: []format.Facet{
+	reg := registryWithModule(t, facetModule{facets: []format.Facet{
 		{Key: "pack_type", Value: "lumia"},
 	}})
 	svc := NewService(pool, reg, blob)
 
 	if _, err := svc.Create(context.Background(), CreateInput{
-		OwnerID: uuid.New(), Kind: "preset", Filename: "p.bin",
-		File: bytes.NewReader([]byte("p")), Name: "Pack", Discovery: "listed",
+		OwnerID: uuid.New(), Kind: "preset", Filename: "p.json",
+		File: bytes.NewReader([]byte("{}")), Name: "Pack", Discovery: "listed",
 	}); err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -99,14 +101,14 @@ func TestFacetKeysAndValuesContainingEqualsDoNotCollide(t *testing.T) {
 		t.Fatalf("storage: %v", err)
 	}
 
-	reg := format.NewRegistry(facetModule{facets: []format.Facet{
+	reg := registryWithModule(t, facetModule{facets: []format.Facet{
 		{Key: "a=b", Value: "c"},
 	}})
 	svc := NewService(pool, reg, blob)
 
 	if _, err := svc.Create(context.Background(), CreateInput{
-		OwnerID: uuid.New(), Kind: "character", Filename: "p.bin",
-		File: bytes.NewReader([]byte("p")), Name: "Pack", Discovery: "listed",
+		OwnerID: uuid.New(), Kind: "character", Filename: "p.json",
+		File: bytes.NewReader([]byte("{}")), Name: "Pack", Discovery: "listed",
 	}); err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -143,14 +145,14 @@ func TestRequestingTheSameFacetTwiceStillMatches(t *testing.T) {
 		t.Fatalf("storage: %v", err)
 	}
 
-	reg := format.NewRegistry(facetModule{facets: []format.Facet{
+	reg := registryWithModule(t, facetModule{facets: []format.Facet{
 		{Key: "pack_type", Value: "lumia"},
 	}})
 	svc := NewService(pool, reg, blob)
 
 	if _, err := svc.Create(context.Background(), CreateInput{
-		OwnerID: uuid.New(), Kind: "preset", Filename: "p.bin",
-		File: bytes.NewReader([]byte("p")), Name: "Pack", Discovery: "listed",
+		OwnerID: uuid.New(), Kind: "preset", Filename: "p.json",
+		File: bytes.NewReader([]byte("{}")), Name: "Pack", Discovery: "listed",
 	}); err != nil {
 		t.Fatalf("create: %v", err)
 	}

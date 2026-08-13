@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"time"
+
+	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
 )
 
 /** A key and value a module extracts so Browse can filter on it */
@@ -28,8 +30,20 @@ type Parsed struct {
 /** The minimum every format module implements */
 type Module interface {
 	ID() string
-	Detect(filename string, head []byte) bool
-	Parse(ctx context.Context, r io.Reader) (Parsed, error)
+	Claim(probe.Result) (Claim, bool)
+	Parse(ctx context.Context, file probe.Result, claim Claim) (Parsed, error)
+}
+
+type ClaimStrength uint8
+
+const (
+	Compatibility ClaimStrength = iota + 1
+	Authoritative
+)
+
+type Claim struct {
+	PayloadID uint32
+	Strength  ClaimStrength
 }
 
 /** Implemented only by modules that can change a file without losing data */

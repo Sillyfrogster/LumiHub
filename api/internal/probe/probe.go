@@ -93,6 +93,10 @@ func Inspect(ctx context.Context, store RangeStore, id uuid.UUID, size int64, fi
 	if _, err := reader.ReadAt(prefix, 0); err != nil && !errors.Is(err, io.EOF) {
 		return Result{}, fmt.Errorf("read container signature: %w", err)
 	}
+	jsonObject, err := looksLikeJSONObject(reader, prefix, filename)
+	if err != nil {
+		return Result{}, fmt.Errorf("inspect JSON signature: %w", err)
+	}
 
 	switch {
 	case bytes.Equal(prefix, []byte("\x89PNG\r\n\x1a\n")):
@@ -105,7 +109,7 @@ func Inspect(ctx context.Context, store RangeStore, id uuid.UUID, size int64, fi
 		if err := inspectZIP(reader, &result); err != nil {
 			return Result{}, err
 		}
-	case firstNonSpace(prefix) == '{' || strings.EqualFold(path.Ext(filename), ".json"):
+	case jsonObject:
 		result.Container = JSON
 		root, err := decodeObject(io.NewSectionReader(reader, 0, size))
 		if err != nil {
@@ -118,6 +122,22 @@ func Inspect(ctx context.Context, store RangeStore, id uuid.UUID, size int64, fi
 		})
 	}
 	return result, nil
+}
+
+func looksLikeJSONObject(reader *rangeReaderAt, prefix []byte, filename string) (bool, error) {
+	marker := firstNonSpace(prefix)
+	if marker != 0 {
+		return marker == '{', nil
+	}
+	if !strings.EqualFold(path.Ext(filename), ".json") {
+		return false, nil
+	}
+	length := min(reader.size, maxRangeRead)
+	start := make([]byte, length)
+	if _, err := reader.ReadAt(start, 0); err != nil && !errors.Is(err, io.EOF) {
+		return false, err
+	}
+	return firstNonSpace(start) == '{', nil
 }
 
 func isZIP(prefix []byte) bool {

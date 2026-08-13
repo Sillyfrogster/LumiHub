@@ -4,16 +4,17 @@ import (
 	"context"
 	"io"
 	"testing"
+
+	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
 )
 
-type stubModule struct {
-	id      string
-	detects bool
-}
+type stubModule struct{ id string }
 
-func (s stubModule) ID() string                 { return s.id }
-func (s stubModule) Detect(string, []byte) bool { return s.detects }
-func (s stubModule) Parse(context.Context, io.Reader) (Parsed, error) {
+func (s stubModule) ID() string { return s.id }
+func (stubModule) Claim(probe.Result) (Claim, bool) {
+	return Claim{}, false
+}
+func (s stubModule) Parse(context.Context, probe.Result, Claim) (Parsed, error) {
 	return Parsed{Format: s.id}, nil
 }
 
@@ -23,33 +24,8 @@ func (editableModule) Edit(context.Context, io.Reader, []byte) (io.Reader, error
 	return nil, nil
 }
 
-func TestDetectFallsBackWhenNothingMatches(t *testing.T) {
-	fallback := stubModule{id: "fallback"}
-	r := NewRegistry(fallback)
-	if err := r.Register(stubModule{id: "never", detects: false}); err != nil {
-		t.Fatalf("register: %v", err)
-	}
-
-	got := r.Detect("mystery.bin", nil)
-	if got.ID() != "fallback" {
-		t.Fatalf("Detect returned %q, want fallback", got.ID())
-	}
-}
-
-func TestDetectPrefersAMatchingModule(t *testing.T) {
-	r := NewRegistry(stubModule{id: "fallback"})
-	if err := r.Register(stubModule{id: "matcher", detects: true}); err != nil {
-		t.Fatalf("register: %v", err)
-	}
-
-	got := r.Detect("card.png", nil)
-	if got.ID() != "matcher" {
-		t.Fatalf("Detect returned %q, want matcher", got.ID())
-	}
-}
-
 func TestRegisterRejectsDuplicateIDs(t *testing.T) {
-	r := NewRegistry(stubModule{id: "fallback"})
+	r := NewRegistry()
 	if err := r.Register(stubModule{id: "same"}); err != nil {
 		t.Fatalf("first register: %v", err)
 	}
@@ -59,7 +35,7 @@ func TestRegisterRejectsDuplicateIDs(t *testing.T) {
 }
 
 func TestCanEditReflectsTheOptionalInterface(t *testing.T) {
-	r := NewRegistry(stubModule{id: "fallback"})
+	r := NewRegistry()
 	_ = r.Register(stubModule{id: "plain"})
 	_ = r.Register(editableModule{stubModule{id: "rich"}})
 

@@ -12,7 +12,6 @@ import (
 	"github.com/Sillyfrogster/LumiHub/api/internal/account"
 	"github.com/Sillyfrogster/LumiHub/api/internal/asset"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
-	"github.com/Sillyfrogster/LumiHub/api/internal/format/passthrough"
 	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
 	"github.com/Sillyfrogster/LumiHub/api/internal/testdb"
 	"github.com/gin-gonic/gin"
@@ -81,7 +80,7 @@ func newTestHandlersWithPool(
 	if err != nil {
 		t.Fatalf("storage: %v", err)
 	}
-	svc := asset.NewService(pool, format.NewRegistry(passthrough.New()), blob)
+	svc := asset.NewService(pool, format.NewRegistry(), blob)
 	accounts := account.NewService(pool, sender, nil, "http://localhost:3000")
 
 	return NewHandlers(svc, accounts, maxUploadBytes)
@@ -106,7 +105,7 @@ func newTestRouterWithDiscordAndOutbox(
 	if err != nil {
 		t.Fatalf("storage: %v", err)
 	}
-	assets := asset.NewService(pool, format.NewRegistry(passthrough.New()), blob)
+	assets := asset.NewService(pool, format.NewRegistry(), blob)
 	outbox := &verificationOutbox{}
 	accounts := account.NewService(
 		pool, outbox, provider, "http://localhost:3000",

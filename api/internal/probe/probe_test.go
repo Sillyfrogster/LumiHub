@@ -43,6 +43,32 @@ func TestInspectStreamsAJSONRootThroughRangeReads(t *testing.T) {
 	}
 }
 
+func TestJSONFilenameDoesNotTurnOpaqueBytesIntoJSON(t *testing.T) {
+	file := []byte{0x00, 0xff, 0xfe, 0x10}
+	store := &recordingStore{data: file}
+
+	got, err := Inspect(context.Background(), store, uuid.New(), int64(len(file)), "misleading.json")
+	if err != nil {
+		t.Fatalf("Inspect: %v", err)
+	}
+	if got.Container != Unknown {
+		t.Fatalf("container = %q, want unknown", got.Container)
+	}
+}
+
+func TestJSONFilenameAllowsWhitespaceBeyondTheSignatureRead(t *testing.T) {
+	file := []byte(strings.Repeat(" ", 32) + `{"spec":"chara_card_v3"}`)
+	store := &recordingStore{data: file}
+
+	got, err := Inspect(context.Background(), store, uuid.New(), int64(len(file)), "card.json")
+	if err != nil {
+		t.Fatalf("Inspect: %v", err)
+	}
+	if got.Container != JSON {
+		t.Fatalf("container = %q, want JSON", got.Container)
+	}
+}
+
 func TestInspectTellsRootZIPEntriesApart(t *testing.T) {
 	for _, test := range []struct {
 		name      string

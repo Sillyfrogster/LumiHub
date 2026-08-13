@@ -10,7 +10,6 @@ import (
 	"github.com/Sillyfrogster/LumiHub/api/internal/config"
 	"github.com/Sillyfrogster/LumiHub/api/internal/discord"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
-	"github.com/Sillyfrogster/LumiHub/api/internal/format/passthrough"
 	apihttp "github.com/Sillyfrogster/LumiHub/api/internal/http"
 	"github.com/Sillyfrogster/LumiHub/api/internal/postgres"
 	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
@@ -35,7 +34,7 @@ func main() {
 	}
 
 	// Every format module is registered here and nowhere else.
-	registry := format.NewRegistry(passthrough.New())
+	registry := format.NewRegistry()
 
 	svc := asset.NewService(pool, registry, blob)
 	var verificationSender account.EmailSender = account.NewLogVerificationSender(log.Default())

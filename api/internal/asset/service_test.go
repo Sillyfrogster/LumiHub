@@ -4,13 +4,12 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"io"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
-	"github.com/Sillyfrogster/LumiHub/api/internal/format/passthrough"
+	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
 	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
 	"github.com/Sillyfrogster/LumiHub/api/internal/testdb"
 	"github.com/google/uuid"
@@ -19,7 +18,25 @@ import (
 
 func newTestService(t *testing.T) (*Service, *pgxpool.Pool) {
 	t.Helper()
-	return newTestServiceWithRegistry(t, format.NewRegistry(passthrough.New()))
+	return newTestServiceWithRegistry(t, format.NewRegistry())
+}
+
+type claimsFirstPayload struct{}
+
+func (claimsFirstPayload) Claim(file probe.Result) (format.Claim, bool) {
+	if len(file.Payloads) == 0 {
+		return format.Claim{}, false
+	}
+	return format.Claim{PayloadID: file.Payloads[0].ID, Strength: format.Authoritative}, true
+}
+
+func registryWithModule(t *testing.T, module format.Module) *format.Registry {
+	t.Helper()
+	registry := format.NewRegistry()
+	if err := registry.Register(module); err != nil {
+		t.Fatalf("register module: %v", err)
+	}
+	return registry
 }
 
 func newTestServiceWithRegistry(t *testing.T, registry *format.Registry) (*Service, *pgxpool.Pool) {
@@ -106,12 +123,12 @@ func TestCreateStoresUploaderMetadataForAnUnparseableFile(t *testing.T) {
 func TestCreateWritesNothingWhenParsingFails(t *testing.T) {
 	pool := testdb.Connect(t)
 	blob, _ := storage.NewStore(pool, t.TempDir())
-	reg := format.NewRegistry(failingModule{})
+	reg := registryWithModule(t, failingModule{})
 	svc := NewService(pool, reg, blob)
 
 	_, err := svc.Create(context.Background(), CreateInput{
 		OwnerID: uuid.New(), Kind: "character", Filename: "a.bin",
-		File: bytes.NewReader([]byte("x")), Name: "A", Discovery: "listed",
+		File: bytes.NewReader([]byte("{}")), Name: "A", Discovery: "listed",
 	})
 	if err == nil {
 		t.Fatal("expected Create to fail when parsing fails")
@@ -126,20 +143,19 @@ func TestCreateWritesNothingWhenParsingFails(t *testing.T) {
 	}
 }
 
-type recognizedModule struct{ parsed format.Parsed }
+type recognizedModule struct {
+	claimsFirstPayload
+	parsed format.Parsed
+}
 
-func (recognizedModule) ID() string                 { return "recognized" }
-func (recognizedModule) Detect(string, []byte) bool { return true }
-func (m recognizedModule) Parse(context.Context, io.Reader) (format.Parsed, error) {
+func (recognizedModule) ID() string { return "recognized" }
+func (m recognizedModule) Parse(context.Context, probe.Result, format.Claim) (format.Parsed, error) {
 	return m.parsed, nil
 }
 
 func serviceWithRecognizedModule(t *testing.T, parsed format.Parsed) *Service {
 	t.Helper()
-	registry := format.NewRegistry(passthrough.New())
-	if err := registry.Register(recognizedModule{parsed: parsed}); err != nil {
-		t.Fatalf("register module: %v", err)
-	}
+	registry := registryWithModule(t, recognizedModule{parsed: parsed})
 	service, _ := newTestServiceWithRegistry(t, registry)
 	return service
 }
@@ -149,7 +165,7 @@ func TestCreateDerivesKindFromARecognizedFormat(t *testing.T) {
 
 	got, err := svc.Create(context.Background(), CreateInput{
 		OwnerID: uuid.New(), Kind: "theme", Filename: "card.bin",
-		File: bytes.NewReader([]byte("card")), Name: "Card",
+		File: bytes.NewReader([]byte("{}")), Name: "Card",
 	})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
@@ -167,7 +183,7 @@ func TestRecognizedFormatCannotCarryAPassthroughPlatform(t *testing.T) {
 
 	_, err := svc.Create(context.Background(), CreateInput{
 		OwnerID: uuid.New(), Kind: "character", Filename: "card.bin",
-		File: bytes.NewReader([]byte("card")), Name: "Card",
+		File: bytes.NewReader([]byte("{}")), Name: "Card",
 	})
 	if err == nil {
 		t.Fatal("recognized format stored a passthrough platform label")
@@ -175,21 +191,20 @@ func TestRecognizedFormatCannotCarryAPassthroughPlatform(t *testing.T) {
 }
 
 /** Always fails, so the test can prove nothing is left behind */
-type failingModule struct{}
+type failingModule struct{ claimsFirstPayload }
 
-func (failingModule) ID() string                 { return "failing" }
-func (failingModule) Detect(string, []byte) bool { return false }
-func (failingModule) Parse(context.Context, io.Reader) (format.Parsed, error) {
+func (failingModule) ID() string { return "failing" }
+func (failingModule) Parse(context.Context, probe.Result, format.Claim) (format.Parsed, error) {
 	return format.Parsed{}, errors.New("cannot parse")
 }
 
 /** Emits a facet Postgres cannot store, so the failure lands mid transaction */
-type badFacetModule struct{}
+type badFacetModule struct{ claimsFirstPayload }
 
-func (badFacetModule) ID() string                 { return "badfacet" }
-func (badFacetModule) Detect(string, []byte) bool { return true }
-func (badFacetModule) Parse(context.Context, io.Reader) (format.Parsed, error) {
+func (badFacetModule) ID() string { return "badfacet" }
+func (badFacetModule) Parse(context.Context, probe.Result, format.Claim) (format.Parsed, error) {
 	return format.Parsed{
+		Kind:   "character",
 		Format: "test",
 		Facets: []format.Facet{{Key: "bad", Value: "\x00"}},
 	}, nil
@@ -201,11 +216,11 @@ func TestCreateRollsBackAfterRowsAreWritten(t *testing.T) {
 	if err != nil {
 		t.Fatalf("storage: %v", err)
 	}
-	svc := NewService(pool, format.NewRegistry(badFacetModule{}), blob)
+	svc := NewService(pool, registryWithModule(t, badFacetModule{}), blob)
 
 	_, err = svc.Create(context.Background(), CreateInput{
 		OwnerID: uuid.New(), Kind: "character", Filename: "a.bin",
-		File: bytes.NewReader([]byte("x")), Name: "A", Discovery: "listed",
+		File: bytes.NewReader([]byte("{}")), Name: "A", Discovery: "listed",
 	})
 	if err == nil {
 		t.Fatal("expected Create to fail when a facet cannot be stored")
@@ -224,12 +239,14 @@ func TestCreateRollsBackAfterRowsAreWritten(t *testing.T) {
 }
 
 // datedModule stands in for a module that reads a date out of a file.
-type datedModule struct{ made time.Time }
+type datedModule struct {
+	claimsFirstPayload
+	made time.Time
+}
 
-func (datedModule) ID() string                 { return "dated" }
-func (datedModule) Detect(string, []byte) bool { return true }
-func (m datedModule) Parse(context.Context, io.Reader) (format.Parsed, error) {
-	return format.Parsed{Format: "dated", CreatedAt: &m.made}, nil
+func (datedModule) ID() string { return "dated" }
+func (m datedModule) Parse(context.Context, probe.Result, format.Claim) (format.Parsed, error) {
+	return format.Parsed{Kind: "character", Format: "dated", CreatedAt: &m.made}, nil
 }
 
 func madeAndIndexed(t *testing.T, pool *pgxpool.Pool, id uuid.UUID) (made, indexed time.Time) {
@@ -249,11 +266,11 @@ func TestCreateKeepsTheDateTheFileCarries(t *testing.T) {
 		t.Fatalf("storage: %v", err)
 	}
 	fileDate := time.Date(2019, 3, 14, 9, 30, 0, 0, time.UTC)
-	svc := NewService(pool, format.NewRegistry(datedModule{made: fileDate}), blob)
+	svc := NewService(pool, registryWithModule(t, datedModule{made: fileDate}), blob)
 
 	got, err := svc.Create(context.Background(), CreateInput{
 		OwnerID: uuid.New(), Kind: "character", Filename: "a.bin",
-		File: bytes.NewReader([]byte("x")), Name: "A", Discovery: "listed",
+		File: bytes.NewReader([]byte("{}")), Name: "A", Discovery: "listed",
 	})
 	if err != nil {
 		t.Fatalf("create: %v", err)
@@ -296,12 +313,12 @@ func TestCreateAcceptsAMadeDateInThePast(t *testing.T) {
 		t.Fatalf("storage: %v", err)
 	}
 	fileDate := time.Date(2019, 3, 14, 9, 30, 0, 0, time.UTC)
-	svc := NewService(pool, format.NewRegistry(datedModule{made: fileDate}), blob)
+	svc := NewService(pool, registryWithModule(t, datedModule{made: fileDate}), blob)
 
 	caller := time.Date(2021, 7, 1, 12, 0, 0, 0, time.UTC)
 	created, err := svc.Create(context.Background(), CreateInput{
 		OwnerID: uuid.New(), Kind: "character", Filename: "a.bin",
-		File: bytes.NewReader([]byte("x")), Name: "A", Discovery: "listed",
+		File: bytes.NewReader([]byte("{}")), Name: "A", Discovery: "listed",
 		CreatedAt: &caller,
 	})
 	if err != nil {
@@ -332,7 +349,7 @@ func TestOpenOriginalTellsMissingAssetFromBrokenStorage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("storage: %v", err)
 	}
-	svc := NewService(pool, format.NewRegistry(passthrough.New()), blob)
+	svc := NewService(pool, format.NewRegistry(), blob)
 
 	created, err := svc.Create(context.Background(), CreateInput{
 		OwnerID: uuid.New(), Kind: "character", Filename: "a.bin",
