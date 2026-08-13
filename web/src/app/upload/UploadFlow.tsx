@@ -35,6 +35,7 @@ function operationPath(url: string) {
 export function UploadFlow() {
   const { account } = useAuth();
   const fileInput = useRef<HTMLInputElement>(null);
+  const operationHeading = useRef<HTMLHeadingElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState("");
   const [operation, setOperation] = useState<IngestOperation | null>(null);
@@ -89,6 +90,16 @@ export function UploadFlow() {
       active = false;
       controller.abort();
     };
+  }, [operation]);
+
+  useEffect(() => {
+    if (
+      operation &&
+      operation.status !== "pending" &&
+      operation.status !== "processing"
+    ) {
+      operationHeading.current?.focus();
+    }
   }, [operation]);
 
   function chooseFile(event: ChangeEvent<HTMLInputElement>) {
@@ -226,7 +237,9 @@ export function UploadFlow() {
           <FileArchive size={28} strokeWidth={1.3} aria-hidden="true" />
         </div>
         <div className={styles.operationCopy}>
-          <h2 id="kind-heading">Tell us where this belongs</h2>
+          <h2 ref={operationHeading} id="kind-heading" tabIndex={-1}>
+            Tell us where this belongs
+          </h2>
           <p>
             The file is safe to keep, but its format does not say what kind of
             creation it holds.
@@ -259,7 +272,11 @@ export function UploadFlow() {
             {pending ? "Saving…" : "Finish ingest"}
           </button>
         </form>
-        {message ? <p className={styles.error}>{message}</p> : null}
+        {message ? (
+          <p className={styles.error} role="alert">
+            {message}
+          </p>
+        ) : null}
       </section>
     );
   }
@@ -271,7 +288,9 @@ export function UploadFlow() {
           <AlertCircle size={28} strokeWidth={1.35} aria-hidden="true" />
         </div>
         <div className={styles.operationCopy}>
-          <h2 id="failed-heading">This file was not added</h2>
+          <h2 ref={operationHeading} id="failed-heading" tabIndex={-1}>
+            This file was not added
+          </h2>
           <p>{operation.failure.message}</p>
         </div>
         <button className={styles.secondary} type="button" onClick={beginAgain}>
@@ -292,7 +311,9 @@ export function UploadFlow() {
           {KIND_LABELS[created.kind as keyof typeof KIND_LABELS] ??
             created.kind}
         </p>
-        <h2 id="success-heading">{created.name}</h2>
+        <h2 ref={operationHeading} id="success-heading" tabIndex={-1}>
+          {created.name}
+        </h2>
         {created.blurb ? (
           <p className={styles.createdBlurb}>{created.blurb}</p>
         ) : null}
