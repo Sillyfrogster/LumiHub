@@ -7,12 +7,10 @@ import (
 
 	apihttp "github.com/Sillyfrogster/LumiHub/api/internal/http"
 	"github.com/Sillyfrogster/LumiHub/api/internal/postgres"
+	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
 )
 
-// defaultMaxUploadBytes is 55 MB. The largest asset in production is a
-// character of 9.45 MB plus an avatar of up to 1.26 MB, so this is about five
-// times the biggest real file.
-const defaultMaxUploadBytes = 55 << 20
+const defaultMaxUploadBytes = 32 << 20
 
 // Config holds every setting the service runs on. They are gathered here and
 // handed down, so nothing reaches for a setting on its own.
@@ -24,6 +22,8 @@ type Config struct {
 	Database       postgres.Settings
 	UploadsDir     string
 	MaxUploadBytes int64
+	ProbeLimits    probe.Limits
+	IngestWorkers  int
 	Server         apihttp.Timeouts
 	Deadlines      apihttp.Deadlines
 }
@@ -76,6 +76,34 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	cfg.MaxUploadBytes = max
+	limits := probe.DefaultLimits()
+	entries, err := intOrDefault("MAX_ARCHIVE_ENTRIES", limits.MaxArchiveEntries)
+	if err != nil {
+		return Config{}, err
+	}
+	entryBytes, err := bytesOrDefault("MAX_ARCHIVE_ENTRY_BYTES", int64(limits.MaxEntryBytes))
+	if err != nil {
+		return Config{}, err
+	}
+	archiveBytes, err := bytesOrDefault("MAX_ARCHIVE_BYTES", int64(limits.MaxArchiveBytes))
+	if err != nil {
+		return Config{}, err
+	}
+	ratio, err := floatOrDefault("MAX_ARCHIVE_COMPRESSION_RATIO", limits.MaxCompressionRatio)
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.ProbeLimits = probe.Limits{
+		MaxArchiveEntries:   entries,
+		MaxEntryBytes:       uint64(entryBytes),
+		MaxArchiveBytes:     uint64(archiveBytes),
+		MaxCompressionRatio: ratio,
+	}
+	workers, err := intOrDefault("INGEST_WORKERS", 2)
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.IngestWorkers = workers
 	if (cfg.SMTP.Address == "") != (cfg.SMTP.From == "") {
 		return Config{}, fmt.Errorf("SMTP_ADDR and SMTP_FROM must be set together")
 	}
@@ -90,6 +118,30 @@ func Load() (Config, error) {
 	}
 
 	return cfg, nil
+}
+
+func intOrDefault(key string, fallback int) (int, error) {
+	raw := os.Getenv(key)
+	if raw == "" {
+		return fallback, nil
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n <= 0 {
+		return 0, fmt.Errorf("%s must be a positive integer, got %q", key, raw)
+	}
+	return n, nil
+}
+
+func floatOrDefault(key string, fallback float64) (float64, error) {
+	raw := os.Getenv(key)
+	if raw == "" {
+		return fallback, nil
+	}
+	n, err := strconv.ParseFloat(raw, 64)
+	if err != nil || n <= 0 {
+		return 0, fmt.Errorf("%s must be a positive number, got %q", key, raw)
+	}
+	return n, nil
 }
 
 func get(key, fallback string) string {

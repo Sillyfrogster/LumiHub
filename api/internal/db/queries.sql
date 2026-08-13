@@ -1,7 +1,7 @@
 -- name: InsertAsset :one
 -- indexed_at is left to its default so nothing a caller sends can reach it.
 insert into assets
-  (id, kind, owner_id, name, description, tags, is_nsfw, discovery, created_at)
+  (id, kind, owner_id, name, blurb, tags, is_nsfw, discovery, created_at)
 values ($1, $2, $3, $4, $5, $6, $7, $8,
         coalesce(sqlc.narg('created_at')::timestamptz, now()))
 returning created_at;
@@ -24,7 +24,7 @@ with facet_pairs as (
   select unnest($5::text[]) as k, unnest($6::text[]) as v
 )
 select a.id, a.kind, revision.passthrough_platform, revision.format,
-       a.name, a.description, a.tags, a.is_nsfw, a.discovery,
+       a.name, a.blurb, a.tags, a.is_nsfw, a.discovery,
        a.current_revision_id, a.created_at
   from assets a
   join asset_revisions revision on revision.id = a.current_revision_id
@@ -51,6 +51,14 @@ select a.id, a.kind, revision.passthrough_platform, revision.format,
 select r.blob_id, r.media_type
   from assets a
   join asset_revisions r on r.id = a.current_revision_id
+ where a.id = $1;
+
+-- name: AssetByID :one
+select a.id, a.kind, revision.passthrough_platform, revision.format,
+       a.name, a.blurb, a.tags, a.is_nsfw, a.discovery,
+       a.current_revision_id, a.created_at
+  from assets a
+  join asset_revisions revision on revision.id = a.current_revision_id
  where a.id = $1;
 
 -- name: UpsertBlob :one

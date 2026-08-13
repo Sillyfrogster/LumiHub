@@ -11,6 +11,48 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const assetByID = `-- name: AssetByID :one
+select a.id, a.kind, revision.passthrough_platform, revision.format,
+       a.name, a.blurb, a.tags, a.is_nsfw, a.discovery,
+       a.current_revision_id, a.created_at
+  from assets a
+  join asset_revisions revision on revision.id = a.current_revision_id
+ where a.id = $1
+`
+
+type AssetByIDRow struct {
+	ID                  pgtype.UUID
+	Kind                string
+	PassthroughPlatform pgtype.Text
+	Format              string
+	Name                string
+	Blurb               string
+	Tags                []string
+	IsNsfw              bool
+	Discovery           string
+	CurrentRevisionID   pgtype.UUID
+	CreatedAt           pgtype.Timestamptz
+}
+
+func (q *Queries) AssetByID(ctx context.Context, id pgtype.UUID) (AssetByIDRow, error) {
+	row := q.db.QueryRow(ctx, assetByID, id)
+	var i AssetByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.Kind,
+		&i.PassthroughPlatform,
+		&i.Format,
+		&i.Name,
+		&i.Blurb,
+		&i.Tags,
+		&i.IsNsfw,
+		&i.Discovery,
+		&i.CurrentRevisionID,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const blobLocation = `-- name: BlobLocation :one
 select storage_key, byte_size from blobs where id = $1
 `
@@ -152,22 +194,22 @@ func (q *Queries) HandleUnavailable(ctx context.Context, username string) (bool,
 
 const insertAsset = `-- name: InsertAsset :one
 insert into assets
-  (id, kind, owner_id, name, description, tags, is_nsfw, discovery, created_at)
+  (id, kind, owner_id, name, blurb, tags, is_nsfw, discovery, created_at)
 values ($1, $2, $3, $4, $5, $6, $7, $8,
         coalesce($9::timestamptz, now()))
 returning created_at
 `
 
 type InsertAssetParams struct {
-	ID          pgtype.UUID
-	Kind        string
-	OwnerID     pgtype.UUID
-	Name        string
-	Description string
-	Tags        []string
-	IsNsfw      bool
-	Discovery   string
-	CreatedAt   pgtype.Timestamptz
+	ID        pgtype.UUID
+	Kind      string
+	OwnerID   pgtype.UUID
+	Name      string
+	Blurb     string
+	Tags      []string
+	IsNsfw    bool
+	Discovery string
+	CreatedAt pgtype.Timestamptz
 }
 
 // indexed_at is left to its default so nothing a caller sends can reach it.
@@ -177,7 +219,7 @@ func (q *Queries) InsertAsset(ctx context.Context, arg InsertAssetParams) (pgtyp
 		arg.Kind,
 		arg.OwnerID,
 		arg.Name,
-		arg.Description,
+		arg.Blurb,
 		arg.Tags,
 		arg.IsNsfw,
 		arg.Discovery,
@@ -420,7 +462,7 @@ with facet_pairs as (
   select unnest($5::text[]) as k, unnest($6::text[]) as v
 )
 select a.id, a.kind, revision.passthrough_platform, revision.format,
-       a.name, a.description, a.tags, a.is_nsfw, a.discovery,
+       a.name, a.blurb, a.tags, a.is_nsfw, a.discovery,
        a.current_revision_id, a.created_at
   from assets a
   join asset_revisions revision on revision.id = a.current_revision_id
@@ -462,7 +504,7 @@ type ListAssetsRow struct {
 	PassthroughPlatform pgtype.Text
 	Format              string
 	Name                string
-	Description         string
+	Blurb               string
 	Tags                []string
 	IsNsfw              bool
 	Discovery           string
@@ -495,7 +537,7 @@ func (q *Queries) ListAssets(ctx context.Context, arg ListAssetsParams) ([]ListA
 			&i.PassthroughPlatform,
 			&i.Format,
 			&i.Name,
-			&i.Description,
+			&i.Blurb,
 			&i.Tags,
 			&i.IsNsfw,
 			&i.Discovery,

@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"path"
 	"strings"
 
@@ -17,6 +18,28 @@ import (
 )
 
 const maxRangeRead = 64 * 1024
+
+var (
+	ErrMalformedInput  = errors.New("malformed input")
+	ErrSafetyViolation = errors.New("archive safety violation")
+	errRangeRead       = errors.New("blob range read failed")
+)
+
+type Limits struct {
+	MaxArchiveEntries   int
+	MaxEntryBytes       uint64
+	MaxArchiveBytes     uint64
+	MaxCompressionRatio float64
+}
+
+func DefaultLimits() Limits {
+	return Limits{
+		MaxArchiveEntries:   512,
+		MaxEntryBytes:       32 << 20,
+		MaxArchiveBytes:     128 << 20,
+		MaxCompressionRatio: 100,
+	}
+}
 
 type Container string
 
@@ -82,6 +105,17 @@ type ZIPEntry struct {
 
 // Inspect identifies a stored container and decodes its format payloads.
 func Inspect(ctx context.Context, store RangeStore, id uuid.UUID, size int64, filename string) (Inspection, error) {
+	return InspectWithLimits(ctx, store, id, size, filename, DefaultLimits())
+}
+
+func InspectWithLimits(
+	ctx context.Context,
+	store RangeStore,
+	id uuid.UUID,
+	size int64,
+	filename string,
+	limits Limits,
+) (Inspection, error) {
 	result := Inspection{Container: Unknown}
 	if size == 0 {
 		return result, nil
@@ -101,22 +135,29 @@ func Inspect(ctx context.Context, store RangeStore, id uuid.UUID, size int64, fi
 	case bytes.Equal(prefix, []byte("\x89PNG\r\n\x1a\n")):
 		result.Container = PNG
 		if err := inspectPNG(reader, &result); err != nil {
-			return Inspection{}, err
+			return Inspection{}, classifyContainerError(err)
 		}
 	case isZIP(prefix):
 		result.Container = ZIP
-		if err := inspectZIP(reader, &result); err != nil {
-			return Inspection{}, err
+		if err := inspectZIP(reader, &result, limits); err != nil {
+			return Inspection{}, classifyContainerError(err)
 		}
 	case jsonObject:
 		result.Container = JSON
 		root, err := decodeObject(io.NewSectionReader(reader, 0, size))
 		if err != nil {
-			return Inspection{}, fmt.Errorf("inspect JSON: %w", err)
+			return Inspection{}, classifyContainerError(fmt.Errorf("inspect JSON: %w", err))
 		}
 		result.addPayload(Locator{Container: JSON, Name: "root"}, root)
 	}
 	return result, nil
+}
+
+func classifyContainerError(err error) error {
+	if errors.Is(err, ErrSafetyViolation) || errors.Is(err, errRangeRead) {
+		return err
+	}
+	return fmt.Errorf("%w: %v", ErrMalformedInput, err)
 }
 
 func looksLikeJSONObject(reader *rangeReaderAt, prefix []byte, filename string) (bool, error) {
@@ -193,12 +234,41 @@ func inspectPNG(reader *rangeReaderAt, result *Inspection) error {
 	}
 }
 
-func inspectZIP(reader *rangeReaderAt, result *Inspection) error {
+func inspectZIP(reader *rangeReaderAt, result *Inspection, limits Limits) error {
 	archive, err := zip.NewReader(reader, reader.size)
 	if err != nil {
 		return fmt.Errorf("inspect ZIP: %w", err)
 	}
+	if len(archive.File) > limits.MaxArchiveEntries {
+		return fmt.Errorf("%w: archive has %d entries, limit is %d",
+			ErrSafetyViolation, len(archive.File), limits.MaxArchiveEntries)
+	}
+	var archiveBytes uint64
 	for _, entry := range archive.File {
+		if unsafeArchivePath(entry.Name) {
+			return fmt.Errorf("%w: unsafe archive path %q", ErrSafetyViolation, entry.Name)
+		}
+		if entry.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("%w: archive entry %q is a symlink", ErrSafetyViolation, entry.Name)
+		}
+		if entry.Flags&1 != 0 {
+			return fmt.Errorf("%w: archive entry %q is encrypted", ErrSafetyViolation, entry.Name)
+		}
+		if entry.UncompressedSize64 > limits.MaxEntryBytes {
+			return fmt.Errorf("%w: archive entry %q is too large", ErrSafetyViolation, entry.Name)
+		}
+		if entry.UncompressedSize64 > 0 && (entry.CompressedSize64 == 0 ||
+			float64(entry.UncompressedSize64)/float64(entry.CompressedSize64) > limits.MaxCompressionRatio) {
+			return fmt.Errorf("%w: archive entry %q exceeds the compression ratio",
+				ErrSafetyViolation, entry.Name)
+		}
+		if ^uint64(0)-archiveBytes < entry.UncompressedSize64 {
+			return fmt.Errorf("%w: archive size overflow", ErrSafetyViolation)
+		}
+		archiveBytes += entry.UncompressedSize64
+		if archiveBytes > limits.MaxArchiveBytes {
+			return fmt.Errorf("%w: archive expands beyond its limit", ErrSafetyViolation)
+		}
 		offset, err := entry.DataOffset()
 		if err != nil {
 			return fmt.Errorf("inspect ZIP entry %q: %w", entry.Name, err)
@@ -229,6 +299,18 @@ func inspectZIP(reader *rangeReaderAt, result *Inspection) error {
 		result.addPayload(Locator{Container: ZIP, Name: entry.Name, Offset: offset}, root)
 	}
 	return nil
+}
+
+func unsafeArchivePath(name string) bool {
+	portable := strings.ReplaceAll(name, "\\", "/")
+	if strings.HasPrefix(portable, "/") ||
+		(len(portable) >= 2 && portable[1] == ':' &&
+			((portable[0] >= 'a' && portable[0] <= 'z') ||
+				(portable[0] >= 'A' && portable[0] <= 'Z'))) {
+		return true
+	}
+	cleaned := path.Clean(portable)
+	return cleaned == ".." || strings.HasPrefix(cleaned, "../")
 }
 
 func (i *Inspection) addPayload(locator Locator, root map[string]json.RawMessage) {
@@ -304,16 +386,16 @@ func (r *rangeReaderAt) ReadAt(p []byte, offset int64) (int, error) {
 		length := min(wanted-read, maxRangeRead)
 		part, err := r.store.ReadRange(r.ctx, r.id, offset+read, length)
 		if err != nil {
-			return int(read), err
+			return int(read), fmt.Errorf("%w: %w", errRangeRead, err)
 		}
 		n, copyErr := io.ReadFull(part, p[read:read+length])
 		closeErr := part.Close()
 		read += int64(n)
 		if copyErr != nil {
-			return int(read), copyErr
+			return int(read), fmt.Errorf("%w: %v", errRangeRead, copyErr)
 		}
 		if closeErr != nil {
-			return int(read), closeErr
+			return int(read), fmt.Errorf("%w: %v", errRangeRead, closeErr)
 		}
 	}
 	if wanted < int64(len(p)) {

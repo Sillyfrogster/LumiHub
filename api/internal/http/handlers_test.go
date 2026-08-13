@@ -65,9 +65,22 @@ func newTestRouterWithSenderAndPool(
 	sender account.EmailSender,
 ) (*gin.Engine, *pgxpool.Pool) {
 	t.Helper()
+	router, pool, _ := newTestRouterWithSenderPoolAndHandlers(
+		t, maxUploadBytes, deadlines, sender,
+	)
+	return router, pool
+}
+
+func newTestRouterWithSenderPoolAndHandlers(
+	t *testing.T,
+	maxUploadBytes int64,
+	deadlines Deadlines,
+	sender account.EmailSender,
+) (*gin.Engine, *pgxpool.Pool, *Handlers) {
+	t.Helper()
 	pool := testdb.Connect(t)
 	handlers := newTestHandlersWithPool(t, pool, maxUploadBytes, sender)
-	return registerTestRouter(t, handlers, deadlines), pool
+	return registerTestRouter(t, handlers, deadlines), pool, handlers
 }
 
 func newTestHandlers(
@@ -148,6 +161,26 @@ func newVerifiedTestRouterWith(
 	deadlines Deadlines,
 ) (*gin.Engine, *http.Cookie) {
 	t.Helper()
+	router, session, _ := newVerifiedTestRouterWithService(t, maxUploadBytes, deadlines)
+	return router, session
+}
+
+func newVerifiedTestRouterWithService(
+	t *testing.T,
+	maxUploadBytes int64,
+	deadlines Deadlines,
+) (*gin.Engine, *http.Cookie, *asset.Service) {
+	t.Helper()
+	_, router, session, assets := newVerifiedTestRoutersWithService(t, maxUploadBytes, deadlines)
+	return router, session, assets
+}
+
+func newVerifiedTestRoutersWithService(
+	t *testing.T,
+	maxUploadBytes int64,
+	deadlines Deadlines,
+) (*gin.Engine, *gin.Engine, *http.Cookie, *asset.Service) {
+	t.Helper()
 	outbox := &verificationOutbox{}
 	handlers := newTestHandlers(t, maxUploadBytes, outbox)
 	setupRouter := registerTestRouter(t, handlers, DefaultDeadlines())
@@ -161,7 +194,7 @@ func newVerifiedTestRouterWith(
 	if rec.Code != http.StatusOK {
 		t.Fatalf("verify test account: %d %s", rec.Code, rec.Body.String())
 	}
-	return registerTestRouter(t, handlers, deadlines), session
+	return setupRouter, registerTestRouter(t, handlers, deadlines), session, handlers.assets
 }
 
 func authorized(req *http.Request, session *http.Cookie) *http.Request {
@@ -189,9 +222,17 @@ func (o *verificationOutbox) SendPasswordReset(_ context.Context, address, link 
 	return nil
 }
 
-func post(t *testing.T, r *gin.Engine, session *http.Cookie, name string) *httptest.ResponseRecorder {
+func post(
+	t *testing.T,
+	r *gin.Engine,
+	session *http.Cookie,
+	assets *asset.Service,
+	name string,
+) *httptest.ResponseRecorder {
 	t.Helper()
-	return send(t, r, authorized(uploadRequest(t, exampleMetadata(name), []byte(name)), session))
+	metadata := exampleMetadata(name)
+	metadata["filename"] = name + ".lumitheme"
+	return uploadAndFinish(t, r, session, assets, metadata, []byte(name))
 }
 
 type listedAsset struct {
@@ -218,20 +259,22 @@ func get(t *testing.T, r *gin.Engine, url string) []listedAsset {
 }
 
 func TestCreateThenListRoundTrip(t *testing.T) {
-	r, session := newVerifiedTestRouter(t)
+	r, session, assets := newVerifiedIngestRouter(t, format.NewRegistry())
 
-	rec := post(t, r, session, "Mystery")
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("POST status = %d, want 201. body: %s", rec.Code, rec.Body.String())
+	rec := post(t, r, session, assets, "Mystery")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("poll status = %d, want 200. body: %s", rec.Code, rec.Body.String())
 	}
 
 	var created struct {
-		CreatedAt time.Time `json:"createdAt"`
+		Asset *struct {
+			CreatedAt time.Time `json:"createdAt"`
+		} `json:"asset"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
 		t.Fatalf("decode created asset: %v", err)
 	}
-	if created.CreatedAt.IsZero() {
+	if created.Asset == nil || created.Asset.CreatedAt.IsZero() {
 		t.Error("created asset came back with no made date")
 	}
 
@@ -239,15 +282,15 @@ func TestCreateThenListRoundTrip(t *testing.T) {
 	if len(items) != 1 || items[0].Name != "Mystery" {
 		t.Fatalf("list returned %+v, want one asset named Mystery", items)
 	}
-	if !items[0].CreatedAt.Equal(created.CreatedAt) {
-		t.Errorf("listed made date %v, created said %v", items[0].CreatedAt, created.CreatedAt)
+	if !items[0].CreatedAt.Equal(created.Asset.CreatedAt) {
+		t.Errorf("listed made date %v, created said %v", items[0].CreatedAt, created.Asset.CreatedAt)
 	}
 }
 
 func TestListPagesFromWhereTheLastPageEnded(t *testing.T) {
-	r, session := newVerifiedTestRouter(t)
+	r, session, assets := newVerifiedIngestRouter(t, format.NewRegistry())
 	for _, name := range []string{"first", "second", "third"} {
-		if rec := post(t, r, session, name); rec.Code != http.StatusCreated {
+		if rec := post(t, r, session, assets, name); rec.Code != http.StatusOK {
 			t.Fatalf("POST %s status = %d. body: %s", name, rec.Code, rec.Body.String())
 		}
 	}

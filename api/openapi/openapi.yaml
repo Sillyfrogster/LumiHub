@@ -234,12 +234,14 @@ paths:
                   $ref: "#/components/schemas/CreateAssetRequest"
                 file: { type: string, format: binary }
       responses:
-        "201":
-          description: The asset that was created
+        "202":
+          description: The durable ingest operation for the accepted upload
+          headers:
+            Location:
+              schema: { type: string }
           content:
             application/json:
-              schema:
-                $ref: "#/components/schemas/Asset"
+              schema: { $ref: "#/components/schemas/IngestOperation" }
         "401": { description: No account is signed in }
         "403": { description: The signed-in account has not verified its email }
   /v1/assets/{id}/original:
@@ -255,6 +257,44 @@ paths:
               schema: { type: string, format: binary }
         "404":
           description: No such asset
+  /v1/ingests/{id}:
+    get:
+      operationId: getIngest
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The creator's ingest operation
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IngestOperation" }
+        "401": { description: No account is signed in }
+        "403": { description: The signed-in account has not verified its email }
+        "404": { description: No such ingest operation for this creator }
+    patch:
+      operationId: completeIngest
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CompleteIngestRequest" }
+      responses:
+        "202":
+          description: The ingest operation queued again with its passthrough kind
+          headers:
+            Location:
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IngestOperation" }
+        "400": { description: The kind or name is invalid }
+        "401": { description: No account is signed in }
+        "403": { description: The signed-in account has not verified its email }
+        "404": { description: No such ingest operation awaiting a kind }
 components:
   securitySchemes:
     sessionCookie:
@@ -332,14 +372,14 @@ components:
         token: { type: string }
     Asset:
       type: object
-      required: [id, kind, format, name, description, tags, isNsfw, discovery, createdAt]
+      required: [id, kind, format, name, blurb, tags, isNsfw, discovery, createdAt]
       properties:
         id: { type: string, format: uuid }
         kind: { type: string }
         passthroughPlatform: { type: [string, "null"] }
         format: { type: string }
         name: { type: string }
-        description: { type: string }
+        blurb: { type: string }
         tags: { type: array, items: { type: string } }
         isNsfw: { type: boolean }
         discovery: { type: string, enum: [listed, unlisted] }
@@ -353,12 +393,48 @@ components:
           items: { $ref: "#/components/schemas/Asset" }
     CreateAssetRequest:
       type: object
-      required: [filename, name]
+      required: [confirmed]
       properties:
-        kind: { type: string }
-        filename: { type: string }
+        confirmed: { type: boolean }
         name: { type: string }
-        description: { type: string }
+        blurb: { type: string }
         tags: { type: array, items: { type: string } }
         isNsfw: { type: boolean }
         discovery: { type: string, enum: [listed, unlisted] }
+    IngestOperation:
+      type: object
+      required: [id, status, url]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [pending, processing, needs_kind, failed, success] }
+        url: { type: string }
+        asset:
+          anyOf:
+            - { $ref: "#/components/schemas/Asset" }
+            - { type: "null" }
+        needsKind:
+          $ref: "#/components/schemas/NeedsKind"
+        failure:
+          $ref: "#/components/schemas/IngestFailure"
+    NeedsKind:
+      type: object
+      additionalProperties: false
+      required: [kind, name]
+      properties:
+        kind: { type: [string, "null"], enum: [character, lorebook, preset, theme, null] }
+        name: { type: string }
+    CompleteIngestRequest:
+      type: object
+      additionalProperties: false
+      required: [kind, name]
+      properties:
+        kind: { type: string, enum: [character, lorebook, preset, theme] }
+        name: { type: string, minLength: 1 }
+    IngestFailure:
+      type: object
+      required: [reason, message]
+      properties:
+        reason:
+          type: string
+          enum: [malformed_input, unsupported_format, unsupported_version, safety_violation, internal_failure]
+        message: { type: string }

@@ -1,0 +1,461 @@
+.page {
+  position: relative;
+  min-height: calc(100svh - var(--header-height));
+  overflow: hidden;
+  border-bottom: 1px solid var(--line);
+  background: var(--ground);
+}
+
+.layout {
+  position: relative;
+  z-index: 2;
+  width: min(100%, 980px);
+  padding-block: clamp(60px, 7vw, 96px) clamp(84px, 10vw, 132px);
+}
+
+.heading {
+  max-width: 730px;
+  margin-bottom: 42px;
+}
+
+.heading h1 {
+  max-width: 12ch;
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 6.6vw, 5.2rem);
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  line-height: 0.98;
+  text-wrap: balance;
+}
+
+.heading p {
+  max-width: 66ch;
+  margin-top: 22px;
+  color: var(--body);
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
+.wash {
+  position: absolute;
+  top: -250px;
+  left: -300px;
+  opacity: 0.34;
+  mix-blend-mode: multiply;
+  mask-image: radial-gradient(ellipse, #000 34%, transparent 72%);
+}
+
+.sprig {
+  position: absolute;
+  right: -76px;
+  bottom: -36px;
+  opacity: 0.34;
+  transform: rotate(-8deg);
+}
+
+.form,
+.operation,
+.success,
+.processing,
+.accountState,
+.sessionState {
+  position: relative;
+  border-top: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.form {
+  padding: clamp(24px, 4vw, 38px);
+}
+
+.fileField input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.fileField label {
+  display: grid;
+  min-height: 150px;
+  place-items: center;
+  align-content: center;
+  gap: 9px;
+  border: 1px dashed var(--line-check);
+  border-radius: var(--radius-lg);
+  background: rgba(241, 245, 251, 0.72);
+  color: var(--accent);
+  cursor: pointer;
+  text-align: center;
+  transition:
+    border-color 180ms var(--ease),
+    background 180ms var(--ease);
+}
+
+.fileField label:hover,
+.fileField input:focus-visible + label {
+  border-color: var(--accent);
+  background: var(--surface-frame);
+}
+
+.fileField input:focus-visible + label {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.fileField span {
+  max-width: 100%;
+  padding-inline: 16px;
+  overflow-wrap: anywhere;
+  color: var(--ink-strong);
+  font-weight: 900;
+}
+
+.fileField small,
+.catalogFields small {
+  color: var(--body);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.catalogFields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px 20px;
+  margin-top: 30px;
+}
+
+.catalogFields label,
+.kindForm label {
+  display: grid;
+  gap: 8px;
+  color: var(--ink-strong);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.wideField {
+  grid-column: 1 / -1;
+}
+
+.catalogFields input,
+.catalogFields textarea,
+.catalogFields select,
+.kindForm input,
+.kindForm select {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  outline: none;
+  background: var(--surface);
+  color: var(--ink-strong);
+  font: inherit;
+  font-weight: 400;
+  transition:
+    border-color 180ms var(--ease),
+    box-shadow 180ms var(--ease);
+}
+
+.catalogFields textarea {
+  min-height: 112px;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.catalogFields input:hover,
+.catalogFields textarea:hover,
+.catalogFields select:hover,
+.kindForm input:hover,
+.kindForm select:hover {
+  border-color: var(--faint);
+}
+
+.catalogFields input:focus,
+.catalogFields textarea:focus,
+.catalogFields select:focus,
+.kindForm input:focus,
+.kindForm select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-bg);
+}
+
+.checks {
+  display: grid;
+  gap: 12px;
+  margin-top: 28px;
+  padding-block: 20px;
+  border-top: 1px solid var(--line-hair);
+  border-bottom: 1px solid var(--line-hair);
+}
+
+.checks label {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  color: var(--body);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.checks input {
+  width: 17px;
+  height: 17px;
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+
+.submit,
+.kindForm button,
+.accountState a,
+.successActions a {
+  display: inline-flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 22px;
+  border-radius: var(--radius-md);
+  background: var(--action);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 900;
+  box-shadow: var(--shadow-button);
+  transition:
+    box-shadow 180ms var(--ease),
+    transform 180ms var(--ease);
+}
+
+.submit {
+  min-width: 180px;
+  margin-top: 26px;
+}
+
+.submit:hover:not(:disabled),
+.kindForm button:hover:not(:disabled),
+.accountState a:hover,
+.successActions a:hover {
+  color: #fff;
+  box-shadow: var(--shadow-button-hover);
+  transform: translateY(-1px);
+}
+
+.submit:disabled,
+.kindForm button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  box-shadow: none;
+}
+
+.error {
+  margin-top: 18px;
+  padding: 11px 13px;
+  border: 1px solid rgba(163, 75, 75, 0.28);
+  background: rgba(163, 75, 75, 0.07);
+  color: #813f3f;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.operation {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 22px 24px;
+  padding: clamp(28px, 5vw, 48px);
+}
+
+.operationIcon,
+.successMark {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  border: 1px solid var(--line-soft);
+  border-radius: 50%;
+  background: var(--surface-quiet);
+  color: var(--accent);
+}
+
+.failedIcon {
+  color: #913f3f;
+}
+
+.operationCopy h2,
+.success h2,
+.processing h2,
+.accountState h2 {
+  font-family: var(--font-display);
+  font-size: clamp(1.9rem, 4vw, 2.7rem);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.08;
+}
+
+.operationCopy p,
+.processing p,
+.accountState p,
+.createdBlurb {
+  max-width: 62ch;
+  margin-top: 10px;
+  color: var(--body);
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+
+.kindForm {
+  display: grid;
+  grid-column: 2;
+  grid-template-columns: minmax(160px, 0.65fr) minmax(220px, 1.35fr) auto;
+  gap: 16px;
+  align-items: end;
+  margin-top: 8px;
+}
+
+.operation > .error,
+.operation > .secondary {
+  grid-column: 2;
+  justify-self: start;
+}
+
+.secondary,
+.successActions button {
+  min-height: 42px;
+  padding-inline: 17px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-strong);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.secondary:hover,
+.successActions button:hover {
+  border-color: var(--faint);
+}
+
+.success,
+.processing,
+.accountState,
+.sessionState {
+  display: grid;
+  min-height: 360px;
+  align-content: center;
+  justify-items: center;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.successMark {
+  margin-bottom: 18px;
+  border-color: rgba(76, 122, 92, 0.28);
+  background: var(--pass-bg);
+  color: var(--pass);
+}
+
+.kind {
+  margin-bottom: 8px;
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.createdBlurb {
+  margin-inline: auto;
+}
+
+.successActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 28px;
+}
+
+.processing svg {
+  margin-bottom: 18px;
+  color: var(--accent);
+  animation: turn 1.8s linear infinite;
+}
+
+.processing .processingErrorIcon {
+  color: #913f3f;
+  animation: none;
+}
+
+.processing .secondary {
+  margin-top: 22px;
+}
+
+.accountState > svg {
+  margin-bottom: 10px;
+  color: var(--accent);
+}
+
+.accountState a {
+  min-width: 150px;
+  margin-top: 24px;
+}
+
+.sessionState {
+  color: var(--body);
+}
+
+@keyframes turn {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@media (max-width: 720px) {
+  .layout {
+    padding-block: 48px 76px;
+  }
+
+  .heading {
+    margin-bottom: 30px;
+  }
+
+  .heading h1 {
+    font-size: 3rem;
+  }
+
+  .catalogFields,
+  .kindForm {
+    grid-template-columns: 1fr;
+  }
+
+  .wideField {
+    grid-column: auto;
+  }
+
+  .operation {
+    grid-template-columns: 1fr;
+  }
+
+  .operationIcon {
+    width: 52px;
+    height: 52px;
+  }
+
+  .kindForm,
+  .operation > .error,
+  .operation > .secondary {
+    grid-column: 1;
+  }
+
+  .sprig {
+    right: -130px;
+    opacity: 0.24;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .processing svg {
+    animation: none;
+  }
+}

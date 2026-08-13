@@ -2,11 +2,55 @@ package format
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io"
 	"time"
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
 )
+
+type FailureReason string
+
+const (
+	FailureMalformedInput     FailureReason = "malformed_input"
+	FailureUnsupportedFormat  FailureReason = "unsupported_format"
+	FailureUnsupportedVersion FailureReason = "unsupported_version"
+	FailureSafetyViolation    FailureReason = "safety_violation"
+	FailureInternal           FailureReason = "internal_failure"
+)
+
+type failure struct {
+	reason FailureReason
+	cause  error
+}
+
+func (f failure) Error() string { return fmt.Sprintf("%s: %v", f.reason, f.cause) }
+func (f failure) Unwrap() error { return f.cause }
+
+// UnsupportedVersion marks a format revision the module cannot safely read.
+func UnsupportedVersion(err error) error {
+	return failure{reason: FailureUnsupportedVersion, cause: err}
+}
+
+// SafetyViolation marks a bounded-resource or structural refusal found by a module.
+func SafetyViolation(err error) error {
+	return failure{reason: FailureSafetyViolation, cause: err}
+}
+
+// InternalFailure marks infrastructure or a module bug that may succeed on retry.
+func InternalFailure(err error) error {
+	return failure{reason: FailureInternal, cause: err}
+}
+
+// FailureOf returns the creator-facing category carried by err.
+func FailureOf(err error) (FailureReason, bool) {
+	var classified failure
+	if !errors.As(err, &classified) {
+		return "", false
+	}
+	return classified.reason, true
+}
 
 /** A key and value a module extracts so Browse can filter on it */
 type Facet struct {
@@ -20,8 +64,9 @@ type Parsed struct {
 	PassthroughPlatform *string
 	Format              string
 	Name                string
-	Description         string
+	Blurb               string
 	Tags                []string
+	IsNSFW              *bool
 	Facets              []Facet
 	// CreatedAt is the date the file carries. Nil means the file does not say.
 	CreatedAt *time.Time

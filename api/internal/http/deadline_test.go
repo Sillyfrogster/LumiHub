@@ -55,29 +55,33 @@ func TestAnUploadIsNotHeldToTheListingDeadline(t *testing.T) {
 		uploadRequest(t, exampleMetadata("Patient"), []byte("bytes")), session,
 	))
 
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("status = %d, want 201. body: %s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want 202. body: %s", rec.Code, rec.Body.String())
 	}
 }
 
 func TestADownloadIsNotHeldToTheListingDeadline(t *testing.T) {
-	r, session := newVerifiedTestRouterWith(t, 1<<20, deadlines(alreadyPast))
+	setup, r, session, assets := newVerifiedTestRoutersWithService(t, 1<<20, deadlines(alreadyPast))
 
 	file := []byte("bytes worth waiting for")
-	rec := send(t, r, authorized(uploadRequest(t, exampleMetadata("Roomy"), file), session))
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("create failed: %d %s", rec.Code, rec.Body.String())
-	}
+	metadata := exampleMetadata("Roomy")
+	metadata["filename"] = "roomy.lumitheme"
+	rec := uploadAndFinish(t, setup, session, assets, metadata, file)
 
 	var created struct {
-		ID string `json:"id"`
+		Asset *struct {
+			ID string `json:"id"`
+		} `json:"asset"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
 
+	if created.Asset == nil {
+		t.Fatal("completed ingest has no asset")
+	}
 	rec = httptest.NewRecorder()
-	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/v1/assets/"+created.ID+"/original", nil))
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/v1/assets/"+created.Asset.ID+"/original", nil))
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200. body: %s", rec.Code, rec.Body.String())

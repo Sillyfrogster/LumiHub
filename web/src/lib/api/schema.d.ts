@@ -260,6 +260,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/ingests/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["getIngest"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch: operations["completeIngest"];
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -321,7 +337,7 @@ export interface components {
       passthroughPlatform?: string | null;
       format: string;
       name: string;
-      description: string;
+      blurb: string;
       tags: string[];
       isNsfw: boolean;
       /** @enum {string} */
@@ -333,14 +349,43 @@ export interface components {
       items: components["schemas"]["Asset"][];
     };
     CreateAssetRequest: {
-      kind?: string;
-      filename: string;
-      name: string;
-      description?: string;
+      confirmed: boolean;
+      name?: string;
+      blurb?: string;
       tags?: string[];
       isNsfw?: boolean;
       /** @enum {string} */
       discovery?: "listed" | "unlisted";
+    };
+    IngestOperation: {
+      /** Format: uuid */
+      id: string;
+      /** @enum {string} */
+      status: "pending" | "processing" | "needs_kind" | "failed" | "success";
+      url: string;
+      asset?: components["schemas"]["Asset"] | null;
+      needsKind?: components["schemas"]["NeedsKind"];
+      failure?: components["schemas"]["IngestFailure"];
+    };
+    NeedsKind: {
+      /** @enum {string|null} */
+      kind: "character" | "lorebook" | "preset" | "theme" | null;
+      name: string;
+    };
+    CompleteIngestRequest: {
+      /** @enum {string} */
+      kind: "character" | "lorebook" | "preset" | "theme";
+      name: string;
+    };
+    IngestFailure: {
+      /** @enum {string} */
+      reason:
+        | "malformed_input"
+        | "unsupported_format"
+        | "unsupported_version"
+        | "safety_violation"
+        | "internal_failure";
+      message: string;
     };
   };
   responses: never;
@@ -872,13 +917,14 @@ export interface operations {
       };
     };
     responses: {
-      /** @description The asset that was created */
-      201: {
+      /** @description The durable ingest operation for the accepted upload */
+      202: {
         headers: {
+          Location?: string;
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["Asset"];
+          "application/json": components["schemas"]["IngestOperation"];
         };
       };
       /** @description No account is signed in */
@@ -918,6 +964,104 @@ export interface operations {
         };
       };
       /** @description No such asset */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getIngest: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The creator's ingest operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["IngestOperation"];
+        };
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The signed-in account has not verified its email */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No such ingest operation for this creator */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  completeIngest: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CompleteIngestRequest"];
+      };
+    };
+    responses: {
+      /** @description The ingest operation queued again with its passthrough kind */
+      202: {
+        headers: {
+          Location?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["IngestOperation"];
+        };
+      };
+      /** @description The kind or name is invalid */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The signed-in account has not verified its email */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No such ingest operation awaiting a kind */
       404: {
         headers: {
           [name: string]: unknown;

@@ -35,7 +35,7 @@ func NewServer(addr string, handler http.Handler, t Timeouts) *http.Server {
 		// ReadTimeout and WriteTimeout are left unset on purpose, so read
 		// this before adding one. Both are the total time a request may take,
 		// counted from the moment it arrives, not the time since anything
-		// last moved. An upload may be 55 MB, and 55 MB over a home
+		// last moved. An upload may be 32 MB, and 32 MB over a home
 		// connection is several minutes of entirely healthy transfer, so any
 		// value short enough to catch a stalled client also cuts off a
 		// transfer that is going fine. The header limit above catches the

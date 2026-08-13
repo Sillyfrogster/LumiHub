@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/binary"
+	"errors"
 	"hash/crc32"
 	"io"
 	"strings"
@@ -14,9 +15,35 @@ import (
 	"github.com/google/uuid"
 )
 
+var errReadUnavailable = errors.New("read unavailable")
+
 type recordingStore struct {
 	data  []byte
 	reads []byteRange
+}
+
+type failingStore struct{}
+
+func (failingStore) ReadRange(context.Context, uuid.UUID, int64, int64) (io.ReadCloser, error) {
+	return nil, errReadUnavailable
+}
+
+func TestInspectDistinguishesMalformedInputFromAStorageFailure(t *testing.T) {
+	malformed := []byte(`{"broken":`)
+	_, malformedErr := Inspect(
+		context.Background(), &recordingStore{data: malformed}, uuid.New(), int64(len(malformed)), "card.json",
+	)
+	if !errors.Is(malformedErr, ErrMalformedInput) {
+		t.Fatalf("malformed error = %v, want ErrMalformedInput", malformedErr)
+	}
+
+	_, readErr := Inspect(context.Background(), failingStore{}, uuid.New(), 8, "card.json")
+	if !errors.Is(readErr, errReadUnavailable) {
+		t.Fatalf("read error = %v, want storage cause", readErr)
+	}
+	if errors.Is(readErr, ErrMalformedInput) {
+		t.Fatalf("storage error was reported as malformed input: %v", readErr)
+	}
 }
 
 func TestInspectStreamsAJSONRootThroughRangeReads(t *testing.T) {
@@ -103,6 +130,72 @@ func TestInspectTellsRootZIPEntriesApart(t *testing.T) {
 	}
 }
 
+func TestInspectEnforcesEveryArchiveResourceLimit(t *testing.T) {
+	cases := []struct {
+		name   string
+		file   func(t *testing.T) []byte
+		limits func() Limits
+	}{
+		{
+			name: "entry count",
+			file: func(t *testing.T) []byte {
+				return zipEntries(t, zipEntry{"one", "1", zip.Store}, zipEntry{"two", "2", zip.Store})
+			},
+			limits: func() Limits {
+				limits := DefaultLimits()
+				limits.MaxArchiveEntries = 1
+				return limits
+			},
+		},
+		{
+			name: "entry bytes",
+			file: func(t *testing.T) []byte {
+				return zipEntries(t, zipEntry{"large", "12345", zip.Store})
+			},
+			limits: func() Limits {
+				limits := DefaultLimits()
+				limits.MaxEntryBytes = 4
+				return limits
+			},
+		},
+		{
+			name: "total bytes",
+			file: func(t *testing.T) []byte {
+				return zipEntries(t, zipEntry{"one", "123", zip.Store}, zipEntry{"two", "456", zip.Store})
+			},
+			limits: func() Limits {
+				limits := DefaultLimits()
+				limits.MaxArchiveBytes = 5
+				return limits
+			},
+		},
+		{
+			name: "compression ratio",
+			file: func(t *testing.T) []byte {
+				return zipEntries(t, zipEntry{"compressed", strings.Repeat("0", 4096), zip.Deflate})
+			},
+			limits: func() Limits {
+				limits := DefaultLimits()
+				limits.MaxCompressionRatio = 2
+				return limits
+			},
+		},
+	}
+
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			file := test.file(t)
+			_, err := InspectWithLimits(
+				context.Background(), &recordingStore{data: file}, uuid.New(),
+				int64(len(file)), "bundle.zip", test.limits(),
+			)
+			if !errors.Is(err, ErrSafetyViolation) {
+				t.Fatalf("InspectWithLimits error = %v, want ErrSafetyViolation", err)
+			}
+		})
+	}
+}
+
 type byteRange struct {
 	offset int64
 	length int64
@@ -168,14 +261,27 @@ func pngChunk(kind string, data []byte) []byte {
 
 func zipFile(t *testing.T, name, body string) []byte {
 	t.Helper()
+	return zipEntries(t, zipEntry{name: name, body: body, method: zip.Store})
+}
+
+type zipEntry struct {
+	name   string
+	body   string
+	method uint16
+}
+
+func zipEntries(t *testing.T, entries ...zipEntry) []byte {
+	t.Helper()
 	var file bytes.Buffer
 	archive := zip.NewWriter(&file)
-	entry, err := archive.Create(name)
-	if err != nil {
-		t.Fatalf("create ZIP entry: %v", err)
-	}
-	if _, err := io.WriteString(entry, body); err != nil {
-		t.Fatalf("write ZIP entry: %v", err)
+	for _, value := range entries {
+		entry, err := archive.CreateHeader(&zip.FileHeader{Name: value.name, Method: value.method})
+		if err != nil {
+			t.Fatalf("create ZIP entry: %v", err)
+		}
+		if _, err := io.WriteString(entry, value.body); err != nil {
+			t.Fatalf("write ZIP entry: %v", err)
+		}
 	}
 	if err := archive.Close(); err != nil {
 		t.Fatalf("close ZIP: %v", err)

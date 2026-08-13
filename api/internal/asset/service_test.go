@@ -53,14 +53,14 @@ func TestCreateStoresUploaderMetadataForAnUnparseableFile(t *testing.T) {
 	svc, pool := newTestService(t)
 
 	got, err := svc.Create(context.Background(), CreateInput{
-		OwnerID:     uuid.New(),
-		Kind:        "character",
-		Filename:    "mystery.bin",
-		File:        bytes.NewReader([]byte{0x00, 0xff, 0x10}),
-		Name:        "Uploader chose this name",
-		Description: "And this description",
-		Tags:        []string{"fantasy"},
-		Discovery:   "listed",
+		OwnerID:   uuid.New(),
+		Kind:      "character",
+		Filename:  "mystery.bin",
+		File:      bytes.NewReader([]byte{0x00, 0xff, 0x10}),
+		Name:      "Uploader chose this name",
+		Blurb:     "A short catalog pitch",
+		Tags:      []string{"fantasy"},
+		Discovery: "listed",
 	})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
@@ -76,23 +76,23 @@ func TestCreateStoresUploaderMetadataForAnUnparseableFile(t *testing.T) {
 		t.Error("CurrentRevisionID must be set, callers never compute MAX(revision)")
 	}
 
-	var name, description, format string
+	var name, blurb, format string
 	var tags []string
 	var currentRevision uuid.UUID
 	err = pool.QueryRow(context.Background(),
-		`select asset.name, asset.description, revision.format, asset.tags, asset.current_revision_id
+		`select asset.name, asset.blurb, revision.format, asset.tags, asset.current_revision_id
 		   from assets asset
 		   join asset_revisions revision on revision.id = asset.current_revision_id
 		  where asset.id = $1`,
-		got.ID).Scan(&name, &description, &format, &tags, &currentRevision)
+		got.ID).Scan(&name, &blurb, &format, &tags, &currentRevision)
 	if err != nil {
 		t.Fatalf("asset row was not written: %v", err)
 	}
 	if name != "Uploader chose this name" {
 		t.Errorf("stored name = %q, the uploader's value must win", name)
 	}
-	if description != "And this description" {
-		t.Errorf("stored description = %q", description)
+	if blurb != "A short catalog pitch" {
+		t.Errorf("stored blurb = %q", blurb)
 	}
 	if format != "unknown" {
 		t.Errorf("stored format = %q, want unknown", format)

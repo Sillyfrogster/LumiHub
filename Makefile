@@ -7,6 +7,7 @@ GOOSE := go run github.com/pressly/goose/v3/cmd/goose@v3.26.0
 SQLC  := go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
 OAPI  := go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0
 WEB_PORT ?= 3000
+TEST ?= ./...
 
 -include api/.env
 export
@@ -44,7 +45,7 @@ check: fmt-check vet test lint ## Everything CI would run
 .PHONY: test
 test: need-test-db ## Run the Go tests
 # -p 1 because every package sharing the test database empties it on the way in.
-	cd api && go test -p 1 ./...
+	cd api && go test -p 1 $(TEST)
 
 .PHONY: cover
 cover: need-test-db ## Report Go test coverage per package

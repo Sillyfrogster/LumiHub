@@ -12,21 +12,149 @@ import (
 	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-var ErrNotFound = errors.New("asset not found")
+var (
+	ErrNotFound       = errors.New("asset not found")
+	ErrIngestNotFound = errors.New("ingest operation not found")
+)
 
 // Service runs the catalog. It knows the module interfaces, never a concrete
 // format.
 type Service struct {
-	pool  *pgxpool.Pool
-	reg   *format.Registry
-	store storage.Store
+	pool   *pgxpool.Pool
+	reg    *format.Registry
+	store  storage.Store
+	ingest IngestSettings
+	now    func() time.Time
+}
+
+type IngestSettings struct {
+	ProbeLimits   probe.Limits
+	LeaseDuration time.Duration
+	NeedsKindTTL  time.Duration
+	RetryBase     time.Duration
+	MaxAttempts   int
+}
+
+func DefaultIngestSettings() IngestSettings {
+	return IngestSettings{
+		ProbeLimits:   probe.DefaultLimits(),
+		LeaseDuration: 30 * time.Second,
+		NeedsKindTTL:  7 * 24 * time.Hour,
+		RetryBase:     time.Second,
+		MaxAttempts:   3,
+	}
 }
 
 func NewService(pool *pgxpool.Pool, reg *format.Registry, store storage.Store) *Service {
-	return &Service{pool: pool, reg: reg, store: store}
+	return NewServiceWithIngestSettings(pool, reg, store, DefaultIngestSettings())
+}
+
+func NewServiceWithProbeLimits(
+	pool *pgxpool.Pool,
+	reg *format.Registry,
+	store storage.Store,
+	limits probe.Limits,
+) *Service {
+	settings := DefaultIngestSettings()
+	settings.ProbeLimits = limits
+	return NewServiceWithIngestSettings(pool, reg, store, settings)
+}
+
+func NewServiceWithIngestSettings(
+	pool *pgxpool.Pool,
+	reg *format.Registry,
+	store storage.Store,
+	settings IngestSettings,
+) *Service {
+	return &Service{pool: pool, reg: reg, store: store, ingest: settings, now: time.Now}
+}
+
+// AcceptIngest durably stores an upload and records the work that remains.
+func (s *Service) AcceptIngest(ctx context.Context, in IngestInput) (IngestOperation, error) {
+	stored, err := s.store.Put(ctx, in.File)
+	if err != nil {
+		return IngestOperation{}, fmt.Errorf("store upload: %w", err)
+	}
+
+	id := uuid.New()
+	var tags []string
+	if in.Tags != nil {
+		tags = *in.Tags
+	}
+	discovery := in.Discovery
+	if discovery == "" {
+		discovery = DiscoveryListed
+	}
+	_, err = s.pool.Exec(ctx, `
+		insert into ingest_operations
+			(id, owner_id, blob_id, filename, status, kind, name, blurb, tags, is_nsfw, discovery)
+		values ($1, $2, $3, $4, 'pending', null, $5, $6, $7, $8, $9)
+	`, id, in.OwnerID, stored.ID, in.Filename, in.Name, in.Blurb, tags, in.IsNSFW, discovery)
+	if err != nil {
+		return IngestOperation{}, fmt.Errorf("record ingest: %w", err)
+	}
+	return IngestOperation{ID: id, Status: IngestPending}, nil
+}
+
+// GetIngest returns one operation only to the creator who started it.
+func (s *Service) GetIngest(ctx context.Context, ownerID, id uuid.UUID) (IngestOperation, error) {
+	var status IngestStatus
+	var assetID pgtype.UUID
+	var name pgtype.Text
+	var expiresAt pgtype.Timestamptz
+	var failureReason pgtype.Text
+	err := s.pool.QueryRow(ctx, `
+		select status, asset_id, name, expires_at, failure_reason
+		  from ingest_operations where id = $1 and owner_id = $2
+	`, id, ownerID).Scan(&status, &assetID, &name, &expiresAt, &failureReason)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return IngestOperation{}, ErrIngestNotFound
+	}
+	if err != nil {
+		return IngestOperation{}, fmt.Errorf("read ingest: %w", err)
+	}
+	operation := IngestOperation{ID: id, Status: status}
+	if status == IngestNeedsKind {
+		if expiresAt.Valid && !expiresAt.Time.After(s.now()) {
+			_, _ = s.pool.Exec(ctx,
+				`delete from ingest_operations where id = $1 and status = 'needs_kind'`, id)
+			return IngestOperation{}, ErrIngestNotFound
+		}
+		operation.NeedsKind = &NeedsKind{Name: name.String}
+	}
+	if status == IngestFailed && failureReason.Valid {
+		operation.Failure = &IngestFailure{
+			Reason:  failureReason.String,
+			Message: ingestFailureMessage(failureReason.String),
+		}
+	}
+	if assetID.Valid {
+		created, err := assetByID(ctx, s.pool, uuidFromPgtype(assetID))
+		if err != nil {
+			return IngestOperation{}, err
+		}
+		operation.Asset = &created
+	}
+	return operation, nil
+}
+
+func ingestFailureMessage(reason string) string {
+	switch reason {
+	case "malformed_input":
+		return "The file is malformed and could not be read."
+	case "unsupported_format":
+		return "The file names a format LumiHub does not support."
+	case "unsupported_version":
+		return "The file uses a version LumiHub cannot read safely."
+	case "safety_violation":
+		return "The file breaks an archive safety rule."
+	default:
+		return "LumiHub could not finish this upload. Please try again."
+	}
 }
 
 // Create stores the upload, reads what it can from it, and publishes one
@@ -87,7 +215,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Asset, error) {
 		Format:              parsed.Format,
 		PassthroughPlatform: passthroughPlatform,
 		Name:                orElse(in.Name, parsed.Name),
-		Description:         orElse(in.Description, parsed.Description),
+		Blurb:               orElse(in.Blurb, parsed.Blurb),
 		Tags:                in.Tags,
 		IsNSFW:              in.IsNSFW,
 		Discovery:           discovery,

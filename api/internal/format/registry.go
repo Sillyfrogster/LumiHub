@@ -12,6 +12,7 @@ var (
 	ErrConflictingClaims = fmt.Errorf("%w: conflicting authoritative claims", ErrInvariant)
 	ErrAmbiguousClaims   = fmt.Errorf("%w: ambiguous format claims", ErrInvariant)
 	ErrInvalidClaim      = fmt.Errorf("%w: invalid format claim", ErrInvariant)
+	ErrUnsupportedFormat = errors.New("unsupported format")
 )
 
 type Resolution struct {
@@ -63,6 +64,11 @@ func (r *Registry) Resolve(file probe.Inspection) (Resolution, bool, error) {
 		candidates = append(candidates, Resolution{Module: module, Claim: claim})
 	}
 	if len(candidates) == 0 {
+		for _, payload := range file.Payloads {
+			if spec, ok := payload.String("spec"); ok && spec != "" {
+				return Resolution{}, false, fmt.Errorf("payload names %q: %w", spec, ErrUnsupportedFormat)
+			}
+		}
 		return Resolution{}, false, nil
 	}
 

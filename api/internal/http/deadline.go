@@ -10,7 +10,7 @@ import (
 )
 
 // Deadlines is how long each kind of route may take. A route answering out of
-// the database and a route sending 55 MB have nothing in common, so they do
+// the database and a route sending 32 MB have nothing in common, so they do
 // not share a number.
 type Deadlines struct {
 	JSON     time.Duration
@@ -19,7 +19,7 @@ type Deadlines struct {
 }
 
 // DefaultDeadlines are what the server runs with. Fifteen minutes for a file
-// still gets 55 MB through on a connection carrying 64 KB a second, which is
+// still gets 32 MB through on a connection carrying 64 KB a second, which is
 // slower than anything we expect to see.
 func DefaultDeadlines() Deadlines {
 	return Deadlines{
@@ -51,6 +51,8 @@ func Register(r *gin.Engine, h *Handlers, d Deadlines) error {
 		routeKey(http.MethodGet, "/v1/profiles/:handle"):              d.JSON,
 		routeKey(http.MethodGet, "/v1/assets"):                        d.JSON,
 		routeKey(http.MethodPost, "/v1/assets"):                       d.Upload,
+		routeKey(http.MethodGet, "/v1/ingests/:id"):                   d.JSON,
+		routeKey(http.MethodPatch, "/v1/ingests/:id"):                 d.JSON,
 		// :id is gin's way of writing "any id here".
 		routeKey(http.MethodGet, "/v1/assets/:id/original"): d.Download,
 	}

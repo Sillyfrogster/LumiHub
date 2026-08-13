@@ -36,7 +36,10 @@ func main() {
 	// Every format module is registered here and nowhere else.
 	registry := format.NewRegistry()
 
-	svc := asset.NewService(pool, registry, blob)
+	svc := asset.NewServiceWithProbeLimits(pool, registry, blob, cfg.ProbeLimits)
+	go svc.RunIngestWorkers(context.Background(), cfg.IngestWorkers, func(err error) {
+		log.Printf("ingest worker: %v", err)
+	})
 	var verificationSender account.EmailSender = account.NewLogVerificationSender(log.Default())
 	if cfg.SMTP.Address != "" {
 		verificationSender, err = account.NewSMTPSender(account.SMTPSettings{

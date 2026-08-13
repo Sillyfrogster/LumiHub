@@ -6,28 +6,34 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 )
 
 func TestDownloadReturnsTheExactUploadedBytes(t *testing.T) {
-	r, session := newVerifiedTestRouter(t)
+	r, session, assets := newVerifiedIngestRouter(t, format.NewRegistry())
 
 	// Not valid UTF-8 and not valid JSON, so any re-encoding would show up.
 	original := []byte{0x00, 0xff, 0xfe, 0x10, 0x80}
 
-	rec := send(t, r, authorized(uploadRequest(t, exampleMetadata("Exact"), original), session))
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("create failed: %d %s", rec.Code, rec.Body.String())
-	}
+	metadata := exampleMetadata("Exact")
+	metadata["filename"] = "exact.lumitheme"
+	rec := uploadAndFinish(t, r, session, assets, metadata, original)
 
 	var created struct {
-		ID string `json:"id"`
+		Asset *struct {
+			ID string `json:"id"`
+		} `json:"asset"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
+	if created.Asset == nil {
+		t.Fatal("completed ingest has no asset")
+	}
 
 	rec = httptest.NewRecorder()
-	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/v1/assets/"+created.ID+"/original", nil))
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/v1/assets/"+created.Asset.ID+"/original", nil))
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("download status = %d, want 200", rec.Code)
@@ -49,25 +55,29 @@ func TestDownloadUnknownAssetIs404(t *testing.T) {
 }
 
 func TestDownloadIsAlwaysSentAsAnAttachment(t *testing.T) {
-	r, session := newVerifiedTestRouter(t)
+	r, session, assets := newVerifiedIngestRouter(t, format.NewRegistry())
 
 	// A file that a browser would happily render if we let it.
 	payload := []byte(`<script>alert(1)</script>`)
 
-	rec := send(t, r, authorized(uploadRequest(t, exampleMetadata("Evil"), payload), session))
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("create failed: %d %s", rec.Code, rec.Body.String())
-	}
+	metadata := exampleMetadata("Evil")
+	metadata["filename"] = "evil.lumitheme"
+	rec := uploadAndFinish(t, r, session, assets, metadata, payload)
 
 	var created struct {
-		ID string `json:"id"`
+		Asset *struct {
+			ID string `json:"id"`
+		} `json:"asset"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
+	if created.Asset == nil {
+		t.Fatal("completed ingest has no asset")
+	}
 
 	rec = httptest.NewRecorder()
-	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/v1/assets/"+created.ID+"/original", nil))
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/v1/assets/"+created.Asset.ID+"/original", nil))
 
 	if got := rec.Header().Get("Content-Type"); got != "application/octet-stream" {
 		t.Errorf("Content-Type = %q, originals must never be served as a renderable type", got)

@@ -404,7 +404,9 @@ func TestRenamingAHandleRetiresTheOldProfileWithoutARedirect(t *testing.T) {
 
 func TestOnlyAVerifiedAccountCanUpload(t *testing.T) {
 	outbox := &verificationOutbox{}
-	r := newTestRouterWithSender(t, 1<<20, DefaultDeadlines(), outbox)
+	r, _, handlers := newTestRouterWithSenderPoolAndHandlers(
+		t, 1<<20, DefaultDeadlines(), outbox,
+	)
 	unverified := signUp(t, r, "uploader@example.com", "new.uploader")
 
 	if browse := send(t, r, httptest.NewRequest(http.MethodGet, "/v1/assets", nil)); browse.Code != http.StatusOK {
@@ -430,21 +432,23 @@ func TestOnlyAVerifiedAccountCanUpload(t *testing.T) {
 		t.Fatalf("verify status = %d, want 200. body: %s", verified.Code, verified.Body.String())
 	}
 
-	verifiedUpload := uploadRequest(t, exampleMetadata("Verified"), []byte("file"))
-	verifiedUpload.AddCookie(unverified)
-	created := send(t, r, verifiedUpload)
-	if created.Code != http.StatusCreated {
-		t.Fatalf("verified upload status = %d, want 201. body: %s", created.Code, created.Body.String())
-	}
+	metadata := exampleMetadata("Verified")
+	metadata["filename"] = "verified.lumitheme"
+	created := uploadAndFinish(t, r, unverified, handlers.assets, metadata, []byte("file"))
 	var asset struct {
-		ID string `json:"id"`
+		Asset *struct {
+			ID string `json:"id"`
+		} `json:"asset"`
 	}
 	if err := json.Unmarshal(created.Body.Bytes(), &asset); err != nil {
 		t.Fatalf("decode asset: %v", err)
 	}
+	if asset.Asset == nil {
+		t.Fatal("completed ingest has no asset")
+	}
 
 	viewer := signUp(t, r, "viewer@example.com", "plain.viewer")
-	download := httptest.NewRequest(http.MethodGet, "/v1/assets/"+asset.ID+"/original", nil)
+	download := httptest.NewRequest(http.MethodGet, "/v1/assets/"+asset.Asset.ID+"/original", nil)
 	download.AddCookie(viewer)
 	if viewed := send(t, r, download); viewed.Code != http.StatusOK {
 		t.Errorf("unverified view status = %d, want 200. body: %s", viewed.Code, viewed.Body.String())

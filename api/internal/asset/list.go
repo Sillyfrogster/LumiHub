@@ -60,7 +60,7 @@ func listAssets(ctx context.Context, q db.DBTX, f ListFilter) ([]Asset, error) {
 			Format:              row.Format,
 			PassthroughPlatform: textToPointer(row.PassthroughPlatform),
 			Name:                row.Name,
-			Description:         row.Description,
+			Blurb:               row.Blurb,
 			Tags:                row.Tags,
 			IsNSFW:              row.IsNsfw,
 			Discovery:           Discovery(row.Discovery),
@@ -69,6 +69,21 @@ func listAssets(ctx context.Context, q db.DBTX, f ListFilter) ([]Asset, error) {
 		}
 	}
 	return out, nil
+}
+
+func assetByID(ctx context.Context, q db.DBTX, id uuid.UUID) (Asset, error) {
+	row, err := db.New(q).AssetByID(ctx, uuidToPgtype(id))
+	if err != nil {
+		return Asset{}, fmt.Errorf("read asset: %w", err)
+	}
+	return Asset{
+		ID: uuidFromPgtype(row.ID), Kind: row.Kind, Format: row.Format,
+		PassthroughPlatform: textToPointer(row.PassthroughPlatform),
+		Name:                row.Name, Blurb: row.Blurb, Tags: row.Tags,
+		IsNSFW: row.IsNsfw, Discovery: Discovery(row.Discovery),
+		CurrentRevisionID: uuidFromPgtype(row.CurrentRevisionID),
+		CreatedAt:         timeFromPgtype(row.CreatedAt),
+	}, nil
 }
 
 // facetPairs splits facets into parallel key and value arrays, dropping

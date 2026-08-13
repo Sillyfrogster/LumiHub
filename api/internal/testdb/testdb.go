@@ -38,7 +38,7 @@ func ConnectWith(t *testing.T, tune func(*postgres.Settings)) *pgxpool.Pool {
 	t.Cleanup(pool.Close)
 
 	_, err = pool.Exec(context.Background(),
-		`truncate assets, asset_revisions, asset_facets, asset_media, blobs,
+		`truncate ingest_operations, assets, asset_revisions, asset_facets, asset_media, blobs,
 		          password_reset_tokens, oauth_states, oauth_identities, sessions,
 		          email_verification_tokens,
 		          retired_handles, users cascade`)

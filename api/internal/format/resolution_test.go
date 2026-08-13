@@ -43,6 +43,18 @@ func TestResolveReturnsNoModuleWhenNothingClaimsTheFile(t *testing.T) {
 	}
 }
 
+func TestResolveRejectsAPayloadThatNamesAnUnsupportedFormat(t *testing.T) {
+	registry := NewRegistry()
+
+	_, ok, err := registry.Resolve(probedPayload("future_card", "card"))
+	if ok {
+		t.Fatal("unsupported format resolved to a module")
+	}
+	if !errors.Is(err, ErrUnsupportedFormat) {
+		t.Fatalf("Resolve error = %v, want ErrUnsupportedFormat", err)
+	}
+}
+
 func TestResolvePrefersAnAuthoritativeClaimRegardlessOfRegistrationOrder(t *testing.T) {
 	file := probedPayload("chara_card_v3", "ccv3")
 	compatible := claimingModule{id: "compatible_reader", spec: "chara_card_v3"}

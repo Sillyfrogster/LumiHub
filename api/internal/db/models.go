@@ -14,7 +14,7 @@ type Asset struct {
 	CurrentRevisionID pgtype.UUID
 	OwnerID           pgtype.UUID
 	Name              string
-	Description       string
+	Blurb             string
 	Tags              []string
 	PreviewMediaID    pgtype.UUID
 	IsNsfw            bool
@@ -68,6 +68,30 @@ type EmailVerificationToken struct {
 	UserID    pgtype.UUID
 	Email     string
 	ExpiresAt pgtype.Timestamptz
+}
+
+type IngestOperation struct {
+	ID                  pgtype.UUID
+	OwnerID             pgtype.UUID
+	BlobID              pgtype.UUID
+	Filename            string
+	Status              string
+	Kind                pgtype.Text
+	PassthroughPlatform pgtype.Text
+	Name                pgtype.Text
+	Blurb               pgtype.Text
+	Tags                []string
+	IsNsfw              pgtype.Bool
+	Discovery           string
+	AssetID             pgtype.UUID
+	FailureReason       pgtype.Text
+	Attempts            int32
+	AvailableAt         pgtype.Timestamptz
+	LeaseToken          pgtype.UUID
+	LeaseExpiresAt      pgtype.Timestamptz
+	ExpiresAt           pgtype.Timestamptz
+	CreatedAt           pgtype.Timestamptz
+	UpdatedAt           pgtype.Timestamptz
 }
 
 type OauthIdentity struct {

@@ -3,7 +3,6 @@ package http
 import (
 	"bytes"
 	"encoding/json"
-	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -18,8 +17,9 @@ func uploadRequest(t *testing.T, metadata map[string]any, file []byte) *http.Req
 
 	body := &bytes.Buffer{}
 	form := multipart.NewWriter(body)
+	filename, _ := metadata["filename"].(string)
 	writeMetadataPart(t, form, metadata)
-	writeFilePart(t, form, file)
+	writeFilePartNamed(t, form, filename, file)
 	if err := form.Close(); err != nil {
 		t.Fatalf("close form: %v", err)
 	}
@@ -31,7 +31,13 @@ func uploadRequest(t *testing.T, metadata map[string]any, file []byte) *http.Req
 
 func writeMetadataPart(t *testing.T, form *multipart.Writer, metadata map[string]any) {
 	t.Helper()
-	encoded, err := json.Marshal(metadata)
+	fields := make(map[string]any, len(metadata))
+	for key, value := range metadata {
+		if key != "filename" {
+			fields[key] = value
+		}
+	}
+	encoded, err := json.Marshal(fields)
 	if err != nil {
 		t.Fatalf("encode metadata: %v", err)
 	}
@@ -42,7 +48,12 @@ func writeMetadataPart(t *testing.T, form *multipart.Writer, metadata map[string
 
 func writeFilePart(t *testing.T, form *multipart.Writer, file []byte) {
 	t.Helper()
-	part, err := form.CreateFormFile(filePart, "upload.bin")
+	writeFilePartNamed(t, form, "upload.bin", file)
+}
+
+func writeFilePartNamed(t *testing.T, form *multipart.Writer, filename string, file []byte) {
+	t.Helper()
+	part, err := form.CreateFormFile(filePart, filename)
 	if err != nil {
 		t.Fatalf("create file part: %v", err)
 	}
@@ -53,9 +64,9 @@ func writeFilePart(t *testing.T, form *multipart.Writer, file []byte) {
 
 func exampleMetadata(name string) map[string]any {
 	return map[string]any{
-		"kind":      "character",
 		"filename":  name + ".bin",
 		"name":      name,
+		"confirmed": true,
 		"discovery": "listed",
 	}
 }
@@ -81,44 +92,13 @@ func TestUploadOverTheCeilingIsRefused(t *testing.T) {
 
 func TestUploadAtTheCeilingIsAccepted(t *testing.T) {
 	req := uploadRequest(t, exampleMetadata("Exactly"), bytes.Repeat([]byte("a"), 1024))
-	r, session := newVerifiedTestRouterWith(t, req.ContentLength, DefaultDeadlines())
+	r, session := newVerifiedTestRouterWith(t, 1024, DefaultDeadlines())
 
 	rec := send(t, r, authorized(req, session))
 
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("status = %d, want 201: a request of exactly the ceiling fits. body: %s",
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want 202: a file of exactly the ceiling fits. body: %s",
 			rec.Code, rec.Body.String())
-	}
-}
-
-// countingBody reports how much of the request was read, so a refusal that
-// waits for the whole upload can be told from one that does not.
-type countingBody struct {
-	reader io.Reader
-	read   int
-}
-
-func (b *countingBody) Read(p []byte) (int, error) {
-	n, err := b.reader.Read(p)
-	b.read += n
-	return n, err
-}
-
-func TestUploadIsRefusedWithoutReadingTheBody(t *testing.T) {
-	r, session := newVerifiedTestRouterWith(t, 64, DefaultDeadlines())
-
-	req := uploadRequest(t, exampleMetadata("Declared"), bytes.Repeat([]byte("a"), 1024))
-	req.AddCookie(session)
-	body := &countingBody{reader: req.Body}
-	req.Body = io.NopCloser(body)
-
-	rec := send(t, r, req)
-
-	if rec.Code != http.StatusRequestEntityTooLarge {
-		t.Fatalf("status = %d, want 413. body: %s", rec.Code, rec.Body.String())
-	}
-	if body.read != 0 {
-		t.Errorf("read %d bytes of a request that was always going to be refused", body.read)
 	}
 }
 

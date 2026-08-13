@@ -474,13 +474,6 @@ func (h *Handlers) CreateAsset(c *gin.Context) {
 		return
 	}
 
-	// Refused before the body is read, so a hopeless upload is never received.
-	if c.Request.ContentLength > h.maxUploadBytes {
-		h.refuse(c, errOverCeiling)
-		return
-	}
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, h.maxUploadBytes)
-
 	parts, err := c.Request.MultipartReader()
 	if err != nil {
 		h.refuse(c, refusal{
@@ -500,14 +493,97 @@ func (h *Handlers) CreateAsset(c *gin.Context) {
 		h.refuse(c, err)
 		return
 	}
+	if !metadata.Confirmed {
+		h.refuse(c, refusal{reason: "confirm the catalog details before uploading"})
+		return
+	}
+	limitedFile := http.MaxBytesReader(c.Writer, file, h.maxUploadBytes)
+	defer limitedFile.Close()
 
-	created, err := h.assets.Create(c.Request.Context(), createInput(metadata, file, owner.ID))
+	operation, err := h.assets.AcceptIngest(
+		c.Request.Context(), ingestInput(metadata, file.FileName(), limitedFile, owner.ID),
+	)
 	if err != nil {
 		h.refuse(c, err)
 		return
 	}
 
-	c.JSON(http.StatusCreated, toAPI(created))
+	location := "/v1/ingests/" + operation.ID.String()
+	c.Header("Location", location)
+	c.JSON(http.StatusAccepted, toAPIIngest(operation))
+}
+
+func (h *Handlers) GetIngest(c *gin.Context, id types.UUID) {
+	owner, ok := h.uploadOwner(c)
+	if !ok {
+		return
+	}
+	operation, err := h.assets.GetIngest(c.Request.Context(), owner.ID, uuid.UUID(id))
+	if errors.Is(err, asset.ErrIngestNotFound) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "no such ingest operation"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not read the ingest operation"})
+		return
+	}
+	c.JSON(http.StatusOK, toAPIIngest(operation))
+}
+
+func (h *Handlers) CompleteIngest(c *gin.Context, id types.UUID) {
+	owner, ok := h.uploadOwner(c)
+	if !ok {
+		return
+	}
+	var request CompleteIngestRequest
+	if err := decodeOneJSON(c.Request.Body, &request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Send only a kind and name as JSON."})
+		return
+	}
+	operation, err := h.assets.CompleteIngest(
+		c.Request.Context(), owner.ID, uuid.UUID(id), string(request.Kind), request.Name,
+	)
+	if errors.Is(err, asset.ErrIngestNotFound) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "no such ingest operation"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Choose a kind and give the asset a name."})
+		return
+	}
+	location := "/v1/ingests/" + operation.ID.String()
+	c.Header("Location", location)
+	c.JSON(http.StatusAccepted, toAPIIngest(operation))
+}
+
+func toAPIIngest(operation asset.IngestOperation) gin.H {
+	response := gin.H{
+		"id":     operation.ID,
+		"status": operation.Status,
+		"url":    "/v1/ingests/" + operation.ID.String(),
+		"asset":  ingestAsset(operation.Asset),
+	}
+	if operation.Failure != nil {
+		response["failure"] = gin.H{
+			"reason":  operation.Failure.Reason,
+			"message": operation.Failure.Message,
+		}
+	}
+	if operation.NeedsKind != nil {
+		response["needsKind"] = gin.H{
+			"kind": operation.NeedsKind.Kind,
+			"name": operation.NeedsKind.Name,
+		}
+	}
+	return response
+}
+
+func ingestAsset(a *asset.Asset) *Asset {
+	if a == nil {
+		return nil
+	}
+	converted := toAPI(*a)
+	return &converted
 }
 
 func (h *Handlers) uploadOwner(c *gin.Context) (account.Account, bool) {
@@ -550,13 +626,29 @@ func readMetadata(parts *multipart.Reader) (CreateAssetRequest, error) {
 	}
 
 	var metadata CreateAssetRequest
-	if err := json.NewDecoder(part).Decode(&metadata); err != nil {
+	if err := decodeOneJSON(io.LimitReader(part, 1<<20), &metadata); err != nil {
 		return CreateAssetRequest{}, refusal{
 			reason: "the " + metadataPart + " part is not valid JSON",
 			cause:  err,
 		}
 	}
 	return metadata, nil
+}
+
+func decodeOneJSON(reader io.Reader, destination any) error {
+	decoder := json.NewDecoder(reader)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(destination); err != nil {
+		return err
+	}
+	var trailing json.RawMessage
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return errors.New("more than one JSON value")
+		}
+		return err
+	}
+	return nil
 }
 
 func nextPart(parts *multipart.Reader, name string) (*multipart.Part, error) {
@@ -576,24 +668,28 @@ func nextPart(parts *multipart.Reader, name string) (*multipart.Part, error) {
 	return part, nil
 }
 
-func createInput(metadata CreateAssetRequest, file io.Reader, ownerID uuid.UUID) asset.CreateInput {
-	in := asset.CreateInput{
+func ingestInput(
+	metadata CreateAssetRequest,
+	filename string,
+	file io.Reader,
+	ownerID uuid.UUID,
+) asset.IngestInput {
+	in := asset.IngestInput{
 		OwnerID:  ownerID,
-		Filename: metadata.Filename,
+		Filename: filename,
 		File:     file,
-		Name:     metadata.Name,
 	}
-	if metadata.Kind != nil {
-		in.Kind = *metadata.Kind
+	if metadata.Name != nil {
+		in.Name = metadata.Name
 	}
-	if metadata.Description != nil {
-		in.Description = *metadata.Description
+	if metadata.Blurb != nil {
+		in.Blurb = metadata.Blurb
 	}
 	if metadata.Tags != nil {
-		in.Tags = *metadata.Tags
+		in.Tags = metadata.Tags
 	}
 	if metadata.IsNsfw != nil {
-		in.IsNSFW = *metadata.IsNsfw
+		in.IsNSFW = metadata.IsNsfw
 	}
 	if metadata.Discovery != nil {
 		in.Discovery = asset.Discovery(*metadata.Discovery)
@@ -612,10 +708,6 @@ type refusal struct {
 func (r refusal) Error() string { return r.reason }
 func (r refusal) Unwrap() error { return r.cause }
 
-// errOverCeiling is a request that declares itself too large to be worth
-// reading.
-var errOverCeiling = errors.New("upload over the ceiling")
-
 func (h *Handlers) refuse(c *gin.Context, err error) {
 	if errors.Is(err, format.ErrInvariant) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not create the asset"})
@@ -623,7 +715,7 @@ func (h *Handlers) refuse(c *gin.Context, err error) {
 	}
 
 	var tooLarge *http.MaxBytesError
-	if errors.As(err, &tooLarge) || errors.Is(err, errOverCeiling) {
+	if errors.As(err, &tooLarge) {
 		c.JSON(http.StatusRequestEntityTooLarge, gin.H{
 			"error": fmt.Sprintf("the upload is over the limit of %d bytes", h.maxUploadBytes),
 		})
@@ -688,7 +780,7 @@ func toAPI(a asset.Asset) Asset {
 		PassthroughPlatform: a.PassthroughPlatform,
 		Format:              a.Format,
 		Name:                a.Name,
-		Description:         a.Description,
+		Blurb:               a.Blurb,
 		Tags:                a.Tags,
 		IsNsfw:              a.IsNSFW,
 		Discovery:           AssetDiscovery(a.Discovery),

@@ -31,6 +31,30 @@ func (e AssetDiscovery) Valid() bool {
 	}
 }
 
+// Defines values for CompleteIngestRequestKind.
+const (
+	CompleteIngestRequestKindCharacter CompleteIngestRequestKind = "character"
+	CompleteIngestRequestKindLorebook  CompleteIngestRequestKind = "lorebook"
+	CompleteIngestRequestKindPreset    CompleteIngestRequestKind = "preset"
+	CompleteIngestRequestKindTheme     CompleteIngestRequestKind = "theme"
+)
+
+// Valid indicates whether the value is a known member of the CompleteIngestRequestKind enum.
+func (e CompleteIngestRequestKind) Valid() bool {
+	switch e {
+	case CompleteIngestRequestKindCharacter:
+		return true
+	case CompleteIngestRequestKindLorebook:
+		return true
+	case CompleteIngestRequestKindPreset:
+		return true
+	case CompleteIngestRequestKindTheme:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CreateAssetRequestDiscovery.
 const (
 	CreateAssetRequestDiscoveryListed   CreateAssetRequestDiscovery = "listed"
@@ -43,6 +67,87 @@ func (e CreateAssetRequestDiscovery) Valid() bool {
 	case CreateAssetRequestDiscoveryListed:
 		return true
 	case CreateAssetRequestDiscoveryUnlisted:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IngestFailureReason.
+const (
+	InternalFailure    IngestFailureReason = "internal_failure"
+	MalformedInput     IngestFailureReason = "malformed_input"
+	SafetyViolation    IngestFailureReason = "safety_violation"
+	UnsupportedFormat  IngestFailureReason = "unsupported_format"
+	UnsupportedVersion IngestFailureReason = "unsupported_version"
+)
+
+// Valid indicates whether the value is a known member of the IngestFailureReason enum.
+func (e IngestFailureReason) Valid() bool {
+	switch e {
+	case InternalFailure:
+		return true
+	case MalformedInput:
+		return true
+	case SafetyViolation:
+		return true
+	case UnsupportedFormat:
+		return true
+	case UnsupportedVersion:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IngestOperationStatus.
+const (
+	IngestOperationStatusFailed     IngestOperationStatus = "failed"
+	IngestOperationStatusNeedsKind  IngestOperationStatus = "needs_kind"
+	IngestOperationStatusPending    IngestOperationStatus = "pending"
+	IngestOperationStatusProcessing IngestOperationStatus = "processing"
+	IngestOperationStatusSuccess    IngestOperationStatus = "success"
+)
+
+// Valid indicates whether the value is a known member of the IngestOperationStatus enum.
+func (e IngestOperationStatus) Valid() bool {
+	switch e {
+	case IngestOperationStatusFailed:
+		return true
+	case IngestOperationStatusNeedsKind:
+		return true
+	case IngestOperationStatusPending:
+		return true
+	case IngestOperationStatusProcessing:
+		return true
+	case IngestOperationStatusSuccess:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NeedsKindKind.
+const (
+	NeedsKindKindCharacter   NeedsKindKind = "character"
+	NeedsKindKindLessThannil NeedsKindKind = "<nil>"
+	NeedsKindKindLorebook    NeedsKindKind = "lorebook"
+	NeedsKindKindPreset      NeedsKindKind = "preset"
+	NeedsKindKindTheme       NeedsKindKind = "theme"
+)
+
+// Valid indicates whether the value is a known member of the NeedsKindKind enum.
+func (e NeedsKindKind) Valid() bool {
+	switch e {
+	case NeedsKindKindCharacter:
+		return true
+	case NeedsKindKindLessThannil:
+		return true
+	case NeedsKindKindLorebook:
+		return true
+	case NeedsKindKindPreset:
+		return true
+	case NeedsKindKindTheme:
 		return true
 	default:
 		return false
@@ -79,8 +184,8 @@ type Account struct {
 
 // Asset defines model for Asset.
 type Asset struct {
+	Blurb               string             `json:"blurb"`
 	CreatedAt           time.Time          `json:"createdAt"`
-	Description         string             `json:"description"`
 	Discovery           AssetDiscovery     `json:"discovery"`
 	Format              string             `json:"format"`
 	Id                  openapi_types.UUID `json:"id"`
@@ -104,6 +209,15 @@ type ChangeEmailRequest struct {
 	Email openapi_types.Email `json:"email"`
 }
 
+// CompleteIngestRequest defines model for CompleteIngestRequest.
+type CompleteIngestRequest struct {
+	Kind CompleteIngestRequestKind `json:"kind"`
+	Name string                    `json:"name"`
+}
+
+// CompleteIngestRequestKind defines model for CompleteIngestRequest.Kind.
+type CompleteIngestRequestKind string
+
 // CompletePasswordResetRequest defines model for CompletePasswordResetRequest.
 type CompletePasswordResetRequest struct {
 	Password string `json:"password"`
@@ -112,17 +226,47 @@ type CompletePasswordResetRequest struct {
 
 // CreateAssetRequest defines model for CreateAssetRequest.
 type CreateAssetRequest struct {
-	Description *string                      `json:"description,omitempty"`
-	Discovery   *CreateAssetRequestDiscovery `json:"discovery,omitempty"`
-	Filename    string                       `json:"filename"`
-	IsNsfw      *bool                        `json:"isNsfw,omitempty"`
-	Kind        *string                      `json:"kind,omitempty"`
-	Name        string                       `json:"name"`
-	Tags        *[]string                    `json:"tags,omitempty"`
+	Blurb     *string                      `json:"blurb,omitempty"`
+	Confirmed bool                         `json:"confirmed"`
+	Discovery *CreateAssetRequestDiscovery `json:"discovery,omitempty"`
+	IsNsfw    *bool                        `json:"isNsfw,omitempty"`
+	Name      *string                      `json:"name,omitempty"`
+	Tags      *[]string                    `json:"tags,omitempty"`
 }
 
 // CreateAssetRequestDiscovery defines model for CreateAssetRequest.Discovery.
 type CreateAssetRequestDiscovery string
+
+// IngestFailure defines model for IngestFailure.
+type IngestFailure struct {
+	Message string              `json:"message"`
+	Reason  IngestFailureReason `json:"reason"`
+}
+
+// IngestFailureReason defines model for IngestFailure.Reason.
+type IngestFailureReason string
+
+// IngestOperation defines model for IngestOperation.
+type IngestOperation struct {
+	Asset     *Asset                `json:"asset,omitempty"`
+	Failure   *IngestFailure        `json:"failure,omitempty"`
+	Id        openapi_types.UUID    `json:"id"`
+	NeedsKind *NeedsKind            `json:"needsKind,omitempty"`
+	Status    IngestOperationStatus `json:"status"`
+	Url       string                `json:"url"`
+}
+
+// IngestOperationStatus defines model for IngestOperation.Status.
+type IngestOperationStatus string
+
+// NeedsKind defines model for NeedsKind.
+type NeedsKind struct {
+	Kind *NeedsKindKind `json:"kind"`
+	Name string         `json:"name"`
+}
+
+// NeedsKindKind defines model for NeedsKind.Kind.
+type NeedsKindKind string
 
 // PasswordRequest defines model for PasswordRequest.
 type PasswordRequest struct {
@@ -231,6 +375,9 @@ type SignUpJSONRequestBody = SignUpRequest
 // VerifyEmailJSONRequestBody defines body for VerifyEmail for application/json ContentType.
 type VerifyEmailJSONRequestBody = VerifyEmailRequest
 
+// CompleteIngestJSONRequestBody defines body for CompleteIngest for application/json ContentType.
+type CompleteIngestJSONRequestBody = CompleteIngestRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 
@@ -281,6 +428,12 @@ type ServerInterface interface {
 
 	// (POST /v1/auth/verify-email)
 	VerifyEmail(c *gin.Context)
+
+	// (GET /v1/ingests/{id})
+	GetIngest(c *gin.Context, id openapi_types.UUID)
+
+	// (PATCH /v1/ingests/{id})
+	CompleteIngest(c *gin.Context, id openapi_types.UUID)
 
 	// (GET /v1/profiles/{handle})
 	GetProfile(c *gin.Context, handle string)
@@ -621,6 +774,56 @@ func (siw *ServerInterfaceWrapper) VerifyEmail(c *gin.Context) {
 	siw.Handler.VerifyEmail(c)
 }
 
+// GetIngest operation middleware
+func (siw *ServerInterfaceWrapper) GetIngest(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetIngest(c, id)
+}
+
+// CompleteIngest operation middleware
+func (siw *ServerInterfaceWrapper) CompleteIngest(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CompleteIngest(c, id)
+}
+
 // GetProfile operation middleware
 func (siw *ServerInterfaceWrapper) GetProfile(c *gin.Context) {
 
@@ -690,4 +893,6 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/v1/assets", wrapper.ListAssets)
 	router.POST(options.BaseURL+"/v1/assets", wrapper.CreateAsset)
 	router.GET(options.BaseURL+"/v1/assets/:id/original", wrapper.DownloadOriginal)
+	router.GET(options.BaseURL+"/v1/ingests/:id", wrapper.GetIngest)
+	router.PATCH(options.BaseURL+"/v1/ingests/:id", wrapper.CompleteIngest)
 }
