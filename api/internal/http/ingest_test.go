@@ -494,6 +494,19 @@ type internalFailureModule struct {
 
 type catalogModule struct{}
 
+type invalidFinalizationModule struct{}
+
+func (invalidFinalizationModule) ID() string { return "invalid_finalization" }
+func (invalidFinalizationModule) Claim(file probe.Inspection) (format.Claim, bool) {
+	if len(file.Payloads) == 0 {
+		return format.Claim{}, false
+	}
+	return format.CompatibilityClaim(file.Payloads[0]), true
+}
+func (invalidFinalizationModule) Parse(context.Context, probe.Inspection, format.Claim) (format.Parsed, error) {
+	return format.Parsed{Kind: "not-a-kind", Format: "invalid_finalization"}, nil
+}
+
 func (catalogModule) ID() string { return "catalog" }
 func (catalogModule) Claim(file probe.Inspection) (format.Claim, bool) {
 	if len(file.Payloads) == 0 {
@@ -606,6 +619,47 @@ func TestExhaustedInternalFailureIsReported(t *testing.T) {
 	}
 	if operation.Failure == nil || operation.Failure.Reason != "internal_failure" {
 		t.Fatalf("failure = %#v, want internal_failure", operation.Failure)
+	}
+}
+
+func TestFinalizationFailuresUseBoundedInternalRetries(t *testing.T) {
+	settings := asset.DefaultIngestSettings()
+	settings.RetryBase = 0
+	settings.MaxAttempts = 2
+	registry := format.NewRegistry()
+	if err := registry.Register(invalidFinalizationModule{}); err != nil {
+		t.Fatalf("register module: %v", err)
+	}
+	r, session, assets := newVerifiedIngestRouterWithSettings(t, registry, settings)
+	metadata := exampleMetadata("Invalid finalization")
+	metadata["filename"] = "invalid.json"
+	upload := send(t, r, authorized(
+		uploadRequest(t, metadata, []byte(`{"payload":true}`)), session,
+	))
+
+	for attempt, wantStatus := range []string{"pending", "failed"} {
+		if processed, err := assets.ProcessNextIngest(context.Background()); err != nil || !processed {
+			t.Fatalf("process %d = %v, %v; want true, nil", attempt+1, processed, err)
+		}
+		poll := send(t, r, authorized(
+			httptest.NewRequest(http.MethodGet, upload.Header().Get("Location"), nil), session,
+		))
+		var operation struct {
+			Status  string `json:"status"`
+			Failure *struct {
+				Reason string `json:"reason"`
+			} `json:"failure"`
+		}
+		if err := json.Unmarshal(poll.Body.Bytes(), &operation); err != nil {
+			t.Fatalf("decode operation: %v", err)
+		}
+		if operation.Status != wantStatus {
+			t.Fatalf("status after attempt %d = %q, want %q", attempt+1, operation.Status, wantStatus)
+		}
+		if wantStatus == "failed" &&
+			(operation.Failure == nil || operation.Failure.Reason != "internal_failure") {
+			t.Fatalf("failure = %#v, want internal_failure", operation.Failure)
+		}
 	}
 }
 

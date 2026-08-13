@@ -6,7 +6,6 @@ create table ingest_operations (
     filename             text not null,
     status               text not null default 'pending',
     kind                 text,
-    passthrough_platform text,
     name                 text,
     description          text,
     tags                 text[],

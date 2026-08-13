@@ -379,7 +379,6 @@
 .processing svg {
   margin-bottom: 18px;
   color: var(--accent);
-  animation: turn 1.8s linear infinite;
 }
 
 .processing .processingErrorIcon {
@@ -403,12 +402,6 @@
 
 .sessionState {
   color: var(--body);
-}
-
-@keyframes turn {
-  to {
-    transform: rotate(1turn);
-  }
 }
 
 @media (max-width: 720px) {
@@ -451,11 +444,5 @@
   .sprig {
     right: -130px;
     opacity: 0.24;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .processing svg {
-    animation: none;
   }
 }

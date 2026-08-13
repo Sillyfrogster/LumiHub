@@ -136,8 +136,11 @@ func (s *Service) ProcessNextIngest(ctx context.Context) (bool, error) {
 	if needsKind {
 		return true, s.pauseForKind(ctx, job)
 	}
-	if err := s.finalizeIngest(ctx, job, prepared); err != nil && !errors.Is(err, errIngestLeaseLost) {
-		return true, err
+	if err := s.finalizeIngest(ctx, job, prepared); err != nil {
+		if errors.Is(err, errIngestLeaseLost) {
+			return true, nil
+		}
+		return true, s.finishIngestFailure(ctx, job, format.FailureInternal)
 	}
 	return true, nil
 }

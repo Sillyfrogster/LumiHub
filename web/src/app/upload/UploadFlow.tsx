@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  AlertCircle,
-  Check,
-  FileArchive,
-  LoaderCircle,
-  Upload,
-} from "lucide-react";
+import { AlertCircle, Check, FileArchive, Upload } from "lucide-react";
 import Link from "next/link";
 import {
   type ChangeEvent,
@@ -112,56 +106,42 @@ export function UploadFlow() {
       return;
     }
 
-    setPending(true);
-    setMessage("");
     const form = new FormData(event.currentTarget);
     const tags = String(form.get("tags") ?? "")
       .split(",")
       .map((tag) => tag.trim())
       .filter((tag, index, all) => tag && all.indexOf(tag) === index);
     const body = new FormData();
-    body.append(
-      "metadata",
-      JSON.stringify({
-        confirmed: form.get("confirmed") === "on",
-        name: String(form.get("name") ?? "").trim(),
-        blurb: String(form.get("blurb") ?? "").trim(),
-        tags,
-        isNsfw: form.get("isNsfw") === "on",
-        discovery: String(form.get("discovery") ?? "listed"),
-      }),
-    );
+    const metadata: Record<string, unknown> = {
+      confirmed: form.get("confirmed") === "on",
+      name: String(form.get("name") ?? "").trim(),
+      discovery: String(form.get("discovery") ?? "listed"),
+    };
+    const blurb = String(form.get("blurb") ?? "").trim();
+    if (blurb) metadata.blurb = blurb;
+    if (tags.length) metadata.tags = tags;
+    if (form.get("isNsfw") === "on") metadata.isNsfw = true;
+    body.append("metadata", JSON.stringify(metadata));
     body.append("file", file, file.name);
 
-    try {
-      const response = await fetch("/api/v1/assets", {
+    await requestOperation(
+      "/api/v1/assets",
+      {
         method: "POST",
         credentials: "same-origin",
         body,
-      });
-      const answer = (await response.json()) as IngestOperation & ErrorAnswer;
-      if (!response.ok) {
-        setMessage(answer.error ?? "LumiHub could not accept this upload.");
-        return;
-      }
-      setOperation(answer);
-    } catch {
-      setMessage(
-        "LumiHub could not be reached. Check your connection and try again.",
-      );
-    } finally {
-      setPending(false);
-    }
+      },
+      "LumiHub could not accept this upload.",
+    );
   }
 
   async function completeKind(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!operation) return;
-    setPending(true);
-    setMessage("");
     const form = new FormData(event.currentTarget);
-    try {
-      const response = await fetch(operationPath(operation.url), {
+    await requestOperation(
+      operationPath(operation.url),
+      {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
@@ -169,10 +149,23 @@ export function UploadFlow() {
           kind: String(form.get("kind") ?? ""),
           name: String(form.get("name") ?? "").trim(),
         }),
-      });
+      },
+      "LumiHub could not save those details.",
+    );
+  }
+
+  async function requestOperation(
+    path: string,
+    init: RequestInit,
+    refusal: string,
+  ) {
+    setPending(true);
+    setMessage("");
+    try {
+      const response = await fetch(path, init);
       const answer = (await response.json()) as IngestOperation & ErrorAnswer;
       if (!response.ok) {
-        setMessage(answer.error ?? "LumiHub could not save those details.");
+        setMessage(answer.error ?? refusal);
         return;
       }
       setOperation(answer);
@@ -339,7 +332,7 @@ export function UploadFlow() {
     }
     return (
       <section className={styles.processing} aria-live="polite">
-        <LoaderCircle size={31} strokeWidth={1.35} aria-hidden="true" />
+        <FileArchive size={31} strokeWidth={1.35} aria-hidden="true" />
         <h2>
           {operation.status === "pending"
             ? "Your file is in hand"
