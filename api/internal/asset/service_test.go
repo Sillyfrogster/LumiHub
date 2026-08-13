@@ -19,13 +19,17 @@ import (
 
 func newTestService(t *testing.T) (*Service, *pgxpool.Pool) {
 	t.Helper()
+	return newTestServiceWithRegistry(t, format.NewRegistry(passthrough.New()))
+}
+
+func newTestServiceWithRegistry(t *testing.T, registry *format.Registry) (*Service, *pgxpool.Pool) {
+	t.Helper()
 	pool := testdb.Connect(t)
 	blob, err := storage.NewStore(pool, t.TempDir())
 	if err != nil {
 		t.Fatalf("storage: %v", err)
 	}
-	reg := format.NewRegistry(passthrough.New())
-	return NewService(pool, reg, blob), pool
+	return NewService(pool, registry, blob), pool
 }
 
 func TestCreateStoresUploaderMetadataForAnUnparseableFile(t *testing.T) {
@@ -132,16 +136,12 @@ func (m recognizedModule) Parse(context.Context, io.Reader) (format.Parsed, erro
 
 func serviceWithRecognizedModule(t *testing.T, parsed format.Parsed) *Service {
 	t.Helper()
-	pool := testdb.Connect(t)
-	blob, err := storage.NewStore(pool, t.TempDir())
-	if err != nil {
-		t.Fatalf("storage: %v", err)
-	}
 	registry := format.NewRegistry(passthrough.New())
 	if err := registry.Register(recognizedModule{parsed: parsed}); err != nil {
 		t.Fatalf("register module: %v", err)
 	}
-	return NewService(pool, registry, blob)
+	service, _ := newTestServiceWithRegistry(t, registry)
+	return service
 }
 
 func TestCreateDerivesKindFromARecognizedFormat(t *testing.T) {
