@@ -1,7 +1,6 @@
 package http
 
 import (
-	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -81,12 +80,12 @@ func TestADownloadIsNotHeldToTheListingDeadline(t *testing.T) {
 		t.Fatal("completed ingest has no asset")
 	}
 	rec = httptest.NewRecorder()
-	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/v1/assets/"+created.Asset.ID+"/original", nil))
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/download/"+created.Asset.ID, nil))
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200. body: %s", rec.Code, rec.Body.String())
 	}
-	if !bytes.Equal(rec.Body.Bytes(), file) {
-		t.Fatalf("downloaded %q, want %q", rec.Body.Bytes(), file)
+	if rec.Header().Get("X-Accel-Redirect") == "" {
+		t.Fatal("download was not handed to nginx")
 	}
 }

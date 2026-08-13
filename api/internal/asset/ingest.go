@@ -82,6 +82,7 @@ type preparedIngest struct {
 	Discovery           Discovery
 	Facets              []format.Facet
 	CreatedAt           *time.Time
+	MediaType           string
 }
 
 // ProcessNextIngest leases and processes one available operation.
@@ -135,6 +136,10 @@ func (s *Service) ProcessNextIngest(ctx context.Context) (bool, error) {
 	}
 	if needsKind {
 		return true, s.pauseForKind(ctx, job)
+	}
+	prepared.MediaType = inspected.InlineMediaType()
+	if prepared.MediaType == "" {
+		prepared.MediaType = "application/octet-stream"
 	}
 	if err := s.finalizeIngest(ctx, job, prepared); err != nil {
 		if errors.Is(err, errIngestLeaseLost) {
@@ -402,7 +407,7 @@ func (s *Service) finalizeIngest(ctx context.Context, job ingestJob, prepared pr
 	}
 	a.CreatedAt = made
 	if err := insertRevision(ctx, tx, revisionID, assetID, revisionRow{
-		Revision: 1, BlobID: job.BlobID, MediaType: "application/octet-stream",
+		Revision: 1, BlobID: job.BlobID, MediaType: prepared.MediaType,
 		Format: prepared.Format, PassthroughPlatform: prepared.PassthroughPlatform,
 	}); err != nil {
 		return err

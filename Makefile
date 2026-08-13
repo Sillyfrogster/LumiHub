@@ -8,6 +8,9 @@ SQLC  := go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
 OAPI  := go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0
 WEB_PORT ?= 3000
 TEST ?= ./...
+NGINX_IMAGE ?= nginx:alpine
+NGINX := docker run --rm --network host -v "$(CURDIR):/work:ro" -w /work $(NGINX_IMAGE) \
+	nginx -p /work/ -c nginx/local.conf
 
 -include api/.env
 export
@@ -36,6 +39,10 @@ api: need-db ## Run the API
 .PHONY: web
 web: ## Run the site
 	cd web && PORT=$(WEB_PORT) bun run dev
+
+.PHONY: proxy
+proxy: ## Run the local nginx proxy on port 8000
+	$(NGINX) -g 'daemon off;'
 
 # Checking
 
@@ -69,6 +76,10 @@ fmt: ## Format Go and site sources in place
 fmt-check: ## Fail if any Go file needs formatting
 	@unformatted=$$(cd api && gofmt -l .); \
 	if [ -n "$$unformatted" ]; then echo "needs gofmt:"; echo "$$unformatted"; exit 1; fi
+
+.PHONY: proxy-check
+proxy-check: ## Check the local nginx configuration
+	$(NGINX) -t
 
 # Database
 

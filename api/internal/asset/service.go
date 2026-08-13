@@ -289,8 +289,8 @@ func (s *Service) List(ctx context.Context, f ListFilter) ([]Asset, error) {
 	return listAssets(ctx, s.pool, f)
 }
 
-// OpenOriginal opens the stored upload exactly as it arrived.
-func (s *Service) OpenOriginal(ctx context.Context, assetID uuid.UUID) (io.ReadCloser, error) {
+// OpenSource opens the stored upload exactly as it arrived.
+func (s *Service) OpenSource(ctx context.Context, assetID uuid.UUID) (io.ReadCloser, error) {
 	blobID, _, err := currentRevisionLocation(ctx, s.pool, assetID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -304,4 +304,30 @@ func (s *Service) OpenOriginal(ctx context.Context, assetID uuid.UUID) (io.ReadC
 		return nil, fmt.Errorf("open stored file: %w", err)
 	}
 	return rc, nil
+}
+
+type SourceDownload struct {
+	InternalRedirect string
+	MediaType        string
+	Inline           bool
+}
+
+// DownloadSource resolves the current source file for an nginx handoff.
+func (s *Service) DownloadSource(ctx context.Context, assetID uuid.UUID) (SourceDownload, error) {
+	blobID, mediaType, err := currentRevisionLocation(ctx, s.pool, assetID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return SourceDownload{}, ErrNotFound
+		}
+		return SourceDownload{}, fmt.Errorf("find current revision: %w", err)
+	}
+	redirect, err := s.store.InternalRedirect(ctx, blobID)
+	if err != nil {
+		return SourceDownload{}, fmt.Errorf("resolve stored file: %w", err)
+	}
+	return SourceDownload{
+		InternalRedirect: redirect,
+		MediaType:        mediaType,
+		Inline:           probe.IsInlineMediaType(mediaType),
+	}, nil
 }

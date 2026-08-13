@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
+	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 
@@ -37,6 +39,27 @@ func TestPutComputesTheBlobDigestAndSize(t *testing.T) {
 		t.Errorf("byte size = %d, want 3", stored.ByteSize)
 	}
 
+}
+
+func TestPutMakesTheBlobReadableByTheByteServer(t *testing.T) {
+	root := t.TempDir()
+	store, err := NewStore(testdb.Connect(t), root)
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+	stored, err := store.Put(context.Background(), bytes.NewReader([]byte("served by nginx")))
+	if err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+
+	encoded := hex.EncodeToString(stored.Digest[:])
+	info, err := os.Stat(filepath.Join(root, "blobs", encoded[:2], encoded))
+	if err != nil {
+		t.Fatalf("stat blob: %v", err)
+	}
+	if got := info.Mode().Perm(); got != 0o644 {
+		t.Fatalf("blob mode = %o, want 644", got)
+	}
 }
 
 func TestConcurrentIdenticalWritesConvergeOnOneBlob(t *testing.T) {

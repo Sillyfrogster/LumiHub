@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -22,6 +23,7 @@ import (
 	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
 	"github.com/Sillyfrogster/LumiHub/api/internal/testdb"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type parseFailureModule struct{}
@@ -697,11 +699,21 @@ func TestCatalogMetadataSeedsFromParseWithoutChangingTheFile(t *testing.T) {
 		t.Fatalf("asset metadata = %#v, want the parsed catalog seed", operation.Asset)
 	}
 
-	download := send(t, r, httptest.NewRequest(
-		http.MethodGet, "/v1/assets/"+operation.Asset.ID+"/original", nil,
-	))
-	if download.Code != http.StatusOK || !bytes.Equal(download.Body.Bytes(), file) {
-		t.Fatalf("download = %d %q, want the original bytes", download.Code, download.Body.Bytes())
+	assetID, err := uuid.Parse(operation.Asset.ID)
+	if err != nil {
+		t.Fatalf("parse asset id: %v", err)
+	}
+	stored, err := assets.OpenSource(context.Background(), assetID)
+	if err != nil {
+		t.Fatalf("open source: %v", err)
+	}
+	got, err := io.ReadAll(stored)
+	stored.Close()
+	if err != nil {
+		t.Fatalf("read source: %v", err)
+	}
+	if !bytes.Equal(got, file) {
+		t.Fatalf("stored source = %q, want the original bytes", got)
 	}
 }
 

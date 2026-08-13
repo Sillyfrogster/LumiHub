@@ -730,8 +730,8 @@ func (h *Handlers) refuse(c *gin.Context, err error) {
 	c.JSON(http.StatusBadRequest, gin.H{"error": "could not create the asset"})
 }
 
-func (h *Handlers) DownloadOriginal(c *gin.Context, id types.UUID) {
-	rc, err := h.assets.OpenOriginal(c.Request.Context(), id)
+func (h *Handlers) DownloadSource(c *gin.Context, id types.UUID) {
+	download, err := h.assets.DownloadSource(c.Request.Context(), id)
 	if err != nil {
 		if errors.Is(err, asset.ErrNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "no such asset"})
@@ -740,13 +740,17 @@ func (h *Handlers) DownloadOriginal(c *gin.Context, id types.UUID) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not read the file"})
 		return
 	}
-	defer rc.Close()
-
-	// Originals always download. Serving a stored media type would let an
-	// uploaded HTML file run as a page on this site.
-	c.Header("Content-Disposition", `attachment; filename="original"`)
+	disposition := "attachment"
+	mediaType := "application/octet-stream"
+	if download.Inline {
+		disposition = "inline"
+		mediaType = download.MediaType
+	}
+	c.Header("Content-Disposition", disposition)
+	c.Header("Content-Type", mediaType)
 	c.Header("X-Content-Type-Options", "nosniff")
-	c.DataFromReader(http.StatusOK, -1, "application/octet-stream", rc, nil)
+	c.Header("X-Accel-Redirect", download.InternalRedirect)
+	c.Status(http.StatusOK)
 }
 
 func cursorFrom(params ListAssetsParams) (*asset.Cursor, bool) {

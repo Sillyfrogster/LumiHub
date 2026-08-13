@@ -54,7 +54,7 @@ func Register(r *gin.Engine, h *Handlers, d Deadlines) error {
 		routeKey(http.MethodGet, "/v1/ingests/:id"):                   d.JSON,
 		routeKey(http.MethodPatch, "/v1/ingests/:id"):                 d.JSON,
 		// :id is gin's way of writing "any id here".
-		routeKey(http.MethodGet, "/v1/assets/:id/original"): d.Download,
+		routeKey(http.MethodGet, "/download/:id"): d.Download,
 	}
 
 	routes := r.Group("", deadlineByRoute(limits))

@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/db"
 	"github.com/google/uuid"
@@ -22,6 +23,8 @@ type contentStore struct {
 	queries *db.Queries
 	root    string
 }
+
+const internalBlobPrefix = "/_lumihub/blobs/"
 
 // NewStore opens a content-addressed store rooted at root.
 func NewStore(pool *pgxpool.Pool, root string) (Store, error) {
@@ -50,6 +53,9 @@ func (s *contentStore) Put(ctx context.Context, r io.Reader) (StoredBlob, error)
 	}
 	if err := installFile(temporaryName, path); err != nil {
 		return StoredBlob{}, fmt.Errorf("install blob: %w", err)
+	}
+	if err := os.Chmod(path, 0o644); err != nil {
+		return StoredBlob{}, fmt.Errorf("make blob readable by the byte server: %w", err)
 	}
 
 	row, err := s.queries.UpsertBlob(ctx, db.UpsertBlobParams{
@@ -107,6 +113,27 @@ func (s *contentStore) ReadRange(ctx context.Context, id uuid.UUID, offset, leng
 		Reader: io.NewSectionReader(file, offset, length),
 		Closer: file,
 	}, nil
+}
+
+func (s *contentStore) InternalRedirect(ctx context.Context, id uuid.UUID) (string, error) {
+	location, err := s.blobLocation(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	path, err := s.path(location.StorageKey)
+	if err != nil {
+		return "", err
+	}
+	if _, err := os.Stat(path); err != nil {
+		return "", fmt.Errorf("find blob file: %w", err)
+	}
+
+	key := filepath.ToSlash(location.StorageKey)
+	relative, ok := strings.CutPrefix(key, "blobs/")
+	if !ok || relative == "" {
+		return "", fmt.Errorf("blob storage key is outside the blob directory")
+	}
+	return internalBlobPrefix + relative, nil
 }
 
 func (s *contentStore) blobLocation(ctx context.Context, id uuid.UUID) (db.BlobLocationRow, error) {

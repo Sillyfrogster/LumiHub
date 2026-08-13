@@ -318,9 +318,7 @@ export function UploadFlow() {
           <p className={styles.createdBlurb}>{created.blurb}</p>
         ) : null}
         <div className={styles.successActions}>
-          <a href={`/api/v1/assets/${created.id}/original`}>
-            Download original
-          </a>
+          <a href={`/download/${created.id}`}>Download source file</a>
           <button type="button" onClick={beginAgain}>
             Upload another
           </button>

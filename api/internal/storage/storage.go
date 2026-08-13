@@ -33,6 +33,7 @@ type Store interface {
 	Put(ctx context.Context, r io.Reader) (StoredBlob, error)
 	Open(ctx context.Context, id uuid.UUID) (io.ReadCloser, error)
 	ReadRange(ctx context.Context, id uuid.UUID, offset, length int64) (io.ReadCloser, error)
+	InternalRedirect(ctx context.Context, id uuid.UUID) (string, error)
 	PutDerivative(ctx context.Context, id DerivativeID, r io.Reader) error
 	OpenDerivative(ctx context.Context, id DerivativeID) (io.ReadCloser, error)
 	ClearDerivatives(ctx context.Context) error

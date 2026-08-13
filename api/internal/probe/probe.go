@@ -9,12 +9,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image/gif"
+	"image/jpeg"
 	"io"
 	"os"
 	"path"
 	"strings"
 
 	"github.com/google/uuid"
+	"golang.org/x/image/webp"
 )
 
 const maxRangeRead = 64 * 1024
@@ -47,6 +50,9 @@ const (
 	Unknown Container = "unknown"
 	JSON    Container = "json"
 	PNG     Container = "png"
+	JPEG    Container = "jpeg"
+	WebP    Container = "webp"
+	GIF     Container = "gif"
 	ZIP     Container = "zip"
 )
 
@@ -61,6 +67,28 @@ type Inspection struct {
 	Payloads   []Payload
 	PNGChunks  []PNGChunk
 	ZIPEntries []ZIPEntry
+}
+
+var inlineMediaTypes = map[Container]string{
+	PNG:  "image/png",
+	JPEG: "image/jpeg",
+	WebP: "image/webp",
+	GIF:  "image/gif",
+}
+
+// InlineMediaType returns a browser-safe type only for a verified raster container.
+func (i Inspection) InlineMediaType() string {
+	return inlineMediaTypes[i.Container]
+}
+
+// IsInlineMediaType reports whether a stored probe result is safe to render.
+func IsInlineMediaType(mediaType string) bool {
+	for _, known := range inlineMediaTypes {
+		if mediaType == known {
+			return true
+		}
+	}
+	return false
 }
 
 type Locator struct {
@@ -121,7 +149,7 @@ func InspectWithLimits(
 		return result, nil
 	}
 	reader := &rangeReaderAt{ctx: ctx, store: store, id: id, size: size}
-	prefixLength := min(size, 8)
+	prefixLength := min(size, 12)
 	prefix := make([]byte, prefixLength)
 	if _, err := reader.ReadAt(prefix, 0); err != nil && !errors.Is(err, io.EOF) {
 		return Inspection{}, fmt.Errorf("read container signature: %w", err)
@@ -132,10 +160,25 @@ func InspectWithLimits(
 	}
 
 	switch {
-	case bytes.Equal(prefix, []byte("\x89PNG\r\n\x1a\n")):
+	case len(prefix) >= 8 && bytes.Equal(prefix[:8], []byte("\x89PNG\r\n\x1a\n")):
 		result.Container = PNG
 		if err := inspectPNG(reader, &result); err != nil {
 			return Inspection{}, classifyContainerError(err)
+		}
+	case isJPEG(prefix):
+		result.Container = JPEG
+		if _, err := jpeg.DecodeConfig(io.NewSectionReader(reader, 0, size)); err != nil {
+			return Inspection{}, classifyContainerError(fmt.Errorf("inspect JPEG: %w", err))
+		}
+	case isWebP(prefix):
+		result.Container = WebP
+		if _, err := webp.DecodeConfig(io.NewSectionReader(reader, 0, size)); err != nil {
+			return Inspection{}, classifyContainerError(fmt.Errorf("inspect WebP: %w", err))
+		}
+	case isGIF(prefix):
+		result.Container = GIF
+		if _, err := gif.DecodeConfig(io.NewSectionReader(reader, 0, size)); err != nil {
+			return Inspection{}, classifyContainerError(fmt.Errorf("inspect GIF: %w", err))
 		}
 	case isZIP(prefix):
 		result.Container = ZIP
@@ -181,6 +224,18 @@ func isZIP(prefix []byte) bool {
 		(prefix[2] == 3 && prefix[3] == 4 ||
 			prefix[2] == 5 && prefix[3] == 6 ||
 			prefix[2] == 7 && prefix[3] == 8)
+}
+
+func isJPEG(prefix []byte) bool {
+	return len(prefix) >= 3 && prefix[0] == 0xff && prefix[1] == 0xd8 && prefix[2] == 0xff
+}
+
+func isWebP(prefix []byte) bool {
+	return len(prefix) >= 12 && string(prefix[:4]) == "RIFF" && string(prefix[8:12]) == "WEBP"
+}
+
+func isGIF(prefix []byte) bool {
+	return len(prefix) >= 6 && (string(prefix[:6]) == "GIF87a" || string(prefix[:6]) == "GIF89a")
 }
 
 func firstNonSpace(data []byte) byte {

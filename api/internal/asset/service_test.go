@@ -342,7 +342,7 @@ func TestCreateAcceptsAMadeDateInThePast(t *testing.T) {
 	}
 }
 
-func TestOpenOriginalTellsMissingAssetFromBrokenStorage(t *testing.T) {
+func TestOpenSourceTellsMissingAssetFromBrokenStorage(t *testing.T) {
 	pool := testdb.Connect(t)
 	root := t.TempDir()
 	blob, err := storage.NewStore(pool, root)
@@ -359,7 +359,7 @@ func TestOpenOriginalTellsMissingAssetFromBrokenStorage(t *testing.T) {
 		t.Fatalf("create: %v", err)
 	}
 
-	if _, err := svc.OpenOriginal(context.Background(), uuid.New()); !errors.Is(err, ErrNotFound) {
+	if _, err := svc.OpenSource(context.Background(), uuid.New()); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("unknown asset gave %v, want ErrNotFound", err)
 	}
 
@@ -367,7 +367,7 @@ func TestOpenOriginalTellsMissingAssetFromBrokenStorage(t *testing.T) {
 		t.Fatalf("remove storage root: %v", err)
 	}
 
-	_, err = svc.OpenOriginal(context.Background(), created.ID)
+	_, err = svc.OpenSource(context.Background(), created.ID)
 	if err == nil {
 		t.Fatal("expected an error when the stored file is gone")
 	}

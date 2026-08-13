@@ -96,6 +96,16 @@ func TestJSONFilenameAllowsWhitespaceBeyondTheSignatureRead(t *testing.T) {
 	}
 }
 
+func TestInspectRejectsAWebPSignatureWithoutAnImage(t *testing.T) {
+	file := []byte("RIFF\x0c\x00\x00\x00WEBPVP8X\x00\x00\x00\x00")
+	_, err := Inspect(
+		context.Background(), &recordingStore{data: file}, uuid.New(), int64(len(file)), "image.webp",
+	)
+	if !errors.Is(err, ErrMalformedInput) {
+		t.Fatalf("Inspect error = %v, want ErrMalformedInput", err)
+	}
+}
+
 func TestInspectTellsRootZIPEntriesApart(t *testing.T) {
 	for _, test := range []struct {
 		name      string

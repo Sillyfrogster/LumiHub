@@ -448,7 +448,7 @@ func TestOnlyAVerifiedAccountCanUpload(t *testing.T) {
 	}
 
 	viewer := signUp(t, r, "viewer@example.com", "plain.viewer")
-	download := httptest.NewRequest(http.MethodGet, "/v1/assets/"+asset.Asset.ID+"/original", nil)
+	download := httptest.NewRequest(http.MethodGet, "/download/"+asset.Asset.ID, nil)
 	download.AddCookie(viewer)
 	if viewed := send(t, r, download); viewed.Code != http.StatusOK {
 		t.Errorf("unverified view status = %d, want 200. body: %s", viewed.Code, viewed.Body.String())

@@ -381,6 +381,9 @@ type CompleteIngestJSONRequestBody = CompleteIngestRequest
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 
+	// (GET /download/{id})
+	DownloadSource(c *gin.Context, id openapi_types.UUID)
+
 	// (DELETE /v1/account/discord)
 	DetachDiscord(c *gin.Context)
 
@@ -398,9 +401,6 @@ type ServerInterface interface {
 
 	// (POST /v1/assets)
 	CreateAsset(c *gin.Context)
-
-	// (GET /v1/assets/{id}/original)
-	DownloadOriginal(c *gin.Context, id openapi_types.UUID)
 
 	// (GET /v1/auth/discord)
 	BeginDiscord(c *gin.Context, params BeginDiscordParams)
@@ -447,6 +447,31 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(c *gin.Context)
+
+// DownloadSource operation middleware
+func (siw *ServerInterfaceWrapper) DownloadSource(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DownloadSource(c, id)
+}
 
 // DetachDiscord operation middleware
 func (siw *ServerInterfaceWrapper) DetachDiscord(c *gin.Context) {
@@ -586,31 +611,6 @@ func (siw *ServerInterfaceWrapper) CreateAsset(c *gin.Context) {
 	}
 
 	siw.Handler.CreateAsset(c)
-}
-
-// DownloadOriginal operation middleware
-func (siw *ServerInterfaceWrapper) DownloadOriginal(c *gin.Context) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "id" -------------
-	var id openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
-	if err != nil {
-		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
-		return
-	}
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		middleware(c)
-		if c.IsAborted() {
-			return
-		}
-	}
-
-	siw.Handler.DownloadOriginal(c, id)
 }
 
 // BeginDiscord operation middleware
@@ -892,7 +892,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/v1/profiles/:handle", wrapper.GetProfile)
 	router.GET(options.BaseURL+"/v1/assets", wrapper.ListAssets)
 	router.POST(options.BaseURL+"/v1/assets", wrapper.CreateAsset)
-	router.GET(options.BaseURL+"/v1/assets/:id/original", wrapper.DownloadOriginal)
+	router.GET(options.BaseURL+"/download/:id", wrapper.DownloadSource)
 	router.GET(options.BaseURL+"/v1/ingests/:id", wrapper.GetIngest)
 	router.PATCH(options.BaseURL+"/v1/ingests/:id", wrapper.CompleteIngest)
 }

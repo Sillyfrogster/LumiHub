@@ -244,14 +244,14 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/v1/assets/{id}/original": {
+  "/download/{id}": {
     parameters: {
       query?: never;
       header?: never;
       path?: never;
       cookie?: never;
     };
-    get: operations["downloadOriginal"];
+    get: operations["downloadSource"];
     put?: never;
     post?: never;
     delete?: never;
@@ -943,7 +943,7 @@ export interface operations {
       };
     };
   };
-  downloadOriginal: {
+  downloadSource: {
     parameters: {
       query?: never;
       header?: never;
@@ -954,13 +954,19 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description The uploaded file, byte for byte */
+      /** @description The current uploaded source file, byte for byte */
       200: {
         headers: {
+          "Content-Disposition": "attachment" | "inline";
+          "X-Content-Type-Options": "nosniff";
           [name: string]: unknown;
         };
         content: {
           "application/octet-stream": string;
+          "image/png": string;
+          "image/jpeg": string;
+          "image/webp": string;
+          "image/gif": string;
         };
       };
       /** @description No such asset */
