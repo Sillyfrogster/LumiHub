@@ -23,7 +23,7 @@ func (m facetModule) Parse(context.Context, io.Reader) (format.Parsed, error) {
 
 func TestListMatchesEveryRequestedFacet(t *testing.T) {
 	pool := testdb.Connect(t)
-	blob, _ := storage.NewLocalDisk(t.TempDir())
+	blob, _ := storage.NewStore(pool, t.TempDir())
 
 	reg := format.NewRegistry(facetModule{facets: []format.Facet{
 		{Key: "pack_type", Value: "lumia"},
@@ -63,7 +63,7 @@ func TestListMatchesEveryRequestedFacet(t *testing.T) {
 
 func TestListRequiresAllFacetsNotAny(t *testing.T) {
 	pool := testdb.Connect(t)
-	blob, _ := storage.NewLocalDisk(t.TempDir())
+	blob, _ := storage.NewStore(pool, t.TempDir())
 
 	reg := format.NewRegistry(facetModule{facets: []format.Facet{
 		{Key: "pack_type", Value: "lumia"},
@@ -94,7 +94,7 @@ func TestListRequiresAllFacetsNotAny(t *testing.T) {
 
 func TestFacetKeysAndValuesContainingEqualsDoNotCollide(t *testing.T) {
 	pool := testdb.Connect(t)
-	blob, err := storage.NewLocalDisk(t.TempDir())
+	blob, err := storage.NewStore(pool, t.TempDir())
 	if err != nil {
 		t.Fatalf("storage: %v", err)
 	}
@@ -138,7 +138,7 @@ func TestFacetKeysAndValuesContainingEqualsDoNotCollide(t *testing.T) {
 
 func TestRequestingTheSameFacetTwiceStillMatches(t *testing.T) {
 	pool := testdb.Connect(t)
-	blob, err := storage.NewLocalDisk(t.TempDir())
+	blob, err := storage.NewStore(pool, t.TempDir())
 	if err != nil {
 		t.Fatalf("storage: %v", err)
 	}

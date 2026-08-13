@@ -9,8 +9,8 @@ returning created_at;
 
 -- name: InsertRevision :exec
 insert into asset_revisions
-  (id, asset_id, revision, content_hash, byte_size, storage_key, media_type)
-values ($1, $2, $3, $4, $5, $6, $7);
+  (id, asset_id, revision, blob_id, media_type)
+values ($1, $2, $3, $4, $5);
 
 -- name: InsertFacet :exec
 insert into asset_facets (asset_id, revision_id, key, value)
@@ -46,7 +46,19 @@ select a.id, a.kind, a.platform, a.format, a.format_version,
  limit $7;
 
 -- name: CurrentRevisionLocation :one
-select r.storage_key, r.media_type
+select r.blob_id, r.media_type
   from assets a
   join asset_revisions r on r.id = a.current_revision_id
  where a.id = $1;
+
+-- name: UpsertBlob :one
+insert into blobs (id, sha256, byte_size, storage_key)
+values ($1, $2, $3, $4)
+on conflict (sha256) do update set sha256 = excluded.sha256
+returning id, sha256, byte_size, storage_key;
+
+-- name: BlobLocation :one
+select storage_key, byte_size from blobs where id = $1;
+
+-- name: DeleteBlob :one
+delete from blobs where id = $1 returning storage_key;

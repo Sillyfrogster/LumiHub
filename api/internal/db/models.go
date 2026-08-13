@@ -39,19 +39,24 @@ type AssetMedium struct {
 	AssetID    pgtype.UUID
 	RevisionID pgtype.UUID
 	Role       string
-	StorageKey string
 	Width      pgtype.Int4
 	Height     pgtype.Int4
 	CreatedAt  pgtype.Timestamptz
+	BlobID     pgtype.UUID
 }
 
 type AssetRevision struct {
-	ID          pgtype.UUID
-	AssetID     pgtype.UUID
-	Revision    int32
-	ContentHash string
-	ByteSize    int64
-	StorageKey  string
-	MediaType   string
-	CreatedAt   pgtype.Timestamptz
+	ID        pgtype.UUID
+	AssetID   pgtype.UUID
+	Revision  int32
+	MediaType string
+	CreatedAt pgtype.Timestamptz
+	BlobID    pgtype.UUID
+}
+
+type Blob struct {
+	ID         pgtype.UUID
+	Sha256     []byte
+	ByteSize   int64
+	StorageKey string
 }

@@ -26,7 +26,7 @@ func main() {
 	}
 	defer pool.Close()
 
-	blob, err := storage.NewLocalDisk(cfg.UploadsDir)
+	blob, err := storage.NewStore(pool, cfg.UploadsDir)
 	if err != nil {
 		log.Fatalf("storage: %v", err)
 	}

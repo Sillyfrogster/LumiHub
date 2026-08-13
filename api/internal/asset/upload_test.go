@@ -34,24 +34,28 @@ func TestCreateRecordsTheWholeFileItStored(t *testing.T) {
 		t.Fatalf("create: %v", err)
 	}
 
-	var hash, storageKey string
+	var hash []byte
+	var blobID uuid.UUID
 	var size int64
 	err = pool.QueryRow(context.Background(),
-		`select content_hash, byte_size, storage_key from asset_revisions where id = $1`,
-		got.CurrentRevisionID).Scan(&hash, &size, &storageKey)
+		`select b.sha256, b.byte_size, r.blob_id
+		   from asset_revisions r
+		   join blobs b on b.id = r.blob_id
+		  where r.id = $1`,
+		got.CurrentRevisionID).Scan(&hash, &size, &blobID)
 	if err != nil {
 		t.Fatalf("read revision: %v", err)
 	}
 
 	want := sha256.Sum256(file)
-	if hash != hex.EncodeToString(want[:]) {
-		t.Errorf("content_hash = %s, want the hash of every byte sent", hash)
+	if hex.EncodeToString(hash) != hex.EncodeToString(want[:]) {
+		t.Errorf("blob digest = %x, want the hash of every byte sent", hash)
 	}
 	if size != int64(len(file)) {
 		t.Errorf("byte_size = %d, want %d", size, len(file))
 	}
 
-	stored, err := svc.blob.Get(context.Background(), storageKey)
+	stored, err := svc.store.Open(context.Background(), blobID)
 	if err != nil {
 		t.Fatalf("open stored file: %v", err)
 	}

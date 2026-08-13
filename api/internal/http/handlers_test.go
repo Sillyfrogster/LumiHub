@@ -31,7 +31,7 @@ func newTestRouterWith(t *testing.T, maxUploadBytes int64, deadlines Deadlines) 
 	gin.SetMode(gin.TestMode)
 
 	pool := testdb.Connect(t)
-	blob, err := storage.NewLocalDisk(t.TempDir())
+	blob, err := storage.NewStore(pool, t.TempDir())
 	if err != nil {
 		t.Fatalf("storage: %v", err)
 	}

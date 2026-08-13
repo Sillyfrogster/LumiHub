@@ -11,27 +11,19 @@ import (
 
 // revisionRow is one preserved copy of an asset's bytes.
 type revisionRow struct {
-	Revision    int
-	ContentHash string
-	ByteSize    int64
-	StorageKey  string
-	MediaType   string
-}
-
-func revisionStorageKey(assetID, revisionID uuid.UUID) string {
-	return fmt.Sprintf("revisions/%s/%s", assetID, revisionID)
+	Revision  int
+	BlobID    uuid.UUID
+	MediaType string
 }
 
 func insertRevision(ctx context.Context, tx pgx.Tx, id, assetID uuid.UUID, row revisionRow) error {
 	queries := db.New(tx)
 	params := db.InsertRevisionParams{
-		ID:          uuidToPgtype(id),
-		AssetID:     uuidToPgtype(assetID),
-		Revision:    int32(row.Revision),
-		ContentHash: row.ContentHash,
-		ByteSize:    row.ByteSize,
-		StorageKey:  row.StorageKey,
-		MediaType:   row.MediaType,
+		ID:        uuidToPgtype(id),
+		AssetID:   uuidToPgtype(assetID),
+		Revision:  int32(row.Revision),
+		BlobID:    uuidToPgtype(row.BlobID),
+		MediaType: row.MediaType,
 	}
 	if err := queries.InsertRevision(ctx, params); err != nil {
 		return fmt.Errorf("insert revision: %w", err)
@@ -53,13 +45,12 @@ func setCurrentRevision(ctx context.Context, tx pgx.Tx, assetID, revisionID uuid
 	return nil
 }
 
-// currentRevisionLocation returns where the current revision of an asset is
-// kept.
-func currentRevisionLocation(ctx context.Context, q db.DBTX, assetID uuid.UUID) (key, mediaType string, err error) {
+// currentRevisionLocation returns the current revision's blob and media type.
+func currentRevisionLocation(ctx context.Context, q db.DBTX, assetID uuid.UUID) (blobID uuid.UUID, mediaType string, err error) {
 	queries := db.New(q)
 	row, err := queries.CurrentRevisionLocation(ctx, uuidToPgtype(assetID))
 	if err != nil {
-		return "", "", err
+		return uuid.Nil, "", err
 	}
-	return row.StorageKey, row.MediaType, nil
+	return uuidFromPgtype(row.BlobID), row.MediaType, nil
 }

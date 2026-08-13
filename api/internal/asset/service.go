@@ -3,8 +3,6 @@ package asset
 import (
 	"bufio"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -22,13 +20,13 @@ var ErrNotFound = errors.New("asset not found")
 // Service runs the catalog. It knows the module interfaces, never a concrete
 // format.
 type Service struct {
-	pool *pgxpool.Pool
-	reg  *format.Registry
-	blob storage.Blob
+	pool  *pgxpool.Pool
+	reg   *format.Registry
+	store storage.Store
 }
 
-func NewService(pool *pgxpool.Pool, reg *format.Registry, blob storage.Blob) *Service {
-	return &Service{pool: pool, reg: reg, blob: blob}
+func NewService(pool *pgxpool.Pool, reg *format.Registry, store storage.Store) *Service {
+	return &Service{pool: pool, reg: reg, store: store}
 }
 
 // detectHeadBytes is how much of a file a module gets to recognise it by.
@@ -43,7 +41,6 @@ const detectHeadBytes = 512
 func (s *Service) Create(ctx context.Context, in CreateInput) (Asset, error) {
 	assetID := uuid.New()
 	revisionID := uuid.New()
-	storageKey := revisionStorageKey(assetID, revisionID)
 
 	file := bufio.NewReaderSize(in.File, detectHeadBytes)
 	head, err := file.Peek(detectHeadBytes)
@@ -56,13 +53,12 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Asset, error) {
 	// transaction leaves an unreferenced file, which a sweeper can collect.
 	// Writing it after would let a committed row point at a file that is
 	// not there yet, which is the worse of the two failures.
-	sum := sha256.New()
-	size := &byteCount{}
-	if err := s.blob.Put(ctx, storageKey, io.TeeReader(file, io.MultiWriter(sum, size))); err != nil {
+	stored, err := s.store.Put(ctx, file)
+	if err != nil {
 		return Asset{}, fmt.Errorf("store upload: %w", err)
 	}
 
-	parsed, err := s.parseStored(ctx, module, storageKey)
+	parsed, err := s.parseStored(ctx, module, stored.ID)
 	if err != nil {
 		return Asset{}, err
 	}
@@ -98,11 +94,9 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Asset, error) {
 	}
 	a.CreatedAt = made
 	if err := insertRevision(ctx, tx, revisionID, a.ID, revisionRow{
-		Revision:    1,
-		ContentHash: hex.EncodeToString(sum.Sum(nil)),
-		ByteSize:    size.n,
-		StorageKey:  storageKey,
-		MediaType:   "application/octet-stream",
+		Revision:  1,
+		BlobID:    stored.ID,
+		MediaType: "application/octet-stream",
 	}); err != nil {
 		return Asset{}, err
 	}
@@ -123,8 +117,8 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Asset, error) {
 
 // parseStored gives the module the stored file rather than a copy held in
 // memory.
-func (s *Service) parseStored(ctx context.Context, module format.Module, storageKey string) (format.Parsed, error) {
-	stored, err := s.blob.Get(ctx, storageKey)
+func (s *Service) parseStored(ctx context.Context, module format.Module, blobID uuid.UUID) (format.Parsed, error) {
+	stored, err := s.store.Open(ctx, blobID)
 	if err != nil {
 		return format.Parsed{}, fmt.Errorf("reopen stored upload: %w", err)
 	}
@@ -135,15 +129,6 @@ func (s *Service) parseStored(ctx context.Context, module format.Module, storage
 		return format.Parsed{}, fmt.Errorf("parse upload: %w", err)
 	}
 	return parsed, nil
-}
-
-// byteCount tallies what reached storage, so the revision records that rather
-// than what the sender claimed.
-type byteCount struct{ n int64 }
-
-func (c *byteCount) Write(p []byte) (int, error) {
-	c.n += int64(len(p))
-	return len(p), nil
 }
 
 // orElse prefers the uploader's catalog metadata. A module only fills in
@@ -175,7 +160,7 @@ func (s *Service) List(ctx context.Context, f ListFilter) ([]Asset, error) {
 
 // OpenOriginal opens the stored upload exactly as it arrived.
 func (s *Service) OpenOriginal(ctx context.Context, assetID uuid.UUID) (io.ReadCloser, error) {
-	key, _, err := currentRevisionLocation(ctx, s.pool, assetID)
+	blobID, _, err := currentRevisionLocation(ctx, s.pool, assetID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
@@ -183,7 +168,7 @@ func (s *Service) OpenOriginal(ctx context.Context, assetID uuid.UUID) (io.ReadC
 		return nil, fmt.Errorf("find current revision: %w", err)
 	}
 
-	rc, err := s.blob.Get(ctx, key)
+	rc, err := s.store.Open(ctx, blobID)
 	if err != nil {
 		return nil, fmt.Errorf("open stored file: %w", err)
 	}

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
 	"testing"
 	"time"
 
@@ -19,7 +20,7 @@ import (
 func newTestService(t *testing.T) (*Service, *pgxpool.Pool) {
 	t.Helper()
 	pool := testdb.Connect(t)
-	blob, err := storage.NewLocalDisk(t.TempDir())
+	blob, err := storage.NewStore(pool, t.TempDir())
 	if err != nil {
 		t.Fatalf("storage: %v", err)
 	}
@@ -82,7 +83,10 @@ func TestCreateStoresUploaderMetadataForAnUnparseableFile(t *testing.T) {
 	var revision int
 	var byteSize int64
 	err = pool.QueryRow(context.Background(),
-		`select revision, byte_size from asset_revisions where id = $1`,
+		`select r.revision, b.byte_size
+		   from asset_revisions r
+		   join blobs b on b.id = r.blob_id
+		  where r.id = $1`,
 		got.CurrentRevisionID).Scan(&revision, &byteSize)
 	if err != nil {
 		t.Fatalf("revision row was not written: %v", err)
@@ -94,7 +98,7 @@ func TestCreateStoresUploaderMetadataForAnUnparseableFile(t *testing.T) {
 
 func TestCreateWritesNothingWhenParsingFails(t *testing.T) {
 	pool := testdb.Connect(t)
-	blob, _ := storage.NewLocalDisk(t.TempDir())
+	blob, _ := storage.NewStore(pool, t.TempDir())
 	reg := format.NewRegistry(failingModule{})
 	svc := NewService(pool, reg, blob)
 
@@ -138,7 +142,7 @@ func (badFacetModule) Parse(context.Context, io.Reader) (format.Parsed, error) {
 
 func TestCreateRollsBackAfterRowsAreWritten(t *testing.T) {
 	pool := testdb.Connect(t)
-	blob, err := storage.NewLocalDisk(t.TempDir())
+	blob, err := storage.NewStore(pool, t.TempDir())
 	if err != nil {
 		t.Fatalf("storage: %v", err)
 	}
@@ -185,7 +189,7 @@ func madeAndIndexed(t *testing.T, pool *pgxpool.Pool, id uuid.UUID) (made, index
 
 func TestCreateKeepsTheDateTheFileCarries(t *testing.T) {
 	pool := testdb.Connect(t)
-	blob, err := storage.NewLocalDisk(t.TempDir())
+	blob, err := storage.NewStore(pool, t.TempDir())
 	if err != nil {
 		t.Fatalf("storage: %v", err)
 	}
@@ -232,7 +236,7 @@ func TestCreateFallsBackToWhenTheRowWasWritten(t *testing.T) {
 
 func TestCreateAcceptsAMadeDateInThePast(t *testing.T) {
 	pool := testdb.Connect(t)
-	blob, err := storage.NewLocalDisk(t.TempDir())
+	blob, err := storage.NewStore(pool, t.TempDir())
 	if err != nil {
 		t.Fatalf("storage: %v", err)
 	}
@@ -268,7 +272,8 @@ func TestCreateAcceptsAMadeDateInThePast(t *testing.T) {
 
 func TestOpenOriginalTellsMissingAssetFromBrokenStorage(t *testing.T) {
 	pool := testdb.Connect(t)
-	blob, err := storage.NewLocalDisk(t.TempDir())
+	root := t.TempDir()
+	blob, err := storage.NewStore(pool, root)
 	if err != nil {
 		t.Fatalf("storage: %v", err)
 	}
@@ -286,9 +291,8 @@ func TestOpenOriginalTellsMissingAssetFromBrokenStorage(t *testing.T) {
 		t.Fatalf("unknown asset gave %v, want ErrNotFound", err)
 	}
 
-	key := "revisions/" + created.ID.String() + "/" + created.CurrentRevisionID.String()
-	if err := blob.Delete(context.Background(), key); err != nil {
-		t.Fatalf("delete stored file: %v", err)
+	if err := os.RemoveAll(root); err != nil {
+		t.Fatalf("remove storage root: %v", err)
 	}
 
 	_, err = svc.OpenOriginal(context.Background(), created.ID)

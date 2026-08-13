@@ -11,23 +11,50 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const blobLocation = `-- name: BlobLocation :one
+select storage_key, byte_size from blobs where id = $1
+`
+
+type BlobLocationRow struct {
+	StorageKey string
+	ByteSize   int64
+}
+
+func (q *Queries) BlobLocation(ctx context.Context, id pgtype.UUID) (BlobLocationRow, error) {
+	row := q.db.QueryRow(ctx, blobLocation, id)
+	var i BlobLocationRow
+	err := row.Scan(&i.StorageKey, &i.ByteSize)
+	return i, err
+}
+
 const currentRevisionLocation = `-- name: CurrentRevisionLocation :one
-select r.storage_key, r.media_type
+select r.blob_id, r.media_type
   from assets a
   join asset_revisions r on r.id = a.current_revision_id
  where a.id = $1
 `
 
 type CurrentRevisionLocationRow struct {
-	StorageKey string
-	MediaType  string
+	BlobID    pgtype.UUID
+	MediaType string
 }
 
 func (q *Queries) CurrentRevisionLocation(ctx context.Context, id pgtype.UUID) (CurrentRevisionLocationRow, error) {
 	row := q.db.QueryRow(ctx, currentRevisionLocation, id)
 	var i CurrentRevisionLocationRow
-	err := row.Scan(&i.StorageKey, &i.MediaType)
+	err := row.Scan(&i.BlobID, &i.MediaType)
 	return i, err
+}
+
+const deleteBlob = `-- name: DeleteBlob :one
+delete from blobs where id = $1 returning storage_key
+`
+
+func (q *Queries) DeleteBlob(ctx context.Context, id pgtype.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, deleteBlob, id)
+	var storage_key string
+	err := row.Scan(&storage_key)
+	return storage_key, err
 }
 
 const insertAsset = `-- name: InsertAsset :one
@@ -100,18 +127,16 @@ func (q *Queries) InsertFacet(ctx context.Context, arg InsertFacetParams) error 
 
 const insertRevision = `-- name: InsertRevision :exec
 insert into asset_revisions
-  (id, asset_id, revision, content_hash, byte_size, storage_key, media_type)
-values ($1, $2, $3, $4, $5, $6, $7)
+  (id, asset_id, revision, blob_id, media_type)
+values ($1, $2, $3, $4, $5)
 `
 
 type InsertRevisionParams struct {
-	ID          pgtype.UUID
-	AssetID     pgtype.UUID
-	Revision    int32
-	ContentHash string
-	ByteSize    int64
-	StorageKey  string
-	MediaType   string
+	ID        pgtype.UUID
+	AssetID   pgtype.UUID
+	Revision  int32
+	BlobID    pgtype.UUID
+	MediaType string
 }
 
 func (q *Queries) InsertRevision(ctx context.Context, arg InsertRevisionParams) error {
@@ -119,9 +144,7 @@ func (q *Queries) InsertRevision(ctx context.Context, arg InsertRevisionParams) 
 		arg.ID,
 		arg.AssetID,
 		arg.Revision,
-		arg.ContentHash,
-		arg.ByteSize,
-		arg.StorageKey,
+		arg.BlobID,
 		arg.MediaType,
 	)
 	return err
@@ -235,4 +258,35 @@ type SetCurrentRevisionParams struct {
 func (q *Queries) SetCurrentRevision(ctx context.Context, arg SetCurrentRevisionParams) error {
 	_, err := q.db.Exec(ctx, setCurrentRevision, arg.ID, arg.CurrentRevisionID)
 	return err
+}
+
+const upsertBlob = `-- name: UpsertBlob :one
+insert into blobs (id, sha256, byte_size, storage_key)
+values ($1, $2, $3, $4)
+on conflict (sha256) do update set sha256 = excluded.sha256
+returning id, sha256, byte_size, storage_key
+`
+
+type UpsertBlobParams struct {
+	ID         pgtype.UUID
+	Sha256     []byte
+	ByteSize   int64
+	StorageKey string
+}
+
+func (q *Queries) UpsertBlob(ctx context.Context, arg UpsertBlobParams) (Blob, error) {
+	row := q.db.QueryRow(ctx, upsertBlob,
+		arg.ID,
+		arg.Sha256,
+		arg.ByteSize,
+		arg.StorageKey,
+	)
+	var i Blob
+	err := row.Scan(
+		&i.ID,
+		&i.Sha256,
+		&i.ByteSize,
+		&i.StorageKey,
+	)
+	return i, err
 }
