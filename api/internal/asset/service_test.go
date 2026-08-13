@@ -23,11 +23,11 @@ func newTestService(t *testing.T) (*Service, *pgxpool.Pool) {
 
 type claimsFirstPayload struct{}
 
-func (claimsFirstPayload) Claim(file probe.Result) (format.Claim, bool) {
+func (claimsFirstPayload) Claim(file probe.Inspection) (format.Claim, bool) {
 	if len(file.Payloads) == 0 {
 		return format.Claim{}, false
 	}
-	return format.Claim{PayloadID: file.Payloads[0].ID, Strength: format.Authoritative}, true
+	return format.CompatibilityClaim(file.Payloads[0]), true
 }
 
 func registryWithModule(t *testing.T, module format.Module) *format.Registry {
@@ -149,7 +149,7 @@ type recognizedModule struct {
 }
 
 func (recognizedModule) ID() string { return "recognized" }
-func (m recognizedModule) Parse(context.Context, probe.Result, format.Claim) (format.Parsed, error) {
+func (m recognizedModule) Parse(context.Context, probe.Inspection, format.Claim) (format.Parsed, error) {
 	return m.parsed, nil
 }
 
@@ -194,7 +194,7 @@ func TestRecognizedFormatCannotCarryAPassthroughPlatform(t *testing.T) {
 type failingModule struct{ claimsFirstPayload }
 
 func (failingModule) ID() string { return "failing" }
-func (failingModule) Parse(context.Context, probe.Result, format.Claim) (format.Parsed, error) {
+func (failingModule) Parse(context.Context, probe.Inspection, format.Claim) (format.Parsed, error) {
 	return format.Parsed{}, errors.New("cannot parse")
 }
 
@@ -202,7 +202,7 @@ func (failingModule) Parse(context.Context, probe.Result, format.Claim) (format.
 type badFacetModule struct{ claimsFirstPayload }
 
 func (badFacetModule) ID() string { return "badfacet" }
-func (badFacetModule) Parse(context.Context, probe.Result, format.Claim) (format.Parsed, error) {
+func (badFacetModule) Parse(context.Context, probe.Inspection, format.Claim) (format.Parsed, error) {
 	return format.Parsed{
 		Kind:   "character",
 		Format: "test",
@@ -245,7 +245,7 @@ type datedModule struct {
 }
 
 func (datedModule) ID() string { return "dated" }
-func (m datedModule) Parse(context.Context, probe.Result, format.Claim) (format.Parsed, error) {
+func (m datedModule) Parse(context.Context, probe.Inspection, format.Claim) (format.Parsed, error) {
 	return format.Parsed{Kind: "character", Format: "dated", CreatedAt: &m.made}, nil
 }
 

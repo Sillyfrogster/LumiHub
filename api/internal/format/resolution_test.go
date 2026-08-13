@@ -10,19 +10,22 @@ import (
 )
 
 type claimingModule struct {
-	id       string
-	spec     string
-	strength ClaimStrength
+	id            string
+	spec          string
+	authoritative bool
 }
 
 func (m claimingModule) ID() string { return m.id }
-func (m claimingModule) Parse(context.Context, probe.Result, Claim) (Parsed, error) {
+func (m claimingModule) Parse(context.Context, probe.Inspection, Claim) (Parsed, error) {
 	return Parsed{Format: m.id}, nil
 }
-func (m claimingModule) Claim(file probe.Result) (Claim, bool) {
+func (m claimingModule) Claim(file probe.Inspection) (Claim, bool) {
 	for _, payload := range file.Payloads {
 		if spec, ok := payload.String("spec"); ok && spec == m.spec {
-			return Claim{PayloadID: payload.ID, Strength: m.strength}, true
+			if m.authoritative {
+				return AuthoritativeClaim(payload, "spec")
+			}
+			return CompatibilityClaim(payload), true
 		}
 	}
 	return Claim{}, false
@@ -31,7 +34,7 @@ func (m claimingModule) Claim(file probe.Result) (Claim, bool) {
 func TestResolveReturnsNoModuleWhenNothingClaimsTheFile(t *testing.T) {
 	registry := NewRegistry()
 
-	_, ok, err := registry.Resolve(probe.Result{Container: probe.Unknown})
+	_, ok, err := registry.Resolve(probe.Inspection{Container: probe.Unknown})
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
@@ -42,12 +45,12 @@ func TestResolveReturnsNoModuleWhenNothingClaimsTheFile(t *testing.T) {
 
 func TestResolvePrefersAnAuthoritativeClaimRegardlessOfRegistrationOrder(t *testing.T) {
 	file := probedPayload("chara_card_v3", "ccv3")
-	compatibility := claimingModule{id: "compatibility", spec: "chara_card_v3", strength: Compatibility}
-	authoritative := claimingModule{id: "authoritative", spec: "chara_card_v3", strength: Authoritative}
+	compatible := claimingModule{id: "compatible_reader", spec: "chara_card_v3"}
+	authority := claimingModule{id: "chara_card_v3", spec: "chara_card_v3", authoritative: true}
 
 	for _, modules := range [][]Module{
-		{compatibility, authoritative},
-		{authoritative, compatibility},
+		{compatible, authority},
+		{authority, compatible},
 	} {
 		registry := NewRegistry()
 		for _, module := range modules {
@@ -60,8 +63,8 @@ func TestResolvePrefersAnAuthoritativeClaimRegardlessOfRegistrationOrder(t *test
 		if err != nil {
 			t.Fatalf("Resolve: %v", err)
 		}
-		if !ok || got.Module.ID() != "authoritative" {
-			t.Fatalf("resolved module = %v, %v; want authoritative, true", got.Module, ok)
+		if !ok || got.Module.ID() != "chara_card_v3" {
+			t.Fatalf("resolved module = %v, %v; want chara_card_v3, true", got.Module, ok)
 		}
 	}
 }
@@ -69,9 +72,7 @@ func TestResolvePrefersAnAuthoritativeClaimRegardlessOfRegistrationOrder(t *test
 func TestResolveRejectsTwoAuthoritativeClaimsOnOnePayload(t *testing.T) {
 	registry := NewRegistry()
 	for _, id := range []string{"first", "second"} {
-		if err := registry.Register(claimingModule{
-			id: id, spec: "chara_card_v2", strength: Authoritative,
-		}); err != nil {
+		if err := registry.Register(forcedAuthoritativeModule{id: id}); err != nil {
 			t.Fatalf("Register: %v", err)
 		}
 	}
@@ -85,8 +86,8 @@ func TestResolveRejectsTwoAuthoritativeClaimsOnOnePayload(t *testing.T) {
 func TestResolveUsesThePayloadDiscriminatorRatherThanItsLocator(t *testing.T) {
 	registry := NewRegistry()
 	for _, module := range []Module{
-		claimingModule{id: "ccv3", spec: "chara_card_v3", strength: Authoritative},
-		claimingModule{id: "ccv2", spec: "chara_card_v2", strength: Authoritative},
+		claimingModule{id: "chara_card_v3", spec: "chara_card_v3", authoritative: true},
+		claimingModule{id: "chara_card_v2", spec: "chara_card_v2", authoritative: true},
 	} {
 		if err := registry.Register(module); err != nil {
 			t.Fatalf("Register: %v", err)
@@ -97,13 +98,41 @@ func TestResolveUsesThePayloadDiscriminatorRatherThanItsLocator(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
-	if !ok || got.Module.ID() != "ccv2" {
-		t.Fatalf("resolved module = %v, %v; want ccv2, true", got.Module, ok)
+	if !ok || got.Module.ID() != "chara_card_v2" {
+		t.Fatalf("resolved module = %v, %v; want chara_card_v2, true", got.Module, ok)
 	}
 }
 
-func probedPayload(spec, locator string) probe.Result {
-	return probe.Result{
+type forcedAuthoritativeModule struct{ id string }
+
+func (m forcedAuthoritativeModule) ID() string { return m.id }
+func (m forcedAuthoritativeModule) Claim(file probe.Inspection) (Claim, bool) {
+	return Claim{
+		payloadID: file.Payloads[0].ID,
+		strength:  authoritative,
+		formatID:  m.id,
+	}, true
+}
+func (m forcedAuthoritativeModule) Parse(context.Context, probe.Inspection, Claim) (Parsed, error) {
+	return Parsed{Format: m.id}, nil
+}
+
+func TestResolveRejectsAuthorityForADifferentDiscriminator(t *testing.T) {
+	registry := NewRegistry()
+	if err := registry.Register(claimingModule{
+		id: "chara_card_v3", spec: "chara_card_v2", authoritative: true,
+	}); err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+
+	_, _, err := registry.Resolve(probedPayload("chara_card_v2", "chara"))
+	if !errors.Is(err, ErrInvalidClaim) {
+		t.Fatalf("Resolve error = %v, want ErrInvalidClaim", err)
+	}
+}
+
+func probedPayload(spec, locator string) probe.Inspection {
+	return probe.Inspection{
 		Container: probe.PNG,
 		Payloads: []probe.Payload{{
 			ID:      0,

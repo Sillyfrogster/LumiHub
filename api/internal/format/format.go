@@ -30,20 +30,42 @@ type Parsed struct {
 /** The minimum every format module implements */
 type Module interface {
 	ID() string
-	Claim(probe.Result) (Claim, bool)
-	Parse(ctx context.Context, file probe.Result, claim Claim) (Parsed, error)
+	Claim(probe.Inspection) (Claim, bool)
+	Parse(ctx context.Context, file probe.Inspection, claim Claim) (Parsed, error)
 }
 
-type ClaimStrength uint8
+type claimStrength uint8
 
 const (
-	Compatibility ClaimStrength = iota + 1
-	Authoritative
+	compatibility claimStrength = iota + 1
+	authoritative
 )
 
 type Claim struct {
-	PayloadID uint32
-	Strength  ClaimStrength
+	payloadID uint32
+	strength  claimStrength
+	formatID  string
+}
+
+func AuthoritativeClaim(payload probe.Payload, discriminator string) (Claim, bool) {
+	formatID, ok := payload.String(discriminator)
+	if !ok || formatID == "" {
+		return Claim{}, false
+	}
+	return Claim{payloadID: payload.ID, strength: authoritative, formatID: formatID}, true
+}
+
+func CompatibilityClaim(payload probe.Payload) Claim {
+	return Claim{payloadID: payload.ID, strength: compatibility}
+}
+
+func (c Claim) Payload(file probe.Inspection) (probe.Payload, bool) {
+	for _, payload := range file.Payloads {
+		if payload.ID == c.payloadID {
+			return payload, true
+		}
+	}
+	return probe.Payload{}, false
 }
 
 /** Implemented only by modules that can change a file without losing data */

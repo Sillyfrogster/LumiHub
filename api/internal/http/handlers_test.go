@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,6 +22,20 @@ import (
 func newTestRouter(t *testing.T) *gin.Engine {
 	t.Helper()
 	return newTestRouterWithCeiling(t, 1<<20)
+}
+
+func TestFormatRegistryInvariantIsNotAnUploaderRefusal(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+
+	new(Handlers).refuse(ctx, format.ErrConflictingClaims)
+
+	if recorder.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500", recorder.Code)
+	}
+	if strings.Contains(recorder.Body.String(), "claim") {
+		t.Fatalf("response exposed registry details: %s", recorder.Body.String())
+	}
 }
 
 func newTestRouterWithCeiling(t *testing.T, maxUploadBytes int64) *gin.Engine {

@@ -617,6 +617,11 @@ func (r refusal) Unwrap() error { return r.cause }
 var errOverCeiling = errors.New("upload over the ceiling")
 
 func (h *Handlers) refuse(c *gin.Context, err error) {
+	if errors.Is(err, format.ErrInvariant) {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not create the asset"})
+		return
+	}
+
 	var tooLarge *http.MaxBytesError
 	if errors.As(err, &tooLarge) || errors.Is(err, errOverCeiling) {
 		c.JSON(http.StatusRequestEntityTooLarge, gin.H{

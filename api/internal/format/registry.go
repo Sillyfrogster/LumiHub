@@ -8,9 +8,10 @@ import (
 )
 
 var (
-	ErrConflictingClaims = errors.New("conflicting authoritative claims")
-	ErrAmbiguousClaims   = errors.New("ambiguous format claims")
-	ErrInvalidClaim      = errors.New("invalid format claim")
+	ErrInvariant         = errors.New("format registry invariant")
+	ErrConflictingClaims = fmt.Errorf("%w: conflicting authoritative claims", ErrInvariant)
+	ErrAmbiguousClaims   = fmt.Errorf("%w: ambiguous format claims", ErrInvariant)
+	ErrInvalidClaim      = fmt.Errorf("%w: invalid format claim", ErrInvariant)
 )
 
 type Resolution struct {
@@ -49,14 +50,14 @@ func (r *Registry) CanEdit(id string) bool {
 	return editable
 }
 
-func (r *Registry) Resolve(file probe.Result) (Resolution, bool, error) {
+func (r *Registry) Resolve(file probe.Inspection) (Resolution, bool, error) {
 	var candidates []Resolution
 	for _, module := range r.modules {
 		claim, ok := module.Claim(file)
 		if !ok {
 			continue
 		}
-		if err := validateClaim(file, claim); err != nil {
+		if err := validateClaim(file, module, claim); err != nil {
 			return Resolution{}, false, fmt.Errorf("module %q: %w", module.ID(), err)
 		}
 		candidates = append(candidates, Resolution{Module: module, Claim: claim})
@@ -66,26 +67,26 @@ func (r *Registry) Resolve(file probe.Result) (Resolution, bool, error) {
 	}
 
 	for i, first := range candidates {
-		if first.Claim.Strength != Authoritative {
+		if first.Claim.strength != authoritative {
 			continue
 		}
 		for _, second := range candidates[i+1:] {
-			if second.Claim.Strength == Authoritative && second.Claim.PayloadID == first.Claim.PayloadID {
+			if second.Claim.strength == authoritative && second.Claim.payloadID == first.Claim.payloadID {
 				return Resolution{}, false, fmt.Errorf(
 					"modules %q and %q claimed payload %d: %w",
-					first.Module.ID(), second.Module.ID(), first.Claim.PayloadID, ErrConflictingClaims,
+					first.Module.ID(), second.Module.ID(), first.Claim.payloadID, ErrConflictingClaims,
 				)
 			}
 		}
 	}
 
-	strongest := candidates[0].Claim.Strength
+	strongest := candidates[0].Claim.strength
 	for _, candidate := range candidates[1:] {
-		strongest = max(strongest, candidate.Claim.Strength)
+		strongest = max(strongest, candidate.Claim.strength)
 	}
 	var winners []Resolution
 	for _, candidate := range candidates {
-		if candidate.Claim.Strength == strongest {
+		if candidate.Claim.strength == strongest {
 			winners = append(winners, candidate)
 		}
 	}
@@ -98,14 +99,18 @@ func (r *Registry) Resolve(file probe.Result) (Resolution, bool, error) {
 	return winners[0], true, nil
 }
 
-func validateClaim(file probe.Result, claim Claim) error {
-	if claim.Strength != Compatibility && claim.Strength != Authoritative {
-		return fmt.Errorf("strength %d: %w", claim.Strength, ErrInvalidClaim)
+func validateClaim(file probe.Inspection, module Module, claim Claim) error {
+	if claim.strength != compatibility && claim.strength != authoritative {
+		return fmt.Errorf("strength %d: %w", claim.strength, ErrInvalidClaim)
 	}
-	for _, payload := range file.Payloads {
-		if payload.ID == claim.PayloadID {
-			return nil
-		}
+	if _, ok := claim.Payload(file); !ok {
+		return fmt.Errorf("payload %d does not exist: %w", claim.payloadID, ErrInvalidClaim)
 	}
-	return fmt.Errorf("payload %d does not exist: %w", claim.PayloadID, ErrInvalidClaim)
+	if claim.strength == authoritative && claim.formatID != module.ID() {
+		return fmt.Errorf("payload names format %q, module is %q: %w", claim.formatID, module.ID(), ErrInvalidClaim)
+	}
+	if claim.strength == compatibility && claim.formatID != "" {
+		return fmt.Errorf("compatibility claim names format %q: %w", claim.formatID, ErrInvalidClaim)
+	}
+	return nil
 }

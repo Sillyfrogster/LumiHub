@@ -11,10 +11,10 @@ import (
 type stubModule struct{ id string }
 
 func (s stubModule) ID() string { return s.id }
-func (stubModule) Claim(probe.Result) (Claim, bool) {
+func (stubModule) Claim(probe.Inspection) (Claim, bool) {
 	return Claim{}, false
 }
-func (s stubModule) Parse(context.Context, probe.Result, Claim) (Parsed, error) {
+func (s stubModule) Parse(context.Context, probe.Inspection, Claim) (Parsed, error) {
 	return Parsed{Format: s.id}, nil
 }
 

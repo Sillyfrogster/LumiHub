@@ -31,9 +31,6 @@ func NewService(pool *pgxpool.Pool, reg *format.Registry, store storage.Store) *
 
 // Create stores the upload, reads what it can from it, and publishes one
 // catalog entry. Nothing is committed unless every step succeeds.
-//
-// The file is never held whole. Storage hashes and counts it while writing,
-// then the shared probe reads bounded ranges from the stored blob.
 func (s *Service) Create(ctx context.Context, in CreateInput) (Asset, error) {
 	assetID := uuid.New()
 	revisionID := uuid.New()

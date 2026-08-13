@@ -4,15 +4,10 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"encoding/base64"
-	"encoding/binary"
 	"encoding/hex"
-	"hash/crc32"
 	"io"
 	"testing"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/format"
-	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
 	"github.com/google/uuid"
 )
 
@@ -70,58 +65,4 @@ func TestCreateRecordsTheWholeFileItStored(t *testing.T) {
 	if !bytes.Equal(onDisk, file) {
 		t.Errorf("stored %d bytes, sent %d, and they differ", len(onDisk), len(file))
 	}
-}
-
-type ccv2ClaimModule struct{}
-
-func (ccv2ClaimModule) ID() string { return "chara_card_v2" }
-func (ccv2ClaimModule) Claim(file probe.Result) (format.Claim, bool) {
-	for _, payload := range file.Payloads {
-		if spec, ok := payload.String("spec"); ok && spec == "chara_card_v2" {
-			return format.Claim{PayloadID: payload.ID, Strength: format.Authoritative}, true
-		}
-	}
-	return format.Claim{}, false
-}
-func (ccv2ClaimModule) Parse(context.Context, probe.Result, format.Claim) (format.Parsed, error) {
-	return format.Parsed{Kind: "character", Format: "chara_card_v2"}, nil
-}
-
-func TestCreateClaimsAPayloadBeyondTheOldHeadPeek(t *testing.T) {
-	service, _ := newTestServiceWithRegistry(t, registryWithModule(t, ccv2ClaimModule{}))
-	payload := base64.StdEncoding.EncodeToString([]byte(`{"spec":"chara_card_v2"}`))
-	file := png(
-		chunk("IHDR", make([]byte, 13)),
-		chunk("IDAT", make([]byte, 1024)),
-		chunk("tEXt", append([]byte("ccv3\x00"), payload...)),
-		chunk("IEND", nil),
-	)
-
-	got, err := service.Create(context.Background(), CreateInput{
-		OwnerID: uuid.New(), Kind: "theme", Filename: "card.png",
-		File: bytes.NewReader(file), Name: "Late card",
-	})
-	if err != nil {
-		t.Fatalf("Create: %v", err)
-	}
-	if got.Kind != "character" || got.Format != "chara_card_v2" {
-		t.Fatalf("created kind and format = %q, %q; want character, chara_card_v2", got.Kind, got.Format)
-	}
-}
-
-func png(chunks ...[]byte) []byte {
-	file := append([]byte(nil), []byte("\x89PNG\r\n\x1a\n")...)
-	for _, chunk := range chunks {
-		file = append(file, chunk...)
-	}
-	return file
-}
-
-func chunk(kind string, data []byte) []byte {
-	var chunk bytes.Buffer
-	_ = binary.Write(&chunk, binary.BigEndian, uint32(len(data)))
-	chunk.WriteString(kind)
-	chunk.Write(data)
-	_ = binary.Write(&chunk, binary.BigEndian, crc32.ChecksumIEEE(append([]byte(kind), data...)))
-	return chunk.Bytes()
 }

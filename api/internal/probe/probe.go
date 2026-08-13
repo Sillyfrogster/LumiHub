@@ -27,13 +27,13 @@ const (
 	ZIP     Container = "zip"
 )
 
-// RangeStore is the part of blob storage the probe needs.
+// RangeStore reads parts of a stored blob.
 type RangeStore interface {
 	ReadRange(ctx context.Context, id uuid.UUID, offset, length int64) (io.ReadCloser, error)
 }
 
-// Result is the shared structure format modules inspect.
-type Result struct {
+// Inspection holds the container details and decoded payloads from one file.
+type Inspection struct {
 	Container  Container
 	Payloads   []Payload
 	PNGChunks  []PNGChunk
@@ -80,10 +80,9 @@ type ZIPEntry struct {
 	GeneralPurposeBits uint16
 }
 
-// Inspect walks one stored file through bounded range reads and decodes the
-// payloads format modules are allowed to inspect.
-func Inspect(ctx context.Context, store RangeStore, id uuid.UUID, size int64, filename string) (Result, error) {
-	result := Result{Container: Unknown}
+// Inspect identifies a stored container and decodes its format payloads.
+func Inspect(ctx context.Context, store RangeStore, id uuid.UUID, size int64, filename string) (Inspection, error) {
+	result := Inspection{Container: Unknown}
 	if size == 0 {
 		return result, nil
 	}
@@ -91,35 +90,31 @@ func Inspect(ctx context.Context, store RangeStore, id uuid.UUID, size int64, fi
 	prefixLength := min(size, 8)
 	prefix := make([]byte, prefixLength)
 	if _, err := reader.ReadAt(prefix, 0); err != nil && !errors.Is(err, io.EOF) {
-		return Result{}, fmt.Errorf("read container signature: %w", err)
+		return Inspection{}, fmt.Errorf("read container signature: %w", err)
 	}
 	jsonObject, err := looksLikeJSONObject(reader, prefix, filename)
 	if err != nil {
-		return Result{}, fmt.Errorf("inspect JSON signature: %w", err)
+		return Inspection{}, fmt.Errorf("inspect JSON signature: %w", err)
 	}
 
 	switch {
 	case bytes.Equal(prefix, []byte("\x89PNG\r\n\x1a\n")):
 		result.Container = PNG
 		if err := inspectPNG(reader, &result); err != nil {
-			return Result{}, err
+			return Inspection{}, err
 		}
 	case isZIP(prefix):
 		result.Container = ZIP
 		if err := inspectZIP(reader, &result); err != nil {
-			return Result{}, err
+			return Inspection{}, err
 		}
 	case jsonObject:
 		result.Container = JSON
 		root, err := decodeObject(io.NewSectionReader(reader, 0, size))
 		if err != nil {
-			return Result{}, fmt.Errorf("inspect JSON: %w", err)
+			return Inspection{}, fmt.Errorf("inspect JSON: %w", err)
 		}
-		result.Payloads = append(result.Payloads, Payload{
-			ID:      0,
-			Locator: Locator{Container: JSON, Name: "root"},
-			Root:    root,
-		})
+		result.addPayload(Locator{Container: JSON, Name: "root"}, root)
 	}
 	return result, nil
 }
@@ -159,7 +154,7 @@ func firstNonSpace(data []byte) byte {
 	return 0
 }
 
-func inspectPNG(reader *rangeReaderAt, result *Result) error {
+func inspectPNG(reader *rangeReaderAt, result *Inspection) error {
 	for offset := int64(8); ; {
 		if offset+12 > reader.size {
 			return fmt.Errorf("inspect PNG: chunk header at byte %d is truncated", offset)
@@ -184,15 +179,7 @@ func inspectPNG(reader *rangeReaderAt, result *Result) error {
 			name, root, ok := textPayload(data)
 			chunk.Name = name
 			if ok {
-				result.Payloads = append(result.Payloads, Payload{
-					ID: uint32(len(result.Payloads)),
-					Locator: Locator{
-						Container: PNG,
-						Name:      name,
-						Offset:    offset,
-					},
-					Root: root,
-				})
+				result.addPayload(Locator{Container: PNG, Name: name, Offset: offset}, root)
 			}
 		}
 		result.PNGChunks = append(result.PNGChunks, chunk)
@@ -206,7 +193,7 @@ func inspectPNG(reader *rangeReaderAt, result *Result) error {
 	}
 }
 
-func inspectZIP(reader *rangeReaderAt, result *Result) error {
+func inspectZIP(reader *rangeReaderAt, result *Inspection) error {
 	archive, err := zip.NewReader(reader, reader.size)
 	if err != nil {
 		return fmt.Errorf("inspect ZIP: %w", err)
@@ -239,17 +226,17 @@ func inspectZIP(reader *rangeReaderAt, result *Result) error {
 		if closeErr != nil {
 			return fmt.Errorf("close ZIP entry %q: %w", entry.Name, closeErr)
 		}
-		result.Payloads = append(result.Payloads, Payload{
-			ID: uint32(len(result.Payloads)),
-			Locator: Locator{
-				Container: ZIP,
-				Name:      entry.Name,
-				Offset:    offset,
-			},
-			Root: root,
-		})
+		result.addPayload(Locator{Container: ZIP, Name: entry.Name, Offset: offset}, root)
 	}
 	return nil
+}
+
+func (i *Inspection) addPayload(locator Locator, root map[string]json.RawMessage) {
+	i.Payloads = append(i.Payloads, Payload{
+		ID:      uint32(len(i.Payloads)),
+		Locator: locator,
+		Root:    root,
+	})
 }
 
 func decodeObject(reader io.Reader) (map[string]json.RawMessage, error) {
