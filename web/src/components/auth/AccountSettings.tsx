@@ -174,7 +174,7 @@ export function AccountSettings({ discordNotice }: { discordNotice?: string }) {
             {detachPending ? "Detaching…" : "Detach Discord"}
           </button>
         ) : (
-          <Link
+          <a
             className={styles.primaryAction}
             href="/api/v1/auth/discord?intent=attach"
             aria-disabled={!account.emailVerified}
@@ -183,7 +183,7 @@ export function AccountSettings({ discordNotice }: { discordNotice?: string }) {
             }}
           >
             Attach Discord
-          </Link>
+          </a>
         )}
       </div>
 

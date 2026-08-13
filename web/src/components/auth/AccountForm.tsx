@@ -74,10 +74,10 @@ export function AccountForm({
         </p>
       </div>
 
-      <Link className={styles.discord} href="/api/v1/auth/discord">
+      <a className={styles.discord} href="/api/v1/auth/discord">
         <MessageCircle size={18} strokeWidth={1.7} aria-hidden="true" />
         Continue with Discord
-      </Link>
+      </a>
 
       {discordError ? (
         <p className={styles.error} role="alert">
