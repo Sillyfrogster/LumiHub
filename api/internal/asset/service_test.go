@@ -122,6 +122,58 @@ func TestCreateWritesNothingWhenParsingFails(t *testing.T) {
 	}
 }
 
+type recognizedModule struct{ parsed format.Parsed }
+
+func (recognizedModule) ID() string                 { return "recognized" }
+func (recognizedModule) Detect(string, []byte) bool { return true }
+func (m recognizedModule) Parse(context.Context, io.Reader) (format.Parsed, error) {
+	return m.parsed, nil
+}
+
+func serviceWithRecognizedModule(t *testing.T, parsed format.Parsed) *Service {
+	t.Helper()
+	pool := testdb.Connect(t)
+	blob, err := storage.NewStore(pool, t.TempDir())
+	if err != nil {
+		t.Fatalf("storage: %v", err)
+	}
+	registry := format.NewRegistry(passthrough.New())
+	if err := registry.Register(recognizedModule{parsed: parsed}); err != nil {
+		t.Fatalf("register module: %v", err)
+	}
+	return NewService(pool, registry, blob)
+}
+
+func TestCreateDerivesKindFromARecognizedFormat(t *testing.T) {
+	svc := serviceWithRecognizedModule(t, format.Parsed{Kind: "character", Format: "recognized"})
+
+	got, err := svc.Create(context.Background(), CreateInput{
+		OwnerID: uuid.New(), Kind: "theme", Filename: "card.bin",
+		File: bytes.NewReader([]byte("card")), Name: "Card",
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if got.Kind != "character" {
+		t.Errorf("kind = %q, want the module's character kind", got.Kind)
+	}
+}
+
+func TestRecognizedFormatCannotCarryAPassthroughPlatform(t *testing.T) {
+	platform := "lumiverse"
+	svc := serviceWithRecognizedModule(t, format.Parsed{
+		Kind: "character", Format: "recognized", PassthroughPlatform: &platform,
+	})
+
+	_, err := svc.Create(context.Background(), CreateInput{
+		OwnerID: uuid.New(), Kind: "character", Filename: "card.bin",
+		File: bytes.NewReader([]byte("card")), Name: "Card",
+	})
+	if err == nil {
+		t.Fatal("recognized format stored a passthrough platform label")
+	}
+}
+
 /** Always fails, so the test can prove nothing is left behind */
 type failingModule struct{}
 

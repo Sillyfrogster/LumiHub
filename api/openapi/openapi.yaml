@@ -90,7 +90,7 @@ components:
           items: { $ref: "#/components/schemas/Asset" }
     CreateAssetRequest:
       type: object
-      required: [kind, filename, name]
+      required: [filename, name]
       properties:
         kind: { type: string }
         filename: { type: string }

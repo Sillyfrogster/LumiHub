@@ -7,6 +7,13 @@ import (
 	"github.com/google/uuid"
 )
 
+type Discovery string
+
+const (
+	DiscoveryListed   Discovery = "listed"
+	DiscoveryUnlisted Discovery = "unlisted"
+)
+
 // Asset is a catalog entry. Format specific content lives in the stored
 // revision, not here.
 type Asset struct {
@@ -18,7 +25,7 @@ type Asset struct {
 	Description         string
 	Tags                []string
 	IsNSFW              bool
-	Discovery           string
+	Discovery           Discovery
 	CurrentRevisionID   uuid.UUID
 	// CreatedAt is when the asset was made, not when we got it.
 	CreatedAt time.Time
@@ -35,7 +42,7 @@ type CreateInput struct {
 	Description string
 	Tags        []string
 	IsNSFW      bool
-	Discovery   string
+	Discovery   Discovery
 	// CreatedAt is a made date from the caller. Nil falls back to the file,
 	// then to now.
 	CreatedAt *time.Time

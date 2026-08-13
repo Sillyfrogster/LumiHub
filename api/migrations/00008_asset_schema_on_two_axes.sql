@@ -27,7 +27,7 @@ alter table asset_revisions
 
 update asset_revisions revision
    set format = asset.format,
-       passthrough_platform = asset.platform
+       passthrough_platform = case when asset.format = 'unknown' then asset.platform end
   from assets asset
  where asset.id = revision.asset_id;
 

@@ -30,6 +30,10 @@ func (r *Registry) ByID(id string) (Module, bool) {
 	return m, ok
 }
 
+func (r *Registry) IsFallback(module Module) bool {
+	return module.ID() == r.fallback.ID()
+}
+
 /** Return the first module that recognises the file, or the fallback */
 func (r *Registry) Detect(filename string, head []byte) Module {
 	for _, id := range r.order {

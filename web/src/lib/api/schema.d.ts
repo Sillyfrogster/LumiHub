@@ -59,7 +59,7 @@ export interface components {
       items: components["schemas"]["Asset"][];
     };
     CreateAssetRequest: {
-      kind: string;
+      kind?: string;
       filename: string;
       name: string;
       description?: string;

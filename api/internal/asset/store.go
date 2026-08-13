@@ -21,7 +21,7 @@ func assetToInsertParams(a Asset, ownerID uuid.UUID, madeAt *time.Time) db.Inser
 		Description: a.Description,
 		Tags:        a.Tags,
 		IsNsfw:      a.IsNSFW,
-		Discovery:   a.Discovery,
+		Discovery:   string(a.Discovery),
 		CreatedAt:   timeToNullable(madeAt),
 	}
 }

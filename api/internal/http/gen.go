@@ -77,7 +77,7 @@ type CreateAssetRequest struct {
 	Discovery   *CreateAssetRequestDiscovery `json:"discovery,omitempty"`
 	Filename    string                       `json:"filename"`
 	IsNsfw      *bool                        `json:"isNsfw,omitempty"`
-	Kind        string                       `json:"kind"`
+	Kind        *string                      `json:"kind,omitempty"`
 	Name        string                       `json:"name"`
 	Tags        *[]string                    `json:"tags,omitempty"`
 }

@@ -63,7 +63,7 @@ func listAssets(ctx context.Context, q db.DBTX, f ListFilter) ([]Asset, error) {
 			Description:         row.Description,
 			Tags:                row.Tags,
 			IsNSFW:              row.IsNsfw,
-			Discovery:           row.Discovery,
+			Discovery:           Discovery(row.Discovery),
 			CurrentRevisionID:   uuidFromPgtype(row.CurrentRevisionID),
 			CreatedAt:           timeFromPgtype(row.CreatedAt),
 		}

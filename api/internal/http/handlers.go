@@ -145,12 +145,13 @@ func nextPart(parts *multipart.Reader, name string) (*multipart.Part, error) {
 
 func createInput(metadata CreateAssetRequest, file io.Reader) asset.CreateInput {
 	in := asset.CreateInput{
-		OwnerID:   uuid.Nil,
-		Kind:      metadata.Kind,
-		Filename:  metadata.Filename,
-		File:      file,
-		Name:      metadata.Name,
-		Discovery: "listed",
+		OwnerID:  uuid.Nil,
+		Filename: metadata.Filename,
+		File:     file,
+		Name:     metadata.Name,
+	}
+	if metadata.Kind != nil {
+		in.Kind = *metadata.Kind
 	}
 	if metadata.Description != nil {
 		in.Description = *metadata.Description
@@ -162,7 +163,7 @@ func createInput(metadata CreateAssetRequest, file io.Reader) asset.CreateInput 
 		in.IsNSFW = *metadata.IsNsfw
 	}
 	if metadata.Discovery != nil {
-		in.Discovery = string(*metadata.Discovery)
+		in.Discovery = asset.Discovery(*metadata.Discovery)
 	}
 	return in
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func create(t *testing.T, svc *Service, name, kind, discovery string) Asset {
+func create(t *testing.T, svc *Service, name, kind string, discovery Discovery) Asset {
 	t.Helper()
 	a, err := svc.Create(context.Background(), CreateInput{
 		OwnerID: uuid.New(), Kind: kind, Filename: name + ".bin",

@@ -63,16 +63,37 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Asset, error) {
 		return Asset{}, err
 	}
 
+	kind := parsed.Kind
+	passthroughPlatform := (*string)(nil)
+	if s.reg.IsFallback(module) {
+		kind = in.Kind
+		if kind == "" {
+			return Asset{}, errors.New("a passthrough upload needs a kind")
+		}
+		passthroughPlatform = parsed.PassthroughPlatform
+	} else {
+		if kind == "" {
+			return Asset{}, fmt.Errorf("format module %q did not declare a kind", module.ID())
+		}
+		if parsed.PassthroughPlatform != nil {
+			return Asset{}, fmt.Errorf("format module %q returned a passthrough platform", module.ID())
+		}
+	}
+	discovery := in.Discovery
+	if discovery == "" {
+		discovery = DiscoveryListed
+	}
+
 	a := Asset{
 		ID:                  assetID,
-		Kind:                in.Kind,
+		Kind:                kind,
 		Format:              parsed.Format,
-		PassthroughPlatform: parsed.PassthroughPlatform,
+		PassthroughPlatform: passthroughPlatform,
 		Name:                orElse(in.Name, parsed.Name),
 		Description:         orElse(in.Description, parsed.Description),
 		Tags:                in.Tags,
 		IsNSFW:              in.IsNSFW,
-		Discovery:           orElse(in.Discovery, "listed"),
+		Discovery:           discovery,
 	}
 	if len(a.Tags) == 0 {
 		a.Tags = parsed.Tags

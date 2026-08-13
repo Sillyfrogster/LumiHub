@@ -329,21 +329,26 @@ func TestBrowseIndexStartsWithCreationTimeAndCarriesTheCatalogPredicate(t *testi
 
 	var columns []string
 	var predicate string
+	var definition string
 	err := pool.QueryRow(context.Background(),
 		`select array_agg(attribute.attname order by key.ordinality),
-		        pg_get_expr(index.indpred, index.indrelid)
+		        pg_get_expr(index.indpred, index.indrelid),
+		        pg_get_indexdef(index.indexrelid)
 		   from pg_index index
 		   join pg_class index_class on index_class.oid = index.indexrelid
 		  cross join lateral unnest(index.indkey) with ordinality key(attnum, ordinality)
 		   join pg_attribute attribute
 		     on attribute.attrelid = index.indrelid and attribute.attnum = key.attnum
 		  where index_class.relname = 'assets_browse_idx'
-		  group by index.indpred, index.indrelid`).Scan(&columns, &predicate)
+		  group by index.indexrelid, index.indpred, index.indrelid`).Scan(&columns, &predicate, &definition)
 	if err != nil {
 		t.Fatalf("read browse index: %v", err)
 	}
 	if !slices.Equal(columns, []string{"created_at", "id"}) {
 		t.Errorf("browse index columns = %v, want created_at and id", columns)
+	}
+	if !strings.Contains(definition, "(created_at DESC, id DESC)") {
+		t.Errorf("browse index ordering = %q, want creation time and id descending", definition)
 	}
 	for _, clause := range []string{"discovery = 'listed'", "withheld_at IS NULL", "deleted_at IS NULL"} {
 		if !strings.Contains(predicate, clause) {
