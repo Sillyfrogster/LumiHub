@@ -1,20 +1,19 @@
 -- name: InsertAsset :one
 -- indexed_at is left to its default so nothing a caller sends can reach it.
 insert into assets
-  (id, kind, platform, format, format_version, owner_id,
-   name, description, tags, is_nsfw, publication, created_at)
-values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+  (id, kind, owner_id, name, description, tags, is_nsfw, discovery, created_at)
+values ($1, $2, $3, $4, $5, $6, $7, $8,
         coalesce(sqlc.narg('created_at')::timestamptz, now()))
 returning created_at;
 
 -- name: InsertRevision :exec
 insert into asset_revisions
-  (id, asset_id, revision, blob_id, media_type)
-values ($1, $2, $3, $4, $5);
+  (id, asset_id, revision, blob_id, media_type, format, passthrough_platform)
+values ($1, $2, $3, $4, $5, $6, $7);
 
 -- name: InsertFacet :exec
-insert into asset_facets (asset_id, revision_id, key, value)
-values ($1, $2, $3, $4)
+insert into asset_facets (revision_id, key, value)
+values ($1, $2, $3)
 on conflict do nothing;
 
 -- name: SetCurrentRevision :exec
@@ -24,17 +23,20 @@ update assets set current_revision_id = $2, updated_at = now() where id = $1;
 with facet_pairs as (
   select unnest($5::text[]) as k, unnest($6::text[]) as v
 )
-select a.id, a.kind, a.platform, a.format, a.format_version,
-       a.name, a.description, a.tags, a.is_nsfw, a.publication,
+select a.id, a.kind, revision.passthrough_platform, revision.format,
+       a.name, a.description, a.tags, a.is_nsfw, a.discovery,
        a.current_revision_id, a.created_at
   from assets a
- where a.publication = 'public'
+  join asset_revisions revision on revision.id = a.current_revision_id
+ where a.discovery = 'listed'
+   and a.withheld_at is null
+   and a.deleted_at is null
    and ($1 = '' or a.kind = $1)
-   and (not $2::boolean or a.platform is not distinct from $3)
+   and (not $2::boolean or revision.passthrough_platform is not distinct from $3)
    and ($4::text[] is null or a.tags @> $4)
    and (array_length($5::text[], 1) is null or (
          select count(*) from asset_facets af
-          where af.asset_id = a.id
+          where af.revision_id = a.current_revision_id
             and (af.key, af.value) in (
                   select k, v from facet_pairs
             )

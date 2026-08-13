@@ -64,16 +64,15 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Asset, error) {
 	}
 
 	a := Asset{
-		ID:            assetID,
-		Kind:          in.Kind,
-		Platform:      parsed.Platform,
-		Format:        parsed.Format,
-		FormatVersion: parsed.FormatVersion,
-		Name:          orElse(in.Name, parsed.Name),
-		Description:   orElse(in.Description, parsed.Description),
-		Tags:          in.Tags,
-		IsNSFW:        in.IsNSFW,
-		Publication:   in.Publication,
+		ID:                  assetID,
+		Kind:                in.Kind,
+		Format:              parsed.Format,
+		PassthroughPlatform: parsed.PassthroughPlatform,
+		Name:                orElse(in.Name, parsed.Name),
+		Description:         orElse(in.Description, parsed.Description),
+		Tags:                in.Tags,
+		IsNSFW:              in.IsNSFW,
+		Discovery:           orElse(in.Discovery, "listed"),
 	}
 	if len(a.Tags) == 0 {
 		a.Tags = parsed.Tags
@@ -94,13 +93,15 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Asset, error) {
 	}
 	a.CreatedAt = made
 	if err := insertRevision(ctx, tx, revisionID, a.ID, revisionRow{
-		Revision:  1,
-		BlobID:    stored.ID,
-		MediaType: "application/octet-stream",
+		Revision:            1,
+		BlobID:              stored.ID,
+		MediaType:           "application/octet-stream",
+		Format:              a.Format,
+		PassthroughPlatform: a.PassthroughPlatform,
 	}); err != nil {
 		return Asset{}, err
 	}
-	if err := insertFacets(ctx, tx, a.ID, revisionID, parsed.Facets); err != nil {
+	if err := insertFacets(ctx, tx, revisionID, parsed.Facets); err != nil {
 		return Asset{}, err
 	}
 	if err := setCurrentRevision(ctx, tx, a.ID, revisionID); err != nil {

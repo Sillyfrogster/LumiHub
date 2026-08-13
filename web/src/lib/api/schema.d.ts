@@ -44,15 +44,14 @@ export interface components {
       /** Format: uuid */
       id: string;
       kind: string;
-      platform?: string | null;
+      passthroughPlatform?: string | null;
       format: string;
-      formatVersion?: string;
       name: string;
       description: string;
       tags: string[];
       isNsfw: boolean;
       /** @enum {string} */
-      publication: "public" | "unlisted";
+      discovery: "listed" | "unlisted";
       /** Format: date-time */
       createdAt: string;
     };
@@ -67,7 +66,7 @@ export interface components {
       tags?: string[];
       isNsfw?: boolean;
       /** @enum {string} */
-      publication?: "public" | "unlisted";
+      discovery?: "listed" | "unlisted";
     };
   };
   responses: never;

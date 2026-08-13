@@ -48,26 +48,22 @@ func (q *Queries) CurrentRevisionLocation(ctx context.Context, id pgtype.UUID) (
 
 const insertAsset = `-- name: InsertAsset :one
 insert into assets
-  (id, kind, platform, format, format_version, owner_id,
-   name, description, tags, is_nsfw, publication, created_at)
-values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
-        coalesce($12::timestamptz, now()))
+  (id, kind, owner_id, name, description, tags, is_nsfw, discovery, created_at)
+values ($1, $2, $3, $4, $5, $6, $7, $8,
+        coalesce($9::timestamptz, now()))
 returning created_at
 `
 
 type InsertAssetParams struct {
-	ID            pgtype.UUID
-	Kind          string
-	Platform      pgtype.Text
-	Format        string
-	FormatVersion string
-	OwnerID       pgtype.UUID
-	Name          string
-	Description   string
-	Tags          []string
-	IsNsfw        bool
-	Publication   string
-	CreatedAt     pgtype.Timestamptz
+	ID          pgtype.UUID
+	Kind        string
+	OwnerID     pgtype.UUID
+	Name        string
+	Description string
+	Tags        []string
+	IsNsfw      bool
+	Discovery   string
+	CreatedAt   pgtype.Timestamptz
 }
 
 // indexed_at is left to its default so nothing a caller sends can reach it.
@@ -75,15 +71,12 @@ func (q *Queries) InsertAsset(ctx context.Context, arg InsertAssetParams) (pgtyp
 	row := q.db.QueryRow(ctx, insertAsset,
 		arg.ID,
 		arg.Kind,
-		arg.Platform,
-		arg.Format,
-		arg.FormatVersion,
 		arg.OwnerID,
 		arg.Name,
 		arg.Description,
 		arg.Tags,
 		arg.IsNsfw,
-		arg.Publication,
+		arg.Discovery,
 		arg.CreatedAt,
 	)
 	var created_at pgtype.Timestamptz
@@ -92,40 +85,36 @@ func (q *Queries) InsertAsset(ctx context.Context, arg InsertAssetParams) (pgtyp
 }
 
 const insertFacet = `-- name: InsertFacet :exec
-insert into asset_facets (asset_id, revision_id, key, value)
-values ($1, $2, $3, $4)
+insert into asset_facets (revision_id, key, value)
+values ($1, $2, $3)
 on conflict do nothing
 `
 
 type InsertFacetParams struct {
-	AssetID    pgtype.UUID
 	RevisionID pgtype.UUID
 	Key        string
 	Value      string
 }
 
 func (q *Queries) InsertFacet(ctx context.Context, arg InsertFacetParams) error {
-	_, err := q.db.Exec(ctx, insertFacet,
-		arg.AssetID,
-		arg.RevisionID,
-		arg.Key,
-		arg.Value,
-	)
+	_, err := q.db.Exec(ctx, insertFacet, arg.RevisionID, arg.Key, arg.Value)
 	return err
 }
 
 const insertRevision = `-- name: InsertRevision :exec
 insert into asset_revisions
-  (id, asset_id, revision, blob_id, media_type)
-values ($1, $2, $3, $4, $5)
+  (id, asset_id, revision, blob_id, media_type, format, passthrough_platform)
+values ($1, $2, $3, $4, $5, $6, $7)
 `
 
 type InsertRevisionParams struct {
-	ID        pgtype.UUID
-	AssetID   pgtype.UUID
-	Revision  int32
-	BlobID    pgtype.UUID
-	MediaType string
+	ID                  pgtype.UUID
+	AssetID             pgtype.UUID
+	Revision            int32
+	BlobID              pgtype.UUID
+	MediaType           string
+	Format              string
+	PassthroughPlatform pgtype.Text
 }
 
 func (q *Queries) InsertRevision(ctx context.Context, arg InsertRevisionParams) error {
@@ -135,6 +124,8 @@ func (q *Queries) InsertRevision(ctx context.Context, arg InsertRevisionParams) 
 		arg.Revision,
 		arg.BlobID,
 		arg.MediaType,
+		arg.Format,
+		arg.PassthroughPlatform,
 	)
 	return err
 }
@@ -143,17 +134,20 @@ const listAssets = `-- name: ListAssets :many
 with facet_pairs as (
   select unnest($5::text[]) as k, unnest($6::text[]) as v
 )
-select a.id, a.kind, a.platform, a.format, a.format_version,
-       a.name, a.description, a.tags, a.is_nsfw, a.publication,
+select a.id, a.kind, revision.passthrough_platform, revision.format,
+       a.name, a.description, a.tags, a.is_nsfw, a.discovery,
        a.current_revision_id, a.created_at
   from assets a
- where a.publication = 'public'
+  join asset_revisions revision on revision.id = a.current_revision_id
+ where a.discovery = 'listed'
+   and a.withheld_at is null
+   and a.deleted_at is null
    and ($1 = '' or a.kind = $1)
-   and (not $2::boolean or a.platform is not distinct from $3)
+   and (not $2::boolean or revision.passthrough_platform is not distinct from $3)
    and ($4::text[] is null or a.tags @> $4)
    and (array_length($5::text[], 1) is null or (
          select count(*) from asset_facets af
-          where af.asset_id = a.id
+          where af.revision_id = a.current_revision_id
             and (af.key, af.value) in (
                   select k, v from facet_pairs
             )
@@ -166,37 +160,36 @@ select a.id, a.kind, a.platform, a.format, a.format_version,
 `
 
 type ListAssetsParams struct {
-	Column1  interface{}
-	Column2  bool
-	Platform pgtype.Text
-	Column4  []string
-	Column5  []string
-	Column6  []string
-	Limit    int32
-	Before   pgtype.Timestamptz
-	BeforeID pgtype.UUID
+	Column1             interface{}
+	Column2             bool
+	PassthroughPlatform pgtype.Text
+	Column4             []string
+	Column5             []string
+	Column6             []string
+	Limit               int32
+	Before              pgtype.Timestamptz
+	BeforeID            pgtype.UUID
 }
 
 type ListAssetsRow struct {
-	ID                pgtype.UUID
-	Kind              string
-	Platform          pgtype.Text
-	Format            string
-	FormatVersion     string
-	Name              string
-	Description       string
-	Tags              []string
-	IsNsfw            bool
-	Publication       string
-	CurrentRevisionID pgtype.UUID
-	CreatedAt         pgtype.Timestamptz
+	ID                  pgtype.UUID
+	Kind                string
+	PassthroughPlatform pgtype.Text
+	Format              string
+	Name                string
+	Description         string
+	Tags                []string
+	IsNsfw              bool
+	Discovery           string
+	CurrentRevisionID   pgtype.UUID
+	CreatedAt           pgtype.Timestamptz
 }
 
 func (q *Queries) ListAssets(ctx context.Context, arg ListAssetsParams) ([]ListAssetsRow, error) {
 	rows, err := q.db.Query(ctx, listAssets,
 		arg.Column1,
 		arg.Column2,
-		arg.Platform,
+		arg.PassthroughPlatform,
 		arg.Column4,
 		arg.Column5,
 		arg.Column6,
@@ -214,14 +207,13 @@ func (q *Queries) ListAssets(ctx context.Context, arg ListAssetsParams) ([]ListA
 		if err := rows.Scan(
 			&i.ID,
 			&i.Kind,
-			&i.Platform,
+			&i.PassthroughPlatform,
 			&i.Format,
-			&i.FormatVersion,
 			&i.Name,
 			&i.Description,
 			&i.Tags,
 			&i.IsNsfw,
-			&i.Publication,
+			&i.Discovery,
 			&i.CurrentRevisionID,
 			&i.CreatedAt,
 		); err != nil {

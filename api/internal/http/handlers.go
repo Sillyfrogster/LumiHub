@@ -145,12 +145,12 @@ func nextPart(parts *multipart.Reader, name string) (*multipart.Part, error) {
 
 func createInput(metadata CreateAssetRequest, file io.Reader) asset.CreateInput {
 	in := asset.CreateInput{
-		OwnerID:     uuid.Nil,
-		Kind:        metadata.Kind,
-		Filename:    metadata.Filename,
-		File:        file,
-		Name:        metadata.Name,
-		Publication: "unlisted",
+		OwnerID:   uuid.Nil,
+		Kind:      metadata.Kind,
+		Filename:  metadata.Filename,
+		File:      file,
+		Name:      metadata.Name,
+		Discovery: "listed",
 	}
 	if metadata.Description != nil {
 		in.Description = *metadata.Description
@@ -161,8 +161,8 @@ func createInput(metadata CreateAssetRequest, file io.Reader) asset.CreateInput 
 	if metadata.IsNsfw != nil {
 		in.IsNSFW = *metadata.IsNsfw
 	}
-	if metadata.Publication != nil {
-		in.Publication = string(*metadata.Publication)
+	if metadata.Discovery != nil {
+		in.Discovery = string(*metadata.Discovery)
 	}
 	return in
 }
@@ -244,16 +244,15 @@ func parseFacets(raw []string) []format.Facet {
 
 func toAPI(a asset.Asset) Asset {
 	return Asset{
-		Id:            types.UUID(a.ID),
-		Kind:          a.Kind,
-		Platform:      a.Platform,
-		Format:        a.Format,
-		FormatVersion: &a.FormatVersion,
-		Name:          a.Name,
-		Description:   a.Description,
-		Tags:          a.Tags,
-		IsNsfw:        a.IsNSFW,
-		Publication:   AssetPublication(a.Publication),
-		CreatedAt:     a.CreatedAt,
+		Id:                  types.UUID(a.ID),
+		Kind:                a.Kind,
+		PassthroughPlatform: a.PassthroughPlatform,
+		Format:              a.Format,
+		Name:                a.Name,
+		Description:         a.Description,
+		Tags:                a.Tags,
+		IsNsfw:              a.IsNSFW,
+		Discovery:           AssetDiscovery(a.Discovery),
+		CreatedAt:           a.CreatedAt,
 	}
 }

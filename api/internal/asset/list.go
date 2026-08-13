@@ -34,13 +34,13 @@ func listAssets(ctx context.Context, q db.DBTX, f ListFilter) ([]Asset, error) {
 	facetKeys, facetValues := facetPairs(f.Facets)
 
 	params := db.ListAssetsParams{
-		Column1:  f.Kind,
-		Column2:  f.PlatformSet,
-		Platform: textToNullable(f.Platform),
-		Column4:  nullableTags(f.Tags),
-		Column5:  facetKeys,
-		Column6:  facetValues,
-		Limit:    int32(f.Limit),
+		Column1:             f.Kind,
+		Column2:             f.PlatformSet,
+		PassthroughPlatform: textToNullable(f.Platform),
+		Column4:             nullableTags(f.Tags),
+		Column5:             facetKeys,
+		Column6:             facetValues,
+		Limit:               int32(f.Limit),
 	}
 	if f.Before != nil {
 		params.Before = timeToNullable(&f.Before.MadeAt)
@@ -55,18 +55,17 @@ func listAssets(ctx context.Context, q db.DBTX, f ListFilter) ([]Asset, error) {
 	out := make([]Asset, len(rows))
 	for i, row := range rows {
 		out[i] = Asset{
-			ID:                uuidFromPgtype(row.ID),
-			Kind:              row.Kind,
-			Platform:          textToPointer(row.Platform),
-			Format:            row.Format,
-			FormatVersion:     row.FormatVersion,
-			Name:              row.Name,
-			Description:       row.Description,
-			Tags:              row.Tags,
-			IsNSFW:            row.IsNsfw,
-			Publication:       row.Publication,
-			CurrentRevisionID: uuidFromPgtype(row.CurrentRevisionID),
-			CreatedAt:         timeFromPgtype(row.CreatedAt),
+			ID:                  uuidFromPgtype(row.ID),
+			Kind:                row.Kind,
+			Format:              row.Format,
+			PassthroughPlatform: textToPointer(row.PassthroughPlatform),
+			Name:                row.Name,
+			Description:         row.Description,
+			Tags:                row.Tags,
+			IsNSFW:              row.IsNsfw,
+			Discovery:           row.Discovery,
+			CurrentRevisionID:   uuidFromPgtype(row.CurrentRevisionID),
+			CreatedAt:           timeFromPgtype(row.CreatedAt),
 		}
 	}
 	return out, nil

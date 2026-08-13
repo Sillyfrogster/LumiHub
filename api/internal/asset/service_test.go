@@ -39,7 +39,7 @@ func TestCreateStoresUploaderMetadataForAnUnparseableFile(t *testing.T) {
 		Name:        "Uploader chose this name",
 		Description: "And this description",
 		Tags:        []string{"fantasy"},
-		Publication: "public",
+		Discovery:   "listed",
 	})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
@@ -59,7 +59,10 @@ func TestCreateStoresUploaderMetadataForAnUnparseableFile(t *testing.T) {
 	var tags []string
 	var currentRevision uuid.UUID
 	err = pool.QueryRow(context.Background(),
-		`select name, description, format, tags, current_revision_id from assets where id = $1`,
+		`select asset.name, asset.description, revision.format, asset.tags, asset.current_revision_id
+		   from assets asset
+		   join asset_revisions revision on revision.id = asset.current_revision_id
+		  where asset.id = $1`,
 		got.ID).Scan(&name, &description, &format, &tags, &currentRevision)
 	if err != nil {
 		t.Fatalf("asset row was not written: %v", err)
@@ -104,7 +107,7 @@ func TestCreateWritesNothingWhenParsingFails(t *testing.T) {
 
 	_, err := svc.Create(context.Background(), CreateInput{
 		OwnerID: uuid.New(), Kind: "character", Filename: "a.bin",
-		File: bytes.NewReader([]byte("x")), Name: "A", Publication: "public",
+		File: bytes.NewReader([]byte("x")), Name: "A", Discovery: "listed",
 	})
 	if err == nil {
 		t.Fatal("expected Create to fail when parsing fails")
@@ -150,7 +153,7 @@ func TestCreateRollsBackAfterRowsAreWritten(t *testing.T) {
 
 	_, err = svc.Create(context.Background(), CreateInput{
 		OwnerID: uuid.New(), Kind: "character", Filename: "a.bin",
-		File: bytes.NewReader([]byte("x")), Name: "A", Publication: "public",
+		File: bytes.NewReader([]byte("x")), Name: "A", Discovery: "listed",
 	})
 	if err == nil {
 		t.Fatal("expected Create to fail when a facet cannot be stored")
@@ -198,7 +201,7 @@ func TestCreateKeepsTheDateTheFileCarries(t *testing.T) {
 
 	got, err := svc.Create(context.Background(), CreateInput{
 		OwnerID: uuid.New(), Kind: "character", Filename: "a.bin",
-		File: bytes.NewReader([]byte("x")), Name: "A", Publication: "public",
+		File: bytes.NewReader([]byte("x")), Name: "A", Discovery: "listed",
 	})
 	if err != nil {
 		t.Fatalf("create: %v", err)
@@ -220,7 +223,7 @@ func TestCreateKeepsTheDateTheFileCarries(t *testing.T) {
 func TestCreateFallsBackToWhenTheRowWasWritten(t *testing.T) {
 	svc, pool := newTestService(t)
 
-	got := create(t, svc, "no-date", "character", "public")
+	got := create(t, svc, "no-date", "character", "listed")
 
 	made, indexed := madeAndIndexed(t, pool, got.ID)
 	if !made.Equal(indexed) {
@@ -246,7 +249,7 @@ func TestCreateAcceptsAMadeDateInThePast(t *testing.T) {
 	caller := time.Date(2021, 7, 1, 12, 0, 0, 0, time.UTC)
 	created, err := svc.Create(context.Background(), CreateInput{
 		OwnerID: uuid.New(), Kind: "character", Filename: "a.bin",
-		File: bytes.NewReader([]byte("x")), Name: "A", Publication: "public",
+		File: bytes.NewReader([]byte("x")), Name: "A", Discovery: "listed",
 		CreatedAt: &caller,
 	})
 	if err != nil {
@@ -281,7 +284,7 @@ func TestOpenOriginalTellsMissingAssetFromBrokenStorage(t *testing.T) {
 
 	created, err := svc.Create(context.Background(), CreateInput{
 		OwnerID: uuid.New(), Kind: "character", Filename: "a.bin",
-		File: bytes.NewReader([]byte("x")), Name: "A", Publication: "public",
+		File: bytes.NewReader([]byte("x")), Name: "A", Discovery: "listed",
 	})
 	if err != nil {
 		t.Fatalf("create: %v", err)

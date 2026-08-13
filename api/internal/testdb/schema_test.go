@@ -3,7 +3,11 @@ package testdb
 import (
 	"context"
 	"slices"
+	"strings"
 	"testing"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func TestCoreTablesExist(t *testing.T) {
@@ -110,13 +114,280 @@ func rowsToStrings(rows stringRows) ([]string, error) {
 	return values, rows.Err()
 }
 
-func TestPublicationRejectsUnknownValue(t *testing.T) {
+func TestAssetKindIsClosedToFourValues(t *testing.T) {
+	pool := Connect(t)
+	ctx := context.Background()
+
+	for _, kind := range []string{"character", "lorebook", "preset", "theme"} {
+		_, err := pool.Exec(ctx,
+			`insert into assets (id, kind, name) values (gen_random_uuid(), $1, $2)`,
+			kind, kind)
+		if err != nil {
+			t.Errorf("insert kind %q: %v", kind, err)
+		}
+	}
+
+	_, err := pool.Exec(ctx,
+		`insert into assets (id, kind, name) values (gen_random_uuid(), 'pack', 'Pack')`)
+	if err == nil {
+		t.Fatal("kind outside the catalog vocabulary was accepted")
+	}
+}
+
+func TestDiscoveryDefaultsToListedAndRejectsUnknownValues(t *testing.T) {
+	pool := Connect(t)
+	ctx := context.Background()
+
+	var discovery string
+	err := pool.QueryRow(ctx,
+		`insert into assets (id, kind, name)
+		 values (gen_random_uuid(), 'character', 'Listed by default')
+		 returning discovery`).Scan(&discovery)
+	if err != nil {
+		t.Fatalf("insert asset: %v", err)
+	}
+	if discovery != "listed" {
+		t.Errorf("discovery = %q, want listed", discovery)
+	}
+
+	_, err = pool.Exec(ctx,
+		`insert into assets (id, kind, name, discovery)
+		 values (gen_random_uuid(), 'theme', 'Quiet', 'unlisted')`)
+	if err != nil {
+		t.Errorf("insert unlisted asset: %v", err)
+	}
+
+	_, err = pool.Exec(ctx,
+		`insert into assets (id, kind, name, discovery)
+		 values (gen_random_uuid(), 'theme', 'Unknown', 'private')`)
+	if err == nil {
+		t.Fatal("discovery outside listed and unlisted was accepted")
+	}
+}
+
+func TestWithholdingFieldsPopulateTogether(t *testing.T) {
+	pool := Connect(t)
+	ctx := context.Background()
+
+	assetID := uuid.New()
+	_, err := pool.Exec(ctx,
+		`insert into assets (id, kind, name) values ($1, 'character', 'Held')`, assetID)
+	if err != nil {
+		t.Fatalf("insert asset: %v", err)
+	}
+
+	_, err = pool.Exec(ctx,
+		`update assets
+		    set withheld_at = now(), withheld_by = $2, withheld_reason = 'review'
+		  where id = $1`, assetID, uuid.New())
+	if err != nil {
+		t.Fatalf("set complete withhold: %v", err)
+	}
+
+	partial := []struct {
+		name string
+		set  string
+	}{
+		{name: "time only", set: "withheld_at = now()"},
+		{name: "actor only", set: "withheld_by = gen_random_uuid()"},
+		{name: "reason only", set: "withheld_reason = 'review'"},
+		{name: "without time", set: "withheld_by = gen_random_uuid(), withheld_reason = 'review'"},
+		{name: "without actor", set: "withheld_at = now(), withheld_reason = 'review'"},
+		{name: "without reason", set: "withheld_at = now(), withheld_by = gen_random_uuid()"},
+	}
+	for _, test := range partial {
+		t.Run(test.name, func(t *testing.T) {
+			id := uuid.New()
+			_, err := pool.Exec(ctx,
+				`insert into assets (id, kind, name) values ($1, 'character', 'Partial')`, id)
+			if err != nil {
+				t.Fatalf("insert asset: %v", err)
+			}
+			_, err = pool.Exec(ctx, `update assets set `+test.set+` where id = $1`, id)
+			if err == nil {
+				t.Fatal("partial withhold was accepted")
+			}
+		})
+	}
+}
+
+func TestFormatAndPassthroughPlatformBelongToARevision(t *testing.T) {
 	pool := Connect(t)
 
-	_, err := pool.Exec(context.Background(),
-		`insert into assets (id, kind, format, name, publication)
-		 values (gen_random_uuid(), 'character', 'unknown', 'x', 'nonsense')`)
-	if err == nil {
-		t.Fatal("expected the publication check constraint to reject 'nonsense'")
+	assetColumns, err := tableColumns(pool, "assets")
+	if err != nil {
+		t.Fatalf("read asset columns: %v", err)
 	}
+	for _, column := range []string{"format", "format_version", "platform", "publication"} {
+		if slices.Contains(assetColumns, column) {
+			t.Errorf("assets still has %s", column)
+		}
+	}
+	for _, column := range []string{"kind", "discovery", "withheld_at", "withheld_by", "withheld_reason", "deleted_at"} {
+		if !slices.Contains(assetColumns, column) {
+			t.Errorf("assets has no %s", column)
+		}
+	}
+
+	revisionColumns, err := tableColumns(pool, "asset_revisions")
+	if err != nil {
+		t.Fatalf("read revision columns: %v", err)
+	}
+	for _, column := range []string{"format", "passthrough_platform"} {
+		if !slices.Contains(revisionColumns, column) {
+			t.Errorf("asset_revisions has no %s", column)
+		}
+	}
+	if slices.Contains(revisionColumns, "format_version") {
+		t.Error("asset_revisions still has format_version")
+	}
+}
+
+func TestRevisionIdentityCanBackACompositeForeignKey(t *testing.T) {
+	pool := Connect(t)
+	ctx := context.Background()
+	_, err := pool.Exec(ctx, `drop table if exists revision_reference_probe`)
+	if err != nil {
+		t.Fatalf("clear revision reference probe: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `drop table if exists revision_reference_probe`)
+	})
+
+	_, err = pool.Exec(ctx,
+		`create table revision_reference_probe (
+		    revision_id uuid not null,
+		    asset_id uuid not null,
+		    foreign key (revision_id, asset_id)
+		        references asset_revisions (id, asset_id)
+		)`)
+	if err != nil {
+		t.Fatalf("asset_revisions (id, asset_id) cannot back a composite foreign key: %v", err)
+	}
+}
+
+func TestFacetsBindOnlyToARevision(t *testing.T) {
+	pool := Connect(t)
+	assetID, revisionID, _ := insertAssetRevision(t, pool)
+
+	columns, err := tableColumns(pool, "asset_facets")
+	if err != nil {
+		t.Fatalf("read facet columns: %v", err)
+	}
+	if !slices.Equal(columns, []string{"revision_id", "key", "value"}) {
+		t.Errorf("facet columns = %v, want revision_id, key and value", columns)
+	}
+
+	_, err = pool.Exec(context.Background(),
+		`insert into asset_facets (revision_id, key, value) values ($1, 'spec', 'chara_card_v3')`,
+		revisionID)
+	if err != nil {
+		t.Fatalf("insert revision facet for asset %s: %v", assetID, err)
+	}
+	_, err = pool.Exec(context.Background(),
+		`insert into asset_facets (revision_id, key, value) values ($1, 'spec', 'unknown')`,
+		uuid.New())
+	if err == nil {
+		t.Fatal("facet without a revision was accepted")
+	}
+}
+
+func TestMediaBindsToExactlyOneProvenance(t *testing.T) {
+	pool := Connect(t)
+	assetID, revisionID, blobID := insertAssetRevision(t, pool)
+	ctx := context.Background()
+
+	_, err := pool.Exec(ctx,
+		`insert into asset_media (id, revision_id, role, blob_id)
+		 values (gen_random_uuid(), $1, 'avatar', $2)`, revisionID, blobID)
+	if err != nil {
+		t.Fatalf("insert extracted media: %v", err)
+	}
+	_, err = pool.Exec(ctx,
+		`insert into asset_media (id, asset_id, role, blob_id)
+		 values (gen_random_uuid(), $1, 'gallery', $2)`, assetID, blobID)
+	if err != nil {
+		t.Fatalf("insert creator-added media: %v", err)
+	}
+
+	_, err = pool.Exec(ctx,
+		`insert into asset_media (id, asset_id, revision_id, role, blob_id)
+		 values (gen_random_uuid(), $1, $2, 'avatar', $3)`, assetID, revisionID, blobID)
+	if err == nil {
+		t.Error("media bound to both asset and revision was accepted")
+	}
+	_, err = pool.Exec(ctx,
+		`insert into asset_media (id, role, blob_id)
+		 values (gen_random_uuid(), 'gallery', $1)`, blobID)
+	if err == nil {
+		t.Error("media without asset or revision provenance was accepted")
+	}
+}
+
+func TestBrowseIndexStartsWithCreationTimeAndCarriesTheCatalogPredicate(t *testing.T) {
+	pool := Connect(t)
+
+	var columns []string
+	var predicate string
+	err := pool.QueryRow(context.Background(),
+		`select array_agg(attribute.attname order by key.ordinality),
+		        pg_get_expr(index.indpred, index.indrelid)
+		   from pg_index index
+		   join pg_class index_class on index_class.oid = index.indexrelid
+		  cross join lateral unnest(index.indkey) with ordinality key(attnum, ordinality)
+		   join pg_attribute attribute
+		     on attribute.attrelid = index.indrelid and attribute.attnum = key.attnum
+		  where index_class.relname = 'assets_browse_idx'
+		  group by index.indpred, index.indrelid`).Scan(&columns, &predicate)
+	if err != nil {
+		t.Fatalf("read browse index: %v", err)
+	}
+	if !slices.Equal(columns, []string{"created_at", "id"}) {
+		t.Errorf("browse index columns = %v, want created_at and id", columns)
+	}
+	for _, clause := range []string{"discovery = 'listed'", "withheld_at IS NULL", "deleted_at IS NULL"} {
+		if !strings.Contains(predicate, clause) {
+			t.Errorf("browse index predicate %q does not contain %q", predicate, clause)
+		}
+	}
+}
+
+func tableColumns(pool *pgxpool.Pool, table string) ([]string, error) {
+	rows, err := pool.Query(context.Background(),
+		`select column_name
+		   from information_schema.columns
+		  where table_schema = 'public' and table_name = $1
+		  order by ordinal_position`, table)
+	if err != nil {
+		return nil, err
+	}
+	return rowsToStrings(rows)
+}
+
+func insertAssetRevision(t *testing.T, pool *pgxpool.Pool) (uuid.UUID, uuid.UUID, uuid.UUID) {
+	t.Helper()
+	assetID := uuid.New()
+	revisionID := uuid.New()
+	blobID := uuid.New()
+	digest := make([]byte, 32)
+	copy(digest, revisionID[:])
+	ctx := context.Background()
+	_, err := pool.Exec(ctx,
+		`insert into blobs (id, sha256, byte_size, storage_key)
+		 values ($1, $2, 1, $3)`, blobID, digest, uuid.NewString())
+	if err == nil {
+		_, err = pool.Exec(ctx,
+			`insert into assets (id, kind, name) values ($1, 'character', 'Card')`, assetID)
+	}
+	if err == nil {
+		_, err = pool.Exec(ctx,
+			`insert into asset_revisions
+			     (id, asset_id, revision, blob_id, media_type, format)
+			 values ($1, $2, 1, $3, 'application/json', 'chara_card_v3')`,
+			revisionID, assetID, blobID)
+	}
+	if err != nil {
+		t.Fatalf("insert asset revision: %v", err)
+	}
+	return assetID, revisionID, blobID
 }

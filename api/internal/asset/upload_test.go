@@ -28,7 +28,7 @@ func TestCreateRecordsTheWholeFileItStored(t *testing.T) {
 
 	got, err := svc.Create(context.Background(), CreateInput{
 		OwnerID: uuid.New(), Kind: "character", Filename: "long.bin",
-		File: bytes.NewReader(file), Name: "Long", Publication: "public",
+		File: bytes.NewReader(file), Name: "Long", Discovery: "listed",
 	})
 	if err != nil {
 		t.Fatalf("create: %v", err)

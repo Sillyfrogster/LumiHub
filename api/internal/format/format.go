@@ -14,14 +14,13 @@ type Facet struct {
 
 /** What a module reads out of an uploaded file */
 type Parsed struct {
-	Kind          string
-	Platform      *string
-	Format        string
-	FormatVersion string
-	Name          string
-	Description   string
-	Tags          []string
-	Facets        []Facet
+	Kind                string
+	PassthroughPlatform *string
+	Format              string
+	Name                string
+	Description         string
+	Tags                []string
+	Facets              []Facet
 	// CreatedAt is the date the file carries. Nil means the file does not say.
 	CreatedAt *time.Time
 }

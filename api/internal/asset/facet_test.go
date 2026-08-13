@@ -32,8 +32,8 @@ func TestListMatchesEveryRequestedFacet(t *testing.T) {
 	svc := NewService(pool, reg, blob)
 
 	if _, err := svc.Create(context.Background(), CreateInput{
-		OwnerID: uuid.New(), Kind: "dlc", Filename: "p.bin",
-		File: bytes.NewReader([]byte("p")), Name: "Pack", Publication: "public",
+		OwnerID: uuid.New(), Kind: "preset", Filename: "p.bin",
+		File: bytes.NewReader([]byte("p")), Name: "Pack", Discovery: "listed",
 	}); err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -71,8 +71,8 @@ func TestListRequiresAllFacetsNotAny(t *testing.T) {
 	svc := NewService(pool, reg, blob)
 
 	if _, err := svc.Create(context.Background(), CreateInput{
-		OwnerID: uuid.New(), Kind: "dlc", Filename: "p.bin",
-		File: bytes.NewReader([]byte("p")), Name: "Pack", Publication: "public",
+		OwnerID: uuid.New(), Kind: "preset", Filename: "p.bin",
+		File: bytes.NewReader([]byte("p")), Name: "Pack", Discovery: "listed",
 	}); err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -106,7 +106,7 @@ func TestFacetKeysAndValuesContainingEqualsDoNotCollide(t *testing.T) {
 
 	if _, err := svc.Create(context.Background(), CreateInput{
 		OwnerID: uuid.New(), Kind: "character", Filename: "p.bin",
-		File: bytes.NewReader([]byte("p")), Name: "Pack", Publication: "public",
+		File: bytes.NewReader([]byte("p")), Name: "Pack", Discovery: "listed",
 	}); err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -149,8 +149,8 @@ func TestRequestingTheSameFacetTwiceStillMatches(t *testing.T) {
 	svc := NewService(pool, reg, blob)
 
 	if _, err := svc.Create(context.Background(), CreateInput{
-		OwnerID: uuid.New(), Kind: "dlc", Filename: "p.bin",
-		File: bytes.NewReader([]byte("p")), Name: "Pack", Publication: "public",
+		OwnerID: uuid.New(), Kind: "preset", Filename: "p.bin",
+		File: bytes.NewReader([]byte("p")), Name: "Pack", Discovery: "listed",
 	}); err != nil {
 		t.Fatalf("create: %v", err)
 	}

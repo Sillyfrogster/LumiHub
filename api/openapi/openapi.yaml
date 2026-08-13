@@ -69,18 +69,17 @@ components:
   schemas:
     Asset:
       type: object
-      required: [id, kind, format, name, description, tags, isNsfw, publication, createdAt]
+      required: [id, kind, format, name, description, tags, isNsfw, discovery, createdAt]
       properties:
         id: { type: string, format: uuid }
         kind: { type: string }
-        platform: { type: [string, "null"] }
+        passthroughPlatform: { type: [string, "null"] }
         format: { type: string }
-        formatVersion: { type: string }
         name: { type: string }
         description: { type: string }
         tags: { type: array, items: { type: string } }
         isNsfw: { type: boolean }
-        publication: { type: string, enum: [public, unlisted] }
+        discovery: { type: string, enum: [listed, unlisted] }
         createdAt: { type: string, format: date-time }
     AssetList:
       type: object
@@ -99,4 +98,4 @@ components:
         description: { type: string }
         tags: { type: array, items: { type: string } }
         isNsfw: { type: boolean }
-        publication: { type: string, enum: [public, unlisted] }
+        discovery: { type: string, enum: [listed, unlisted] }

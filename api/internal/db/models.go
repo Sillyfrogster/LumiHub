@@ -11,9 +11,6 @@ import (
 type Asset struct {
 	ID                pgtype.UUID
 	Kind              string
-	Platform          pgtype.Text
-	Format            string
-	FormatVersion     string
 	CurrentRevisionID pgtype.UUID
 	OwnerID           pgtype.UUID
 	Name              string
@@ -21,14 +18,17 @@ type Asset struct {
 	Tags              []string
 	PreviewMediaID    pgtype.UUID
 	IsNsfw            bool
-	Publication       string
+	Discovery         string
 	CreatedAt         pgtype.Timestamptz
 	UpdatedAt         pgtype.Timestamptz
 	IndexedAt         pgtype.Timestamptz
+	WithheldAt        pgtype.Timestamptz
+	WithheldBy        pgtype.UUID
+	WithheldReason    pgtype.Text
+	DeletedAt         pgtype.Timestamptz
 }
 
 type AssetFacet struct {
-	AssetID    pgtype.UUID
 	RevisionID pgtype.UUID
 	Key        string
 	Value      string
@@ -46,12 +46,14 @@ type AssetMedium struct {
 }
 
 type AssetRevision struct {
-	ID        pgtype.UUID
-	AssetID   pgtype.UUID
-	Revision  int32
-	MediaType string
-	CreatedAt pgtype.Timestamptz
-	BlobID    pgtype.UUID
+	ID                  pgtype.UUID
+	AssetID             pgtype.UUID
+	Revision            int32
+	MediaType           string
+	CreatedAt           pgtype.Timestamptz
+	BlobID              pgtype.UUID
+	Format              string
+	PassthroughPlatform pgtype.Text
 }
 
 type Blob struct {

@@ -14,18 +14,15 @@ import (
 
 func assetToInsertParams(a Asset, ownerID uuid.UUID, madeAt *time.Time) db.InsertAssetParams {
 	return db.InsertAssetParams{
-		ID:            pgtype.UUID{Bytes: a.ID, Valid: true},
-		Kind:          a.Kind,
-		Platform:      textToNullable(a.Platform),
-		Format:        a.Format,
-		FormatVersion: a.FormatVersion,
-		OwnerID:       pgtype.UUID{Bytes: ownerID, Valid: true},
-		Name:          a.Name,
-		Description:   a.Description,
-		Tags:          a.Tags,
-		IsNsfw:        a.IsNSFW,
-		Publication:   a.Publication,
-		CreatedAt:     timeToNullable(madeAt),
+		ID:          pgtype.UUID{Bytes: a.ID, Valid: true},
+		Kind:        a.Kind,
+		OwnerID:     pgtype.UUID{Bytes: ownerID, Valid: true},
+		Name:        a.Name,
+		Description: a.Description,
+		Tags:        a.Tags,
+		IsNsfw:      a.IsNSFW,
+		Discovery:   a.Discovery,
+		CreatedAt:   timeToNullable(madeAt),
 	}
 }
 
@@ -40,11 +37,10 @@ func insertAsset(ctx context.Context, tx pgx.Tx, a Asset, ownerID uuid.UUID, mad
 	return timeFromPgtype(made), nil
 }
 
-func insertFacets(ctx context.Context, tx pgx.Tx, assetID, revisionID uuid.UUID, facets []format.Facet) error {
+func insertFacets(ctx context.Context, tx pgx.Tx, revisionID uuid.UUID, facets []format.Facet) error {
 	queries := db.New(tx)
 	for _, f := range facets {
 		params := db.InsertFacetParams{
-			AssetID:    uuidToPgtype(assetID),
 			RevisionID: uuidToPgtype(revisionID),
 			Key:        f.Key,
 			Value:      f.Value,

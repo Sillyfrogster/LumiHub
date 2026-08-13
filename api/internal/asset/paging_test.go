@@ -13,7 +13,7 @@ func createMadeAt(t *testing.T, svc *Service, name string, made time.Time) Asset
 	t.Helper()
 	a, err := svc.Create(context.Background(), CreateInput{
 		OwnerID: uuid.New(), Kind: "character", Filename: name + ".bin",
-		File: bytes.NewReader([]byte(name)), Name: name, Publication: "public", CreatedAt: &made,
+		File: bytes.NewReader([]byte(name)), Name: name, Discovery: "listed", CreatedAt: &made,
 	})
 	if err != nil {
 		t.Fatalf("create %s: %v", name, err)

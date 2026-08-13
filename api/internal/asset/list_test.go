@@ -8,11 +8,11 @@ import (
 	"github.com/google/uuid"
 )
 
-func create(t *testing.T, svc *Service, name, kind, publication string) Asset {
+func create(t *testing.T, svc *Service, name, kind, discovery string) Asset {
 	t.Helper()
 	a, err := svc.Create(context.Background(), CreateInput{
 		OwnerID: uuid.New(), Kind: kind, Filename: name + ".bin",
-		File: bytes.NewReader([]byte(name)), Name: name, Publication: publication,
+		File: bytes.NewReader([]byte(name)), Name: name, Discovery: discovery,
 	})
 	if err != nil {
 		t.Fatalf("create %s: %v", name, err)
@@ -20,9 +20,9 @@ func create(t *testing.T, svc *Service, name, kind, publication string) Asset {
 	return a
 }
 
-func TestListReturnsOnlyPublicAssets(t *testing.T) {
+func TestListReturnsOnlyListedAssets(t *testing.T) {
 	svc, _ := newTestService(t)
-	create(t, svc, "visible", "character", "public")
+	create(t, svc, "visible", "character", "listed")
 	create(t, svc, "quiet", "character", "unlisted")
 
 	got, err := svc.List(context.Background(), ListFilter{Limit: 50})
@@ -30,14 +30,14 @@ func TestListReturnsOnlyPublicAssets(t *testing.T) {
 		t.Fatalf("List: %v", err)
 	}
 	if len(got) != 1 || got[0].Name != "visible" {
-		t.Fatalf("List returned %d assets, want only the public one", len(got))
+		t.Fatalf("List returned %d assets, want only the listed one", len(got))
 	}
 }
 
 func TestListFiltersByKind(t *testing.T) {
 	svc, _ := newTestService(t)
-	create(t, svc, "a-character", "character", "public")
-	create(t, svc, "a-theme", "theme", "public")
+	create(t, svc, "a-character", "character", "listed")
+	create(t, svc, "a-theme", "theme", "listed")
 
 	got, err := svc.List(context.Background(), ListFilter{Kind: "theme", Limit: 50})
 	if err != nil {

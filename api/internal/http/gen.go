@@ -13,36 +13,36 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
-// Defines values for AssetPublication.
+// Defines values for AssetDiscovery.
 const (
-	AssetPublicationPublic   AssetPublication = "public"
-	AssetPublicationUnlisted AssetPublication = "unlisted"
+	AssetDiscoveryListed   AssetDiscovery = "listed"
+	AssetDiscoveryUnlisted AssetDiscovery = "unlisted"
 )
 
-// Valid indicates whether the value is a known member of the AssetPublication enum.
-func (e AssetPublication) Valid() bool {
+// Valid indicates whether the value is a known member of the AssetDiscovery enum.
+func (e AssetDiscovery) Valid() bool {
 	switch e {
-	case AssetPublicationPublic:
+	case AssetDiscoveryListed:
 		return true
-	case AssetPublicationUnlisted:
+	case AssetDiscoveryUnlisted:
 		return true
 	default:
 		return false
 	}
 }
 
-// Defines values for CreateAssetRequestPublication.
+// Defines values for CreateAssetRequestDiscovery.
 const (
-	CreateAssetRequestPublicationPublic   CreateAssetRequestPublication = "public"
-	CreateAssetRequestPublicationUnlisted CreateAssetRequestPublication = "unlisted"
+	CreateAssetRequestDiscoveryListed   CreateAssetRequestDiscovery = "listed"
+	CreateAssetRequestDiscoveryUnlisted CreateAssetRequestDiscovery = "unlisted"
 )
 
-// Valid indicates whether the value is a known member of the CreateAssetRequestPublication enum.
-func (e CreateAssetRequestPublication) Valid() bool {
+// Valid indicates whether the value is a known member of the CreateAssetRequestDiscovery enum.
+func (e CreateAssetRequestDiscovery) Valid() bool {
 	switch e {
-	case CreateAssetRequestPublicationPublic:
+	case CreateAssetRequestDiscoveryListed:
 		return true
-	case CreateAssetRequestPublicationUnlisted:
+	case CreateAssetRequestDiscoveryUnlisted:
 		return true
 	default:
 		return false
@@ -51,21 +51,20 @@ func (e CreateAssetRequestPublication) Valid() bool {
 
 // Asset defines model for Asset.
 type Asset struct {
-	CreatedAt     time.Time          `json:"createdAt"`
-	Description   string             `json:"description"`
-	Format        string             `json:"format"`
-	FormatVersion *string            `json:"formatVersion,omitempty"`
-	Id            openapi_types.UUID `json:"id"`
-	IsNsfw        bool               `json:"isNsfw"`
-	Kind          string             `json:"kind"`
-	Name          string             `json:"name"`
-	Platform      *string            `json:"platform,omitempty"`
-	Publication   AssetPublication   `json:"publication"`
-	Tags          []string           `json:"tags"`
+	CreatedAt           time.Time          `json:"createdAt"`
+	Description         string             `json:"description"`
+	Discovery           AssetDiscovery     `json:"discovery"`
+	Format              string             `json:"format"`
+	Id                  openapi_types.UUID `json:"id"`
+	IsNsfw              bool               `json:"isNsfw"`
+	Kind                string             `json:"kind"`
+	Name                string             `json:"name"`
+	PassthroughPlatform *string            `json:"passthroughPlatform,omitempty"`
+	Tags                []string           `json:"tags"`
 }
 
-// AssetPublication defines model for Asset.Publication.
-type AssetPublication string
+// AssetDiscovery defines model for Asset.Discovery.
+type AssetDiscovery string
 
 // AssetList defines model for AssetList.
 type AssetList struct {
@@ -74,17 +73,17 @@ type AssetList struct {
 
 // CreateAssetRequest defines model for CreateAssetRequest.
 type CreateAssetRequest struct {
-	Description *string                        `json:"description,omitempty"`
-	Filename    string                         `json:"filename"`
-	IsNsfw      *bool                          `json:"isNsfw,omitempty"`
-	Kind        string                         `json:"kind"`
-	Name        string                         `json:"name"`
-	Publication *CreateAssetRequestPublication `json:"publication,omitempty"`
-	Tags        *[]string                      `json:"tags,omitempty"`
+	Description *string                      `json:"description,omitempty"`
+	Discovery   *CreateAssetRequestDiscovery `json:"discovery,omitempty"`
+	Filename    string                       `json:"filename"`
+	IsNsfw      *bool                        `json:"isNsfw,omitempty"`
+	Kind        string                       `json:"kind"`
+	Name        string                       `json:"name"`
+	Tags        *[]string                    `json:"tags,omitempty"`
 }
 
-// CreateAssetRequestPublication defines model for CreateAssetRequest.Publication.
-type CreateAssetRequestPublication string
+// CreateAssetRequestDiscovery defines model for CreateAssetRequest.Discovery.
+type CreateAssetRequestDiscovery string
 
 // ListAssetsParams defines parameters for ListAssets.
 type ListAssetsParams struct {

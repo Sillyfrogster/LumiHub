@@ -53,10 +53,10 @@ func writeFilePart(t *testing.T, form *multipart.Writer, file []byte) {
 
 func exampleMetadata(name string) map[string]any {
 	return map[string]any{
-		"kind":        "character",
-		"filename":    name + ".bin",
-		"name":        name,
-		"publication": "public",
+		"kind":      "character",
+		"filename":  name + ".bin",
+		"name":      name,
+		"discovery": "listed",
 	}
 }
 
