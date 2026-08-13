@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
+	mediaproc "github.com/Sillyfrogster/LumiHub/api/internal/media"
 	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
 	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
 	"github.com/google/uuid"
@@ -27,6 +28,7 @@ type Service struct {
 	pool   *pgxpool.Pool
 	reg    *format.Registry
 	store  storage.Store
+	media  *mediaproc.Processor
 	ingest IngestSettings
 	now    func() time.Time
 }
@@ -70,7 +72,11 @@ func NewServiceWithIngestSettings(
 	store storage.Store,
 	settings IngestSettings,
 ) *Service {
-	return &Service{pool: pool, reg: reg, store: store, ingest: settings, now: time.Now}
+	return &Service{
+		pool: pool, reg: reg, store: store,
+		media:  mediaproc.NewProcessor(mediaproc.DefaultLimits()),
+		ingest: settings, now: time.Now,
+	}
 }
 
 // AcceptIngest durably stores an upload and records the work that remains.
@@ -226,6 +232,10 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Asset, error) {
 	if a.Tags == nil {
 		a.Tags = []string{}
 	}
+	extractedMedia, err := s.prepareExtractedMedia(ctx, parsed.Media)
+	if err != nil {
+		return Asset{}, fmt.Errorf("prepare extracted media: %w", err)
+	}
 
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -248,6 +258,9 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Asset, error) {
 		return Asset{}, err
 	}
 	if err := insertFacets(ctx, tx, revisionID, parsed.Facets); err != nil {
+		return Asset{}, err
+	}
+	if err := insertRevisionMedia(ctx, tx, revisionID, extractedMedia); err != nil {
 		return Asset{}, err
 	}
 	if err := setCurrentRevision(ctx, tx, a.ID, revisionID); err != nil {

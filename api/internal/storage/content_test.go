@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
@@ -243,5 +244,33 @@ func TestDerivativeIdentityIncludesSourceVariantAndVersion(t *testing.T) {
 		if string(got) != derivative.want {
 			t.Errorf("derivative = %q, want %q", got, derivative.want)
 		}
+	}
+}
+
+func TestDerivativeCanBeHandedToTheInternalByteServer(t *testing.T) {
+	store := newTestStore(t)
+	stored, err := store.Put(context.Background(), bytes.NewReader([]byte("source")))
+	if err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+	id := DerivativeID{SourceDigest: stored.Digest, Variant: "grid", Version: 1}
+	if err := store.PutDerivative(context.Background(), id, bytes.NewReader([]byte("rendered"))); err != nil {
+		t.Fatalf("PutDerivative: %v", err)
+	}
+
+	redirect, err := store.InternalDerivativeRedirect(context.Background(), id)
+	if err != nil {
+		t.Fatalf("InternalDerivativeRedirect: %v", err)
+	}
+	if !strings.HasPrefix(redirect, "/_lumihub/derivatives/") {
+		t.Fatalf("redirect = %q, want internal derivative location", redirect)
+	}
+
+	if err := store.ClearDerivatives(context.Background()); err != nil {
+		t.Fatalf("ClearDerivatives: %v", err)
+	}
+	_, err = store.InternalDerivativeRedirect(context.Background(), id)
+	if !errors.Is(err, ErrDerivativeNotFound) {
+		t.Fatalf("missing derivative error = %v, want ErrDerivativeNotFound", err)
 	}
 }

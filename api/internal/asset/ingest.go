@@ -81,6 +81,7 @@ type preparedIngest struct {
 	IsNSFW              bool
 	Discovery           Discovery
 	Facets              []format.Facet
+	Media               []preparedMedia
 	CreatedAt           *time.Time
 	MediaType           string
 }
@@ -140,6 +141,10 @@ func (s *Service) ProcessNextIngest(ctx context.Context) (bool, error) {
 	prepared.MediaType = inspected.InlineMediaType()
 	if prepared.MediaType == "" {
 		prepared.MediaType = "application/octet-stream"
+	}
+	prepared.Media, err = s.prepareExtractedMedia(ctx, parsed.Media)
+	if err != nil {
+		return true, s.finishIngestFailure(ctx, job, mediaIngestFailure(err))
 	}
 	if err := s.finalizeIngest(ctx, job, prepared); err != nil {
 		if errors.Is(err, errIngestLeaseLost) {
@@ -413,6 +418,9 @@ func (s *Service) finalizeIngest(ctx context.Context, job ingestJob, prepared pr
 		return err
 	}
 	if err := insertFacets(ctx, tx, revisionID, prepared.Facets); err != nil {
+		return err
+	}
+	if err := insertRevisionMedia(ctx, tx, revisionID, prepared.Media); err != nil {
 		return err
 	}
 	if err := setCurrentRevision(ctx, tx, assetID, revisionID); err != nil {

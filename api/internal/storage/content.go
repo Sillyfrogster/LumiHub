@@ -24,7 +24,10 @@ type contentStore struct {
 	root    string
 }
 
-const internalBlobPrefix = "/_lumihub/blobs/"
+const (
+	internalBlobPrefix       = "/_lumihub/blobs/"
+	internalDerivativePrefix = "/_lumihub/derivatives/"
+)
 
 // NewStore opens a content-addressed store rooted at root.
 func NewStore(pool *pgxpool.Pool, root string) (Store, error) {
@@ -170,6 +173,9 @@ func (s *contentStore) PutDerivative(ctx context.Context, id DerivativeID, r io.
 	if err := os.Rename(temporaryName, path); err != nil {
 		return fmt.Errorf("install derivative: %w", err)
 	}
+	if err := os.Chmod(path, 0o644); err != nil {
+		return fmt.Errorf("make derivative readable by the byte server: %w", err)
+	}
 	return nil
 }
 
@@ -182,10 +188,33 @@ func (s *contentStore) OpenDerivative(ctx context.Context, id DerivativeID) (io.
 		return nil, err
 	}
 	file, err := os.Open(path)
+	if os.IsNotExist(err) {
+		return nil, ErrDerivativeNotFound
+	}
 	if err != nil {
 		return nil, fmt.Errorf("open derivative: %w", err)
 	}
 	return file, nil
+}
+
+func (s *contentStore) InternalDerivativeRedirect(ctx context.Context, id DerivativeID) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	path, err := s.derivativePath(id)
+	if err != nil {
+		return "", err
+	}
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return "", ErrDerivativeNotFound
+	} else if err != nil {
+		return "", fmt.Errorf("find derivative file: %w", err)
+	}
+	relative, err := filepath.Rel(filepath.Join(s.root, "derivatives"), path)
+	if err != nil || !filepath.IsLocal(relative) {
+		return "", fmt.Errorf("derivative path is outside the derivative directory")
+	}
+	return internalDerivativePrefix + filepath.ToSlash(relative), nil
 }
 
 func (s *contentStore) ClearDerivatives(ctx context.Context) error {

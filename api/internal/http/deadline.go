@@ -51,10 +51,13 @@ func Register(r *gin.Engine, h *Handlers, d Deadlines) error {
 		routeKey(http.MethodGet, "/v1/profiles/:handle"):              d.JSON,
 		routeKey(http.MethodGet, "/v1/assets"):                        d.JSON,
 		routeKey(http.MethodPost, "/v1/assets"):                       d.Upload,
+		routeKey(http.MethodPost, "/v1/assets/:id/media"):             d.Upload,
+		routeKey(http.MethodGet, "/v1/assets/:id/media"):              d.JSON,
 		routeKey(http.MethodGet, "/v1/ingests/:id"):                   d.JSON,
 		routeKey(http.MethodPatch, "/v1/ingests/:id"):                 d.JSON,
 		// :id is gin's way of writing "any id here".
-		routeKey(http.MethodGet, "/download/:id"): d.Download,
+		routeKey(http.MethodGet, "/download/:id"):                                 d.Download,
+		routeKey(http.MethodGet, "/media/:media_id/:variant/:derivative_version"): d.Download,
 	}
 
 	routes := r.Group("", deadlineByRoute(limits))

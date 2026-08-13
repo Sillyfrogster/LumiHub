@@ -260,6 +260,38 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/assets/{id}/media": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["listMedia"];
+    put?: never;
+    post: operations["addMedia"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/media/{media_id}/{variant}/{derivative_version}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["getMediaVariant"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/ingests/{id}": {
     parameters: {
       query?: never;
@@ -356,6 +388,36 @@ export interface components {
       isNsfw?: boolean;
       /** @enum {string} */
       discovery?: "listed" | "unlisted";
+    };
+    AddMediaRequest: {
+      /** @enum {string} */
+      role:
+        | "avatar"
+        | "expression"
+        | "gallery"
+        | "avatar_alt"
+        | "perspective_layer";
+    };
+    Media: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      assetId: string | null;
+      /** Format: uuid */
+      revisionId: string | null;
+      /** @enum {string} */
+      role:
+        | "avatar"
+        | "expression"
+        | "gallery"
+        | "avatar_alt"
+        | "perspective_layer";
+      width: number;
+      height: number;
+      derivativeVersion: number;
+    };
+    MediaList: {
+      items: components["schemas"]["Media"][];
     };
     IngestOperation: {
       /** Format: uuid */
@@ -970,6 +1032,128 @@ export interface operations {
         };
       };
       /** @description No such asset */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  listMedia: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Asset-scoped media and media from the current revision */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MediaList"];
+        };
+      };
+      /** @description No such asset */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  addMedia: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    /** @description Send the metadata part before the image file part. */
+    requestBody: {
+      content: {
+        "multipart/form-data": {
+          metadata: components["schemas"]["AddMediaRequest"];
+          /** Format: binary */
+          file: string;
+        };
+      };
+    };
+    responses: {
+      /** @description A new immutable media record */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Media"];
+        };
+      };
+      /** @description The role or image is not valid */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The signed-in account has not verified its email */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The asset does not belong to the creator */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getMediaVariant: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        media_id: string;
+        variant: string;
+        derivative_version: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description A named media variant */
+      200: {
+        headers: {
+          "Cache-Control": string;
+          "Content-Disposition": "inline";
+          "X-Content-Type-Options": "nosniff";
+          [name: string]: unknown;
+        };
+        content: {
+          "image/png": string;
+        };
+      };
+      /** @description No such media variant */
       404: {
         headers: {
           [name: string]: unknown;

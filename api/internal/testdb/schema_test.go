@@ -310,20 +310,23 @@ func TestMediaBindsToExactlyOneProvenance(t *testing.T) {
 	assetID, revisionID, blobID := insertAssetRevision(t, pool)
 	ctx := context.Background()
 
-	_, err := pool.Exec(ctx,
-		`insert into asset_media (id, revision_id, role, blob_id)
-		 values (gen_random_uuid(), $1, 'avatar', $2)`, revisionID, blobID)
-	if err != nil {
-		t.Fatalf("insert extracted media: %v", err)
-	}
-	_, err = pool.Exec(ctx,
-		`insert into asset_media (id, asset_id, role, blob_id)
-		 values (gen_random_uuid(), $1, 'gallery', $2)`, assetID, blobID)
-	if err != nil {
-		t.Fatalf("insert creator-added media: %v", err)
+	roles := []string{"avatar", "expression", "gallery", "avatar_alt", "perspective_layer"}
+	for _, role := range roles {
+		_, err := pool.Exec(ctx,
+			`insert into asset_media (id, revision_id, role, blob_id)
+			 values (gen_random_uuid(), $1, $2, $3)`, revisionID, role, blobID)
+		if err != nil {
+			t.Fatalf("insert revision-scoped %s media: %v", role, err)
+		}
+		_, err = pool.Exec(ctx,
+			`insert into asset_media (id, asset_id, role, blob_id)
+			 values (gen_random_uuid(), $1, $2, $3)`, assetID, role, blobID)
+		if err != nil {
+			t.Fatalf("insert asset-scoped %s media: %v", role, err)
+		}
 	}
 
-	_, err = pool.Exec(ctx,
+	_, err := pool.Exec(ctx,
 		`insert into asset_media (id, asset_id, revision_id, role, blob_id)
 		 values (gen_random_uuid(), $1, $2, 'avatar', $3)`, assetID, revisionID, blobID)
 	if err == nil {
@@ -334,6 +337,12 @@ func TestMediaBindsToExactlyOneProvenance(t *testing.T) {
 		 values (gen_random_uuid(), 'gallery', $1)`, blobID)
 	if err == nil {
 		t.Error("media without asset or revision provenance was accepted")
+	}
+	_, err = pool.Exec(ctx,
+		`insert into asset_media (id, asset_id, role, blob_id)
+		 values (gen_random_uuid(), $1, 'cover', $2)`, assetID, blobID)
+	if err == nil {
+		t.Error("media with a role outside the closed vocabulary was accepted")
 	}
 }
 

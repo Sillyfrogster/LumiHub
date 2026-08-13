@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"mime/multipart"
 	"net/http"
 	"strings"
@@ -513,6 +514,65 @@ func (h *Handlers) CreateAsset(c *gin.Context) {
 	c.JSON(http.StatusAccepted, toAPIIngest(operation))
 }
 
+func (h *Handlers) AddMedia(c *gin.Context, id types.UUID) {
+	owner, ok := h.uploadOwner(c)
+	if !ok {
+		return
+	}
+	parts, err := c.Request.MultipartReader()
+	if err != nil {
+		h.refuse(c, refusal{
+			reason: "send the image as form data, with a metadata part and a file part",
+			cause:  err,
+		})
+		return
+	}
+	metadata, err := readMediaMetadata(parts)
+	if err != nil {
+		h.refuse(c, err)
+		return
+	}
+	file, err := nextPart(parts, filePart)
+	if err != nil {
+		h.refuse(c, err)
+		return
+	}
+	limitedFile := http.MaxBytesReader(c.Writer, file, h.maxUploadBytes)
+	defer limitedFile.Close()
+	added, err := h.assets.AddMedia(c.Request.Context(), asset.AddMediaInput{
+		OwnerID: owner.ID,
+		AssetID: uuid.UUID(id),
+		Role:    asset.MediaRole(metadata.Role),
+		File:    limitedFile,
+	})
+	if errors.Is(err, asset.ErrMediaNotFound) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "no such asset"})
+		return
+	}
+	if err != nil {
+		h.refuse(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, toAPIMedia(added))
+}
+
+func (h *Handlers) ListMedia(c *gin.Context, id types.UUID) {
+	found, err := h.assets.ListMedia(c.Request.Context(), uuid.UUID(id))
+	if errors.Is(err, asset.ErrNotFound) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "no such asset"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not list the images"})
+		return
+	}
+	items := make([]Media, 0, len(found))
+	for _, item := range found {
+		items = append(items, toAPIMedia(item))
+	}
+	c.JSON(http.StatusOK, MediaList{Items: items})
+}
+
 func (h *Handlers) GetIngest(c *gin.Context, id types.UUID) {
 	owner, ok := h.uploadOwner(c)
 	if !ok {
@@ -628,6 +688,21 @@ func readMetadata(parts *multipart.Reader) (CreateAssetRequest, error) {
 	var metadata CreateAssetRequest
 	if err := decodeOneJSON(io.LimitReader(part, 1<<20), &metadata); err != nil {
 		return CreateAssetRequest{}, refusal{
+			reason: "the " + metadataPart + " part is not valid JSON",
+			cause:  err,
+		}
+	}
+	return metadata, nil
+}
+
+func readMediaMetadata(parts *multipart.Reader) (AddMediaRequest, error) {
+	part, err := nextPart(parts, metadataPart)
+	if err != nil {
+		return AddMediaRequest{}, err
+	}
+	var metadata AddMediaRequest
+	if err := decodeOneJSON(io.LimitReader(part, 1<<20), &metadata); err != nil {
+		return AddMediaRequest{}, refusal{
 			reason: "the " + metadataPart + " part is not valid JSON",
 			cause:  err,
 		}
@@ -751,6 +826,56 @@ func (h *Handlers) DownloadSource(c *gin.Context, id types.UUID) {
 	c.Header("X-Content-Type-Options", "nosniff")
 	c.Header("X-Accel-Redirect", download.InternalRedirect)
 	c.Status(http.StatusOK)
+}
+
+func (h *Handlers) GetMediaVariant(
+	c *gin.Context,
+	mediaID types.UUID,
+	variant string,
+	derivativeVersion int,
+) {
+	if derivativeVersion < 1 || uint64(derivativeVersion) > math.MaxUint32 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "no such media variant"})
+		return
+	}
+	download, err := h.assets.MediaVariant(
+		c.Request.Context(), uuid.UUID(mediaID), variant, uint32(derivativeVersion),
+	)
+	if errors.Is(err, asset.ErrMediaNotFound) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "no such media variant"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not read the image"})
+		return
+	}
+	c.Header("Cache-Control", "public, max-age=31536000, immutable")
+	c.Header("Content-Disposition", "inline")
+	c.Header("Content-Type", download.MediaType)
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.Header("X-Accel-Redirect", download.InternalRedirect)
+	c.Status(http.StatusOK)
+}
+
+func toAPIMedia(found asset.Media) Media {
+	var assetID, revisionID *types.UUID
+	if found.AssetID != nil {
+		converted := types.UUID(*found.AssetID)
+		assetID = &converted
+	}
+	if found.RevisionID != nil {
+		converted := types.UUID(*found.RevisionID)
+		revisionID = &converted
+	}
+	return Media{
+		Id:                types.UUID(found.ID),
+		AssetId:           assetID,
+		RevisionId:        revisionID,
+		Role:              MediaRole(found.Role),
+		Width:             found.Width,
+		Height:            found.Height,
+		DerivativeVersion: int(found.DerivativeVersion),
+	}
 }
 
 func cursorFrom(params ListAssetsParams) (*asset.Cursor, bool) {

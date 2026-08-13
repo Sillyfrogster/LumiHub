@@ -13,6 +13,33 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for AddMediaRequestRole.
+const (
+	AddMediaRequestRoleAvatar           AddMediaRequestRole = "avatar"
+	AddMediaRequestRoleAvatarAlt        AddMediaRequestRole = "avatar_alt"
+	AddMediaRequestRoleExpression       AddMediaRequestRole = "expression"
+	AddMediaRequestRoleGallery          AddMediaRequestRole = "gallery"
+	AddMediaRequestRolePerspectiveLayer AddMediaRequestRole = "perspective_layer"
+)
+
+// Valid indicates whether the value is a known member of the AddMediaRequestRole enum.
+func (e AddMediaRequestRole) Valid() bool {
+	switch e {
+	case AddMediaRequestRoleAvatar:
+		return true
+	case AddMediaRequestRoleAvatarAlt:
+		return true
+	case AddMediaRequestRoleExpression:
+		return true
+	case AddMediaRequestRoleGallery:
+		return true
+	case AddMediaRequestRolePerspectiveLayer:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AssetDiscovery.
 const (
 	AssetDiscoveryListed   AssetDiscovery = "listed"
@@ -127,6 +154,33 @@ func (e IngestOperationStatus) Valid() bool {
 	}
 }
 
+// Defines values for MediaRole.
+const (
+	MediaRoleAvatar           MediaRole = "avatar"
+	MediaRoleAvatarAlt        MediaRole = "avatar_alt"
+	MediaRoleExpression       MediaRole = "expression"
+	MediaRoleGallery          MediaRole = "gallery"
+	MediaRolePerspectiveLayer MediaRole = "perspective_layer"
+)
+
+// Valid indicates whether the value is a known member of the MediaRole enum.
+func (e MediaRole) Valid() bool {
+	switch e {
+	case MediaRoleAvatar:
+		return true
+	case MediaRoleAvatarAlt:
+		return true
+	case MediaRoleExpression:
+		return true
+	case MediaRoleGallery:
+		return true
+	case MediaRolePerspectiveLayer:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for NeedsKindKind.
 const (
 	NeedsKindKindCharacter   NeedsKindKind = "character"
@@ -181,6 +235,14 @@ type Account struct {
 	HasPassword   bool                 `json:"hasPassword"`
 	Id            openapi_types.UUID   `json:"id"`
 }
+
+// AddMediaRequest defines model for AddMediaRequest.
+type AddMediaRequest struct {
+	Role AddMediaRequestRole `json:"role"`
+}
+
+// AddMediaRequestRole defines model for AddMediaRequest.Role.
+type AddMediaRequestRole string
 
 // Asset defines model for Asset.
 type Asset struct {
@@ -259,6 +321,25 @@ type IngestOperation struct {
 // IngestOperationStatus defines model for IngestOperation.Status.
 type IngestOperationStatus string
 
+// Media defines model for Media.
+type Media struct {
+	AssetId           *openapi_types.UUID `json:"assetId"`
+	DerivativeVersion int                 `json:"derivativeVersion"`
+	Height            int                 `json:"height"`
+	Id                openapi_types.UUID  `json:"id"`
+	RevisionId        *openapi_types.UUID `json:"revisionId"`
+	Role              MediaRole           `json:"role"`
+	Width             int                 `json:"width"`
+}
+
+// MediaRole defines model for Media.Role.
+type MediaRole string
+
+// MediaList defines model for MediaList.
+type MediaList struct {
+	Items []Media `json:"items"`
+}
+
 // NeedsKind defines model for NeedsKind.
 type NeedsKind struct {
 	Kind *NeedsKindKind `json:"kind"`
@@ -333,6 +414,12 @@ type CreateAssetMultipartBody struct {
 	Metadata CreateAssetRequest `json:"metadata"`
 }
 
+// AddMediaMultipartBody defines parameters for AddMedia.
+type AddMediaMultipartBody struct {
+	File     openapi_types.File `json:"file"`
+	Metadata AddMediaRequest    `json:"metadata"`
+}
+
 // BeginDiscordParams defines parameters for BeginDiscord.
 type BeginDiscordParams struct {
 	Intent *BeginDiscordParamsIntent `form:"intent,omitempty" json:"intent,omitempty"`
@@ -360,6 +447,9 @@ type SetPasswordJSONRequestBody = PasswordRequest
 // CreateAssetMultipartRequestBody defines body for CreateAsset for multipart/form-data ContentType.
 type CreateAssetMultipartRequestBody CreateAssetMultipartBody
 
+// AddMediaMultipartRequestBody defines body for AddMedia for multipart/form-data ContentType.
+type AddMediaMultipartRequestBody AddMediaMultipartBody
+
 // RequestPasswordResetJSONRequestBody defines body for RequestPasswordReset for application/json ContentType.
 type RequestPasswordResetJSONRequestBody = PasswordResetRequest
 
@@ -384,6 +474,9 @@ type ServerInterface interface {
 	// (GET /download/{id})
 	DownloadSource(c *gin.Context, id openapi_types.UUID)
 
+	// (GET /media/{media_id}/{variant}/{derivative_version})
+	GetMediaVariant(c *gin.Context, mediaId openapi_types.UUID, variant string, derivativeVersion int)
+
 	// (DELETE /v1/account/discord)
 	DetachDiscord(c *gin.Context)
 
@@ -401,6 +494,12 @@ type ServerInterface interface {
 
 	// (POST /v1/assets)
 	CreateAsset(c *gin.Context)
+
+	// (GET /v1/assets/{id}/media)
+	ListMedia(c *gin.Context, id openapi_types.UUID)
+
+	// (POST /v1/assets/{id}/media)
+	AddMedia(c *gin.Context, id openapi_types.UUID)
 
 	// (GET /v1/auth/discord)
 	BeginDiscord(c *gin.Context, params BeginDiscordParams)
@@ -471,6 +570,49 @@ func (siw *ServerInterfaceWrapper) DownloadSource(c *gin.Context) {
 	}
 
 	siw.Handler.DownloadSource(c, id)
+}
+
+// GetMediaVariant operation middleware
+func (siw *ServerInterfaceWrapper) GetMediaVariant(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "media_id" -------------
+	var mediaId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "media_id", c.Param("media_id"), &mediaId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter media_id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "variant" -------------
+	var variant string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "variant", c.Param("variant"), &variant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter variant: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "derivative_version" -------------
+	var derivativeVersion int
+
+	err = runtime.BindStyledParameterWithOptions("simple", "derivative_version", c.Param("derivative_version"), &derivativeVersion, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter derivative_version: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetMediaVariant(c, mediaId, variant, derivativeVersion)
 }
 
 // DetachDiscord operation middleware
@@ -611,6 +753,56 @@ func (siw *ServerInterfaceWrapper) CreateAsset(c *gin.Context) {
 	}
 
 	siw.Handler.CreateAsset(c)
+}
+
+// ListMedia operation middleware
+func (siw *ServerInterfaceWrapper) ListMedia(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListMedia(c, id)
+}
+
+// AddMedia operation middleware
+func (siw *ServerInterfaceWrapper) AddMedia(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.AddMedia(c, id)
 }
 
 // BeginDiscord operation middleware
@@ -893,6 +1085,9 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/v1/assets", wrapper.ListAssets)
 	router.POST(options.BaseURL+"/v1/assets", wrapper.CreateAsset)
 	router.GET(options.BaseURL+"/download/:id", wrapper.DownloadSource)
+	router.GET(options.BaseURL+"/v1/assets/:id/media", wrapper.ListMedia)
+	router.POST(options.BaseURL+"/v1/assets/:id/media", wrapper.AddMedia)
+	router.GET(options.BaseURL+"/media/:media_id/:variant/:derivative_version", wrapper.GetMediaVariant)
 	router.GET(options.BaseURL+"/v1/ingests/:id", wrapper.GetIngest)
 	router.PATCH(options.BaseURL+"/v1/ingests/:id", wrapper.CompleteIngest)
 }

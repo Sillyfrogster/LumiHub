@@ -272,6 +272,69 @@ paths:
               schema: { type: string, format: binary }
         "404":
           description: No such asset
+  /v1/assets/{id}/media:
+    get:
+      operationId: listMedia
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Asset-scoped media and media from the current revision
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MediaList" }
+        "404": { description: No such asset }
+    post:
+      operationId: addMedia
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        description: Send the metadata part before the image file part.
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [metadata, file]
+              properties:
+                metadata:
+                  $ref: "#/components/schemas/AddMediaRequest"
+                file: { type: string, format: binary }
+      responses:
+        "201":
+          description: A new immutable media record
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Media" }
+        "400": { description: The role or image is not valid }
+        "401": { description: No account is signed in }
+        "403": { description: The signed-in account has not verified its email }
+        "404": { description: The asset does not belong to the creator }
+  /media/{media_id}/{variant}/{derivative_version}:
+    get:
+      operationId: getMediaVariant
+      parameters:
+        - { name: media_id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: variant, in: path, required: true, schema: { type: string } }
+        - { name: derivative_version, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200":
+          description: A named media variant
+          headers:
+            Cache-Control:
+              required: true
+              schema: { type: string }
+            Content-Disposition:
+              required: true
+              schema: { type: string, enum: [inline] }
+            X-Content-Type-Options:
+              required: true
+              schema: { type: string, enum: [nosniff] }
+          content:
+            image/png:
+              schema: { type: string, format: binary }
+        "404": { description: No such media variant }
   /v1/ingests/{id}:
     get:
       operationId: getIngest
@@ -416,6 +479,34 @@ components:
         tags: { type: array, items: { type: string } }
         isNsfw: { type: boolean }
         discovery: { type: string, enum: [listed, unlisted] }
+    AddMediaRequest:
+      type: object
+      additionalProperties: false
+      required: [role]
+      properties:
+        role:
+          type: string
+          enum: [avatar, expression, gallery, avatar_alt, perspective_layer]
+    Media:
+      type: object
+      required: [id, assetId, revisionId, role, width, height, derivativeVersion]
+      properties:
+        id: { type: string, format: uuid }
+        assetId: { type: [string, "null"], format: uuid }
+        revisionId: { type: [string, "null"], format: uuid }
+        role:
+          type: string
+          enum: [avatar, expression, gallery, avatar_alt, perspective_layer]
+        width: { type: integer, minimum: 1 }
+        height: { type: integer, minimum: 1 }
+        derivativeVersion: { type: integer, minimum: 1 }
+    MediaList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Media" }
     IngestOperation:
       type: object
       required: [id, status, url]

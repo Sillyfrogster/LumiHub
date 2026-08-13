@@ -58,6 +58,12 @@ type Facet struct {
 	Value string
 }
 
+// Media is one image extracted from a source file.
+type Media struct {
+	Role  string
+	Bytes []byte
+}
+
 /** What a module reads out of an uploaded file */
 type Parsed struct {
 	Kind                string
@@ -68,6 +74,7 @@ type Parsed struct {
 	Tags                []string
 	IsNSFW              *bool
 	Facets              []Facet
+	Media               []Media
 	// CreatedAt is the date the file carries. Nil means the file does not say.
 	CreatedAt *time.Time
 }

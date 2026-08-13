@@ -10,8 +10,9 @@ import (
 )
 
 var (
-	ErrBlobNotFound = errors.New("blob not found")
-	ErrInvalidRange = errors.New("invalid blob range")
+	ErrBlobNotFound       = errors.New("blob not found")
+	ErrInvalidRange       = errors.New("invalid blob range")
+	ErrDerivativeNotFound = errors.New("derivative not found")
 )
 
 // StoredBlob identifies one distinct byte sequence.
@@ -36,5 +37,6 @@ type Store interface {
 	InternalRedirect(ctx context.Context, id uuid.UUID) (string, error)
 	PutDerivative(ctx context.Context, id DerivativeID, r io.Reader) error
 	OpenDerivative(ctx context.Context, id DerivativeID) (io.ReadCloser, error)
+	InternalDerivativeRedirect(ctx context.Context, id DerivativeID) (string, error)
 	ClearDerivatives(ctx context.Context) error
 }
