@@ -62,3 +62,31 @@ type Blob struct {
 	ByteSize   int64
 	StorageKey string
 }
+
+type EmailVerificationToken struct {
+	TokenHash []byte
+	UserID    pgtype.UUID
+	Email     string
+	ExpiresAt pgtype.Timestamptz
+}
+
+type RetiredHandle struct {
+	Handle string
+}
+
+type Session struct {
+	TokenHash []byte
+	UserID    pgtype.UUID
+	ExpiresAt pgtype.Timestamptz
+}
+
+type User struct {
+	ID              pgtype.UUID
+	Username        string
+	Email           pgtype.Text
+	PasswordHash    pgtype.Text
+	EmailVerifiedAt pgtype.Timestamptz
+	EmailSource     pgtype.Text
+	CreatedAt       pgtype.Timestamptz
+	UpdatedAt       pgtype.Timestamptz
+}

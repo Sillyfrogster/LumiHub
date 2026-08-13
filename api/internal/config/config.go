@@ -18,6 +18,8 @@ const defaultMaxUploadBytes = 55 << 20
 // handed down, so nothing reaches for a setting on its own.
 type Config struct {
 	Port           string
+	SiteURL        string
+	SMTP           SMTPSettings
 	Database       postgres.Settings
 	UploadsDir     string
 	MaxUploadBytes int64
@@ -25,15 +27,29 @@ type Config struct {
 	Deadlines      apihttp.Deadlines
 }
 
+type SMTPSettings struct {
+	Address  string
+	From     string
+	Username string
+	Password string
+}
+
 // Load reads settings from the environment and rejects anything missing.
 func Load() (Config, error) {
 	databaseURL := get("DATABASE_URL", "")
 	cfg := Config{
 		Port:       get("PORT", "8080"),
+		SiteURL:    get("SITE_URL", "http://localhost:3000"),
 		Database:   postgres.DefaultSettings(databaseURL),
 		UploadsDir: get("UPLOADS_DIR", ""),
 		Server:     apihttp.DefaultTimeouts(),
 		Deadlines:  apihttp.DefaultDeadlines(),
+		SMTP: SMTPSettings{
+			Address:  get("SMTP_ADDR", ""),
+			From:     get("SMTP_FROM", ""),
+			Username: get("SMTP_USERNAME", ""),
+			Password: get("SMTP_PASSWORD", ""),
+		},
 	}
 
 	for name, value := range map[string]string{
@@ -50,6 +66,15 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	cfg.MaxUploadBytes = max
+	if (cfg.SMTP.Address == "") != (cfg.SMTP.From == "") {
+		return Config{}, fmt.Errorf("SMTP_ADDR and SMTP_FROM must be set together")
+	}
+	if (cfg.SMTP.Username == "") != (cfg.SMTP.Password == "") {
+		return Config{}, fmt.Errorf("SMTP_USERNAME and SMTP_PASSWORD must be set together")
+	}
+	if cfg.SMTP.Address == "" && cfg.SMTP.Username != "" {
+		return Config{}, fmt.Errorf("SMTP credentials need SMTP_ADDR and SMTP_FROM")
+	}
 
 	return cfg, nil
 }

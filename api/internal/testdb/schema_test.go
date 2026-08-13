@@ -13,7 +13,17 @@ import (
 func TestCoreTablesExist(t *testing.T) {
 	pool := Connect(t)
 
-	want := []string{"assets", "asset_revisions", "asset_facets", "asset_media", "blobs"}
+	want := []string{
+		"assets",
+		"asset_revisions",
+		"asset_facets",
+		"asset_media",
+		"blobs",
+		"users",
+		"retired_handles",
+		"email_verification_tokens",
+		"sessions",
+	}
 	for _, table := range want {
 		var exists bool
 		err := pool.QueryRow(context.Background(),

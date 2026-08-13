@@ -41,7 +41,7 @@ func list(t *testing.T, r *gin.Engine) *httptest.ResponseRecorder {
 }
 
 func TestARouteWithNoDeadlineIsRefused(t *testing.T) {
-	err := Register(gin.New(), NewHandlers(nil, 1<<20), Deadlines{Upload: time.Minute, Download: time.Minute})
+	err := Register(gin.New(), NewHandlers(nil, nil, 1<<20), Deadlines{Upload: time.Minute, Download: time.Minute})
 
 	if err == nil {
 		t.Fatal("registered a listing route that may run for as long as it likes")
@@ -49,9 +49,11 @@ func TestARouteWithNoDeadlineIsRefused(t *testing.T) {
 }
 
 func TestAnUploadIsNotHeldToTheListingDeadline(t *testing.T) {
-	r := newTestRouterWith(t, 1<<20, deadlines(alreadyPast))
+	r, session := newVerifiedTestRouterWith(t, 1<<20, deadlines(alreadyPast))
 
-	rec := send(t, r, uploadRequest(t, exampleMetadata("Patient"), []byte("bytes")))
+	rec := send(t, r, authorized(
+		uploadRequest(t, exampleMetadata("Patient"), []byte("bytes")), session,
+	))
 
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("status = %d, want 201. body: %s", rec.Code, rec.Body.String())
@@ -59,10 +61,10 @@ func TestAnUploadIsNotHeldToTheListingDeadline(t *testing.T) {
 }
 
 func TestADownloadIsNotHeldToTheListingDeadline(t *testing.T) {
-	r := newTestRouterWith(t, 1<<20, deadlines(alreadyPast))
+	r, session := newVerifiedTestRouterWith(t, 1<<20, deadlines(alreadyPast))
 
 	file := []byte("bytes worth waiting for")
-	rec := send(t, r, uploadRequest(t, exampleMetadata("Roomy"), file))
+	rec := send(t, r, authorized(uploadRequest(t, exampleMetadata("Roomy"), file), session))
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create failed: %d %s", rec.Code, rec.Body.String())
 	}

@@ -53,7 +53,7 @@ func TestAConnectionThatNeverFinishesItsHeadersIsCutOff(t *testing.T) {
 }
 
 func TestAnUploadArrivingSlowlyRunsToCompletion(t *testing.T) {
-	r := newTestRouterWith(t, 1<<20, Deadlines{
+	r, session := newVerifiedTestRouterWith(t, 1<<20, Deadlines{
 		JSON:     300 * time.Millisecond,
 		Upload:   30 * time.Second,
 		Download: 30 * time.Second,
@@ -69,7 +69,13 @@ func TestAnUploadArrivingSlowlyRunsToCompletion(t *testing.T) {
 	// Sent over about a second, which is far longer than a listing is allowed
 	// and longer than the whole request may take to start.
 	body := &slowReader{rest: form, chunk: len(form)/5 + 1, pause: 200 * time.Millisecond}
-	resp, err := http.Post(base+"/v1/assets", built.Header.Get("Content-Type"), body)
+	req, err := http.NewRequest(http.MethodPost, base+"/v1/assets", body)
+	if err != nil {
+		t.Fatalf("build request: %v", err)
+	}
+	req.Header.Set("Content-Type", built.Header.Get("Content-Type"))
+	req.AddCookie(session)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("post: %v", err)
 	}
@@ -82,7 +88,7 @@ func TestAnUploadArrivingSlowlyRunsToCompletion(t *testing.T) {
 }
 
 func TestADownloadReadSlowlyRunsToCompletion(t *testing.T) {
-	r := newTestRouterWith(t, 8<<20, Deadlines{
+	r, session := newVerifiedTestRouterWith(t, 8<<20, Deadlines{
 		JSON:     300 * time.Millisecond,
 		Upload:   30 * time.Second,
 		Download: 30 * time.Second,
@@ -90,7 +96,7 @@ func TestADownloadReadSlowlyRunsToCompletion(t *testing.T) {
 	base := serve(t, r, Timeouts{ReadHeader: 300 * time.Millisecond, Idle: time.Minute})
 
 	file := bytes.Repeat([]byte("lumi"), 1<<20) // 4 MB
-	id := uploadOver(t, base, file)
+	id := uploadOver(t, base, file, session)
 
 	resp, err := http.Get(base + "/v1/assets/" + id + "/original")
 	if err != nil {
@@ -107,11 +113,17 @@ func TestADownloadReadSlowlyRunsToCompletion(t *testing.T) {
 	}
 }
 
-func uploadOver(t *testing.T, base string, file []byte) string {
+func uploadOver(t *testing.T, base string, file []byte, session *http.Cookie) string {
 	t.Helper()
 
 	built := uploadRequest(t, exampleMetadata("Chunky"), file)
-	resp, err := http.Post(base+"/v1/assets", built.Header.Get("Content-Type"), built.Body)
+	req, err := http.NewRequest(http.MethodPost, base+"/v1/assets", built.Body)
+	if err != nil {
+		t.Fatalf("build request: %v", err)
+	}
+	req.Header.Set("Content-Type", built.Header.Get("Content-Type"))
+	req.AddCookie(session)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("post: %v", err)
 	}

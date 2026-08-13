@@ -49,6 +49,14 @@ func (e CreateAssetRequestDiscovery) Valid() bool {
 	}
 }
 
+// Account defines model for Account.
+type Account struct {
+	Email         *openapi_types.Email `json:"email"`
+	EmailVerified bool                 `json:"emailVerified"`
+	Handle        string               `json:"handle"`
+	Id            openapi_types.UUID   `json:"id"`
+}
+
 // Asset defines model for Asset.
 type Asset struct {
 	CreatedAt           time.Time          `json:"createdAt"`
@@ -71,6 +79,11 @@ type AssetList struct {
 	Items []Asset `json:"items"`
 }
 
+// ChangeEmailRequest defines model for ChangeEmailRequest.
+type ChangeEmailRequest struct {
+	Email openapi_types.Email `json:"email"`
+}
+
 // CreateAssetRequest defines model for CreateAssetRequest.
 type CreateAssetRequest struct {
 	Description *string                      `json:"description,omitempty"`
@@ -84,6 +97,40 @@ type CreateAssetRequest struct {
 
 // CreateAssetRequestDiscovery defines model for CreateAssetRequest.Discovery.
 type CreateAssetRequestDiscovery string
+
+// Profile defines model for Profile.
+type Profile struct {
+	Handle string             `json:"handle"`
+	Id     openapi_types.UUID `json:"id"`
+}
+
+// RenameHandleRequest defines model for RenameHandleRequest.
+type RenameHandleRequest struct {
+	Handle string `json:"handle"`
+}
+
+// SessionState defines model for SessionState.
+type SessionState struct {
+	User *Account `json:"user"`
+}
+
+// SignInRequest defines model for SignInRequest.
+type SignInRequest struct {
+	Email    openapi_types.Email `json:"email"`
+	Password string              `json:"password"`
+}
+
+// SignUpRequest defines model for SignUpRequest.
+type SignUpRequest struct {
+	Email    openapi_types.Email `json:"email"`
+	Handle   string              `json:"handle"`
+	Password string              `json:"password"`
+}
+
+// VerifyEmailRequest defines model for VerifyEmailRequest.
+type VerifyEmailRequest struct {
+	Token string `json:"token"`
+}
 
 // ListAssetsParams defines parameters for ListAssets.
 type ListAssetsParams struct {
@@ -106,11 +153,32 @@ type CreateAssetMultipartBody struct {
 	Metadata CreateAssetRequest `json:"metadata"`
 }
 
+// ChangeUnverifiedEmailJSONRequestBody defines body for ChangeUnverifiedEmail for application/json ContentType.
+type ChangeUnverifiedEmailJSONRequestBody = ChangeEmailRequest
+
+// RenameHandleJSONRequestBody defines body for RenameHandle for application/json ContentType.
+type RenameHandleJSONRequestBody = RenameHandleRequest
+
 // CreateAssetMultipartRequestBody defines body for CreateAsset for multipart/form-data ContentType.
 type CreateAssetMultipartRequestBody CreateAssetMultipartBody
 
+// SignInJSONRequestBody defines body for SignIn for application/json ContentType.
+type SignInJSONRequestBody = SignInRequest
+
+// SignUpJSONRequestBody defines body for SignUp for application/json ContentType.
+type SignUpJSONRequestBody = SignUpRequest
+
+// VerifyEmailJSONRequestBody defines body for VerifyEmail for application/json ContentType.
+type VerifyEmailJSONRequestBody = VerifyEmailRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+
+	// (PATCH /v1/account/email)
+	ChangeUnverifiedEmail(c *gin.Context)
+
+	// (PATCH /v1/account/handle)
+	RenameHandle(c *gin.Context)
 
 	// (GET /v1/assets)
 	ListAssets(c *gin.Context, params ListAssetsParams)
@@ -120,6 +188,24 @@ type ServerInterface interface {
 
 	// (GET /v1/assets/{id}/original)
 	DownloadOriginal(c *gin.Context, id openapi_types.UUID)
+
+	// (GET /v1/auth/session)
+	GetSession(c *gin.Context)
+
+	// (POST /v1/auth/sign-in)
+	SignIn(c *gin.Context)
+
+	// (POST /v1/auth/sign-out)
+	SignOut(c *gin.Context)
+
+	// (POST /v1/auth/sign-up)
+	SignUp(c *gin.Context)
+
+	// (POST /v1/auth/verify-email)
+	VerifyEmail(c *gin.Context)
+
+	// (GET /v1/profiles/{handle})
+	GetProfile(c *gin.Context, handle string)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -130,6 +216,32 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(c *gin.Context)
+
+// ChangeUnverifiedEmail operation middleware
+func (siw *ServerInterfaceWrapper) ChangeUnverifiedEmail(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ChangeUnverifiedEmail(c)
+}
+
+// RenameHandle operation middleware
+func (siw *ServerInterfaceWrapper) RenameHandle(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RenameHandle(c)
+}
 
 // ListAssets operation middleware
 func (siw *ServerInterfaceWrapper) ListAssets(c *gin.Context) {
@@ -244,6 +356,96 @@ func (siw *ServerInterfaceWrapper) DownloadOriginal(c *gin.Context) {
 	siw.Handler.DownloadOriginal(c, id)
 }
 
+// GetSession operation middleware
+func (siw *ServerInterfaceWrapper) GetSession(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetSession(c)
+}
+
+// SignIn operation middleware
+func (siw *ServerInterfaceWrapper) SignIn(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.SignIn(c)
+}
+
+// SignOut operation middleware
+func (siw *ServerInterfaceWrapper) SignOut(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.SignOut(c)
+}
+
+// SignUp operation middleware
+func (siw *ServerInterfaceWrapper) SignUp(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.SignUp(c)
+}
+
+// VerifyEmail operation middleware
+func (siw *ServerInterfaceWrapper) VerifyEmail(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.VerifyEmail(c)
+}
+
+// GetProfile operation middleware
+func (siw *ServerInterfaceWrapper) GetProfile(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "handle" -------------
+	var handle string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "handle", c.Param("handle"), &handle, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter handle: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetProfile(c, handle)
+}
+
 // GinServerOptions provides options for the Gin server.
 type GinServerOptions struct {
 	BaseURL      string
@@ -271,6 +473,14 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 		ErrorHandler:       errorHandler,
 	}
 
+	router.PATCH(options.BaseURL+"/v1/account/email", wrapper.ChangeUnverifiedEmail)
+	router.PATCH(options.BaseURL+"/v1/account/handle", wrapper.RenameHandle)
+	router.POST(options.BaseURL+"/v1/auth/sign-up", wrapper.SignUp)
+	router.POST(options.BaseURL+"/v1/auth/sign-in", wrapper.SignIn)
+	router.POST(options.BaseURL+"/v1/auth/sign-out", wrapper.SignOut)
+	router.GET(options.BaseURL+"/v1/auth/session", wrapper.GetSession)
+	router.POST(options.BaseURL+"/v1/auth/verify-email", wrapper.VerifyEmail)
+	router.GET(options.BaseURL+"/v1/profiles/:handle", wrapper.GetProfile)
 	router.GET(options.BaseURL+"/v1/assets", wrapper.ListAssets)
 	router.POST(options.BaseURL+"/v1/assets", wrapper.CreateAsset)
 	router.GET(options.BaseURL+"/v1/assets/:id/original", wrapper.DownloadOriginal)

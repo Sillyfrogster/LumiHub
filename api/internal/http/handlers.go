@@ -7,7 +7,10 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"strings"
+	"time"
 
+	"github.com/Sillyfrogster/LumiHub/api/internal/account"
 	"github.com/Sillyfrogster/LumiHub/api/internal/asset"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	"github.com/gin-gonic/gin"
@@ -18,11 +21,230 @@ import (
 // Handlers turns HTTP requests into catalog calls.
 type Handlers struct {
 	assets         *asset.Service
+	accounts       *account.Service
 	maxUploadBytes int64
 }
 
-func NewHandlers(assets *asset.Service, maxUploadBytes int64) *Handlers {
-	return &Handlers{assets: assets, maxUploadBytes: maxUploadBytes}
+func NewHandlers(assets *asset.Service, accounts *account.Service, maxUploadBytes int64) *Handlers {
+	return &Handlers{assets: assets, accounts: accounts, maxUploadBytes: maxUploadBytes}
+}
+
+const sessionCookieName = "lumihub_session"
+
+func (h *Handlers) SignUp(c *gin.Context) {
+	var request SignUpRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Send an email, password and handle as JSON."})
+		return
+	}
+
+	created, token, expires, err := h.accounts.SignUp(c.Request.Context(), account.SignUpInput{
+		Email:    string(request.Email),
+		Password: request.Password,
+		Handle:   request.Handle,
+	})
+	if err != nil {
+		h.accountError(c, err)
+		return
+	}
+	setSessionCookie(c, token, expires)
+	c.JSON(http.StatusCreated, toAPIAccount(created))
+}
+
+func (h *Handlers) SignIn(c *gin.Context) {
+	var request SignInRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Email or password is not correct."})
+		return
+	}
+	current, token, expires, err := h.accounts.SignIn(
+		c.Request.Context(), string(request.Email), request.Password,
+	)
+	if errors.Is(err, account.ErrCredentials) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Email or password is not correct."})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not sign in."})
+		return
+	}
+	setSessionCookie(c, token, expires)
+	c.JSON(http.StatusOK, toAPIAccount(current))
+}
+
+func (h *Handlers) SignOut(c *gin.Context) {
+	token, _ := c.Cookie(sessionCookieName)
+	if err := h.accounts.SignOut(c.Request.Context(), token); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not sign out."})
+		return
+	}
+	clearSessionCookie(c)
+	c.Status(http.StatusNoContent)
+}
+
+func (h *Handlers) GetSession(c *gin.Context) {
+	token, err := c.Cookie(sessionCookieName)
+	if errors.Is(err, http.ErrNoCookie) {
+		c.JSON(http.StatusOK, SessionState{User: nil})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "The session cookie could not be read."})
+		return
+	}
+
+	current, err := h.accounts.Current(c.Request.Context(), token)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not read the signed-in account."})
+		return
+	}
+	if current == nil {
+		c.JSON(http.StatusOK, SessionState{User: nil})
+		return
+	}
+	user := toAPIAccount(*current)
+	c.JSON(http.StatusOK, SessionState{User: &user})
+}
+
+func (h *Handlers) VerifyEmail(c *gin.Context) {
+	var request VerifyEmailRequest
+	if err := c.ShouldBindJSON(&request); err != nil || request.Token == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "The verification link is incomplete."})
+		return
+	}
+	verified, err := h.accounts.VerifyEmail(c.Request.Context(), request.Token)
+	if err != nil {
+		switch {
+		case errors.Is(err, account.ErrVerification):
+			c.JSON(http.StatusBadRequest, gin.H{"error": "This verification link is invalid or has expired."})
+		case errors.Is(err, account.ErrEmailUnavailable):
+			c.JSON(http.StatusConflict, gin.H{"error": "Another account verified this email first."})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not verify the email."})
+		}
+		return
+	}
+	c.JSON(http.StatusOK, toAPIAccount(verified))
+}
+
+func (h *Handlers) RenameHandle(c *gin.Context) {
+	var request RenameHandleRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Send the new handle as JSON."})
+		return
+	}
+	token, _ := c.Cookie(sessionCookieName)
+	updated, err := h.accounts.RenameHandle(c.Request.Context(), token, request.Handle)
+	if err != nil {
+		var field account.FieldError
+		switch {
+		case errors.As(err, &field):
+			c.JSON(http.StatusBadRequest, gin.H{"error": field.Message, "field": field.Field})
+		case errors.Is(err, account.ErrUnauthorized):
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Sign in before changing your handle."})
+		case errors.Is(err, account.ErrHandleUnavailable):
+			c.JSON(http.StatusConflict, gin.H{"error": "That handle is not available."})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not change the handle."})
+		}
+		return
+	}
+	c.JSON(http.StatusOK, toAPIAccount(updated))
+}
+
+func (h *Handlers) ChangeUnverifiedEmail(c *gin.Context) {
+	var request ChangeEmailRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Send the corrected email as JSON."})
+		return
+	}
+	token, _ := c.Cookie(sessionCookieName)
+	updated, err := h.accounts.ChangeUnverifiedEmail(
+		c.Request.Context(), token, string(request.Email),
+	)
+	if err != nil {
+		var field account.FieldError
+		switch {
+		case errors.As(err, &field):
+			c.JSON(http.StatusBadRequest, gin.H{"error": field.Message, "field": field.Field})
+		case errors.Is(err, account.ErrUnauthorized):
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Sign in before changing your email."})
+		case errors.Is(err, account.ErrEmailUnavailable):
+			c.JSON(http.StatusConflict, gin.H{"error": "An account already uses that email. Sign in instead."})
+		case errors.Is(err, account.ErrEmailVerified):
+			c.JSON(http.StatusConflict, gin.H{"error": "This email is already verified."})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not change the email."})
+		}
+		return
+	}
+	c.JSON(http.StatusOK, toAPIAccount(updated))
+}
+
+func (h *Handlers) GetProfile(c *gin.Context, handle string) {
+	profile, err := h.accounts.Profile(c.Request.Context(), handle)
+	if errors.Is(err, account.ErrProfileNotFound) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "No such profile."})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not read the profile."})
+		return
+	}
+	c.JSON(http.StatusOK, Profile{Id: types.UUID(profile.ID), Handle: profile.Handle})
+}
+
+func (h *Handlers) accountError(c *gin.Context, err error) {
+	var field account.FieldError
+	switch {
+	case errors.As(err, &field):
+		c.JSON(http.StatusBadRequest, gin.H{"error": field.Message, "field": field.Field})
+	case errors.Is(err, account.ErrHandleUnavailable):
+		c.JSON(http.StatusConflict, gin.H{"error": "That handle is not available."})
+	case errors.Is(err, account.ErrEmailUnavailable):
+		c.JSON(http.StatusConflict, gin.H{"error": "An account already uses that email. Sign in instead."})
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not create the account."})
+	}
+}
+
+func setSessionCookie(c *gin.Context, token string, expires time.Time) {
+	secure := c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https")
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     sessionCookieName,
+		Value:    token,
+		Path:     "/",
+		Expires:  expires,
+		MaxAge:   int(time.Until(expires).Seconds()),
+		HttpOnly: true,
+		Secure:   secure,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+func clearSessionCookie(c *gin.Context) {
+	secure := c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https")
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     sessionCookieName,
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   secure,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+func toAPIAccount(value account.Account) Account {
+	result := Account{
+		Id:            types.UUID(value.ID),
+		Handle:        value.Handle,
+		EmailVerified: value.EmailVerified,
+	}
+	if value.Email != nil {
+		email := types.Email(*value.Email)
+		result.Email = &email
+	}
+	return result
 }
 
 func (h *Handlers) ListAssets(c *gin.Context, params ListAssetsParams) {
@@ -67,6 +289,11 @@ func (h *Handlers) ListAssets(c *gin.Context, params ListAssetsParams) {
 }
 
 func (h *Handlers) CreateAsset(c *gin.Context) {
+	owner, ok := h.uploadOwner(c)
+	if !ok {
+		return
+	}
+
 	// Refused before the body is read, so a hopeless upload is never received.
 	if c.Request.ContentLength > h.maxUploadBytes {
 		h.refuse(c, errOverCeiling)
@@ -94,13 +321,39 @@ func (h *Handlers) CreateAsset(c *gin.Context) {
 		return
 	}
 
-	created, err := h.assets.Create(c.Request.Context(), createInput(metadata, file))
+	created, err := h.assets.Create(c.Request.Context(), createInput(metadata, file, owner.ID))
 	if err != nil {
 		h.refuse(c, err)
 		return
 	}
 
 	c.JSON(http.StatusCreated, toAPI(created))
+}
+
+func (h *Handlers) uploadOwner(c *gin.Context) (account.Account, bool) {
+	token, err := c.Cookie(sessionCookieName)
+	if errors.Is(err, http.ErrNoCookie) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sign in before uploading."})
+		return account.Account{}, false
+	}
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sign in before uploading."})
+		return account.Account{}, false
+	}
+	current, err := h.accounts.Current(c.Request.Context(), token)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not check the signed-in account."})
+		return account.Account{}, false
+	}
+	if current == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sign in before uploading."})
+		return account.Account{}, false
+	}
+	if !current.EmailVerified {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Verify your email before uploading."})
+		return account.Account{}, false
+	}
+	return *current, true
 }
 
 const (
@@ -143,9 +396,9 @@ func nextPart(parts *multipart.Reader, name string) (*multipart.Part, error) {
 	return part, nil
 }
 
-func createInput(metadata CreateAssetRequest, file io.Reader) asset.CreateInput {
+func createInput(metadata CreateAssetRequest, file io.Reader, ownerID uuid.UUID) asset.CreateInput {
 	in := asset.CreateInput{
-		OwnerID:  uuid.Nil,
+		OwnerID:  ownerID,
 		Filename: metadata.Filename,
 		File:     file,
 		Name:     metadata.Name,

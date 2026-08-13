@@ -27,6 +27,22 @@ func (q *Queries) BlobLocation(ctx context.Context, id pgtype.UUID) (BlobLocatio
 	return i, err
 }
 
+const clearPendingEmailCopies = `-- name: ClearPendingEmailCopies :exec
+update users
+   set email = null, email_source = null, updated_at = now()
+ where email = $1 and id <> $2 and email_verified_at is null
+`
+
+type ClearPendingEmailCopiesParams struct {
+	Email pgtype.Text
+	ID    pgtype.UUID
+}
+
+func (q *Queries) ClearPendingEmailCopies(ctx context.Context, arg ClearPendingEmailCopiesParams) error {
+	_, err := q.db.Exec(ctx, clearPendingEmailCopies, arg.Email, arg.ID)
+	return err
+}
+
 const currentRevisionLocation = `-- name: CurrentRevisionLocation :one
 select r.blob_id, r.media_type
   from assets a
@@ -44,6 +60,48 @@ func (q *Queries) CurrentRevisionLocation(ctx context.Context, id pgtype.UUID) (
 	var i CurrentRevisionLocationRow
 	err := row.Scan(&i.BlobID, &i.MediaType)
 	return i, err
+}
+
+const deleteSession = `-- name: DeleteSession :exec
+delete from sessions where token_hash = $1
+`
+
+func (q *Queries) DeleteSession(ctx context.Context, tokenHash []byte) error {
+	_, err := q.db.Exec(ctx, deleteSession, tokenHash)
+	return err
+}
+
+const deleteVerificationTokensForEmail = `-- name: DeleteVerificationTokensForEmail :exec
+delete from email_verification_tokens where email = $1
+`
+
+func (q *Queries) DeleteVerificationTokensForEmail(ctx context.Context, email string) error {
+	_, err := q.db.Exec(ctx, deleteVerificationTokensForEmail, email)
+	return err
+}
+
+const deleteVerificationTokensForUser = `-- name: DeleteVerificationTokensForUser :exec
+delete from email_verification_tokens where user_id = $1
+`
+
+func (q *Queries) DeleteVerificationTokensForUser(ctx context.Context, userID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteVerificationTokensForUser, userID)
+	return err
+}
+
+const handleUnavailable = `-- name: HandleUnavailable :one
+select exists (
+    select 1 from users where username = $1
+    union all
+    select 1 from retired_handles where handle = $1
+)
+`
+
+func (q *Queries) HandleUnavailable(ctx context.Context, username string) (bool, error) {
+	row := q.db.QueryRow(ctx, handleUnavailable, username)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const insertAsset = `-- name: InsertAsset :one
@@ -84,6 +142,28 @@ func (q *Queries) InsertAsset(ctx context.Context, arg InsertAssetParams) (pgtyp
 	return created_at, err
 }
 
+const insertEmailVerificationToken = `-- name: InsertEmailVerificationToken :exec
+insert into email_verification_tokens (token_hash, user_id, email, expires_at)
+values ($1, $2, $3, $4)
+`
+
+type InsertEmailVerificationTokenParams struct {
+	TokenHash []byte
+	UserID    pgtype.UUID
+	Email     string
+	ExpiresAt pgtype.Timestamptz
+}
+
+func (q *Queries) InsertEmailVerificationToken(ctx context.Context, arg InsertEmailVerificationTokenParams) error {
+	_, err := q.db.Exec(ctx, insertEmailVerificationToken,
+		arg.TokenHash,
+		arg.UserID,
+		arg.Email,
+		arg.ExpiresAt,
+	)
+	return err
+}
+
 const insertFacet = `-- name: InsertFacet :exec
 insert into asset_facets (revision_id, key, value)
 values ($1, $2, $3)
@@ -98,6 +178,15 @@ type InsertFacetParams struct {
 
 func (q *Queries) InsertFacet(ctx context.Context, arg InsertFacetParams) error {
 	_, err := q.db.Exec(ctx, insertFacet, arg.RevisionID, arg.Key, arg.Value)
+	return err
+}
+
+const insertRetiredHandle = `-- name: InsertRetiredHandle :exec
+insert into retired_handles (handle) values ($1)
+`
+
+func (q *Queries) InsertRetiredHandle(ctx context.Context, handle string) error {
+	_, err := q.db.Exec(ctx, insertRetiredHandle, handle)
 	return err
 }
 
@@ -128,6 +217,59 @@ func (q *Queries) InsertRevision(ctx context.Context, arg InsertRevisionParams) 
 		arg.PassthroughPlatform,
 	)
 	return err
+}
+
+const insertSession = `-- name: InsertSession :exec
+insert into sessions (token_hash, user_id, expires_at)
+values ($1, $2, $3)
+`
+
+type InsertSessionParams struct {
+	TokenHash []byte
+	UserID    pgtype.UUID
+	ExpiresAt pgtype.Timestamptz
+}
+
+func (q *Queries) InsertSession(ctx context.Context, arg InsertSessionParams) error {
+	_, err := q.db.Exec(ctx, insertSession, arg.TokenHash, arg.UserID, arg.ExpiresAt)
+	return err
+}
+
+const insertUser = `-- name: InsertUser :one
+insert into users (id, username, email, password_hash, email_source)
+values ($1, $2, $3, $4, 'creator')
+returning id, username, email, email_verified_at
+`
+
+type InsertUserParams struct {
+	ID           pgtype.UUID
+	Username     string
+	Email        pgtype.Text
+	PasswordHash pgtype.Text
+}
+
+type InsertUserRow struct {
+	ID              pgtype.UUID
+	Username        string
+	Email           pgtype.Text
+	EmailVerifiedAt pgtype.Timestamptz
+}
+
+func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (InsertUserRow, error) {
+	row := q.db.QueryRow(ctx, insertUser,
+		arg.ID,
+		arg.Username,
+		arg.Email,
+		arg.PasswordHash,
+	)
+	var i InsertUserRow
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.EmailVerifiedAt,
+	)
+	return i, err
 }
 
 const listAssets = `-- name: ListAssets :many
@@ -227,6 +369,33 @@ func (q *Queries) ListAssets(ctx context.Context, arg ListAssetsParams) ([]ListA
 	return items, nil
 }
 
+const lockHandle = `-- name: LockHandle :one
+select 1 from pg_advisory_xact_lock(hashtextextended('lumihub-handle:' || $1, 0))
+`
+
+func (q *Queries) LockHandle(ctx context.Context, dollar_1 pgtype.Text) (int32, error) {
+	row := q.db.QueryRow(ctx, lockHandle, dollar_1)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const profileByHandle = `-- name: ProfileByHandle :one
+select id, username from users where username = $1
+`
+
+type ProfileByHandleRow struct {
+	ID       pgtype.UUID
+	Username string
+}
+
+func (q *Queries) ProfileByHandle(ctx context.Context, username string) (ProfileByHandleRow, error) {
+	row := q.db.QueryRow(ctx, profileByHandle, username)
+	var i ProfileByHandleRow
+	err := row.Scan(&i.ID, &i.Username)
+	return i, err
+}
+
 const setCurrentRevision = `-- name: SetCurrentRevision :exec
 update assets set current_revision_id = $2, updated_at = now() where id = $1
 `
@@ -239,6 +408,66 @@ type SetCurrentRevisionParams struct {
 func (q *Queries) SetCurrentRevision(ctx context.Context, arg SetCurrentRevisionParams) error {
 	_, err := q.db.Exec(ctx, setCurrentRevision, arg.ID, arg.CurrentRevisionID)
 	return err
+}
+
+const updateUnverifiedEmail = `-- name: UpdateUnverifiedEmail :one
+update users
+   set email = $2, email_source = 'creator', updated_at = now()
+ where id = $1 and email_verified_at is null
+returning id, username, email, email_verified_at
+`
+
+type UpdateUnverifiedEmailParams struct {
+	ID    pgtype.UUID
+	Email pgtype.Text
+}
+
+type UpdateUnverifiedEmailRow struct {
+	ID              pgtype.UUID
+	Username        string
+	Email           pgtype.Text
+	EmailVerifiedAt pgtype.Timestamptz
+}
+
+func (q *Queries) UpdateUnverifiedEmail(ctx context.Context, arg UpdateUnverifiedEmailParams) (UpdateUnverifiedEmailRow, error) {
+	row := q.db.QueryRow(ctx, updateUnverifiedEmail, arg.ID, arg.Email)
+	var i UpdateUnverifiedEmailRow
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.EmailVerifiedAt,
+	)
+	return i, err
+}
+
+const updateUserHandle = `-- name: UpdateUserHandle :one
+update users set username = $2, updated_at = now() where id = $1
+returning id, username, email, email_verified_at
+`
+
+type UpdateUserHandleParams struct {
+	ID       pgtype.UUID
+	Username string
+}
+
+type UpdateUserHandleRow struct {
+	ID              pgtype.UUID
+	Username        string
+	Email           pgtype.Text
+	EmailVerifiedAt pgtype.Timestamptz
+}
+
+func (q *Queries) UpdateUserHandle(ctx context.Context, arg UpdateUserHandleParams) (UpdateUserHandleRow, error) {
+	row := q.db.QueryRow(ctx, updateUserHandle, arg.ID, arg.Username)
+	var i UpdateUserHandleRow
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.EmailVerifiedAt,
+	)
+	return i, err
 }
 
 const upsertBlob = `-- name: UpsertBlob :one
@@ -268,6 +497,146 @@ func (q *Queries) UpsertBlob(ctx context.Context, arg UpsertBlobParams) (Blob, e
 		&i.Sha256,
 		&i.ByteSize,
 		&i.StorageKey,
+	)
+	return i, err
+}
+
+const userBySessionHash = `-- name: UserBySessionHash :one
+select u.id, u.username, u.email, u.email_verified_at
+  from sessions s
+  join users u on u.id = s.user_id
+ where s.token_hash = $1 and s.expires_at > now()
+`
+
+type UserBySessionHashRow struct {
+	ID              pgtype.UUID
+	Username        string
+	Email           pgtype.Text
+	EmailVerifiedAt pgtype.Timestamptz
+}
+
+func (q *Queries) UserBySessionHash(ctx context.Context, tokenHash []byte) (UserBySessionHashRow, error) {
+	row := q.db.QueryRow(ctx, userBySessionHash, tokenHash)
+	var i UserBySessionHashRow
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.EmailVerifiedAt,
+	)
+	return i, err
+}
+
+const userHandleForUpdate = `-- name: UserHandleForUpdate :one
+select username from users where id = $1 for update
+`
+
+func (q *Queries) UserHandleForUpdate(ctx context.Context, id pgtype.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, userHandleForUpdate, id)
+	var username string
+	err := row.Scan(&username)
+	return username, err
+}
+
+const usersForSignIn = `-- name: UsersForSignIn :many
+select id, username, email, email_verified_at, password_hash
+  from users
+ where email = $1 and password_hash is not null
+`
+
+type UsersForSignInRow struct {
+	ID              pgtype.UUID
+	Username        string
+	Email           pgtype.Text
+	EmailVerifiedAt pgtype.Timestamptz
+	PasswordHash    pgtype.Text
+}
+
+func (q *Queries) UsersForSignIn(ctx context.Context, email pgtype.Text) ([]UsersForSignInRow, error) {
+	rows, err := q.db.Query(ctx, usersForSignIn, email)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []UsersForSignInRow
+	for rows.Next() {
+		var i UsersForSignInRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Username,
+			&i.Email,
+			&i.EmailVerifiedAt,
+			&i.PasswordHash,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const verificationByHash = `-- name: VerificationByHash :one
+select user_id, email
+  from email_verification_tokens
+ where token_hash = $1 and expires_at > now()
+ for update
+`
+
+type VerificationByHashRow struct {
+	UserID pgtype.UUID
+	Email  string
+}
+
+func (q *Queries) VerificationByHash(ctx context.Context, tokenHash []byte) (VerificationByHashRow, error) {
+	row := q.db.QueryRow(ctx, verificationByHash, tokenHash)
+	var i VerificationByHashRow
+	err := row.Scan(&i.UserID, &i.Email)
+	return i, err
+}
+
+const verifiedEmailExists = `-- name: VerifiedEmailExists :one
+select exists (
+    select 1 from users where email = $1 and email_verified_at is not null
+)
+`
+
+func (q *Queries) VerifiedEmailExists(ctx context.Context, email pgtype.Text) (bool, error) {
+	row := q.db.QueryRow(ctx, verifiedEmailExists, email)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const verifyUserEmail = `-- name: VerifyUserEmail :one
+update users
+   set email_verified_at = now(), updated_at = now()
+ where id = $1 and email = $2 and email_verified_at is null
+returning id, username, email, email_verified_at
+`
+
+type VerifyUserEmailParams struct {
+	ID    pgtype.UUID
+	Email pgtype.Text
+}
+
+type VerifyUserEmailRow struct {
+	ID              pgtype.UUID
+	Username        string
+	Email           pgtype.Text
+	EmailVerifiedAt pgtype.Timestamptz
+}
+
+func (q *Queries) VerifyUserEmail(ctx context.Context, arg VerifyUserEmailParams) (VerifyUserEmailRow, error) {
+	row := q.db.QueryRow(ctx, verifyUserEmail, arg.ID, arg.Email)
+	var i VerifyUserEmailRow
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.EmailVerifiedAt,
 	)
 	return i, err
 }

@@ -68,9 +68,11 @@ func send(t *testing.T, r http.Handler, req *http.Request) *httptest.ResponseRec
 }
 
 func TestUploadOverTheCeilingIsRefused(t *testing.T) {
-	r := newTestRouterWithCeiling(t, 64)
+	r, session := newVerifiedTestRouterWith(t, 64, DefaultDeadlines())
 
-	rec := send(t, r, uploadRequest(t, exampleMetadata("Huge"), bytes.Repeat([]byte("a"), 1024)))
+	rec := send(t, r, authorized(
+		uploadRequest(t, exampleMetadata("Huge"), bytes.Repeat([]byte("a"), 1024)), session,
+	))
 
 	if rec.Code != http.StatusRequestEntityTooLarge {
 		t.Fatalf("status = %d, want 413. body: %s", rec.Code, rec.Body.String())
@@ -79,9 +81,9 @@ func TestUploadOverTheCeilingIsRefused(t *testing.T) {
 
 func TestUploadAtTheCeilingIsAccepted(t *testing.T) {
 	req := uploadRequest(t, exampleMetadata("Exactly"), bytes.Repeat([]byte("a"), 1024))
-	r := newTestRouterWithCeiling(t, req.ContentLength)
+	r, session := newVerifiedTestRouterWith(t, req.ContentLength, DefaultDeadlines())
 
-	rec := send(t, r, req)
+	rec := send(t, r, authorized(req, session))
 
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("status = %d, want 201: a request of exactly the ceiling fits. body: %s",
@@ -103,9 +105,10 @@ func (b *countingBody) Read(p []byte) (int, error) {
 }
 
 func TestUploadIsRefusedWithoutReadingTheBody(t *testing.T) {
-	r := newTestRouterWithCeiling(t, 64)
+	r, session := newVerifiedTestRouterWith(t, 64, DefaultDeadlines())
 
 	req := uploadRequest(t, exampleMetadata("Declared"), bytes.Repeat([]byte("a"), 1024))
+	req.AddCookie(session)
 	body := &countingBody{reader: req.Body}
 	req.Body = io.NopCloser(body)
 
@@ -120,11 +123,12 @@ func TestUploadIsRefusedWithoutReadingTheBody(t *testing.T) {
 }
 
 func TestUploadIsCutOffWhenItsLengthIsUnknown(t *testing.T) {
-	r := newTestRouterWithCeiling(t, 512)
+	r, session := newVerifiedTestRouterWith(t, 512, DefaultDeadlines())
 
 	// A sender that does not say how long the request is gets no free pass.
 	req := uploadRequest(t, exampleMetadata("Unstated"), bytes.Repeat([]byte("a"), 4096))
 	req.ContentLength = -1
+	req.AddCookie(session)
 
 	rec := send(t, r, req)
 
@@ -196,9 +200,9 @@ func TestFormDataThatCannotBeReadIsRefused(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			r := newTestRouter(t)
+			r, session := newVerifiedTestRouter(t)
 
-			rec := send(t, r, c.request(t))
+			rec := send(t, r, authorized(c.request(t), session))
 
 			if rec.Code != http.StatusBadRequest {
 				t.Fatalf("status = %d, want 400. body: %s", rec.Code, rec.Body.String())

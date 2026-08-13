@@ -61,3 +61,87 @@ returning id, sha256, byte_size, storage_key;
 
 -- name: BlobLocation :one
 select storage_key, byte_size from blobs where id = $1;
+
+-- name: LockHandle :one
+select 1 from pg_advisory_xact_lock(hashtextextended('lumihub-handle:' || $1, 0));
+
+-- name: HandleUnavailable :one
+select exists (
+    select 1 from users where username = $1
+    union all
+    select 1 from retired_handles where handle = $1
+);
+
+-- name: VerifiedEmailExists :one
+select exists (
+    select 1 from users where email = $1 and email_verified_at is not null
+);
+
+-- name: InsertUser :one
+insert into users (id, username, email, password_hash, email_source)
+values ($1, $2, $3, $4, 'creator')
+returning id, username, email, email_verified_at;
+
+-- name: InsertEmailVerificationToken :exec
+insert into email_verification_tokens (token_hash, user_id, email, expires_at)
+values ($1, $2, $3, $4);
+
+-- name: InsertSession :exec
+insert into sessions (token_hash, user_id, expires_at)
+values ($1, $2, $3);
+
+-- name: UserBySessionHash :one
+select u.id, u.username, u.email, u.email_verified_at
+  from sessions s
+  join users u on u.id = s.user_id
+ where s.token_hash = $1 and s.expires_at > now();
+
+-- name: VerificationByHash :one
+select user_id, email
+  from email_verification_tokens
+ where token_hash = $1 and expires_at > now()
+ for update;
+
+-- name: VerifyUserEmail :one
+update users
+   set email_verified_at = now(), updated_at = now()
+ where id = $1 and email = $2 and email_verified_at is null
+returning id, username, email, email_verified_at;
+
+-- name: ClearPendingEmailCopies :exec
+update users
+   set email = null, email_source = null, updated_at = now()
+ where email = $1 and id <> $2 and email_verified_at is null;
+
+-- name: DeleteVerificationTokensForEmail :exec
+delete from email_verification_tokens where email = $1;
+
+-- name: DeleteVerificationTokensForUser :exec
+delete from email_verification_tokens where user_id = $1;
+
+-- name: UsersForSignIn :many
+select id, username, email, email_verified_at, password_hash
+  from users
+ where email = $1 and password_hash is not null;
+
+-- name: DeleteSession :exec
+delete from sessions where token_hash = $1;
+
+-- name: UserHandleForUpdate :one
+select username from users where id = $1 for update;
+
+-- name: InsertRetiredHandle :exec
+insert into retired_handles (handle) values ($1);
+
+-- name: UpdateUserHandle :one
+update users set username = $2, updated_at = now() where id = $1
+returning id, username, email, email_verified_at;
+
+-- name: ProfileByHandle :one
+select id, username from users where username = $1;
+
+-- name: UpdateUnverifiedEmail :one
+update users
+   set email = $2, email_source = 'creator', updated_at = now()
+ where id = $1 and email_verified_at is null
+returning id, username, email, email_verified_at;

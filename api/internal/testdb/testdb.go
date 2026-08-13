@@ -38,7 +38,8 @@ func ConnectWith(t *testing.T, tune func(*postgres.Settings)) *pgxpool.Pool {
 	t.Cleanup(pool.Close)
 
 	_, err = pool.Exec(context.Background(),
-		`truncate assets, asset_revisions, asset_facets, asset_media, blobs cascade`)
+		`truncate assets, asset_revisions, asset_facets, asset_media, blobs,
+		          sessions, email_verification_tokens, retired_handles, users cascade`)
 	if err != nil {
 		t.Fatalf("truncate: %v", err)
 	}

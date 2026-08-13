@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -8,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sillyfrogster/LumiHub/api/internal/account"
 	"github.com/Sillyfrogster/LumiHub/api/internal/asset"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format/passthrough"
@@ -28,6 +30,25 @@ func newTestRouterWithCeiling(t *testing.T, maxUploadBytes int64) *gin.Engine {
 
 func newTestRouterWith(t *testing.T, maxUploadBytes int64, deadlines Deadlines) *gin.Engine {
 	t.Helper()
+	return newTestRouterWithSender(t, maxUploadBytes, deadlines, &verificationOutbox{})
+}
+
+func newTestRouterWithSender(
+	t *testing.T,
+	maxUploadBytes int64,
+	deadlines Deadlines,
+	sender account.VerificationSender,
+) *gin.Engine {
+	t.Helper()
+	return registerTestRouter(t, newTestHandlers(t, maxUploadBytes, sender), deadlines)
+}
+
+func newTestHandlers(
+	t *testing.T,
+	maxUploadBytes int64,
+	sender account.VerificationSender,
+) *Handlers {
+	t.Helper()
 	gin.SetMode(gin.TestMode)
 
 	pool := testdb.Connect(t)
@@ -36,17 +57,69 @@ func newTestRouterWith(t *testing.T, maxUploadBytes int64, deadlines Deadlines) 
 		t.Fatalf("storage: %v", err)
 	}
 	svc := asset.NewService(pool, format.NewRegistry(passthrough.New()), blob)
+	accounts := account.NewService(pool, sender, "http://localhost:3000")
 
+	return NewHandlers(svc, accounts, maxUploadBytes)
+}
+
+func registerTestRouter(t *testing.T, handlers *Handlers, deadlines Deadlines) *gin.Engine {
+	t.Helper()
 	r := gin.New()
-	if err := Register(r, NewHandlers(svc, maxUploadBytes), deadlines); err != nil {
+	if err := Register(r, handlers, deadlines); err != nil {
 		t.Fatalf("register: %v", err)
 	}
 	return r
 }
 
-func post(t *testing.T, r *gin.Engine, name string) *httptest.ResponseRecorder {
+func newVerifiedTestRouter(t *testing.T) (*gin.Engine, *http.Cookie) {
 	t.Helper()
-	return send(t, r, uploadRequest(t, exampleMetadata(name), []byte(name)))
+	return newVerifiedTestRouterWith(t, 1<<20, DefaultDeadlines())
+}
+
+func newVerifiedTestRouterWith(
+	t *testing.T,
+	maxUploadBytes int64,
+	deadlines Deadlines,
+) (*gin.Engine, *http.Cookie) {
+	t.Helper()
+	outbox := &verificationOutbox{}
+	handlers := newTestHandlers(t, maxUploadBytes, outbox)
+	setupRouter := registerTestRouter(t, handlers, DefaultDeadlines())
+	session := signUp(t, setupRouter, "verified@example.com", "verified.creator")
+	verificationURL, err := url.Parse(outbox.messages[0].link)
+	if err != nil {
+		t.Fatalf("parse verification link: %v", err)
+	}
+	rec := sendJSON(t, setupRouter, http.MethodPost, "/v1/auth/verify-email",
+		`{"token":"`+verificationURL.Query().Get("token")+`"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("verify test account: %d %s", rec.Code, rec.Body.String())
+	}
+	return registerTestRouter(t, handlers, deadlines), session
+}
+
+func authorized(req *http.Request, session *http.Cookie) *http.Request {
+	req.AddCookie(session)
+	return req
+}
+
+type verificationMessage struct {
+	address string
+	link    string
+}
+
+type verificationOutbox struct {
+	messages []verificationMessage
+}
+
+func (o *verificationOutbox) SendVerification(_ context.Context, address, link string) error {
+	o.messages = append(o.messages, verificationMessage{address: address, link: link})
+	return nil
+}
+
+func post(t *testing.T, r *gin.Engine, session *http.Cookie, name string) *httptest.ResponseRecorder {
+	t.Helper()
+	return send(t, r, authorized(uploadRequest(t, exampleMetadata(name), []byte(name)), session))
 }
 
 type listedAsset struct {
@@ -73,9 +146,9 @@ func get(t *testing.T, r *gin.Engine, url string) []listedAsset {
 }
 
 func TestCreateThenListRoundTrip(t *testing.T) {
-	r := newTestRouter(t)
+	r, session := newVerifiedTestRouter(t)
 
-	rec := post(t, r, "Mystery")
+	rec := post(t, r, session, "Mystery")
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("POST status = %d, want 201. body: %s", rec.Code, rec.Body.String())
 	}
@@ -100,9 +173,9 @@ func TestCreateThenListRoundTrip(t *testing.T) {
 }
 
 func TestListPagesFromWhereTheLastPageEnded(t *testing.T) {
-	r := newTestRouter(t)
+	r, session := newVerifiedTestRouter(t)
 	for _, name := range []string{"first", "second", "third"} {
-		if rec := post(t, r, name); rec.Code != http.StatusCreated {
+		if rec := post(t, r, session, name); rec.Code != http.StatusCreated {
 			t.Fatalf("POST %s status = %d. body: %s", name, rec.Code, rec.Body.String())
 		}
 	}

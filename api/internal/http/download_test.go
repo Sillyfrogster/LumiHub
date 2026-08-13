@@ -9,12 +9,12 @@ import (
 )
 
 func TestDownloadReturnsTheExactUploadedBytes(t *testing.T) {
-	r := newTestRouter(t)
+	r, session := newVerifiedTestRouter(t)
 
 	// Not valid UTF-8 and not valid JSON, so any re-encoding would show up.
 	original := []byte{0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0xff, 0xfe}
 
-	rec := send(t, r, uploadRequest(t, exampleMetadata("Exact"), original))
+	rec := send(t, r, authorized(uploadRequest(t, exampleMetadata("Exact"), original), session))
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create failed: %d %s", rec.Code, rec.Body.String())
 	}
@@ -49,12 +49,12 @@ func TestDownloadUnknownAssetIs404(t *testing.T) {
 }
 
 func TestDownloadIsAlwaysSentAsAnAttachment(t *testing.T) {
-	r := newTestRouter(t)
+	r, session := newVerifiedTestRouter(t)
 
 	// A file that a browser would happily render if we let it.
 	payload := []byte(`<script>alert(1)</script>`)
 
-	rec := send(t, r, uploadRequest(t, exampleMetadata("Evil"), payload))
+	rec := send(t, r, authorized(uploadRequest(t, exampleMetadata("Evil"), payload), session))
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create failed: %d %s", rec.Code, rec.Body.String())
 	}
