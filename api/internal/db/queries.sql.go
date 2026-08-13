@@ -62,6 +62,31 @@ func (q *Queries) CurrentRevisionLocation(ctx context.Context, id pgtype.UUID) (
 	return i, err
 }
 
+const deleteOAuthIdentity = `-- name: DeleteOAuthIdentity :exec
+delete from oauth_identities
+ where user_id = $1 and provider = $2 and subject = $3
+`
+
+type DeleteOAuthIdentityParams struct {
+	UserID   pgtype.UUID
+	Provider string
+	Subject  string
+}
+
+func (q *Queries) DeleteOAuthIdentity(ctx context.Context, arg DeleteOAuthIdentityParams) error {
+	_, err := q.db.Exec(ctx, deleteOAuthIdentity, arg.UserID, arg.Provider, arg.Subject)
+	return err
+}
+
+const deletePasswordResetForUser = `-- name: DeletePasswordResetForUser :exec
+delete from password_reset_tokens where user_id = $1
+`
+
+func (q *Queries) DeletePasswordResetForUser(ctx context.Context, userID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deletePasswordResetForUser, userID)
+	return err
+}
+
 const deleteSession = `-- name: DeleteSession :exec
 delete from sessions where token_hash = $1
 `
@@ -87,6 +112,33 @@ delete from email_verification_tokens where user_id = $1
 func (q *Queries) DeleteVerificationTokensForUser(ctx context.Context, userID pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, deleteVerificationTokensForUser, userID)
 	return err
+}
+
+const discordIdentityExistsForUser = `-- name: DiscordIdentityExistsForUser :one
+select exists (
+    select 1 from oauth_identities
+     where user_id = $1 and provider = 'discord'
+)
+`
+
+func (q *Queries) DiscordIdentityExistsForUser(ctx context.Context, userID pgtype.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, discordIdentityExistsForUser, userID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const discordSubjectForUser = `-- name: DiscordSubjectForUser :one
+select subject
+  from oauth_identities
+ where user_id = $1 and provider = 'discord'
+`
+
+func (q *Queries) DiscordSubjectForUser(ctx context.Context, userID pgtype.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, discordSubjectForUser, userID)
+	var subject string
+	err := row.Scan(&subject)
+	return subject, err
 }
 
 const handleUnavailable = `-- name: HandleUnavailable :one
@@ -142,6 +194,43 @@ func (q *Queries) InsertAsset(ctx context.Context, arg InsertAssetParams) (pgtyp
 	return created_at, err
 }
 
+const insertDiscordUser = `-- name: InsertDiscordUser :one
+insert into users (id, username, email, email_verified_at, email_source)
+values ($1, $2, $3, $4, case when $3::text is null then null else 'discord' end)
+returning id, username, email, email_verified_at
+`
+
+type InsertDiscordUserParams struct {
+	ID              pgtype.UUID
+	Username        string
+	Email           pgtype.Text
+	EmailVerifiedAt pgtype.Timestamptz
+}
+
+type InsertDiscordUserRow struct {
+	ID              pgtype.UUID
+	Username        string
+	Email           pgtype.Text
+	EmailVerifiedAt pgtype.Timestamptz
+}
+
+func (q *Queries) InsertDiscordUser(ctx context.Context, arg InsertDiscordUserParams) (InsertDiscordUserRow, error) {
+	row := q.db.QueryRow(ctx, insertDiscordUser,
+		arg.ID,
+		arg.Username,
+		arg.Email,
+		arg.EmailVerifiedAt,
+	)
+	var i InsertDiscordUserRow
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.EmailVerifiedAt,
+	)
+	return i, err
+}
+
 const insertEmailVerificationToken = `-- name: InsertEmailVerificationToken :exec
 insert into email_verification_tokens (token_hash, user_id, email, expires_at)
 values ($1, $2, $3, $4)
@@ -178,6 +267,66 @@ type InsertFacetParams struct {
 
 func (q *Queries) InsertFacet(ctx context.Context, arg InsertFacetParams) error {
 	_, err := q.db.Exec(ctx, insertFacet, arg.RevisionID, arg.Key, arg.Value)
+	return err
+}
+
+const insertOAuthIdentity = `-- name: InsertOAuthIdentity :exec
+insert into oauth_identities (user_id, provider, subject, provider_email)
+values ($1, $2, $3, $4)
+`
+
+type InsertOAuthIdentityParams struct {
+	UserID        pgtype.UUID
+	Provider      string
+	Subject       string
+	ProviderEmail pgtype.Text
+}
+
+func (q *Queries) InsertOAuthIdentity(ctx context.Context, arg InsertOAuthIdentityParams) error {
+	_, err := q.db.Exec(ctx, insertOAuthIdentity,
+		arg.UserID,
+		arg.Provider,
+		arg.Subject,
+		arg.ProviderEmail,
+	)
+	return err
+}
+
+const insertOAuthState = `-- name: InsertOAuthState :exec
+insert into oauth_states (token_hash, intent, user_id, expires_at)
+values ($1, $2, $3, $4)
+`
+
+type InsertOAuthStateParams struct {
+	TokenHash []byte
+	Intent    string
+	UserID    pgtype.UUID
+	ExpiresAt pgtype.Timestamptz
+}
+
+func (q *Queries) InsertOAuthState(ctx context.Context, arg InsertOAuthStateParams) error {
+	_, err := q.db.Exec(ctx, insertOAuthState,
+		arg.TokenHash,
+		arg.Intent,
+		arg.UserID,
+		arg.ExpiresAt,
+	)
+	return err
+}
+
+const insertPasswordReset = `-- name: InsertPasswordReset :exec
+insert into password_reset_tokens (token_hash, user_id, expires_at)
+values ($1, $2, $3)
+`
+
+type InsertPasswordResetParams struct {
+	TokenHash []byte
+	UserID    pgtype.UUID
+	ExpiresAt pgtype.Timestamptz
+}
+
+func (q *Queries) InsertPasswordReset(ctx context.Context, arg InsertPasswordResetParams) error {
+	_, err := q.db.Exec(ctx, insertPasswordReset, arg.TokenHash, arg.UserID, arg.ExpiresAt)
 	return err
 }
 
@@ -395,6 +544,25 @@ func (q *Queries) LockHandle(ctx context.Context, handle string) (int32, error) 
 	return column_1, err
 }
 
+const lockOAuthIdentity = `-- name: LockOAuthIdentity :one
+select 1 from pg_advisory_xact_lock(
+    hashtextextended('lumihub-oauth:' || $1::text || ':' ||
+                     $2::text, 0)
+)
+`
+
+type LockOAuthIdentityParams struct {
+	Provider string
+	Subject  string
+}
+
+func (q *Queries) LockOAuthIdentity(ctx context.Context, arg LockOAuthIdentityParams) (int32, error) {
+	row := q.db.QueryRow(ctx, lockOAuthIdentity, arg.Provider, arg.Subject)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const profileByHandle = `-- name: ProfileByHandle :one
 select id, username from users where username = $1
 `
@@ -423,6 +591,119 @@ type SetCurrentRevisionParams struct {
 func (q *Queries) SetCurrentRevision(ctx context.Context, arg SetCurrentRevisionParams) error {
 	_, err := q.db.Exec(ctx, setCurrentRevision, arg.ID, arg.CurrentRevisionID)
 	return err
+}
+
+const takeOAuthState = `-- name: TakeOAuthState :one
+delete from oauth_states
+ where token_hash = $1 and expires_at > now()
+returning intent, user_id
+`
+
+type TakeOAuthStateRow struct {
+	Intent string
+	UserID pgtype.UUID
+}
+
+func (q *Queries) TakeOAuthState(ctx context.Context, tokenHash []byte) (TakeOAuthStateRow, error) {
+	row := q.db.QueryRow(ctx, takeOAuthState, tokenHash)
+	var i TakeOAuthStateRow
+	err := row.Scan(&i.Intent, &i.UserID)
+	return i, err
+}
+
+const takePasswordReset = `-- name: TakePasswordReset :one
+delete from password_reset_tokens
+ where token_hash = $1 and expires_at > now()
+returning user_id
+`
+
+func (q *Queries) TakePasswordReset(ctx context.Context, tokenHash []byte) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, takePasswordReset, tokenHash)
+	var user_id pgtype.UUID
+	err := row.Scan(&user_id)
+	return user_id, err
+}
+
+const updateDiscordEmail = `-- name: UpdateDiscordEmail :one
+update users
+   set email = $2, email_verified_at = now(), email_source = 'discord', updated_at = now()
+ where id = $1
+   and (email is null or email_source = 'discord')
+returning id, username, email, email_verified_at, email_source
+`
+
+type UpdateDiscordEmailParams struct {
+	ID    pgtype.UUID
+	Email pgtype.Text
+}
+
+type UpdateDiscordEmailRow struct {
+	ID              pgtype.UUID
+	Username        string
+	Email           pgtype.Text
+	EmailVerifiedAt pgtype.Timestamptz
+	EmailSource     pgtype.Text
+}
+
+func (q *Queries) UpdateDiscordEmail(ctx context.Context, arg UpdateDiscordEmailParams) (UpdateDiscordEmailRow, error) {
+	row := q.db.QueryRow(ctx, updateDiscordEmail, arg.ID, arg.Email)
+	var i UpdateDiscordEmailRow
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.EmailVerifiedAt,
+		&i.EmailSource,
+	)
+	return i, err
+}
+
+const updateOAuthIdentityEmail = `-- name: UpdateOAuthIdentityEmail :exec
+update oauth_identities
+   set provider_email = $3, updated_at = now()
+ where provider = $1 and subject = $2
+`
+
+type UpdateOAuthIdentityEmailParams struct {
+	Provider      string
+	Subject       string
+	ProviderEmail pgtype.Text
+}
+
+func (q *Queries) UpdateOAuthIdentityEmail(ctx context.Context, arg UpdateOAuthIdentityEmailParams) error {
+	_, err := q.db.Exec(ctx, updateOAuthIdentityEmail, arg.Provider, arg.Subject, arg.ProviderEmail)
+	return err
+}
+
+const updatePassword = `-- name: UpdatePassword :one
+update users
+   set password_hash = $2, updated_at = now()
+ where id = $1
+returning id, username, email, email_verified_at
+`
+
+type UpdatePasswordParams struct {
+	ID           pgtype.UUID
+	PasswordHash pgtype.Text
+}
+
+type UpdatePasswordRow struct {
+	ID              pgtype.UUID
+	Username        string
+	Email           pgtype.Text
+	EmailVerifiedAt pgtype.Timestamptz
+}
+
+func (q *Queries) UpdatePassword(ctx context.Context, arg UpdatePasswordParams) (UpdatePasswordRow, error) {
+	row := q.db.QueryRow(ctx, updatePassword, arg.ID, arg.PasswordHash)
+	var i UpdatePasswordRow
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.EmailVerifiedAt,
+	)
+	return i, err
 }
 
 const updateUnverifiedEmail = `-- name: UpdateUnverifiedEmail :one
@@ -516,8 +797,49 @@ func (q *Queries) UpsertBlob(ctx context.Context, arg UpsertBlobParams) (Blob, e
 	return i, err
 }
 
+const userByOAuthIdentity = `-- name: UserByOAuthIdentity :one
+select u.id, u.username, u.email, u.email_verified_at, u.email_source,
+       case when u.password_hash is null then false else true end as has_password
+  from oauth_identities oi
+  join users u on u.id = oi.user_id
+ where oi.provider = $1 and oi.subject = $2
+`
+
+type UserByOAuthIdentityParams struct {
+	Provider string
+	Subject  string
+}
+
+type UserByOAuthIdentityRow struct {
+	ID              pgtype.UUID
+	Username        string
+	Email           pgtype.Text
+	EmailVerifiedAt pgtype.Timestamptz
+	EmailSource     pgtype.Text
+	HasPassword     bool
+}
+
+func (q *Queries) UserByOAuthIdentity(ctx context.Context, arg UserByOAuthIdentityParams) (UserByOAuthIdentityRow, error) {
+	row := q.db.QueryRow(ctx, userByOAuthIdentity, arg.Provider, arg.Subject)
+	var i UserByOAuthIdentityRow
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.EmailVerifiedAt,
+		&i.EmailSource,
+		&i.HasPassword,
+	)
+	return i, err
+}
+
 const userBySessionHash = `-- name: UserBySessionHash :one
-select u.id, u.username, u.email, u.email_verified_at
+select u.id, u.username, u.email, u.email_verified_at,
+       case when u.password_hash is null then false else true end as has_password,
+       exists (
+           select 1 from oauth_identities oi
+            where oi.user_id = u.id and oi.provider = 'discord'
+       ) as discord_linked
   from sessions s
   join users u on u.id = s.user_id
  where s.token_hash = $1 and s.expires_at > now()
@@ -528,6 +850,8 @@ type UserBySessionHashRow struct {
 	Username        string
 	Email           pgtype.Text
 	EmailVerifiedAt pgtype.Timestamptz
+	HasPassword     bool
+	DiscordLinked   bool
 }
 
 func (q *Queries) UserBySessionHash(ctx context.Context, tokenHash []byte) (UserBySessionHashRow, error) {
@@ -538,6 +862,39 @@ func (q *Queries) UserBySessionHash(ctx context.Context, tokenHash []byte) (User
 		&i.Username,
 		&i.Email,
 		&i.EmailVerifiedAt,
+		&i.HasPassword,
+		&i.DiscordLinked,
+	)
+	return i, err
+}
+
+const userForDiscordAttach = `-- name: UserForDiscordAttach :one
+select id, username, email, email_verified_at, email_source,
+       case when password_hash is null then false else true end as has_password
+  from users
+ where id = $1
+ for update
+`
+
+type UserForDiscordAttachRow struct {
+	ID              pgtype.UUID
+	Username        string
+	Email           pgtype.Text
+	EmailVerifiedAt pgtype.Timestamptz
+	EmailSource     pgtype.Text
+	HasPassword     bool
+}
+
+func (q *Queries) UserForDiscordAttach(ctx context.Context, id pgtype.UUID) (UserForDiscordAttachRow, error) {
+	row := q.db.QueryRow(ctx, userForDiscordAttach, id)
+	var i UserForDiscordAttachRow
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.EmailVerifiedAt,
+		&i.EmailSource,
+		&i.HasPassword,
 	)
 	return i, err
 }
@@ -554,9 +911,13 @@ func (q *Queries) UserHandleForUpdate(ctx context.Context, id pgtype.UUID) (stri
 }
 
 const usersForSignIn = `-- name: UsersForSignIn :many
-select id, username, email, email_verified_at, password_hash
-  from users
- where email = $1 and password_hash is not null
+select u.id, u.username, u.email, u.email_verified_at, u.password_hash,
+       exists (
+           select 1 from oauth_identities oi
+            where oi.user_id = u.id and oi.provider = 'discord'
+       ) as discord_linked
+  from users u
+ where u.email = $1 and u.password_hash is not null
 `
 
 type UsersForSignInRow struct {
@@ -565,6 +926,7 @@ type UsersForSignInRow struct {
 	Email           pgtype.Text
 	EmailVerifiedAt pgtype.Timestamptz
 	PasswordHash    pgtype.Text
+	DiscordLinked   bool
 }
 
 func (q *Queries) UsersForSignIn(ctx context.Context, email pgtype.Text) ([]UsersForSignInRow, error) {
@@ -582,6 +944,7 @@ func (q *Queries) UsersForSignIn(ctx context.Context, email pgtype.Text) ([]User
 			&i.Email,
 			&i.EmailVerifiedAt,
 			&i.PasswordHash,
+			&i.DiscordLinked,
 		); err != nil {
 			return nil, err
 		}
@@ -625,6 +988,22 @@ func (q *Queries) VerificationEmailByHash(ctx context.Context, tokenHash []byte)
 	return email, err
 }
 
+const verifiedEmailBelongsToDiscordAccount = `-- name: VerifiedEmailBelongsToDiscordAccount :one
+select exists (
+    select 1
+      from users u
+      join oauth_identities oi on oi.user_id = u.id and oi.provider = 'discord'
+     where u.email = $1 and u.email_verified_at is not null
+)
+`
+
+func (q *Queries) VerifiedEmailBelongsToDiscordAccount(ctx context.Context, email pgtype.Text) (bool, error) {
+	row := q.db.QueryRow(ctx, verifiedEmailBelongsToDiscordAccount, email)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const verifiedEmailExists = `-- name: VerifiedEmailExists :one
 select exists (
     select 1 from users where email = $1 and email_verified_at is not null
@@ -636,6 +1015,17 @@ func (q *Queries) VerifiedEmailExists(ctx context.Context, email pgtype.Text) (b
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const verifiedUserIDByEmail = `-- name: VerifiedUserIDByEmail :one
+select id from users where email = $1 and email_verified_at is not null
+`
+
+func (q *Queries) VerifiedUserIDByEmail(ctx context.Context, email pgtype.Text) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, verifiedUserIDByEmail, email)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
 }
 
 const verifyUserEmail = `-- name: VerifyUserEmail :one

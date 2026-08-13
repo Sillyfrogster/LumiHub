@@ -17,3 +17,8 @@ func (s *LogVerificationSender) SendVerification(_ context.Context, _ string, li
 	s.logger.Printf("email verification link: %s", link)
 	return nil
 }
+
+func (s *LogVerificationSender) SendPasswordReset(_ context.Context, _ string, link string) error {
+	s.logger.Printf("password reset link: %s", link)
+	return nil
+}

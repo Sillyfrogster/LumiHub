@@ -72,6 +72,67 @@ func (h *Handlers) SignIn(c *gin.Context) {
 	c.JSON(http.StatusOK, toAPIAccount(current))
 }
 
+func (h *Handlers) BeginDiscord(c *gin.Context, params BeginDiscordParams) {
+	intent := "sign-in"
+	if params.Intent != nil {
+		intent = string(*params.Intent)
+	}
+	token, _ := c.Cookie(sessionCookieName)
+	destination, err := h.accounts.BeginDiscord(c.Request.Context(), token, intent)
+	if errors.Is(err, account.ErrDiscordUnavailable) {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Discord sign-in is not available."})
+		return
+	}
+	if errors.Is(err, account.ErrUnauthorized) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sign in before attaching Discord."})
+		return
+	}
+	if errors.Is(err, account.ErrEmailUnverified) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Verify your email before attaching Discord."})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not begin Discord sign-in."})
+		return
+	}
+	c.Redirect(http.StatusSeeOther, destination)
+}
+
+func (h *Handlers) CompleteDiscord(c *gin.Context, params CompleteDiscordParams) {
+	if params.Error != nil || params.Code == nil {
+		c.Redirect(http.StatusSeeOther, "/sign-in?discord=cancelled")
+		return
+	}
+	_, token, expires, attached, err := h.accounts.CompleteDiscord(
+		c.Request.Context(), params.State, *params.Code,
+	)
+	if err != nil {
+		destination := "/sign-in?discord=failed"
+		if attached {
+			destination = "/settings?discord=failed"
+		}
+		switch {
+		case errors.Is(err, account.ErrDiscordEmailConflict):
+			if attached {
+				destination = "/settings?discord=email-conflict"
+			} else {
+				destination = "/sign-in?discord=email-conflict"
+			}
+		case errors.Is(err, account.ErrDiscordClaimed),
+			errors.Is(err, account.ErrDiscordAlreadyLinked):
+			destination = "/settings?discord=claimed"
+		}
+		c.Redirect(http.StatusSeeOther, destination)
+		return
+	}
+	if attached {
+		c.Redirect(http.StatusSeeOther, "/settings?discord=attached")
+		return
+	}
+	setSessionCookie(c, token, expires)
+	c.Redirect(http.StatusSeeOther, "/browse")
+}
+
 func (h *Handlers) SignOut(c *gin.Context) {
 	token, _ := c.Cookie(sessionCookieName)
 	if err := h.accounts.SignOut(c.Request.Context(), token); err != nil {
@@ -125,6 +186,43 @@ func (h *Handlers) VerifyEmail(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, toAPIAccount(verified))
+}
+
+func (h *Handlers) RequestPasswordReset(c *gin.Context) {
+	var request PasswordResetRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Send the account email as JSON."})
+		return
+	}
+	if err := h.accounts.RequestPasswordReset(c.Request.Context(), string(request.Email)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not request a password reset."})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+func (h *Handlers) CompletePasswordReset(c *gin.Context) {
+	var request CompletePasswordResetRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Send the reset token and new password as JSON."})
+		return
+	}
+	err := h.accounts.CompletePasswordReset(
+		c.Request.Context(), request.Token, request.Password,
+	)
+	if err != nil {
+		var field account.FieldError
+		switch {
+		case errors.As(err, &field):
+			c.JSON(http.StatusBadRequest, gin.H{"error": field.Message, "field": field.Field})
+		case errors.Is(err, account.ErrPasswordReset):
+			c.JSON(http.StatusBadRequest, gin.H{"error": "This password reset link is invalid or has expired."})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not reset the password."})
+		}
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 
 func (h *Handlers) RenameHandle(c *gin.Context) {
@@ -183,6 +281,50 @@ func (h *Handlers) ChangeUnverifiedEmail(c *gin.Context) {
 	c.JSON(http.StatusOK, toAPIAccount(updated))
 }
 
+func (h *Handlers) SetPassword(c *gin.Context) {
+	var request PasswordRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Send the new password as JSON."})
+		return
+	}
+	token, _ := c.Cookie(sessionCookieName)
+	updated, err := h.accounts.SetPassword(c.Request.Context(), token, request.Password)
+	if err != nil {
+		var field account.FieldError
+		switch {
+		case errors.As(err, &field):
+			c.JSON(http.StatusBadRequest, gin.H{"error": field.Message, "field": field.Field})
+		case errors.Is(err, account.ErrUnauthorized):
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Sign in before setting a password."})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not set the password."})
+		}
+		return
+	}
+	c.JSON(http.StatusOK, toAPIAccount(updated))
+}
+
+func (h *Handlers) DetachDiscord(c *gin.Context) {
+	token, _ := c.Cookie(sessionCookieName)
+	updated, err := h.accounts.DetachDiscord(c.Request.Context(), token)
+	if err != nil {
+		switch {
+		case errors.Is(err, account.ErrUnauthorized):
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Sign in before detaching Discord."})
+		case errors.Is(err, account.ErrLastSignInMethod):
+			c.JSON(http.StatusConflict, gin.H{
+				"error": "Verify an email and set a password before detaching Discord.",
+			})
+		case errors.Is(err, account.ErrDiscordNotLinked):
+			c.JSON(http.StatusConflict, gin.H{"error": "Discord is not attached to this account."})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not detach Discord."})
+		}
+		return
+	}
+	c.JSON(http.StatusOK, toAPIAccount(updated))
+}
+
 func (h *Handlers) GetProfile(c *gin.Context, handle string) {
 	profile, err := h.accounts.Profile(c.Request.Context(), handle)
 	if errors.Is(err, account.ErrProfileNotFound) {
@@ -203,6 +345,10 @@ func (h *Handlers) accountError(c *gin.Context, err error) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": field.Message, "field": field.Field})
 	case errors.Is(err, account.ErrHandleUnavailable):
 		c.JSON(http.StatusConflict, gin.H{"error": "That handle is not available."})
+	case errors.Is(err, account.ErrEmailBelongsDiscord):
+		c.JSON(http.StatusConflict, gin.H{
+			"error": "That email belongs to a Discord account. Sign in with Discord and set a password.",
+		})
 	case errors.Is(err, account.ErrEmailUnavailable):
 		c.JSON(http.StatusConflict, gin.H{"error": "An account already uses that email. Sign in instead."})
 	default:
@@ -241,6 +387,8 @@ func toAPIAccount(value account.Account) Account {
 		Id:            types.UUID(value.ID),
 		Handle:        value.Handle,
 		EmailVerified: value.EmailVerified,
+		DiscordLinked: value.DiscordLinked,
+		HasPassword:   value.HasPassword,
 	}
 	if value.Email != nil {
 		email := types.Email(*value.Email)

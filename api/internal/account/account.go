@@ -8,12 +8,21 @@ type Account struct {
 	Handle        string
 	Email         *string
 	EmailVerified bool
+	DiscordLinked bool
+	HasPassword   bool
 }
 
 type SignUpInput struct {
 	Email    string
 	Password string
 	Handle   string
+}
+
+type DiscordProfile struct {
+	Subject       string
+	Username      string
+	Email         string
+	EmailVerified bool
 }
 
 type Profile struct {

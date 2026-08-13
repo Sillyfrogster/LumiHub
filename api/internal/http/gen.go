@@ -49,11 +49,31 @@ func (e CreateAssetRequestDiscovery) Valid() bool {
 	}
 }
 
+// Defines values for BeginDiscordParamsIntent.
+const (
+	Attach BeginDiscordParamsIntent = "attach"
+	SignIn BeginDiscordParamsIntent = "sign-in"
+)
+
+// Valid indicates whether the value is a known member of the BeginDiscordParamsIntent enum.
+func (e BeginDiscordParamsIntent) Valid() bool {
+	switch e {
+	case Attach:
+		return true
+	case SignIn:
+		return true
+	default:
+		return false
+	}
+}
+
 // Account defines model for Account.
 type Account struct {
+	DiscordLinked bool                 `json:"discordLinked"`
 	Email         *openapi_types.Email `json:"email"`
 	EmailVerified bool                 `json:"emailVerified"`
 	Handle        string               `json:"handle"`
+	HasPassword   bool                 `json:"hasPassword"`
 	Id            openapi_types.UUID   `json:"id"`
 }
 
@@ -84,6 +104,12 @@ type ChangeEmailRequest struct {
 	Email openapi_types.Email `json:"email"`
 }
 
+// CompletePasswordResetRequest defines model for CompletePasswordResetRequest.
+type CompletePasswordResetRequest struct {
+	Password string `json:"password"`
+	Token    string `json:"token"`
+}
+
 // CreateAssetRequest defines model for CreateAssetRequest.
 type CreateAssetRequest struct {
 	Description *string                      `json:"description,omitempty"`
@@ -97,6 +123,16 @@ type CreateAssetRequest struct {
 
 // CreateAssetRequestDiscovery defines model for CreateAssetRequest.Discovery.
 type CreateAssetRequestDiscovery string
+
+// PasswordRequest defines model for PasswordRequest.
+type PasswordRequest struct {
+	Password string `json:"password"`
+}
+
+// PasswordResetRequest defines model for PasswordResetRequest.
+type PasswordResetRequest struct {
+	Email openapi_types.Email `json:"email"`
+}
 
 // Profile defines model for Profile.
 type Profile struct {
@@ -153,14 +189,38 @@ type CreateAssetMultipartBody struct {
 	Metadata CreateAssetRequest `json:"metadata"`
 }
 
+// BeginDiscordParams defines parameters for BeginDiscord.
+type BeginDiscordParams struct {
+	Intent *BeginDiscordParamsIntent `form:"intent,omitempty" json:"intent,omitempty"`
+}
+
+// BeginDiscordParamsIntent defines parameters for BeginDiscord.
+type BeginDiscordParamsIntent string
+
+// CompleteDiscordParams defines parameters for CompleteDiscord.
+type CompleteDiscordParams struct {
+	State string  `form:"state" json:"state"`
+	Code  *string `form:"code,omitempty" json:"code,omitempty"`
+	Error *string `form:"error,omitempty" json:"error,omitempty"`
+}
+
 // ChangeUnverifiedEmailJSONRequestBody defines body for ChangeUnverifiedEmail for application/json ContentType.
 type ChangeUnverifiedEmailJSONRequestBody = ChangeEmailRequest
 
 // RenameHandleJSONRequestBody defines body for RenameHandle for application/json ContentType.
 type RenameHandleJSONRequestBody = RenameHandleRequest
 
+// SetPasswordJSONRequestBody defines body for SetPassword for application/json ContentType.
+type SetPasswordJSONRequestBody = PasswordRequest
+
 // CreateAssetMultipartRequestBody defines body for CreateAsset for multipart/form-data ContentType.
 type CreateAssetMultipartRequestBody CreateAssetMultipartBody
+
+// RequestPasswordResetJSONRequestBody defines body for RequestPasswordReset for application/json ContentType.
+type RequestPasswordResetJSONRequestBody = PasswordResetRequest
+
+// CompletePasswordResetJSONRequestBody defines body for CompletePasswordReset for application/json ContentType.
+type CompletePasswordResetJSONRequestBody = CompletePasswordResetRequest
 
 // SignInJSONRequestBody defines body for SignIn for application/json ContentType.
 type SignInJSONRequestBody = SignInRequest
@@ -174,11 +234,17 @@ type VerifyEmailJSONRequestBody = VerifyEmailRequest
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 
+	// (DELETE /v1/account/discord)
+	DetachDiscord(c *gin.Context)
+
 	// (PATCH /v1/account/email)
 	ChangeUnverifiedEmail(c *gin.Context)
 
 	// (PATCH /v1/account/handle)
 	RenameHandle(c *gin.Context)
+
+	// (PUT /v1/account/password)
+	SetPassword(c *gin.Context)
 
 	// (GET /v1/assets)
 	ListAssets(c *gin.Context, params ListAssetsParams)
@@ -188,6 +254,18 @@ type ServerInterface interface {
 
 	// (GET /v1/assets/{id}/original)
 	DownloadOriginal(c *gin.Context, id openapi_types.UUID)
+
+	// (GET /v1/auth/discord)
+	BeginDiscord(c *gin.Context, params BeginDiscordParams)
+
+	// (GET /v1/auth/discord/callback)
+	CompleteDiscord(c *gin.Context, params CompleteDiscordParams)
+
+	// (POST /v1/auth/password-reset)
+	RequestPasswordReset(c *gin.Context)
+
+	// (POST /v1/auth/password-reset/complete)
+	CompletePasswordReset(c *gin.Context)
 
 	// (GET /v1/auth/session)
 	GetSession(c *gin.Context)
@@ -217,6 +295,19 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(c *gin.Context)
 
+// DetachDiscord operation middleware
+func (siw *ServerInterfaceWrapper) DetachDiscord(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DetachDiscord(c)
+}
+
 // ChangeUnverifiedEmail operation middleware
 func (siw *ServerInterfaceWrapper) ChangeUnverifiedEmail(c *gin.Context) {
 
@@ -241,6 +332,19 @@ func (siw *ServerInterfaceWrapper) RenameHandle(c *gin.Context) {
 	}
 
 	siw.Handler.RenameHandle(c)
+}
+
+// SetPassword operation middleware
+func (siw *ServerInterfaceWrapper) SetPassword(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.SetPassword(c)
 }
 
 // ListAssets operation middleware
@@ -354,6 +458,102 @@ func (siw *ServerInterfaceWrapper) DownloadOriginal(c *gin.Context) {
 	}
 
 	siw.Handler.DownloadOriginal(c, id)
+}
+
+// BeginDiscord operation middleware
+func (siw *ServerInterfaceWrapper) BeginDiscord(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params BeginDiscordParams
+
+	// ------------- Optional query parameter "intent" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "intent", c.Request.URL.Query(), &params.Intent, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter intent: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.BeginDiscord(c, params)
+}
+
+// CompleteDiscord operation middleware
+func (siw *ServerInterfaceWrapper) CompleteDiscord(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CompleteDiscordParams
+
+	// ------------- Required query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "state", c.Request.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter state: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "code" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "code", c.Request.URL.Query(), &params.Code, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter code: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "error" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "error", c.Request.URL.Query(), &params.Error, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter error: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CompleteDiscord(c, params)
+}
+
+// RequestPasswordReset operation middleware
+func (siw *ServerInterfaceWrapper) RequestPasswordReset(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RequestPasswordReset(c)
+}
+
+// CompletePasswordReset operation middleware
+func (siw *ServerInterfaceWrapper) CompletePasswordReset(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CompletePasswordReset(c)
 }
 
 // GetSession operation middleware
@@ -473,13 +673,19 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 		ErrorHandler:       errorHandler,
 	}
 
+	router.DELETE(options.BaseURL+"/v1/account/discord", wrapper.DetachDiscord)
 	router.PATCH(options.BaseURL+"/v1/account/email", wrapper.ChangeUnverifiedEmail)
 	router.PATCH(options.BaseURL+"/v1/account/handle", wrapper.RenameHandle)
+	router.PUT(options.BaseURL+"/v1/account/password", wrapper.SetPassword)
 	router.POST(options.BaseURL+"/v1/auth/sign-up", wrapper.SignUp)
 	router.POST(options.BaseURL+"/v1/auth/sign-in", wrapper.SignIn)
+	router.GET(options.BaseURL+"/v1/auth/discord", wrapper.BeginDiscord)
+	router.GET(options.BaseURL+"/v1/auth/discord/callback", wrapper.CompleteDiscord)
 	router.POST(options.BaseURL+"/v1/auth/sign-out", wrapper.SignOut)
 	router.GET(options.BaseURL+"/v1/auth/session", wrapper.GetSession)
 	router.POST(options.BaseURL+"/v1/auth/verify-email", wrapper.VerifyEmail)
+	router.POST(options.BaseURL+"/v1/auth/password-reset", wrapper.RequestPasswordReset)
+	router.POST(options.BaseURL+"/v1/auth/password-reset/complete", wrapper.CompletePasswordReset)
 	router.GET(options.BaseURL+"/v1/profiles/:handle", wrapper.GetProfile)
 	router.GET(options.BaseURL+"/v1/assets", wrapper.ListAssets)
 	router.POST(options.BaseURL+"/v1/assets", wrapper.CreateAsset)

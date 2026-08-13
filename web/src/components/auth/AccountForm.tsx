@@ -1,5 +1,6 @@
 "use client";
 
+import { MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
@@ -9,7 +10,13 @@ import styles from "./AccountForm.module.css";
 
 type ErrorAnswer = { error?: string; field?: string };
 
-export function AccountForm({ mode }: { mode: "sign-in" | "sign-up" }) {
+export function AccountForm({
+  mode,
+  discordError,
+}: {
+  mode: "sign-in" | "sign-up";
+  discordError?: string;
+}) {
   const router = useRouter();
   const { setAccount } = useAuth();
   const [error, setError] = useState<ErrorAnswer | null>(null);
@@ -67,6 +74,23 @@ export function AccountForm({ mode }: { mode: "sign-in" | "sign-up" }) {
         </p>
       </div>
 
+      <Link className={styles.discord} href="/api/v1/auth/discord">
+        <MessageCircle size={18} strokeWidth={1.7} aria-hidden="true" />
+        Continue with Discord
+      </Link>
+
+      {discordError ? (
+        <p className={styles.error} role="alert">
+          {discordError}
+        </p>
+      ) : null}
+
+      <div className={styles.divider} aria-hidden="true">
+        <span />
+        <p>or use email</p>
+        <span />
+      </div>
+
       {signUp ? (
         <div className={styles.field}>
           <label htmlFor="account-handle">Handle</label>
@@ -110,7 +134,12 @@ export function AccountForm({ mode }: { mode: "sign-in" | "sign-up" }) {
       </div>
 
       <div className={styles.field}>
-        <label htmlFor="account-password">Password</label>
+        <div className={styles.fieldLabel}>
+          <label htmlFor="account-password">Password</label>
+          {!signUp ? (
+            <Link href="/forgot-password">Forgot password?</Link>
+          ) : null}
+        </div>
         <input
           id="account-password"
           name="password"

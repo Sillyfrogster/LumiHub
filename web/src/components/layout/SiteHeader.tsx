@@ -76,7 +76,13 @@ export function SiteHeader() {
           ) : account ? (
             <>
               <span className={styles.identity}>
-                <span className={styles.handle}>@{account.handle}</span>
+                <Link
+                  href="/settings"
+                  className={styles.handle}
+                  aria-label={`Account settings for @${account.handle}`}
+                >
+                  @{account.handle}
+                </Link>
                 {!account.emailVerified ? (
                   <Link href="/verify-email" className={styles.unverified}>
                     Verify email

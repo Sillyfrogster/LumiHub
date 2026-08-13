@@ -20,6 +20,7 @@ type Config struct {
 	Port           string
 	SiteURL        string
 	SMTP           SMTPSettings
+	Discord        DiscordSettings
 	Database       postgres.Settings
 	UploadsDir     string
 	MaxUploadBytes int64
@@ -32,6 +33,11 @@ type SMTPSettings struct {
 	From     string
 	Username string
 	Password string
+}
+
+type DiscordSettings struct {
+	ClientID     string
+	ClientSecret string
 }
 
 // Load reads settings from the environment and rejects anything missing.
@@ -49,6 +55,10 @@ func Load() (Config, error) {
 			From:     get("SMTP_FROM", ""),
 			Username: get("SMTP_USERNAME", ""),
 			Password: get("SMTP_PASSWORD", ""),
+		},
+		Discord: DiscordSettings{
+			ClientID:     get("DISCORD_CLIENT_ID", ""),
+			ClientSecret: get("DISCORD_CLIENT_SECRET", ""),
 		},
 	}
 
@@ -74,6 +84,9 @@ func Load() (Config, error) {
 	}
 	if cfg.SMTP.Address == "" && cfg.SMTP.Username != "" {
 		return Config{}, fmt.Errorf("SMTP credentials need SMTP_ADDR and SMTP_FROM")
+	}
+	if (cfg.Discord.ClientID == "") != (cfg.Discord.ClientSecret == "") {
+		return Config{}, fmt.Errorf("DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET must be set together")
 	}
 
 	return cfg, nil

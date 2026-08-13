@@ -84,6 +84,14 @@ select exists (
     select 1 from users where email = $1 and email_verified_at is not null
 );
 
+-- name: VerifiedEmailBelongsToDiscordAccount :one
+select exists (
+    select 1
+      from users u
+      join oauth_identities oi on oi.user_id = u.id and oi.provider = 'discord'
+     where u.email = $1 and u.email_verified_at is not null
+);
+
 -- name: InsertUser :one
 insert into users (id, username, email, password_hash, email_source)
 values ($1, $2, $3, $4, 'creator')
@@ -98,7 +106,12 @@ insert into sessions (token_hash, user_id, expires_at)
 values ($1, $2, $3);
 
 -- name: UserBySessionHash :one
-select u.id, u.username, u.email, u.email_verified_at
+select u.id, u.username, u.email, u.email_verified_at,
+       case when u.password_hash is null then false else true end as has_password,
+       exists (
+           select 1 from oauth_identities oi
+            where oi.user_id = u.id and oi.provider = 'discord'
+       ) as discord_linked
   from sessions s
   join users u on u.id = s.user_id
  where s.token_hash = $1 and s.expires_at > now();
@@ -132,9 +145,13 @@ delete from email_verification_tokens where email = $1;
 delete from email_verification_tokens where user_id = $1;
 
 -- name: UsersForSignIn :many
-select id, username, email, email_verified_at, password_hash
-  from users
- where email = $1 and password_hash is not null;
+select u.id, u.username, u.email, u.email_verified_at, u.password_hash,
+       exists (
+           select 1 from oauth_identities oi
+            where oi.user_id = u.id and oi.provider = 'discord'
+       ) as discord_linked
+  from users u
+ where u.email = $1 and u.password_hash is not null;
 
 -- name: DeleteSession :exec
 delete from sessions where token_hash = $1;
@@ -157,3 +174,89 @@ update users
    set email = $2, email_source = 'creator', updated_at = now()
  where id = $1 and email_verified_at is null
 returning id, username, email, email_verified_at;
+
+-- name: InsertOAuthState :exec
+insert into oauth_states (token_hash, intent, user_id, expires_at)
+values ($1, $2, $3, $4);
+
+-- name: TakeOAuthState :one
+delete from oauth_states
+ where token_hash = $1 and expires_at > now()
+returning intent, user_id;
+
+-- name: LockOAuthIdentity :one
+select 1 from pg_advisory_xact_lock(
+    hashtextextended('lumihub-oauth:' || sqlc.arg('provider')::text || ':' ||
+                     sqlc.arg('subject')::text, 0)
+);
+
+-- name: UserByOAuthIdentity :one
+select u.id, u.username, u.email, u.email_verified_at, u.email_source,
+       case when u.password_hash is null then false else true end as has_password
+  from oauth_identities oi
+  join users u on u.id = oi.user_id
+ where oi.provider = $1 and oi.subject = $2;
+
+-- name: InsertDiscordUser :one
+insert into users (id, username, email, email_verified_at, email_source)
+values ($1, $2, $3, $4, case when $3::text is null then null else 'discord' end)
+returning id, username, email, email_verified_at;
+
+-- name: InsertOAuthIdentity :exec
+insert into oauth_identities (user_id, provider, subject, provider_email)
+values ($1, $2, $3, $4);
+
+-- name: UpdateDiscordEmail :one
+update users
+   set email = $2, email_verified_at = now(), email_source = 'discord', updated_at = now()
+ where id = $1
+   and (email is null or email_source = 'discord')
+returning id, username, email, email_verified_at, email_source;
+
+-- name: UpdateOAuthIdentityEmail :exec
+update oauth_identities
+   set provider_email = $3, updated_at = now()
+ where provider = $1 and subject = $2;
+
+-- name: UserForDiscordAttach :one
+select id, username, email, email_verified_at, email_source,
+       case when password_hash is null then false else true end as has_password
+  from users
+ where id = $1
+ for update;
+
+-- name: DiscordIdentityExistsForUser :one
+select exists (
+    select 1 from oauth_identities
+     where user_id = $1 and provider = 'discord'
+);
+
+-- name: UpdatePassword :one
+update users
+   set password_hash = $2, updated_at = now()
+ where id = $1
+returning id, username, email, email_verified_at;
+
+-- name: DiscordSubjectForUser :one
+select subject
+  from oauth_identities
+ where user_id = $1 and provider = 'discord';
+
+-- name: DeleteOAuthIdentity :exec
+delete from oauth_identities
+ where user_id = $1 and provider = $2 and subject = $3;
+
+-- name: VerifiedUserIDByEmail :one
+select id from users where email = $1 and email_verified_at is not null;
+
+-- name: DeletePasswordResetForUser :exec
+delete from password_reset_tokens where user_id = $1;
+
+-- name: InsertPasswordReset :exec
+insert into password_reset_tokens (token_hash, user_id, expires_at)
+values ($1, $2, $3);
+
+-- name: TakePasswordReset :one
+delete from password_reset_tokens
+ where token_hash = $1 and expires_at > now()
+returning user_id;

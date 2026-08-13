@@ -70,6 +70,28 @@ type EmailVerificationToken struct {
 	ExpiresAt pgtype.Timestamptz
 }
 
+type OauthIdentity struct {
+	UserID        pgtype.UUID
+	Provider      string
+	Subject       string
+	ProviderEmail pgtype.Text
+	CreatedAt     pgtype.Timestamptz
+	UpdatedAt     pgtype.Timestamptz
+}
+
+type OauthState struct {
+	TokenHash []byte
+	Intent    string
+	UserID    pgtype.UUID
+	ExpiresAt pgtype.Timestamptz
+}
+
+type PasswordResetToken struct {
+	TokenHash []byte
+	UserID    pgtype.UUID
+	ExpiresAt pgtype.Timestamptz
+}
+
 type RetiredHandle struct {
 	Handle string
 }

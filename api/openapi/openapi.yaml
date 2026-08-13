@@ -3,6 +3,18 @@ info:
   title: LumiHub API
   version: 0.1.0
 paths:
+  /v1/account/discord:
+    delete:
+      operationId: detachDiscord
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: The account with Discord detached
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Account" }
+        "401": { description: No account is signed in }
+        "409": { description: Discord is absent or is the last usable sign-in method }
   /v1/account/email:
     patch:
       operationId: changeUnverifiedEmail
@@ -40,6 +52,23 @@ paths:
         "401": { description: No account is signed in }
         "403": { description: The signed-in account has not verified its email }
         "409": { description: The handle is active or retired }
+  /v1/account/password:
+    put:
+      operationId: setPassword
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasswordRequest" }
+      responses:
+        "200":
+          description: The account with a password set
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Account" }
+        "400": { description: The password is empty }
+        "401": { description: No account is signed in }
   /v1/auth/sign-up:
     post:
       operationId: signUp
@@ -75,6 +104,27 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Account" }
         "401": { description: The credentials do not identify one account }
+  /v1/auth/discord:
+    get:
+      operationId: beginDiscord
+      parameters:
+        - name: intent
+          in: query
+          schema: { type: string, enum: [sign-in, attach], default: sign-in }
+      responses:
+        "303": { description: Continue on Discord }
+        "401": { description: Attaching Discord requires a signed-in account }
+        "403": { description: Attaching Discord requires a verified account }
+        "503": { description: Discord sign-in is not configured }
+  /v1/auth/discord/callback:
+    get:
+      operationId: completeDiscord
+      parameters:
+        - { name: state, in: query, required: true, schema: { type: string } }
+        - { name: code, in: query, schema: { type: string } }
+        - { name: error, in: query, schema: { type: string } }
+      responses:
+        "303": { description: Continue on LumiHub }
   /v1/auth/sign-out:
     post:
       operationId: signOut
@@ -105,6 +155,28 @@ paths:
               schema: { $ref: "#/components/schemas/Account" }
         "400": { description: The link is invalid, expired or has already lost the address }
         "409": { description: Another account verified the address first }
+  /v1/auth/password-reset:
+    post:
+      operationId: requestPasswordReset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasswordResetRequest" }
+      responses:
+        "204": { description: A reset is sent when the verified account exists }
+        "400": { description: The request is not valid JSON }
+  /v1/auth/password-reset/complete:
+    post:
+      operationId: completePasswordReset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CompletePasswordResetRequest" }
+      responses:
+        "204": { description: The password is set }
+        "400": { description: The link or password is invalid }
   /v1/profiles/{handle}:
     get:
       operationId: getProfile
@@ -191,12 +263,14 @@ components:
   schemas:
     Account:
       type: object
-      required: [id, handle, email, emailVerified]
+      required: [id, handle, email, emailVerified, discordLinked, hasPassword]
       properties:
         id: { type: string, format: uuid }
         handle: { type: string }
         email: { type: [string, "null"], format: email }
         emailVerified: { type: boolean }
+        discordLinked: { type: boolean }
+        hasPassword: { type: boolean }
     ChangeEmailRequest:
       type: object
       required: [email]
@@ -234,6 +308,22 @@ components:
       properties:
         email: { type: string, format: email }
         password: { type: string }
+    PasswordRequest:
+      type: object
+      required: [password]
+      properties:
+        password: { type: string, minLength: 1 }
+    PasswordResetRequest:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email }
+    CompletePasswordResetRequest:
+      type: object
+      required: [token, password]
+      properties:
+        token: { type: string }
+        password: { type: string, minLength: 1 }
     VerifyEmailRequest:
       type: object
       required: [token]

@@ -22,6 +22,9 @@ func TestCoreTablesExist(t *testing.T) {
 		"users",
 		"retired_handles",
 		"email_verification_tokens",
+		"oauth_identities",
+		"oauth_states",
+		"password_reset_tokens",
 		"sessions",
 	}
 	for _, table := range want {

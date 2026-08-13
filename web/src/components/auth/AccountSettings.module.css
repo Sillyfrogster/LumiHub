@@ -1,0 +1,302 @@
+.settings {
+  position: relative;
+  border-top: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.summary,
+.method,
+.password {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 28px;
+  align-items: center;
+  padding: 28px 32px;
+}
+
+.summary {
+  background: rgba(238, 243, 250, 0.7);
+}
+
+.summary p {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.summary h2 {
+  margin-top: 5px;
+  font-family: var(--font-display);
+  font-size: 1.65rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.safety,
+.complete {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--pass);
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.method,
+.password {
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  border-top: 1px solid var(--line-hair);
+}
+
+.methodIcon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid var(--line-soft);
+  border-radius: 50%;
+  background: var(--surface-quiet);
+  color: var(--accent);
+}
+
+.methodCopy h3 {
+  color: var(--ink-strong);
+  font-size: 0.92rem;
+  font-weight: 900;
+}
+
+.methodCopy p {
+  margin-top: 5px;
+  color: var(--body);
+  font-size: 0.9rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.methodCopy span,
+.password .methodCopy p {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.primaryAction,
+.secondaryAction,
+.passwordControl button,
+.signedOut a {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 16px;
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  font-weight: 900;
+  white-space: nowrap;
+  transition:
+    border-color 180ms var(--ease),
+    box-shadow 180ms var(--ease),
+    transform 180ms var(--ease);
+}
+
+.primaryAction,
+.passwordControl button,
+.signedOut a {
+  background: var(--action);
+  color: #fff;
+  box-shadow: var(--shadow-button);
+}
+
+.primaryAction:hover,
+.passwordControl button:hover:not(:disabled),
+.signedOut a:hover {
+  color: #fff;
+  box-shadow: var(--shadow-button-hover);
+  transform: translateY(-1px);
+}
+
+.primaryAction[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.secondaryAction {
+  border: 1px solid var(--line-soft);
+  background: var(--surface);
+  color: var(--ink-strong);
+}
+
+.secondaryAction:hover:not(:disabled) {
+  border-color: var(--faint);
+  color: var(--ink-strong);
+}
+
+.secondaryAction:disabled,
+.passwordControl button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.message,
+.requirement {
+  display: block;
+  margin: 20px 32px 0;
+  padding: 11px 13px;
+  border: 1px solid var(--line-soft);
+  background: var(--surface-quiet);
+  color: var(--body);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.requirement {
+  margin-top: 0;
+  border-color: rgba(169, 124, 53, 0.25);
+  background: rgba(242, 197, 97, 0.1);
+}
+
+.passwordControl {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.passwordControl input {
+  width: min(24vw, 230px);
+  min-height: 42px;
+  padding-inline: 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-strong);
+}
+
+.passwordControl input:hover {
+  border-color: var(--faint);
+}
+
+.passwordControl input:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-bg);
+  outline: none;
+}
+
+.loading,
+.signedOut {
+  display: grid;
+  min-height: 340px;
+  align-content: center;
+  justify-items: center;
+  gap: 14px;
+  border-top: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
+  background: rgba(255, 255, 255, 0.72);
+  text-align: center;
+}
+
+.loading span {
+  width: min(100%, 420px);
+  height: 18px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunk);
+}
+
+.loading span:nth-child(2) {
+  width: min(80%, 330px);
+}
+
+.loading span:nth-child(3) {
+  width: min(62%, 250px);
+}
+
+.loading p,
+.signedOut p {
+  color: var(--body);
+  font-size: 0.86rem;
+}
+
+.signedOut {
+  padding: 48px 24px;
+}
+
+.signedOut > svg {
+  color: var(--accent);
+}
+
+.signedOut h2 {
+  font-family: var(--font-display);
+  font-size: 1.85rem;
+  font-weight: 600;
+}
+
+.signedOut a {
+  min-width: 150px;
+  margin-top: 8px;
+}
+
+@media (max-width: 760px) {
+  .summary,
+  .method,
+  .password {
+    padding-inline: 22px;
+  }
+
+  .method,
+  .password {
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .method > :last-child,
+  .passwordControl {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .passwordControl {
+    width: 100%;
+  }
+
+  .passwordControl input {
+    width: 100%;
+  }
+
+  .message,
+  .requirement {
+    margin-inline: 22px;
+  }
+}
+
+@media (max-width: 480px) {
+  .summary {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .method,
+  .password {
+    grid-template-columns: 1fr;
+  }
+
+  .methodIcon,
+  .method > :last-child,
+  .passwordControl {
+    grid-column: 1;
+  }
+
+  .passwordControl {
+    display: grid;
+  }
+
+  .primaryAction,
+  .secondaryAction,
+  .passwordControl button {
+    width: 100%;
+  }
+}

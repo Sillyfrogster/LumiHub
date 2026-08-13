@@ -34,6 +34,22 @@ func NewSMTPSender(settings SMTPSettings) (*SMTPSender, error) {
 }
 
 func (s *SMTPSender) SendVerification(_ context.Context, address, link string) error {
+	return s.send(
+		address,
+		"Verify your LumiHub email",
+		"Verify your LumiHub email address by opening this link:\r\n\r\n"+link+"\r\n",
+	)
+}
+
+func (s *SMTPSender) SendPasswordReset(_ context.Context, address, link string) error {
+	return s.send(
+		address,
+		"Reset your LumiHub password",
+		"Set a new LumiHub password by opening this link:\r\n\r\n"+link+"\r\n",
+	)
+}
+
+func (s *SMTPSender) send(address, subject, body string) error {
 	var auth smtp.Auth
 	if s.settings.Username != "" {
 		auth = smtp.PlainAuth("", s.settings.Username, s.settings.Password, s.host)
@@ -41,11 +57,10 @@ func (s *SMTPSender) SendVerification(_ context.Context, address, link string) e
 	recipient := (&mail.Address{Address: address}).String()
 	message := "From: " + s.from.String() + "\r\n" +
 		"To: " + recipient + "\r\n" +
-		"Subject: Verify your LumiHub email\r\n" +
+		"Subject: " + subject + "\r\n" +
 		"MIME-Version: 1.0\r\n" +
 		"Content-Type: text/plain; charset=UTF-8\r\n" +
-		"\r\n" +
-		"Verify your LumiHub email address by opening this link:\r\n\r\n" + link + "\r\n"
+		"\r\n" + body
 
 	if err := smtp.SendMail(
 		s.settings.Address,
@@ -54,7 +69,7 @@ func (s *SMTPSender) SendVerification(_ context.Context, address, link string) e
 		[]string{address},
 		[]byte(message),
 	); err != nil {
-		return fmt.Errorf("send verification email: %w", err)
+		return fmt.Errorf("send account email: %w", err)
 	}
 	return nil
 }

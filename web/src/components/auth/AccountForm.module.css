@@ -23,6 +23,53 @@
   line-height: 1.65;
 }
 
+.discord {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-strong);
+  font-size: 0.85rem;
+  font-weight: 900;
+  letter-spacing: 0.025em;
+  transition:
+    border-color 180ms var(--ease),
+    background 180ms var(--ease),
+    transform 180ms var(--ease);
+}
+
+.discord:hover {
+  border-color: var(--faint);
+  background: var(--surface-quiet);
+  color: var(--ink-strong);
+  transform: translateY(-1px);
+}
+
+.discord:active {
+  transform: translateY(0);
+}
+
+.divider {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 12px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.divider span {
+  height: 1px;
+  background: var(--line-soft);
+}
+
 .field {
   display: grid;
   gap: 8px;
@@ -34,6 +81,18 @@
   font-weight: 900;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.fieldLabel {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.fieldLabel a {
+  font-size: 0.74rem;
+  font-weight: 700;
 }
 
 .field > input,

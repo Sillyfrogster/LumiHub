@@ -4,6 +4,22 @@
  */
 
 export interface paths {
+  "/v1/account/discord": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete: operations["detachDiscord"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/account/email": {
     parameters: {
       query?: never;
@@ -36,6 +52,22 @@ export interface paths {
     patch: operations["renameHandle"];
     trace?: never;
   };
+  "/v1/account/password": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations["setPassword"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/auth/sign-up": {
     parameters: {
       query?: never;
@@ -62,6 +94,38 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations["signIn"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/auth/discord": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["beginDiscord"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/auth/discord/callback": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["completeDiscord"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -110,6 +174,38 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations["verifyEmail"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/auth/password-reset": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["requestPasswordReset"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/auth/password-reset/complete": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["completePasswordReset"];
     delete?: never;
     options?: never;
     head?: never;
@@ -175,6 +271,8 @@ export interface components {
       /** Format: email */
       email: string | null;
       emailVerified: boolean;
+      discordLinked: boolean;
+      hasPassword: boolean;
     };
     ChangeEmailRequest: {
       /** Format: email */
@@ -200,6 +298,17 @@ export interface components {
     SignInRequest: {
       /** Format: email */
       email: string;
+      password: string;
+    };
+    PasswordRequest: {
+      password: string;
+    };
+    PasswordResetRequest: {
+      /** Format: email */
+      email: string;
+    };
+    CompletePasswordResetRequest: {
+      token: string;
       password: string;
     };
     VerifyEmailRequest: {
@@ -242,6 +351,40 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  detachDiscord: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The account with Discord detached */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Account"];
+        };
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Discord is absent or is the last usable sign-in method */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   changeUnverifiedEmail: {
     parameters: {
       query?: never;
@@ -339,6 +482,44 @@ export interface operations {
       };
     };
   };
+  setPassword: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PasswordRequest"];
+      };
+    };
+    responses: {
+      /** @description The account with a password set */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Account"];
+        };
+      };
+      /** @description The password is empty */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   signUp: {
     parameters: {
       query?: never;
@@ -403,6 +584,69 @@ export interface operations {
       };
       /** @description The credentials do not identify one account */
       401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  beginDiscord: {
+    parameters: {
+      query?: {
+        intent?: "sign-in" | "attach";
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Continue on Discord */
+      303: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Attaching Discord requires a signed-in account */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Attaching Discord requires a verified account */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Discord sign-in is not configured */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  completeDiscord: {
+    parameters: {
+      query: {
+        state: string;
+        code?: string;
+        error?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Continue on LumiHub */
+      303: {
         headers: {
           [name: string]: unknown;
         };
@@ -479,6 +723,64 @@ export interface operations {
       };
       /** @description Another account verified the address first */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  requestPasswordReset: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PasswordResetRequest"];
+      };
+    };
+    responses: {
+      /** @description A reset is sent when the verified account exists */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The request is not valid JSON */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  completePasswordReset: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CompletePasswordResetRequest"];
+      };
+    };
+    responses: {
+      /** @description The password is set */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The link or password is invalid */
+      400: {
         headers: {
           [name: string]: unknown;
         };

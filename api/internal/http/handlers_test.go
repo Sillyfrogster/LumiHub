@@ -38,7 +38,7 @@ func newTestRouterWithSender(
 	t *testing.T,
 	maxUploadBytes int64,
 	deadlines Deadlines,
-	sender account.VerificationSender,
+	sender account.EmailSender,
 ) *gin.Engine {
 	t.Helper()
 	return registerTestRouter(t, newTestHandlers(t, maxUploadBytes, sender), deadlines)
@@ -48,7 +48,7 @@ func newTestRouterWithSenderAndPool(
 	t *testing.T,
 	maxUploadBytes int64,
 	deadlines Deadlines,
-	sender account.VerificationSender,
+	sender account.EmailSender,
 ) (*gin.Engine, *pgxpool.Pool) {
 	t.Helper()
 	pool := testdb.Connect(t)
@@ -59,7 +59,7 @@ func newTestRouterWithSenderAndPool(
 func newTestHandlers(
 	t *testing.T,
 	maxUploadBytes int64,
-	sender account.VerificationSender,
+	sender account.EmailSender,
 ) *Handlers {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -72,7 +72,7 @@ func newTestHandlersWithPool(
 	t *testing.T,
 	pool *pgxpool.Pool,
 	maxUploadBytes int64,
-	sender account.VerificationSender,
+	sender account.EmailSender,
 ) *Handlers {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -82,9 +82,36 @@ func newTestHandlersWithPool(
 		t.Fatalf("storage: %v", err)
 	}
 	svc := asset.NewService(pool, format.NewRegistry(passthrough.New()), blob)
-	accounts := account.NewService(pool, sender, "http://localhost:3000")
+	accounts := account.NewService(pool, sender, nil, "http://localhost:3000")
 
 	return NewHandlers(svc, accounts, maxUploadBytes)
+}
+
+func newTestRouterWithDiscord(
+	t *testing.T,
+	provider account.DiscordProvider,
+) *gin.Engine {
+	t.Helper()
+	r, _ := newTestRouterWithDiscordAndOutbox(t, provider)
+	return r
+}
+
+func newTestRouterWithDiscordAndOutbox(
+	t *testing.T,
+	provider account.DiscordProvider,
+) (*gin.Engine, *verificationOutbox) {
+	t.Helper()
+	pool := testdb.Connect(t)
+	blob, err := storage.NewStore(pool, t.TempDir())
+	if err != nil {
+		t.Fatalf("storage: %v", err)
+	}
+	assets := asset.NewService(pool, format.NewRegistry(passthrough.New()), blob)
+	outbox := &verificationOutbox{}
+	accounts := account.NewService(
+		pool, outbox, provider, "http://localhost:3000",
+	)
+	return registerTestRouter(t, NewHandlers(assets, accounts, 1<<20), DefaultDeadlines()), outbox
 }
 
 func registerTestRouter(t *testing.T, handlers *Handlers, deadlines Deadlines) *gin.Engine {
@@ -134,11 +161,17 @@ type verificationMessage struct {
 }
 
 type verificationOutbox struct {
-	messages []verificationMessage
+	messages       []verificationMessage
+	passwordResets []verificationMessage
 }
 
 func (o *verificationOutbox) SendVerification(_ context.Context, address, link string) error {
 	o.messages = append(o.messages, verificationMessage{address: address, link: link})
+	return nil
+}
+
+func (o *verificationOutbox) SendPasswordReset(_ context.Context, address, link string) error {
+	o.passwordResets = append(o.passwordResets, verificationMessage{address: address, link: link})
 	return nil
 }
 

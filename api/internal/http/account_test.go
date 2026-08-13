@@ -274,6 +274,8 @@ type accountState struct {
 	Handle        string  `json:"handle"`
 	Email         *string `json:"email"`
 	EmailVerified bool    `json:"emailVerified"`
+	DiscordLinked bool    `json:"discordLinked"`
+	HasPassword   bool    `json:"hasPassword"`
 }
 
 func signUp(t *testing.T, r http.Handler, email, handle string) *http.Cookie {

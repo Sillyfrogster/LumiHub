@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"log"
+	"strings"
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/account"
 	"github.com/Sillyfrogster/LumiHub/api/internal/asset"
 	"github.com/Sillyfrogster/LumiHub/api/internal/config"
+	"github.com/Sillyfrogster/LumiHub/api/internal/discord"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format/passthrough"
 	apihttp "github.com/Sillyfrogster/LumiHub/api/internal/http"
@@ -36,7 +38,7 @@ func main() {
 	registry := format.NewRegistry(passthrough.New())
 
 	svc := asset.NewService(pool, registry, blob)
-	var verificationSender account.VerificationSender = account.NewLogVerificationSender(log.Default())
+	var verificationSender account.EmailSender = account.NewLogVerificationSender(log.Default())
 	if cfg.SMTP.Address != "" {
 		verificationSender, err = account.NewSMTPSender(account.SMTPSettings{
 			Address:  cfg.SMTP.Address,
@@ -48,7 +50,18 @@ func main() {
 			log.Fatalf("verification email: %v", err)
 		}
 	}
-	accounts := account.NewService(pool, verificationSender, cfg.SiteURL)
+	var discordProvider account.DiscordProvider
+	if cfg.Discord.ClientID != "" {
+		discordProvider, err = discord.NewClient(discord.DefaultConfig(
+			cfg.Discord.ClientID,
+			cfg.Discord.ClientSecret,
+			strings.TrimRight(cfg.SiteURL, "/")+"/api/v1/auth/discord/callback",
+		), nil)
+		if err != nil {
+			log.Fatalf("Discord sign-in: %v", err)
+		}
+	}
+	accounts := account.NewService(pool, verificationSender, discordProvider, cfg.SiteURL)
 
 	r := gin.New()
 	r.Use(gin.Recovery())
