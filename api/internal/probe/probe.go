@@ -1,0 +1,316 @@
+package probe
+
+import (
+	"archive/zip"
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/binary"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"path"
+	"strings"
+
+	"github.com/google/uuid"
+)
+
+const maxRangeRead = 64 * 1024
+
+type Container string
+
+const (
+	Unknown Container = "unknown"
+	JSON    Container = "json"
+	PNG     Container = "png"
+	ZIP     Container = "zip"
+)
+
+// RangeStore is the part of blob storage the probe needs.
+type RangeStore interface {
+	ReadRange(ctx context.Context, id uuid.UUID, offset, length int64) (io.ReadCloser, error)
+}
+
+// Result is the shared structure format modules inspect.
+type Result struct {
+	Container  Container
+	Payloads   []Payload
+	PNGChunks  []PNGChunk
+	ZIPEntries []ZIPEntry
+}
+
+type Locator struct {
+	Container Container
+	Name      string
+	Offset    int64
+}
+
+type Payload struct {
+	ID      uint32
+	Locator Locator
+	Root    map[string]json.RawMessage
+}
+
+func (p Payload) String(name string) (string, bool) {
+	raw, ok := p.Root[name]
+	if !ok {
+		return "", false
+	}
+	var value string
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return "", false
+	}
+	return value, true
+}
+
+type PNGChunk struct {
+	Type   string
+	Offset int64
+	Length int64
+	Name   string
+}
+
+type ZIPEntry struct {
+	Name               string
+	UncompressedSize   uint64
+	CompressedSize     uint64
+	Directory          bool
+	Mode               uint32
+	GeneralPurposeBits uint16
+}
+
+// Inspect walks one stored file through bounded range reads and decodes the
+// payloads format modules are allowed to inspect.
+func Inspect(ctx context.Context, store RangeStore, id uuid.UUID, size int64, filename string) (Result, error) {
+	result := Result{Container: Unknown}
+	if size == 0 {
+		return result, nil
+	}
+	reader := &rangeReaderAt{ctx: ctx, store: store, id: id, size: size}
+	prefixLength := min(size, 8)
+	prefix := make([]byte, prefixLength)
+	if _, err := reader.ReadAt(prefix, 0); err != nil && !errors.Is(err, io.EOF) {
+		return Result{}, fmt.Errorf("read container signature: %w", err)
+	}
+
+	switch {
+	case bytes.Equal(prefix, []byte("\x89PNG\r\n\x1a\n")):
+		result.Container = PNG
+		if err := inspectPNG(reader, &result); err != nil {
+			return Result{}, err
+		}
+	case isZIP(prefix):
+		result.Container = ZIP
+		if err := inspectZIP(reader, &result); err != nil {
+			return Result{}, err
+		}
+	case firstNonSpace(prefix) == '{' || strings.EqualFold(path.Ext(filename), ".json"):
+		result.Container = JSON
+		root, err := decodeObject(io.NewSectionReader(reader, 0, size))
+		if err != nil {
+			return Result{}, fmt.Errorf("inspect JSON: %w", err)
+		}
+		result.Payloads = append(result.Payloads, Payload{
+			ID:      0,
+			Locator: Locator{Container: JSON, Name: "root"},
+			Root:    root,
+		})
+	}
+	return result, nil
+}
+
+func isZIP(prefix []byte) bool {
+	return len(prefix) >= 4 && bytes.Equal(prefix[:2], []byte("PK")) &&
+		(prefix[2] == 3 && prefix[3] == 4 ||
+			prefix[2] == 5 && prefix[3] == 6 ||
+			prefix[2] == 7 && prefix[3] == 8)
+}
+
+func firstNonSpace(data []byte) byte {
+	for _, b := range data {
+		switch b {
+		case ' ', '\t', '\r', '\n':
+			continue
+		default:
+			return b
+		}
+	}
+	return 0
+}
+
+func inspectPNG(reader *rangeReaderAt, result *Result) error {
+	for offset := int64(8); ; {
+		if offset+12 > reader.size {
+			return fmt.Errorf("inspect PNG: chunk header at byte %d is truncated", offset)
+		}
+		header := make([]byte, 8)
+		if _, err := reader.ReadAt(header, offset); err != nil {
+			return fmt.Errorf("inspect PNG chunk at byte %d: %w", offset, err)
+		}
+		length := int64(binary.BigEndian.Uint32(header[:4]))
+		kind := string(header[4:])
+		end := offset + 12 + length
+		if end < offset || end > reader.size {
+			return fmt.Errorf("inspect PNG: %s chunk at byte %d is truncated", kind, offset)
+		}
+
+		chunk := PNGChunk{Type: kind, Offset: offset, Length: length}
+		if kind == "tEXt" {
+			data := make([]byte, length)
+			if _, err := reader.ReadAt(data, offset+8); err != nil {
+				return fmt.Errorf("read PNG text chunk at byte %d: %w", offset, err)
+			}
+			name, root, ok := textPayload(data)
+			chunk.Name = name
+			if ok {
+				result.Payloads = append(result.Payloads, Payload{
+					ID: uint32(len(result.Payloads)),
+					Locator: Locator{
+						Container: PNG,
+						Name:      name,
+						Offset:    offset,
+					},
+					Root: root,
+				})
+			}
+		}
+		result.PNGChunks = append(result.PNGChunks, chunk)
+		offset = end
+		if kind == "IEND" {
+			if offset != reader.size {
+				return fmt.Errorf("inspect PNG: %d bytes follow IEND", reader.size-offset)
+			}
+			return nil
+		}
+	}
+}
+
+func inspectZIP(reader *rangeReaderAt, result *Result) error {
+	archive, err := zip.NewReader(reader, reader.size)
+	if err != nil {
+		return fmt.Errorf("inspect ZIP: %w", err)
+	}
+	for _, entry := range archive.File {
+		offset, err := entry.DataOffset()
+		if err != nil {
+			return fmt.Errorf("inspect ZIP entry %q: %w", entry.Name, err)
+		}
+		result.ZIPEntries = append(result.ZIPEntries, ZIPEntry{
+			Name:               entry.Name,
+			UncompressedSize:   entry.UncompressedSize64,
+			CompressedSize:     entry.CompressedSize64,
+			Directory:          entry.FileInfo().IsDir(),
+			Mode:               uint32(entry.Mode()),
+			GeneralPurposeBits: entry.Flags,
+		})
+		if entry.FileInfo().IsDir() || !strings.EqualFold(entry.Name, "card.json") {
+			continue
+		}
+		opened, err := entry.Open()
+		if err != nil {
+			return fmt.Errorf("open ZIP entry %q: %w", entry.Name, err)
+		}
+		root, decodeErr := decodeObject(opened)
+		closeErr := opened.Close()
+		if decodeErr != nil {
+			return fmt.Errorf("inspect ZIP entry %q: %w", entry.Name, decodeErr)
+		}
+		if closeErr != nil {
+			return fmt.Errorf("close ZIP entry %q: %w", entry.Name, closeErr)
+		}
+		result.Payloads = append(result.Payloads, Payload{
+			ID: uint32(len(result.Payloads)),
+			Locator: Locator{
+				Container: ZIP,
+				Name:      entry.Name,
+				Offset:    offset,
+			},
+			Root: root,
+		})
+	}
+	return nil
+}
+
+func decodeObject(reader io.Reader) (map[string]json.RawMessage, error) {
+	decoder := json.NewDecoder(reader)
+	var root map[string]json.RawMessage
+	if err := decoder.Decode(&root); err != nil {
+		return nil, err
+	}
+	if root == nil {
+		return nil, fmt.Errorf("JSON root is not an object")
+	}
+	var trailing json.RawMessage
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return nil, fmt.Errorf("JSON has more than one root value")
+		}
+		return nil, err
+	}
+	return root, nil
+}
+
+func textPayload(data []byte) (string, map[string]json.RawMessage, bool) {
+	separator := bytes.IndexByte(data, 0)
+	if separator < 1 {
+		return "", nil, false
+	}
+	name := string(data[:separator])
+	text := data[separator+1:]
+	if root, ok := object(text); ok {
+		return name, root, true
+	}
+	decoded, err := base64.StdEncoding.DecodeString(string(text))
+	if err != nil {
+		return name, nil, false
+	}
+	root, ok := object(decoded)
+	return name, root, ok
+}
+
+func object(data []byte) (map[string]json.RawMessage, bool) {
+	var root map[string]json.RawMessage
+	if err := json.Unmarshal(data, &root); err != nil || root == nil {
+		return nil, false
+	}
+	return root, true
+}
+
+type rangeReaderAt struct {
+	ctx   context.Context
+	store RangeStore
+	id    uuid.UUID
+	size  int64
+}
+
+func (r *rangeReaderAt) ReadAt(p []byte, offset int64) (int, error) {
+	if offset < 0 {
+		return 0, fmt.Errorf("negative range offset")
+	}
+	if offset >= r.size {
+		return 0, io.EOF
+	}
+	wanted := min(int64(len(p)), r.size-offset)
+	read := int64(0)
+	for read < wanted {
+		length := min(wanted-read, maxRangeRead)
+		part, err := r.store.ReadRange(r.ctx, r.id, offset+read, length)
+		if err != nil {
+			return int(read), err
+		}
+		n, copyErr := io.ReadFull(part, p[read:read+length])
+		closeErr := part.Close()
+		read += int64(n)
+		if copyErr != nil {
+			return int(read), copyErr
+		}
+		if closeErr != nil {
+			return int(read), closeErr
+		}
+	}
+	if wanted < int64(len(p)) {
+		return int(read), io.EOF
+	}
+	return int(read), nil
+}
