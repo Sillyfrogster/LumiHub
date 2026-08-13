@@ -612,6 +612,19 @@ func (q *Queries) VerificationByHash(ctx context.Context, tokenHash []byte) (Ver
 	return i, err
 }
 
+const verificationEmailByHash = `-- name: VerificationEmailByHash :one
+select email
+  from email_verification_tokens
+ where token_hash = $1 and expires_at > now()
+`
+
+func (q *Queries) VerificationEmailByHash(ctx context.Context, tokenHash []byte) (string, error) {
+	row := q.db.QueryRow(ctx, verificationEmailByHash, tokenHash)
+	var email string
+	err := row.Scan(&email)
+	return email, err
+}
+
 const verifiedEmailExists = `-- name: VerifiedEmailExists :one
 select exists (
     select 1 from users where email = $1 and email_verified_at is not null

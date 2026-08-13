@@ -1,12 +1,14 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -185,6 +187,86 @@ func TestTheFirstAccountToVerifyAnAddressClaimsIt(t *testing.T) {
 	if alreadyClaimed.Code != http.StatusConflict {
 		t.Errorf("signup on verified address = %d, want 409. body: %s",
 			alreadyClaimed.Code, alreadyClaimed.Body.String())
+	}
+}
+
+func TestConcurrentVerificationProducesOneWinnerWithoutDeadlock(t *testing.T) {
+	outbox := &verificationOutbox{}
+	r, pool := newTestRouterWithSenderAndPool(t, 1<<20, DefaultDeadlines(), outbox)
+	signUp(t, r, "race@example.com", "race.first")
+	signUp(t, r, "race@example.com", "race.second")
+
+	tokens := make([]string, 0, len(outbox.messages))
+	for _, message := range outbox.messages {
+		verificationURL, err := url.Parse(message.link)
+		if err != nil {
+			t.Fatalf("parse verification link: %v", err)
+		}
+		tokens = append(tokens, verificationURL.Query().Get("token"))
+	}
+
+	ctx := context.Background()
+	blocker, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin advisory lock blocker: %v", err)
+	}
+	defer blocker.Rollback(ctx)
+	if _, err := blocker.Exec(ctx, `select pg_advisory_xact_lock(
+		hashtextextended('lumihub-email:' || $1::text, 0)
+	)`, "race@example.com"); err != nil {
+		t.Fatalf("hold email lock: %v", err)
+	}
+
+	start := make(chan struct{})
+	ready := make(chan struct{}, len(tokens))
+	statuses := make(chan int, len(tokens))
+	for _, token := range tokens {
+		go func() {
+			ready <- struct{}{}
+			<-start
+			req := httptest.NewRequest(http.MethodPost, "/v1/auth/verify-email",
+				strings.NewReader(`{"token":"`+token+`"}`))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			r.ServeHTTP(rec, req)
+			statuses <- rec.Code
+		}()
+	}
+	for range tokens {
+		<-ready
+	}
+	close(start)
+
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		var waiting int
+		if err := pool.QueryRow(ctx, `select count(*) from pg_locks
+			where locktype = 'advisory' and not granted`).Scan(&waiting); err != nil {
+			t.Fatalf("count waiting verification requests: %v", err)
+		}
+		if waiting >= len(tokens) {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("only %d verification requests reached the shared email lock", waiting)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if err := blocker.Commit(ctx); err != nil {
+		t.Fatalf("release email lock: %v", err)
+	}
+
+	counts := map[int]int{}
+	for range tokens {
+		select {
+		case status := <-statuses:
+			counts[status]++
+		case <-time.After(5 * time.Second):
+			t.Fatal("concurrent verification did not finish")
+		}
+	}
+	if counts[http.StatusOK] != 1 || counts[http.StatusBadRequest] != 1 {
+		t.Errorf("verification statuses = %v, want one 200 and one 400", counts)
 	}
 }
 

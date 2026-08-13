@@ -109,6 +109,11 @@ select user_id, email
  where token_hash = $1 and expires_at > now()
  for update;
 
+-- name: VerificationEmailByHash :one
+select email
+  from email_verification_tokens
+ where token_hash = $1 and expires_at > now();
+
 -- name: VerifyUserEmail :one
 update users
    set email_verified_at = now(), updated_at = now()

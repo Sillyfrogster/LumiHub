@@ -196,15 +196,25 @@ func (s *Service) VerifyEmail(ctx context.Context, token string) (Account, error
 	defer tx.Rollback(ctx)
 	queries := db.New(tx)
 
-	verification, err := queries.VerificationByHash(ctx, hash)
+	email, err := queries.VerificationEmailByHash(ctx, hash)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Account{}, ErrVerification
 	}
 	if err != nil {
 		return Account{}, fmt.Errorf("read verification: %w", err)
 	}
-	if _, err := queries.LockEmail(ctx, verification.Email); err != nil {
+	if _, err := queries.LockEmail(ctx, email); err != nil {
 		return Account{}, fmt.Errorf("lock email: %w", err)
+	}
+	verification, err := queries.VerificationByHash(ctx, hash)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Account{}, ErrVerification
+	}
+	if err != nil {
+		return Account{}, fmt.Errorf("recheck verification: %w", err)
+	}
+	if verification.Email != email {
+		return Account{}, ErrVerification
 	}
 	verified, err := queries.VerifyUserEmail(ctx, db.VerifyUserEmailParams{
 		ID:    verification.UserID,

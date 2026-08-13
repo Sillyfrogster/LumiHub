@@ -16,6 +16,7 @@ import (
 	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
 	"github.com/Sillyfrogster/LumiHub/api/internal/testdb"
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func newTestRouter(t *testing.T) *gin.Engine {
@@ -43,6 +44,18 @@ func newTestRouterWithSender(
 	return registerTestRouter(t, newTestHandlers(t, maxUploadBytes, sender), deadlines)
 }
 
+func newTestRouterWithSenderAndPool(
+	t *testing.T,
+	maxUploadBytes int64,
+	deadlines Deadlines,
+	sender account.VerificationSender,
+) (*gin.Engine, *pgxpool.Pool) {
+	t.Helper()
+	pool := testdb.Connect(t)
+	handlers := newTestHandlersWithPool(t, pool, maxUploadBytes, sender)
+	return registerTestRouter(t, handlers, deadlines), pool
+}
+
 func newTestHandlers(
 	t *testing.T,
 	maxUploadBytes int64,
@@ -52,6 +65,18 @@ func newTestHandlers(
 	gin.SetMode(gin.TestMode)
 
 	pool := testdb.Connect(t)
+	return newTestHandlersWithPool(t, pool, maxUploadBytes, sender)
+}
+
+func newTestHandlersWithPool(
+	t *testing.T,
+	pool *pgxpool.Pool,
+	maxUploadBytes int64,
+	sender account.VerificationSender,
+) *Handlers {
+	t.Helper()
+	gin.SetMode(gin.TestMode)
+
 	blob, err := storage.NewStore(pool, t.TempDir())
 	if err != nil {
 		t.Fatalf("storage: %v", err)
