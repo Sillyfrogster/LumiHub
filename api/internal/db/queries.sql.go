@@ -46,17 +46,6 @@ func (q *Queries) CurrentRevisionLocation(ctx context.Context, id pgtype.UUID) (
 	return i, err
 }
 
-const deleteBlob = `-- name: DeleteBlob :one
-delete from blobs where id = $1 returning storage_key
-`
-
-func (q *Queries) DeleteBlob(ctx context.Context, id pgtype.UUID) (string, error) {
-	row := q.db.QueryRow(ctx, deleteBlob, id)
-	var storage_key string
-	err := row.Scan(&storage_key)
-	return storage_key, err
-}
-
 const insertAsset = `-- name: InsertAsset :one
 insert into assets
   (id, kind, platform, format, format_version, owner_id,

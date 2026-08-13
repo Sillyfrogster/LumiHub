@@ -59,6 +59,3 @@ returning id, sha256, byte_size, storage_key;
 
 -- name: BlobLocation :one
 select storage_key, byte_size from blobs where id = $1;
-
--- name: DeleteBlob :one
-delete from blobs where id = $1 returning storage_key;

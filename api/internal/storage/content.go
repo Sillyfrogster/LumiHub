@@ -34,22 +34,12 @@ func NewStore(pool *pgxpool.Pool, root string) (Store, error) {
 }
 
 func (s *contentStore) Put(ctx context.Context, r io.Reader) (StoredBlob, error) {
-	temporary, err := os.CreateTemp(filepath.Join(s.root, "blobs"), ".incoming-*")
-	if err != nil {
-		return StoredBlob{}, fmt.Errorf("create temporary blob: %w", err)
-	}
-	temporaryName := temporary.Name()
-	defer os.Remove(temporaryName)
-
 	hash := sha256.New()
-	byteSize, copyErr := io.Copy(io.MultiWriter(temporary, hash), r)
-	closeErr := temporary.Close()
-	if copyErr != nil {
-		return StoredBlob{}, fmt.Errorf("store blob: %w", copyErr)
+	temporaryName, byteSize, err := stage(filepath.Join(s.root, "blobs"), r, hash)
+	if err != nil {
+		return StoredBlob{}, fmt.Errorf("stage blob: %w", err)
 	}
-	if closeErr != nil {
-		return StoredBlob{}, fmt.Errorf("close blob: %w", closeErr)
-	}
+	defer os.Remove(temporaryName)
 
 	var digest [sha256.Size]byte
 	copy(digest[:], hash.Sum(nil))
@@ -119,24 +109,6 @@ func (s *contentStore) ReadRange(ctx context.Context, id uuid.UUID, offset, leng
 	}, nil
 }
 
-func (s *contentStore) Delete(ctx context.Context, id uuid.UUID) error {
-	key, err := s.queries.DeleteBlob(ctx, pgUUID(id))
-	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrBlobNotFound
-	}
-	if err != nil {
-		return fmt.Errorf("delete blob row: %w", err)
-	}
-	path, err := s.path(key)
-	if err != nil {
-		return err
-	}
-	if err := os.Remove(path); err != nil {
-		return fmt.Errorf("delete blob bytes: %w", err)
-	}
-	return nil
-}
-
 func (s *contentStore) blobLocation(ctx context.Context, id uuid.UUID) (db.BlobLocationRow, error) {
 	location, err := s.queries.BlobLocation(ctx, pgUUID(id))
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -163,21 +135,11 @@ func (s *contentStore) PutDerivative(ctx context.Context, id DerivativeID, r io.
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("create derivative directory: %w", err)
 	}
-	temporary, err := os.CreateTemp(filepath.Dir(path), ".incoming-*")
+	temporaryName, _, err := stage(filepath.Dir(path), r, nil)
 	if err != nil {
-		return fmt.Errorf("create temporary derivative: %w", err)
+		return fmt.Errorf("stage derivative: %w", err)
 	}
-	temporaryName := temporary.Name()
 	defer os.Remove(temporaryName)
-
-	_, copyErr := io.Copy(temporary, r)
-	closeErr := temporary.Close()
-	if copyErr != nil {
-		return fmt.Errorf("store derivative: %w", copyErr)
-	}
-	if closeErr != nil {
-		return fmt.Errorf("close derivative: %w", closeErr)
-	}
 	if err := os.Rename(temporaryName, path); err != nil {
 		return fmt.Errorf("install derivative: %w", err)
 	}
@@ -252,4 +214,31 @@ func installFile(from, to string) error {
 		return nil
 	}
 	return err
+}
+
+func stage(directory string, r io.Reader, observer io.Writer) (name string, byteSize int64, err error) {
+	temporary, err := os.CreateTemp(directory, ".incoming-*")
+	if err != nil {
+		return "", 0, err
+	}
+	name = temporary.Name()
+	defer func() {
+		if err != nil {
+			_ = os.Remove(name)
+		}
+	}()
+
+	destination := io.Writer(temporary)
+	if observer != nil {
+		destination = io.MultiWriter(temporary, observer)
+	}
+	byteSize, copyErr := io.Copy(destination, r)
+	closeErr := temporary.Close()
+	if copyErr != nil {
+		return "", 0, copyErr
+	}
+	if closeErr != nil {
+		return "", 0, closeErr
+	}
+	return name, byteSize, nil
 }

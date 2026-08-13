@@ -12,12 +12,17 @@ import (
 	"github.com/Sillyfrogster/LumiHub/api/internal/testdb"
 )
 
-func TestPutComputesTheBlobDigestAndSize(t *testing.T) {
-	pool := testdb.Connect(t)
-	store, err := NewStore(pool, t.TempDir())
+func newTestStore(t *testing.T) Store {
+	t.Helper()
+	store, err := NewStore(testdb.Connect(t), t.TempDir())
 	if err != nil {
 		t.Fatalf("NewStore: %v", err)
 	}
+	return store
+}
+
+func TestPutComputesTheBlobDigestAndSize(t *testing.T) {
+	store := newTestStore(t)
 
 	stored, err := store.Put(context.Background(), bytes.NewReader([]byte("abc")))
 	if err != nil {
@@ -35,11 +40,7 @@ func TestPutComputesTheBlobDigestAndSize(t *testing.T) {
 }
 
 func TestConcurrentIdenticalWritesConvergeOnOneBlob(t *testing.T) {
-	pool := testdb.Connect(t)
-	store, err := NewStore(pool, t.TempDir())
-	if err != nil {
-		t.Fatalf("NewStore: %v", err)
-	}
+	store := newTestStore(t)
 
 	const writers = 8
 	start := make(chan struct{})
@@ -75,11 +76,7 @@ func TestConcurrentIdenticalWritesConvergeOnOneBlob(t *testing.T) {
 }
 
 func TestReadRangeReturnsOnlyTheRequestedBytes(t *testing.T) {
-	pool := testdb.Connect(t)
-	store, err := NewStore(pool, t.TempDir())
-	if err != nil {
-		t.Fatalf("NewStore: %v", err)
-	}
+	store := newTestStore(t)
 	stored, err := store.Put(context.Background(), bytes.NewReader([]byte("0123456789")))
 	if err != nil {
 		t.Fatalf("Put: %v", err)
@@ -101,11 +98,7 @@ func TestReadRangeReturnsOnlyTheRequestedBytes(t *testing.T) {
 }
 
 func TestReadRangeRejectsEmptyAndOutOfBoundsRequests(t *testing.T) {
-	pool := testdb.Connect(t)
-	store, err := NewStore(pool, t.TempDir())
-	if err != nil {
-		t.Fatalf("NewStore: %v", err)
-	}
+	store := newTestStore(t)
 	stored, err := store.Put(context.Background(), bytes.NewReader([]byte("0123456789")))
 	if err != nil {
 		t.Fatalf("Put: %v", err)
@@ -129,11 +122,7 @@ func TestReadRangeRejectsEmptyAndOutOfBoundsRequests(t *testing.T) {
 }
 
 func TestOpenReturnsTheWholeBlob(t *testing.T) {
-	pool := testdb.Connect(t)
-	store, err := NewStore(pool, t.TempDir())
-	if err != nil {
-		t.Fatalf("NewStore: %v", err)
-	}
+	store := newTestStore(t)
 	want := []byte{0x00, 0xff, 0x50, 0x4e, 0x47, 0x80}
 	stored, err := store.Put(context.Background(), bytes.NewReader(want))
 	if err != nil {
@@ -154,12 +143,8 @@ func TestOpenReturnsTheWholeBlob(t *testing.T) {
 	}
 }
 
-func TestDerivativesAreDisposableAndDoNotKeepABlobAlive(t *testing.T) {
-	pool := testdb.Connect(t)
-	store, err := NewStore(pool, t.TempDir())
-	if err != nil {
-		t.Fatalf("NewStore: %v", err)
-	}
+func TestDerivativesAreDisposableWithoutTouchingSourceBlobs(t *testing.T) {
+	store := newTestStore(t)
 	stored, err := store.Put(context.Background(), bytes.NewReader([]byte("source")))
 	if err != nil {
 		t.Fatalf("Put: %v", err)
@@ -167,13 +152,6 @@ func TestDerivativesAreDisposableAndDoNotKeepABlobAlive(t *testing.T) {
 	derivative := DerivativeID{SourceDigest: stored.Digest, Variant: "detail", Version: 2}
 	if err := store.PutDerivative(context.Background(), derivative, bytes.NewReader([]byte("rendered"))); err != nil {
 		t.Fatalf("PutDerivative: %v", err)
-	}
-
-	if err := store.Delete(context.Background(), stored.ID); err != nil {
-		t.Fatalf("Delete: %v", err)
-	}
-	if _, err := store.Open(context.Background(), stored.ID); !errors.Is(err, ErrBlobNotFound) {
-		t.Fatalf("Open deleted blob error = %v, want ErrBlobNotFound", err)
 	}
 
 	rendered, err := store.OpenDerivative(context.Background(), derivative)
@@ -195,14 +173,15 @@ func TestDerivativesAreDisposableAndDoNotKeepABlobAlive(t *testing.T) {
 	if _, err := store.OpenDerivative(context.Background(), derivative); err == nil {
 		t.Fatal("derivative still exists after clearing the cache")
 	}
+	source, err := store.Open(context.Background(), stored.ID)
+	if err != nil {
+		t.Fatalf("Open source after clearing derivatives: %v", err)
+	}
+	source.Close()
 }
 
 func TestDerivativeIdentityIncludesSourceVariantAndVersion(t *testing.T) {
-	pool := testdb.Connect(t)
-	store, err := NewStore(pool, t.TempDir())
-	if err != nil {
-		t.Fatalf("NewStore: %v", err)
-	}
+	store := newTestStore(t)
 	first, err := store.Put(context.Background(), bytes.NewReader([]byte("first source")))
 	if err != nil {
 		t.Fatalf("put first source: %v", err)
