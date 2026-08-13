@@ -7,6 +7,7 @@ import { type FormEvent, useState } from "react";
 import type { SignedInAccount } from "@/lib/auth";
 import { useAuth } from "@/lib/auth";
 import styles from "./AccountForm.module.css";
+import formStyles from "./AuthForm.module.css";
 
 type ErrorAnswer = { error?: string; field?: string };
 
@@ -64,8 +65,8 @@ export function AccountForm({
   const signUp = mode === "sign-up";
 
   return (
-    <form className={styles.form} onSubmit={submit} noValidate>
-      <div className={styles.headingGroup}>
+    <form className={formStyles.form} onSubmit={submit} noValidate>
+      <div className={`${formStyles.headingGroup} ${styles.headingGroup}`}>
         <h2>{signUp ? "Begin your profile" : "Welcome back"}</h2>
         <p>
           {signUp
@@ -80,7 +81,7 @@ export function AccountForm({
       </a>
 
       {discordError ? (
-        <p className={styles.error} role="alert">
+        <p className={formStyles.error} role="alert">
           {discordError}
         </p>
       ) : null}
@@ -92,7 +93,7 @@ export function AccountForm({
       </div>
 
       {signUp ? (
-        <div className={styles.field}>
+        <div className={formStyles.field}>
           <label htmlFor="account-handle">Handle</label>
           <div
             className={styles.handleField}
@@ -119,7 +120,7 @@ export function AccountForm({
         </div>
       ) : null}
 
-      <div className={styles.field}>
+      <div className={formStyles.field}>
         <label htmlFor="account-email">Email address</label>
         <input
           id="account-email"
@@ -133,7 +134,7 @@ export function AccountForm({
         />
       </div>
 
-      <div className={styles.field}>
+      <div className={formStyles.field}>
         <div className={styles.fieldLabel}>
           <label htmlFor="account-password">Password</label>
           {!signUp ? (
@@ -151,12 +152,12 @@ export function AccountForm({
       </div>
 
       {error?.error ? (
-        <p className={styles.error} role="alert">
+        <p className={formStyles.error} role="alert">
           {error.error}
         </p>
       ) : null}
 
-      <button className={styles.submit} type="submit" disabled={pending}>
+      <button className={formStyles.submit} type="submit" disabled={pending}>
         {pending
           ? signUp
             ? "Creating your account…"

@@ -37,7 +37,7 @@ export function AccountSettings({ discordNotice }: { discordNotice?: string }) {
       <section className={styles.signedOut}>
         <ShieldCheck size={27} strokeWidth={1.35} aria-hidden="true" />
         <h2>Sign in to open account settings</h2>
-        <p>Your sign-in methods belong behind the same private session.</p>
+        <p>Sign in to view or change the ways you access your account.</p>
         <Link href="/sign-in">Sign in</Link>
       </section>
     );
@@ -45,7 +45,6 @@ export function AccountSettings({ discordNotice }: { discordNotice?: string }) {
 
   async function setPassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const hadPassword = account?.hasPassword ?? false;
     setPasswordPending(true);
     setMessage("");
     const form = new FormData(event.currentTarget);
@@ -66,11 +65,7 @@ export function AccountSettings({ discordNotice }: { discordNotice?: string }) {
       }
       setAccount(answer);
       event.currentTarget.reset();
-      setMessage(
-        hadPassword
-          ? "Your password has been changed."
-          : "Your email can now be used with this password.",
-      );
+      setMessage("Your email can now be used with this password.");
     } catch {
       setMessage(
         "We could not reach LumiHub. Check your connection and try again.",
@@ -160,7 +155,7 @@ export function AccountSettings({ discordNotice }: { discordNotice?: string }) {
           <span>
             {account.discordLinked
               ? "Use Discord to return without entering a password."
-              : "Attach one Discord identity without combining accounts."}
+              : "Attach Discord without combining this account with another."}
           </span>
         </div>
         {account.discordLinked ? (
@@ -194,39 +189,47 @@ export function AccountSettings({ discordNotice }: { discordNotice?: string }) {
         </p>
       ) : null}
 
-      <form className={styles.password} onSubmit={setPassword} noValidate>
-        <span className={styles.methodIcon}>
-          <KeyRound size={21} strokeWidth={1.4} aria-hidden="true" />
-        </span>
-        <div className={styles.methodCopy}>
-          <h3>{account.hasPassword ? "Change password" : "Add a password"}</h3>
-          <p>
-            {account.hasPassword
-              ? "Replace the password used with your verified email."
-              : "Create an independent way back if Discord is unavailable."}
-          </p>
+      {account.hasPassword ? (
+        <div className={styles.method}>
+          <span className={styles.methodIcon}>
+            <KeyRound size={21} strokeWidth={1.4} aria-hidden="true" />
+          </span>
+          <div className={styles.methodCopy}>
+            <h3>Password</h3>
+            <p>Added</p>
+            <span>Use password recovery if you need to replace it.</span>
+          </div>
+          <Link className={styles.secondaryAction} href="/forgot-password">
+            Reset password
+          </Link>
         </div>
-        <div className={styles.passwordControl}>
-          <label className="sr-only" htmlFor="settings-password">
-            {account.hasPassword ? "New password" : "Password"}
-          </label>
-          <input
-            id="settings-password"
-            name="password"
-            type="password"
-            autoComplete="new-password"
-            placeholder={account.hasPassword ? "New password" : "Password"}
-            required
-          />
-          <button type="submit" disabled={passwordPending}>
-            {passwordPending
-              ? "Saving…"
-              : account.hasPassword
-                ? "Change password"
-                : "Add password"}
-          </button>
-        </div>
-      </form>
+      ) : (
+        <form className={styles.password} onSubmit={setPassword} noValidate>
+          <span className={styles.methodIcon}>
+            <KeyRound size={21} strokeWidth={1.4} aria-hidden="true" />
+          </span>
+          <div className={styles.methodCopy}>
+            <h3>Add a password</h3>
+            <p>Create an independent way back if Discord is unavailable.</p>
+          </div>
+          <div className={styles.passwordControl}>
+            <label className="sr-only" htmlFor="settings-password">
+              Password
+            </label>
+            <input
+              id="settings-password"
+              name="password"
+              type="password"
+              autoComplete="new-password"
+              placeholder="Password"
+              required
+            />
+            <button type="submit" disabled={passwordPending}>
+              {passwordPending ? "Saving…" : "Add password"}
+            </button>
+          </div>
+        </form>
+      )}
     </section>
   );
 }

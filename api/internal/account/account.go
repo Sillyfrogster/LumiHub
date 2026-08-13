@@ -1,6 +1,10 @@
 package account
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 // Account is a person's identity on LumiHub.
 type Account struct {
@@ -23,6 +27,26 @@ type DiscordProfile struct {
 	Username      string
 	Email         string
 	EmailVerified bool
+}
+
+type DiscordIntent string
+
+const (
+	DiscordSignIn DiscordIntent = "sign-in"
+	DiscordAttach DiscordIntent = "attach"
+)
+
+type DiscordAuthorization struct {
+	URL     string
+	State   string
+	Expires time.Time
+}
+
+type DiscordCompletion struct {
+	Account        Account
+	SessionToken   string
+	SessionExpires time.Time
+	Intent         DiscordIntent
 }
 
 type Profile struct {

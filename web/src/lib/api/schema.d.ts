@@ -518,6 +518,13 @@ export interface operations {
         };
         content?: never;
       };
+      /** @description The account already has a password */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
     };
   };
   signUp: {

@@ -4,9 +4,33 @@ import { Check, KeyRound, Mail } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { type FormEvent, useState } from "react";
+import formStyles from "./AuthForm.module.css";
 import styles from "./PasswordResetPanel.module.css";
 
 type ErrorAnswer = { error?: string };
+type SubmissionResult = { ok: true } | { ok: false; error: string };
+
+const connectionError =
+  "We could not reach LumiHub. Check your connection and try again.";
+
+async function postJSON(
+  endpoint: string,
+  body: Record<string, string>,
+  fallbackError: string,
+): Promise<SubmissionResult> {
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (response.ok) return { ok: true };
+    const answer = (await response.json()) as ErrorAnswer;
+    return { ok: false, error: answer.error ?? fallbackError };
+  } catch {
+    return { ok: false, error: connectionError };
+  }
+}
 
 export function PasswordResetRequestPanel() {
   const [pending, setPending] = useState(false);
@@ -19,25 +43,17 @@ export function PasswordResetRequestPanel() {
     setError("");
     const form = new FormData(event.currentTarget);
 
-    try {
-      const response = await fetch("/api/v1/auth/password-reset", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: String(form.get("email") ?? "") }),
-      });
-      if (!response.ok) {
-        const answer = (await response.json()) as ErrorAnswer;
-        setError(answer.error ?? "The reset request could not be sent.");
-        return;
-      }
+    const result = await postJSON(
+      "/api/v1/auth/password-reset",
+      { email: String(form.get("email") ?? "") },
+      "The reset request could not be sent.",
+    );
+    if (result.ok) {
       setSent(true);
-    } catch {
-      setError(
-        "We could not reach LumiHub. Check your connection and try again.",
-      );
-    } finally {
-      setPending(false);
+    } else {
+      setError(result.error);
     }
+    setPending(false);
   }
 
   if (sent) {
@@ -49,14 +65,19 @@ export function PasswordResetRequestPanel() {
           If that verified address belongs to an account, a one-use password
           link is on its way.
         </p>
-        <Link href="/sign-in">Return to sign in</Link>
+        <Link
+          className={`${formStyles.submit} ${styles.confirmationAction}`}
+          href="/sign-in"
+        >
+          Return to sign in
+        </Link>
       </section>
     );
   }
 
   return (
-    <form className={styles.form} onSubmit={submit} noValidate>
-      <div className={styles.headingGroup}>
+    <form className={formStyles.form} onSubmit={submit} noValidate>
+      <div className={`${formStyles.headingGroup} ${styles.headingGroup}`}>
         <KeyRound size={24} strokeWidth={1.35} aria-hidden="true" />
         <h2>Find your account</h2>
         <p>
@@ -64,7 +85,7 @@ export function PasswordResetRequestPanel() {
           now.
         </p>
       </div>
-      <div className={styles.field}>
+      <div className={formStyles.field}>
         <label htmlFor="reset-email">Verified email address</label>
         <input
           id="reset-email"
@@ -77,11 +98,11 @@ export function PasswordResetRequestPanel() {
         />
       </div>
       {error ? (
-        <p className={styles.error} role="alert">
+        <p className={formStyles.error} role="alert">
           {error}
         </p>
       ) : null}
-      <button type="submit" disabled={pending}>
+      <button className={formStyles.submit} type="submit" disabled={pending}>
         {pending ? "Sending a reset link…" : "Send reset link"}
       </button>
       <Link className={styles.secondary} href="/sign-in">
@@ -105,28 +126,17 @@ export function PasswordResetCompletionPanel() {
     setError("");
     const form = new FormData(event.currentTarget);
 
-    try {
-      const response = await fetch("/api/v1/auth/password-reset/complete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          token,
-          password: String(form.get("password") ?? ""),
-        }),
-      });
-      if (!response.ok) {
-        const answer = (await response.json()) as ErrorAnswer;
-        setError(answer.error ?? "This password reset link could not be used.");
-        return;
-      }
+    const result = await postJSON(
+      "/api/v1/auth/password-reset/complete",
+      { token, password: String(form.get("password") ?? "") },
+      "This password reset link could not be used.",
+    );
+    if (result.ok) {
       setComplete(true);
-    } catch {
-      setError(
-        "We could not reach LumiHub. Check your connection and try again.",
-      );
-    } finally {
-      setPending(false);
+    } else {
+      setError(result.error);
     }
+    setPending(false);
   }
 
   if (complete) {
@@ -139,7 +149,12 @@ export function PasswordResetCompletionPanel() {
         <p>
           You can now return with your verified email, even without Discord.
         </p>
-        <Link href="/sign-in">Sign in with email</Link>
+        <Link
+          className={`${formStyles.submit} ${styles.confirmationAction}`}
+          href="/sign-in"
+        >
+          Sign in with email
+        </Link>
       </section>
     );
   }
@@ -150,19 +165,24 @@ export function PasswordResetCompletionPanel() {
         <KeyRound size={25} strokeWidth={1.35} aria-hidden="true" />
         <h2>This link is incomplete</h2>
         <p>Request a fresh password link and open it from your email.</p>
-        <Link href="/forgot-password">Request another link</Link>
+        <Link
+          className={`${formStyles.submit} ${styles.confirmationAction}`}
+          href="/forgot-password"
+        >
+          Request another link
+        </Link>
       </section>
     );
   }
 
   return (
-    <form className={styles.form} onSubmit={submit} noValidate>
-      <div className={styles.headingGroup}>
+    <form className={formStyles.form} onSubmit={submit} noValidate>
+      <div className={`${formStyles.headingGroup} ${styles.headingGroup}`}>
         <KeyRound size={24} strokeWidth={1.35} aria-hidden="true" />
         <h2>Choose a new password</h2>
         <p>The link can be used once. Your new password may be any length.</p>
       </div>
-      <div className={styles.field}>
+      <div className={formStyles.field}>
         <label htmlFor="reset-password">New password</label>
         <input
           id="reset-password"
@@ -173,11 +193,11 @@ export function PasswordResetCompletionPanel() {
         />
       </div>
       {error ? (
-        <p className={styles.error} role="alert">
+        <p className={formStyles.error} role="alert">
           {error}
         </p>
       ) : null}
-      <button type="submit" disabled={pending}>
+      <button className={formStyles.submit} type="submit" disabled={pending}>
         {pending ? "Setting your password…" : "Set password"}
       </button>
     </form>

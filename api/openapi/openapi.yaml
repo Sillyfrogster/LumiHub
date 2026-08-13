@@ -69,6 +69,7 @@ paths:
               schema: { $ref: "#/components/schemas/Account" }
         "400": { description: The password is empty }
         "401": { description: No account is signed in }
+        "409": { description: The account already has a password }
   /v1/auth/sign-up:
     post:
       operationId: signUp

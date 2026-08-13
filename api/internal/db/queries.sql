@@ -128,10 +128,20 @@ select email
  where token_hash = $1 and expires_at > now();
 
 -- name: VerifyUserEmail :one
-update users
-   set email_verified_at = now(), updated_at = now()
- where id = $1 and email = $2 and email_verified_at is null
-returning id, username, email, email_verified_at;
+with verified as (
+    update users
+       set email_verified_at = now(), updated_at = now()
+     where users.id = $1 and users.email = $2 and users.email_verified_at is null
+    returning users.id, users.username, users.email,
+              users.email_verified_at, users.password_hash
+)
+select v.id, v.username, v.email, v.email_verified_at,
+       case when v.password_hash is null then false else true end as has_password,
+       exists (
+           select 1 from oauth_identities oi
+            where oi.user_id = v.id and oi.provider = 'discord'
+       ) as discord_linked
+  from verified v;
 
 -- name: ClearPendingEmailCopies :exec
 update users
@@ -190,6 +200,11 @@ select 1 from pg_advisory_xact_lock(
                      sqlc.arg('subject')::text, 0)
 );
 
+-- name: LockOAuthUser :one
+select 1 from pg_advisory_xact_lock(
+    hashtextextended('lumihub-oauth-user:' || sqlc.arg('user_id')::uuid::text, 0)
+);
+
 -- name: UserByOAuthIdentity :one
 select u.id, u.username, u.email, u.email_verified_at, u.email_source,
        case when u.password_hash is null then false else true end as has_password
@@ -225,26 +240,26 @@ select id, username, email, email_verified_at, email_source,
  where id = $1
  for update;
 
--- name: DiscordIdentityExistsForUser :one
-select exists (
-    select 1 from oauth_identities
-     where user_id = $1 and provider = 'discord'
-);
-
--- name: UpdatePassword :one
+-- name: SetFirstPassword :one
 update users
    set password_hash = $2, updated_at = now()
- where id = $1
+ where id = $1 and password_hash is null
 returning id, username, email, email_verified_at;
 
--- name: DiscordSubjectForUser :one
+-- name: ReplacePassword :exec
+update users
+   set password_hash = $2, updated_at = now()
+ where id = $1;
+
+-- name: DiscordSubjectsForUser :many
 select subject
   from oauth_identities
- where user_id = $1 and provider = 'discord';
+ where user_id = $1 and provider = 'discord'
+ order by subject;
 
--- name: DeleteOAuthIdentity :exec
+-- name: DeleteOAuthIdentitiesForUser :exec
 delete from oauth_identities
- where user_id = $1 and provider = $2 and subject = $3;
+ where user_id = $1 and provider = 'discord';
 
 -- name: VerifiedUserIDByEmail :one
 select id from users where email = $1 and email_verified_at is not null;

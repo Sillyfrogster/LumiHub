@@ -1,6 +1,7 @@
 package http
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,7 +30,10 @@ func NewHandlers(assets *asset.Service, accounts *account.Service, maxUploadByte
 	return &Handlers{assets: assets, accounts: accounts, maxUploadBytes: maxUploadBytes}
 }
 
-const sessionCookieName = "lumihub_session"
+const (
+	sessionCookieName    = "lumihub_session"
+	oauthStateCookieName = "lumihub_discord_state"
+)
 
 func (h *Handlers) SignUp(c *gin.Context) {
 	var request SignUpRequest
@@ -73,12 +77,12 @@ func (h *Handlers) SignIn(c *gin.Context) {
 }
 
 func (h *Handlers) BeginDiscord(c *gin.Context, params BeginDiscordParams) {
-	intent := "sign-in"
-	if params.Intent != nil {
-		intent = string(*params.Intent)
+	intent := account.DiscordSignIn
+	if params.Intent != nil && *params.Intent == Attach {
+		intent = account.DiscordAttach
 	}
 	token, _ := c.Cookie(sessionCookieName)
-	destination, err := h.accounts.BeginDiscord(c.Request.Context(), token, intent)
+	authorization, err := h.accounts.BeginDiscord(c.Request.Context(), token, intent)
 	if errors.Is(err, account.ErrDiscordUnavailable) {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Discord sign-in is not available."})
 		return
@@ -95,17 +99,25 @@ func (h *Handlers) BeginDiscord(c *gin.Context, params BeginDiscordParams) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not begin Discord sign-in."})
 		return
 	}
-	c.Redirect(http.StatusSeeOther, destination)
+	setOAuthStateCookie(c, authorization.State, authorization.Expires)
+	c.Redirect(http.StatusSeeOther, authorization.URL)
 }
 
 func (h *Handlers) CompleteDiscord(c *gin.Context, params CompleteDiscordParams) {
+	browserState, err := c.Cookie(oauthStateCookieName)
+	if err != nil || subtle.ConstantTimeCompare([]byte(browserState), []byte(params.State)) != 1 {
+		c.Redirect(http.StatusSeeOther, "/sign-in?discord=failed")
+		return
+	}
+	clearOAuthStateCookie(c)
 	if params.Error != nil || params.Code == nil {
 		c.Redirect(http.StatusSeeOther, "/sign-in?discord=cancelled")
 		return
 	}
-	_, token, expires, attached, err := h.accounts.CompleteDiscord(
+	completion, err := h.accounts.CompleteDiscord(
 		c.Request.Context(), params.State, *params.Code,
 	)
+	attached := completion.Intent == account.DiscordAttach
 	if err != nil {
 		destination := "/sign-in?discord=failed"
 		if attached {
@@ -118,8 +130,7 @@ func (h *Handlers) CompleteDiscord(c *gin.Context, params CompleteDiscordParams)
 			} else {
 				destination = "/sign-in?discord=email-conflict"
 			}
-		case errors.Is(err, account.ErrDiscordClaimed),
-			errors.Is(err, account.ErrDiscordAlreadyLinked):
+		case errors.Is(err, account.ErrDiscordClaimed):
 			destination = "/settings?discord=claimed"
 		}
 		c.Redirect(http.StatusSeeOther, destination)
@@ -129,7 +140,7 @@ func (h *Handlers) CompleteDiscord(c *gin.Context, params CompleteDiscordParams)
 		c.Redirect(http.StatusSeeOther, "/settings?discord=attached")
 		return
 	}
-	setSessionCookie(c, token, expires)
+	setSessionCookie(c, completion.SessionToken, completion.SessionExpires)
 	c.Redirect(http.StatusSeeOther, "/browse")
 }
 
@@ -296,6 +307,10 @@ func (h *Handlers) SetPassword(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": field.Message, "field": field.Field})
 		case errors.Is(err, account.ErrUnauthorized):
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Sign in before setting a password."})
+		case errors.Is(err, account.ErrPasswordAlreadySet):
+			c.JSON(http.StatusConflict, gin.H{
+				"error": "This account already has a password. Use password recovery to replace it.",
+			})
 		default:
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not set the password."})
 		}
@@ -357,29 +372,44 @@ func (h *Handlers) accountError(c *gin.Context, err error) {
 }
 
 func setSessionCookie(c *gin.Context, token string, expires time.Time) {
-	secure := c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https")
-	http.SetCookie(c.Writer, &http.Cookie{
-		Name:     sessionCookieName,
-		Value:    token,
-		Path:     "/",
-		Expires:  expires,
-		MaxAge:   int(time.Until(expires).Seconds()),
-		HttpOnly: true,
-		Secure:   secure,
-		SameSite: http.SameSiteLaxMode,
-	})
+	setCredentialCookie(c, sessionCookieName, token, expires)
 }
 
 func clearSessionCookie(c *gin.Context) {
+	clearCredentialCookie(c, sessionCookieName)
+}
+
+func setOAuthStateCookie(c *gin.Context, state string, expires time.Time) {
+	setCredentialCookie(c, oauthStateCookieName, state, expires)
+}
+
+func clearOAuthStateCookie(c *gin.Context) {
+	clearCredentialCookie(c, oauthStateCookieName)
+}
+
+func setCredentialCookie(c *gin.Context, name, value string, expires time.Time) {
+	cookie := credentialCookie(c, name)
+	cookie.Value = value
+	cookie.Expires = expires
+	cookie.MaxAge = int(time.Until(expires).Seconds())
+	http.SetCookie(c.Writer, cookie)
+}
+
+func clearCredentialCookie(c *gin.Context, name string) {
+	cookie := credentialCookie(c, name)
+	cookie.MaxAge = -1
+	http.SetCookie(c.Writer, cookie)
+}
+
+func credentialCookie(c *gin.Context, name string) *http.Cookie {
 	secure := c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https")
-	http.SetCookie(c.Writer, &http.Cookie{
-		Name:     sessionCookieName,
+	return &http.Cookie{
+		Name:     name,
 		Path:     "/",
-		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   secure,
 		SameSite: http.SameSiteLaxMode,
-	})
+	}
 }
 
 func toAPIAccount(value account.Account) Account {

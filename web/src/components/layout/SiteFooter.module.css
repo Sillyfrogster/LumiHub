@@ -60,3 +60,21 @@
   font-size: 11.5px;
   color: var(--faint);
 }
+
+@media (max-width: 720px) {
+  .inner {
+    padding-block: 42px 34px;
+  }
+
+  .meta {
+    flex-direction: column;
+    gap: 22px;
+    margin-top: 34px;
+  }
+
+  .links {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px 22px;
+  }
+}

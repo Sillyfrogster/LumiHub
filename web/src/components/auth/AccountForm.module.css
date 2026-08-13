@@ -1,26 +1,5 @@
-.form {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  gap: 22px;
-}
-
 .headingGroup {
   padding-bottom: 8px;
-}
-
-.headingGroup h2 {
-  font-family: var(--font-display);
-  font-size: clamp(1.8rem, 4vw, 2.4rem);
-  font-weight: 600;
-  letter-spacing: -0.025em;
-}
-
-.headingGroup p {
-  margin-top: 8px;
-  color: var(--body);
-  font-size: 0.9rem;
-  line-height: 1.65;
 }
 
 .discord {
@@ -70,19 +49,6 @@
   background: var(--line-soft);
 }
 
-.field {
-  display: grid;
-  gap: 8px;
-}
-
-.field label {
-  color: var(--ink-strong);
-  font-size: 0.75rem;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .fieldLabel {
   display: flex;
   align-items: baseline;
@@ -95,7 +61,6 @@
   font-weight: 700;
 }
 
-.field > input,
 .handleField {
   width: 100%;
   min-height: 48px;
@@ -108,24 +73,16 @@
     box-shadow 180ms var(--ease);
 }
 
-.field > input {
-  padding-inline: 14px;
-  font-size: 1rem;
-}
-
-.field > input:hover,
 .handleField:hover {
   border-color: var(--faint);
 }
 
-.field > input:focus-visible,
 .handleField:focus-within {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-bg);
   outline: none;
 }
 
-.field > input[aria-invalid="true"],
 .handleField[data-error="true"] {
   border-color: #a34b4b;
 }
@@ -157,43 +114,6 @@
   color: var(--body);
   font-size: 0.75rem;
   line-height: 1.45;
-}
-
-.error {
-  padding: 11px 13px;
-  border: 1px solid rgba(163, 75, 75, 0.28);
-  background: rgba(163, 75, 75, 0.06);
-  color: #7f3434;
-  font-size: 0.83rem;
-  line-height: 1.5;
-}
-
-.submit {
-  min-height: 48px;
-  border-radius: var(--radius-sm);
-  background: var(--action);
-  color: #fff;
-  box-shadow: var(--shadow-cta);
-  font-size: 0.85rem;
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  transition:
-    box-shadow 180ms var(--ease),
-    transform 180ms var(--ease);
-}
-
-.submit:hover:not(:disabled) {
-  box-shadow: var(--shadow-cta-hover);
-  transform: translateY(-1px);
-}
-
-.submit:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-.submit:disabled {
-  cursor: wait;
-  opacity: 0.68;
 }
 
 .alternative {
