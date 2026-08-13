@@ -6,6 +6,7 @@
 GOOSE := go run github.com/pressly/goose/v3/cmd/goose@v3.26.0
 SQLC  := go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
 OAPI  := go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0
+WEB_PORT ?= 3000
 
 -include api/.env
 export
@@ -33,7 +34,7 @@ api: need-db ## Run the API
 
 .PHONY: web
 web: ## Run the site
-	cd web && bun run dev
+	cd web && PORT=$(WEB_PORT) bun run dev
 
 # Checking
 

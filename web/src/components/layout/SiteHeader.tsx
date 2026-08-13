@@ -1,9 +1,11 @@
 "use client";
 
-import { Bell, ChevronDown, Search, Upload } from "lucide-react";
+import { ChevronDown, Search, Upload } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { BrandMark } from "@/components/brand/BrandMark";
+import { useAuth } from "@/lib/auth";
 import { Shell } from "./Shell";
 import styles from "./SiteHeader.module.css";
 
@@ -16,6 +18,17 @@ const NAV = [
 
 export function SiteHeader() {
   const pathname = usePathname();
+  const { account, signOut } = useAuth();
+  const [signingOut, setSigningOut] = useState(false);
+
+  async function leave() {
+    setSigningOut(true);
+    try {
+      await signOut();
+    } finally {
+      setSigningOut(false);
+    }
+  }
 
   return (
     <header className={styles.header}>
@@ -50,20 +63,46 @@ export function SiteHeader() {
           <kbd className={styles.kbd}>⌘K</kbd>
         </button>
 
-        <Link href="/upload" className={styles.upload}>
-          <Upload size={13} strokeWidth={1.6} />
-          Upload
-        </Link>
+        {account?.emailVerified ? (
+          <Link href="/upload" className={styles.upload}>
+            <Upload size={13} strokeWidth={1.6} />
+            Upload
+          </Link>
+        ) : null}
 
-        <button
-          type="button"
-          className={styles.iconButton}
-          aria-label="Notifications"
-        >
-          <Bell size={17} strokeWidth={1.25} />
-        </button>
-
-        <div className={styles.avatar} />
+        <div className={styles.account} aria-live="polite">
+          {account === undefined ? (
+            <span className={styles.accountPending}>Reading session</span>
+          ) : account ? (
+            <>
+              <span className={styles.identity}>
+                <span className={styles.handle}>@{account.handle}</span>
+                {!account.emailVerified ? (
+                  <Link href="/verify-email" className={styles.unverified}>
+                    Verify email
+                  </Link>
+                ) : null}
+              </span>
+              <button
+                type="button"
+                className={styles.signOut}
+                onClick={leave}
+                disabled={signingOut}
+              >
+                {signingOut ? "Leaving…" : "Sign out"}
+              </button>
+            </>
+          ) : (
+            <>
+              <Link href="/sign-in" className={styles.signIn}>
+                Sign in
+              </Link>
+              <Link href="/sign-up" className={styles.createAccount}>
+                Create account
+              </Link>
+            </>
+          )}
+        </div>
       </Shell>
     </header>
   );

@@ -30,11 +30,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="en" className={`${playfair.variable} ${lato.variable}`}>
       <body>
         <PaperGrain />
-        <SiteHeader />
-        <main>
-          <Providers>{children}</Providers>
-        </main>
-        <SiteFooter />
+        <Providers>
+          <SiteHeader />
+          <main>{children}</main>
+          <SiteFooter />
+        </Providers>
       </body>
     </html>
   );

@@ -116,21 +116,132 @@
   color: #fff;
 }
 
-.iconButton {
+.account {
   display: flex;
-  color: var(--body);
+  align-items: center;
+  gap: 12px;
+  min-height: 38px;
+  flex: none;
 }
 
-.iconButton:hover {
+.accountPending {
+  width: 102px;
+  color: transparent;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunk);
+  font-size: 0.72rem;
+}
+
+.identity {
+  display: grid;
+  gap: 2px;
+  justify-items: end;
+}
+
+.handle {
+  color: var(--ink-strong);
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.unverified {
+  color: var(--accent);
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.signOut,
+.signIn {
+  min-height: 38px;
+  align-content: center;
+  padding-inline: 7px;
+  color: var(--body);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.signOut:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.createAccount {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  padding-inline: 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--ink-strong);
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.createAccount:hover {
+  border-color: var(--faint);
   color: var(--ink-strong);
 }
 
-.avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  overflow: hidden;
-  border: 1px solid var(--line-soft);
-  background: var(--surface-frame);
-  flex: none;
+@media (max-width: 1180px) {
+  .bar {
+    gap: 24px;
+  }
+
+  .search {
+    width: 170px;
+  }
+
+  .kbd {
+    display: none;
+  }
+}
+
+@media (max-width: 980px) {
+  .nav,
+  .search {
+    display: none;
+  }
+
+  .bar {
+    gap: 18px;
+  }
+
+  .spacer {
+    display: block;
+  }
+}
+
+@media (max-width: 620px) {
+  .bar {
+    height: 62px;
+  }
+
+  .wordmark {
+    font-size: 20px;
+  }
+
+  .upload,
+  .createAccount {
+    display: none;
+  }
+
+  .account {
+    gap: 4px;
+  }
+
+  .identity {
+    display: grid;
+  }
+
+  .handle {
+    font-size: 0.78rem;
+  }
+
+  .unverified {
+    display: none;
+  }
 }

@@ -1,0 +1,129 @@
+.panel {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: start;
+  gap: 14px;
+}
+
+.panel > svg {
+  color: var(--accent);
+}
+
+.panel h2 {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 2.6rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.panel > p {
+  color: var(--body);
+  font-size: 0.92rem;
+  line-height: 1.7;
+}
+
+.successMark {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid rgba(76, 122, 92, 0.34);
+  border-radius: 50%;
+  background: var(--pass-bg);
+  color: var(--pass);
+}
+
+.primaryLink {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  margin-top: 8px;
+  padding-inline: 20px;
+  border-radius: var(--radius-sm);
+  background: var(--action);
+  color: #fff;
+  box-shadow: var(--shadow-button);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.primaryLink:hover {
+  color: #fff;
+  box-shadow: var(--shadow-button-hover);
+}
+
+.secondaryLink {
+  min-height: 44px;
+  align-content: center;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.changeForm {
+  display: grid;
+  gap: 9px;
+  width: 100%;
+  margin-top: 12px;
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+}
+
+.changeForm label {
+  color: var(--ink-strong);
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.changeRow {
+  display: flex;
+  gap: 8px;
+}
+
+.changeRow input {
+  min-width: 0;
+  min-height: 44px;
+  flex: 1;
+  padding-inline: 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-strong);
+  font-size: 0.87rem;
+}
+
+.changeRow button {
+  min-height: 44px;
+  padding-inline: 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunk);
+  color: var(--ink-strong);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.changeRow button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.panel > .error {
+  color: #7f3434;
+}
+
+.panel > .message {
+  color: var(--pass);
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.7;
+}
+
+@media (max-width: 520px) {
+  .changeRow {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

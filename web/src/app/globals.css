@@ -209,3 +209,10 @@ img {
     transition-duration: 0.01ms !important;
   }
 }
+
+@media (max-width: 720px) {
+  :root {
+    --gutter: 20px;
+    --header-height: 62px;
+  }
+}
