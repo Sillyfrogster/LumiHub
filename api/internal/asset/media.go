@@ -21,24 +21,15 @@ var (
 	ErrInvalidMediaRole = errors.New("invalid media role")
 )
 
-type MediaRole string
+type MediaRole = mediaproc.Role
 
 const (
-	MediaAvatar           MediaRole = "avatar"
-	MediaExpression       MediaRole = "expression"
-	MediaGallery          MediaRole = "gallery"
-	MediaAvatarAlt        MediaRole = "avatar_alt"
-	MediaPerspectiveLayer MediaRole = "perspective_layer"
+	MediaAvatar           = mediaproc.Avatar
+	MediaExpression       = mediaproc.Expression
+	MediaGallery          = mediaproc.Gallery
+	MediaAvatarAlt        = mediaproc.AvatarAlt
+	MediaPerspectiveLayer = mediaproc.PerspectiveLayer
 )
-
-func validMediaRole(role MediaRole) bool {
-	switch role {
-	case MediaAvatar, MediaExpression, MediaGallery, MediaAvatarAlt, MediaPerspectiveLayer:
-		return true
-	default:
-		return false
-	}
-}
 
 type Media struct {
 	ID                uuid.UUID
@@ -72,7 +63,7 @@ type preparedMedia struct {
 
 // AddMedia stores one creator-managed image under a new media ID.
 func (s *Service) AddMedia(ctx context.Context, in AddMediaInput) (Media, error) {
-	if !validMediaRole(in.Role) {
+	if !in.Role.Valid() {
 		return Media{}, ErrInvalidMediaRole
 	}
 	var owned bool
@@ -160,7 +151,13 @@ func (s *Service) prepareMedia(ctx context.Context, stored storage.StoredBlob) (
 	if err != nil {
 		return mediaproc.Prepared{}, fmt.Errorf("open stored media: %w", err)
 	}
+	release, err := s.acquireMediaSlot(ctx)
+	if err != nil {
+		source.Close()
+		return mediaproc.Prepared{}, err
+	}
 	prepared, prepareErr := s.media.Prepare(ctx, source)
+	release()
 	closeErr := source.Close()
 	if prepareErr != nil {
 		return mediaproc.Prepared{}, prepareErr
@@ -187,8 +184,8 @@ func (s *Service) prepareExtractedMedia(
 ) ([]preparedMedia, error) {
 	prepared := make([]preparedMedia, 0, len(extracted))
 	for _, item := range extracted {
-		role := MediaRole(item.Role)
-		if !validMediaRole(role) {
+		role := item.Role
+		if !role.Valid() {
 			return nil, fmt.Errorf("format returned media role %q: %w", item.Role, ErrInvalidMediaRole)
 		}
 		stored, err := s.store.Put(ctx, bytes.NewReader(item.Bytes))
@@ -243,7 +240,8 @@ func (s *Service) MediaVariant(
 	variant string,
 	version uint32,
 ) (MediaDownload, error) {
-	if _, ok := mediaproc.VariantByName(variant); !ok || version != mediaproc.DerivativeVersion {
+	_, ordinary := mediaproc.VariantByName(variant)
+	if (!ordinary && variant != "og") || version != mediaproc.DerivativeVersion {
 		return MediaDownload{}, ErrMediaNotFound
 	}
 	var blobID uuid.UUID
@@ -272,15 +270,23 @@ func (s *Service) MediaVariant(
 	}
 	redirect, err := s.store.InternalDerivativeRedirect(ctx, derivativeID)
 	if errors.Is(err, storage.ErrDerivativeNotFound) {
-		if err := s.regenerateMediaVariant(ctx, blobID, derivativeID); err != nil {
-			return MediaDownload{}, err
+		job := s.mediaFlight.DoChan(fmt.Sprintf("%x/%s/%d", digest, variant, version), func() (any, error) {
+			return nil, s.regenerateMediaVariant(ctx, blobID, derivativeID)
+		})
+		select {
+		case <-ctx.Done():
+			return MediaDownload{}, ctx.Err()
+		case result := <-job:
+			if result.Err != nil {
+				return MediaDownload{}, result.Err
+			}
 		}
 		redirect, err = s.store.InternalDerivativeRedirect(ctx, derivativeID)
 	}
 	if err != nil {
 		return MediaDownload{}, fmt.Errorf("resolve media variant: %w", err)
 	}
-	return MediaDownload{InternalRedirect: redirect, MediaType: mediaproc.DerivativeType}, nil
+	return MediaDownload{InternalRedirect: redirect, MediaType: s.media.DerivativeType()}, nil
 }
 
 func (s *Service) regenerateMediaVariant(
@@ -288,11 +294,22 @@ func (s *Service) regenerateMediaVariant(
 	blobID uuid.UUID,
 	id storage.DerivativeID,
 ) error {
+	release, err := s.acquireMediaSlot(ctx)
+	if err != nil {
+		return err
+	}
+	defer release()
 	source, err := s.store.Open(ctx, blobID)
 	if err != nil {
 		return fmt.Errorf("open media for regeneration: %w", err)
 	}
-	derivative, renderErr := s.media.Render(ctx, source, id.Variant)
+	var derivative mediaproc.Derivative
+	var renderErr error
+	if id.Variant == "og" {
+		derivative, renderErr = s.media.ComposeSocialPreview(ctx, source)
+	} else {
+		derivative, renderErr = s.media.Render(ctx, source, id.Variant)
+	}
 	closeErr := source.Close()
 	if renderErr != nil {
 		return fmt.Errorf("regenerate media variant: %w", renderErr)
@@ -304,4 +321,13 @@ func (s *Service) regenerateMediaVariant(
 		return fmt.Errorf("store regenerated media variant: %w", err)
 	}
 	return nil
+}
+
+func (s *Service) acquireMediaSlot(ctx context.Context) (func(), error) {
+	select {
+	case s.mediaSlots <- struct{}{}:
+		return func() { <-s.mediaSlots }, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }

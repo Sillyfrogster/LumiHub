@@ -8,11 +8,15 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"io"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	mediaproc "github.com/Sillyfrogster/LumiHub/api/internal/media"
 	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
+	"github.com/Sillyfrogster/LumiHub/api/internal/testdb"
 	"github.com/google/uuid"
 )
 
@@ -157,7 +161,7 @@ func TestMediaVariantRegeneratesABoundedCacheMiss(t *testing.T) {
 		variant string
 		version uint32
 	}{
-		{variant: "og", version: mediaproc.DerivativeVersion},
+		{variant: "1200x630", version: mediaproc.DerivativeVersion},
 		{variant: "grid", version: mediaproc.DerivativeVersion + 1},
 	} {
 		_, err := svc.MediaVariant(context.Background(), added.ID, request.variant, request.version)
@@ -234,6 +238,95 @@ func TestIngestStoresExtractedMediaAtRevisionScope(t *testing.T) {
 		t.Fatalf("extracted media = %s %dx%d", role, width, height)
 	}
 }
+
+func TestConcurrentCacheMissesShareOneBoundedRender(t *testing.T) {
+	pool := testdb.Connect(t)
+	store, err := storage.NewStore(pool, t.TempDir())
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+	processor := &blockingMediaProcessor{
+		renderStarted: make(chan struct{}),
+		releaseRender: make(chan struct{}),
+	}
+	settings := DefaultIngestSettings()
+	settings.MediaWorkers = 1
+	svc := NewServiceWithMediaProcessor(
+		pool, format.NewRegistry(), store, settings, processor,
+	)
+	ownerID := uuid.New()
+	created, err := svc.Create(context.Background(), CreateInput{
+		OwnerID: ownerID, Kind: "theme", Filename: "theme.bin",
+		File: bytes.NewReader([]byte("theme")), Name: "Theme",
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	added, err := svc.AddMedia(context.Background(), AddMediaInput{
+		OwnerID: ownerID, AssetID: created.ID, Role: MediaGallery,
+		File: bytes.NewReader([]byte("encoded image")),
+	})
+	if err != nil {
+		t.Fatalf("AddMedia: %v", err)
+	}
+
+	const requests = 8
+	start := make(chan struct{})
+	errors := make(chan error, requests)
+	var ready sync.WaitGroup
+	ready.Add(requests)
+	for range requests {
+		go func() {
+			ready.Done()
+			<-start
+			_, err := svc.MediaVariant(context.Background(), added.ID, "grid", 1)
+			errors <- err
+		}()
+	}
+	ready.Wait()
+	close(start)
+	<-processor.renderStarted
+	close(processor.releaseRender)
+	for range requests {
+		if err := <-errors; err != nil {
+			t.Fatalf("MediaVariant: %v", err)
+		}
+	}
+	if calls := processor.renderCalls.Load(); calls != 1 {
+		t.Fatalf("render calls = %d, want one shared cache job", calls)
+	}
+}
+
+type blockingMediaProcessor struct {
+	renderCalls   atomic.Int32
+	renderStarted chan struct{}
+	releaseRender chan struct{}
+	startedOnce   sync.Once
+}
+
+func (p *blockingMediaProcessor) Prepare(context.Context, io.Reader) (mediaproc.Prepared, error) {
+	return mediaproc.Prepared{Width: 20, Height: 10}, nil
+}
+
+func (p *blockingMediaProcessor) Render(
+	context.Context,
+	io.Reader,
+	string,
+) (mediaproc.Derivative, error) {
+	p.renderCalls.Add(1)
+	p.startedOnce.Do(func() { close(p.renderStarted) })
+	<-p.releaseRender
+	return mediaproc.Derivative{Variant: "grid", Bytes: []byte("rendered")}, nil
+}
+
+func (p *blockingMediaProcessor) ComposeSocialPreview(
+	context.Context,
+	io.Reader,
+) (mediaproc.Derivative, error) {
+	return mediaproc.Derivative{}, errors.New("unexpected social preview")
+}
+
+func (p *blockingMediaProcessor) DerivativeType() string { return "image/png" }
 
 func testPNG(t *testing.T, width, height int, fill color.Color) []byte {
 	t.Helper()

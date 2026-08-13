@@ -1134,7 +1134,14 @@ export interface operations {
       header?: never;
       path: {
         media_id: string;
-        variant: string;
+        variant:
+          | "grid"
+          | "grid_blurred"
+          | "detail"
+          | "detail_blurred"
+          | "thumb"
+          | "thumb_blurred"
+          | "og";
         derivative_version: number;
       };
       cookie?: never;

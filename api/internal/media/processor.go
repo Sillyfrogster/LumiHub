@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"image/color"
 	_ "image/gif"
 	_ "image/jpeg"
 	"image/png"
@@ -81,11 +82,33 @@ type Prepared struct {
 }
 
 type Processor struct {
-	limits Limits
+	limits  Limits
+	encoder Encoder
 }
 
 func NewProcessor(limits Limits) *Processor {
-	return &Processor{limits: limits}
+	return NewProcessorWithEncoder(limits, PNGEncoder{})
+}
+
+type Encoder interface {
+	MediaType() string
+	Encode(io.Writer, image.Image) error
+}
+
+type PNGEncoder struct{}
+
+func (PNGEncoder) MediaType() string { return DerivativeType }
+
+func (PNGEncoder) Encode(w io.Writer, source image.Image) error {
+	return png.Encode(w, source)
+}
+
+func NewProcessorWithEncoder(limits Limits, encoder Encoder) *Processor {
+	return &Processor{limits: limits, encoder: encoder}
+}
+
+func (p *Processor) DerivativeType() string {
+	return p.encoder.MediaType()
 }
 
 func (p *Processor) Prepare(ctx context.Context, source io.Reader) (Prepared, error) {
@@ -102,7 +125,7 @@ func (p *Processor) Prepare(ctx context.Context, source io.Reader) (Prepared, er
 		if err := ctx.Err(); err != nil {
 			return Prepared{}, err
 		}
-		derivative, err := render(decoded, variant)
+		derivative, err := p.render(decoded, variant)
 		if err != nil {
 			return Prepared{}, fmt.Errorf("render %s variant: %w", variant.Name, err)
 		}
@@ -123,7 +146,30 @@ func (p *Processor) Render(ctx context.Context, source io.Reader, name string) (
 	if err := ctx.Err(); err != nil {
 		return Derivative{}, err
 	}
-	return render(decoded, variant)
+	return p.render(decoded, variant)
+}
+
+func (p *Processor) ComposeSocialPreview(ctx context.Context, source io.Reader) (Derivative, error) {
+	decoded, _, _, err := p.decode(ctx, source)
+	if err != nil {
+		return Derivative{}, err
+	}
+	if err := ctx.Err(); err != nil {
+		return Derivative{}, err
+	}
+	canvas := image.NewRGBA(image.Rect(0, 0, 1200, 630))
+	draw.Draw(canvas, canvas.Bounds(), &image.Uniform{
+		C: color.RGBA{R: 0xf6, G: 0xf8, B: 0xfb, A: 0xff},
+	}, image.Point{}, draw.Src)
+	sourceSize := decoded.Bounds().Size()
+	width, height := boundedSize(sourceSize.X, sourceSize.Y, 1200, 630)
+	left := (1200 - width) / 2
+	top := (630 - height) / 2
+	draw.CatmullRom.Scale(
+		canvas, image.Rect(left, top, left+width, top+height),
+		decoded, decoded.Bounds(), draw.Over, nil,
+	)
+	return p.encode(canvas, "og")
 }
 
 func (p *Processor) decode(ctx context.Context, source io.Reader) (image.Image, int, int, error) {
@@ -166,7 +212,7 @@ func (p *Processor) checkDimensions(width, height int) error {
 	return nil
 }
 
-func render(source image.Image, variant Variant) (Derivative, error) {
+func (p *Processor) render(source image.Image, variant Variant) (Derivative, error) {
 	sourceSize := source.Bounds().Size()
 	width, height := boundedSize(sourceSize.X, sourceSize.Y, variant.MaxWidth, variant.MaxHeight)
 	resized := image.NewRGBA(image.Rect(0, 0, width, height))
@@ -175,11 +221,15 @@ func render(source image.Image, variant Variant) (Derivative, error) {
 	if variant.Blurred {
 		output = obscure(resized)
 	}
+	return p.encode(output, variant.Name)
+}
+
+func (p *Processor) encode(source image.Image, variant string) (Derivative, error) {
 	var encoded bytes.Buffer
-	if err := png.Encode(&encoded, output); err != nil {
-		return Derivative{}, fmt.Errorf("encode PNG: %w", err)
+	if err := p.encoder.Encode(&encoded, source); err != nil {
+		return Derivative{}, fmt.Errorf("encode %s: %w", p.encoder.MediaType(), err)
 	}
-	return Derivative{Variant: variant.Name, Bytes: encoded.Bytes()}, nil
+	return Derivative{Variant: variant, Bytes: encoded.Bytes()}, nil
 }
 
 func boundedSize(width, height, maxWidth, maxHeight int) (int, int) {

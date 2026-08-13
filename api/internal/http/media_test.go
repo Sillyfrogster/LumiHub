@@ -87,13 +87,21 @@ func TestCreatorAddsMediaAndAnyoneFetchesAnImmutableVariant(t *testing.T) {
 	if variant.Body.Len() != 0 {
 		t.Errorf("Go wrote %d media bytes instead of handing off to nginx", variant.Body.Len())
 	}
+	preview := send(t, r, httptest.NewRequest(
+		http.MethodGet, "/media/"+media.ID+"/og/1", nil,
+	))
+	if preview.Code != http.StatusOK {
+		t.Fatalf("og preview status = %d, want 200: %s", preview.Code, preview.Body.String())
+	}
+	if preview.Header().Get("X-Accel-Redirect") == variant.Header().Get("X-Accel-Redirect") {
+		t.Fatal("composed og preview reused the grid derivative")
+	}
 }
 
 func TestMediaRouteRefusesArbitraryVariantsAndVersions(t *testing.T) {
 	r := newTestRouter(t)
 	for _, path := range []string{
 		"/media/11111111-1111-1111-1111-111111111111/1200x630/1",
-		"/media/11111111-1111-1111-1111-111111111111/og/1",
 		"/media/11111111-1111-1111-1111-111111111111/grid/999",
 	} {
 		response := send(t, r, httptest.NewRequest(http.MethodGet, path, nil))

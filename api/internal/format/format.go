@@ -7,6 +7,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/Sillyfrogster/LumiHub/api/internal/media"
 	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
 )
 
@@ -60,7 +61,7 @@ type Facet struct {
 
 // Media is one image extracted from a source file.
 type Media struct {
-	Role  string
+	Role  media.Role
 	Bytes []byte
 }
 

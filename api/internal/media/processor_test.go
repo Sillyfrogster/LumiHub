@@ -9,6 +9,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"io"
 	"slices"
 	"testing"
 )
@@ -99,6 +100,72 @@ func TestBlurredCounterpartDoesNotCarryClearPixels(t *testing.T) {
 	if bytes.Equal(clear.Bytes, blurred.Bytes) {
 		t.Fatal("blurred derivative is byte-identical to the clear derivative")
 	}
+}
+
+func TestEncoderCanBeReplaced(t *testing.T) {
+	encoder := &recordingEncoder{}
+	processor := NewProcessorWithEncoder(DefaultLimits(), encoder)
+	prepared, err := processor.Prepare(
+		context.Background(), bytes.NewReader(encodePNG(t, image.NewRGBA(image.Rect(0, 0, 2, 2)))),
+	)
+	if err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+	if encoder.calls != len(VariantNames()) {
+		t.Fatalf("encoder calls = %d, want %d", encoder.calls, len(VariantNames()))
+	}
+	for _, derivative := range prepared.Derivatives {
+		if string(derivative.Bytes) != "replacement encoding" {
+			t.Fatalf("%s bytes = %q", derivative.Variant, derivative.Bytes)
+		}
+	}
+	if processor.DerivativeType() != "image/example" {
+		t.Fatalf("derivative type = %q", processor.DerivativeType())
+	}
+}
+
+func TestOGIsASeparateComposedPreview(t *testing.T) {
+	source := image.NewRGBA(image.Rect(0, 0, 100, 200))
+	for y := range 200 {
+		for x := range 100 {
+			source.Set(x, y, color.RGBA{R: 12, G: 34, B: 56, A: 255})
+		}
+	}
+	processor := NewProcessor(DefaultLimits())
+	preview, err := processor.ComposeSocialPreview(
+		context.Background(), bytes.NewReader(encodePNG(t, source)),
+	)
+	if err != nil {
+		t.Fatalf("ComposeSocialPreview: %v", err)
+	}
+	if preview.Variant != "og" {
+		t.Fatalf("preview variant = %q, want og", preview.Variant)
+	}
+	decoded, err := png.Decode(bytes.NewReader(preview.Bytes))
+	if err != nil {
+		t.Fatalf("decode preview: %v", err)
+	}
+	if got := decoded.Bounds().Size(); got.X != 1200 || got.Y != 630 {
+		t.Fatalf("preview dimensions = %dx%d, want 1200x630", got.X, got.Y)
+	}
+	if got := color.RGBAModel.Convert(decoded.At(0, 0)).(color.RGBA); got != (color.RGBA{R: 0xf6, G: 0xf8, B: 0xfb, A: 0xff}) {
+		t.Fatalf("preview corner = %#v, want LumiHub paper", got)
+	}
+	if _, ordinary := VariantByName("og"); ordinary {
+		t.Fatal("composed og preview entered the ordinary variant set")
+	}
+}
+
+type recordingEncoder struct {
+	calls int
+}
+
+func (e *recordingEncoder) MediaType() string { return "image/example" }
+
+func (e *recordingEncoder) Encode(w io.Writer, _ image.Image) error {
+	e.calls++
+	_, err := io.WriteString(w, "replacement encoding")
+	return err
 }
 
 func derivativeNamed(t *testing.T, derivatives []Derivative, name string) Derivative {

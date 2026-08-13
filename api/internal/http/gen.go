@@ -208,6 +208,39 @@ func (e NeedsKindKind) Valid() bool {
 	}
 }
 
+// Defines values for GetMediaVariantParamsVariant.
+const (
+	Detail        GetMediaVariantParamsVariant = "detail"
+	DetailBlurred GetMediaVariantParamsVariant = "detail_blurred"
+	Grid          GetMediaVariantParamsVariant = "grid"
+	GridBlurred   GetMediaVariantParamsVariant = "grid_blurred"
+	Og            GetMediaVariantParamsVariant = "og"
+	Thumb         GetMediaVariantParamsVariant = "thumb"
+	ThumbBlurred  GetMediaVariantParamsVariant = "thumb_blurred"
+)
+
+// Valid indicates whether the value is a known member of the GetMediaVariantParamsVariant enum.
+func (e GetMediaVariantParamsVariant) Valid() bool {
+	switch e {
+	case Detail:
+		return true
+	case DetailBlurred:
+		return true
+	case Grid:
+		return true
+	case GridBlurred:
+		return true
+	case Og:
+		return true
+	case Thumb:
+		return true
+	case ThumbBlurred:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BeginDiscordParamsIntent.
 const (
 	Attach BeginDiscordParamsIntent = "attach"
@@ -393,6 +426,9 @@ type VerifyEmailRequest struct {
 	Token string `json:"token"`
 }
 
+// GetMediaVariantParamsVariant defines parameters for GetMediaVariant.
+type GetMediaVariantParamsVariant string
+
 // ListAssetsParams defines parameters for ListAssets.
 type ListAssetsParams struct {
 	Kind     *string   `form:"kind,omitempty" json:"kind,omitempty"`
@@ -475,7 +511,7 @@ type ServerInterface interface {
 	DownloadSource(c *gin.Context, id openapi_types.UUID)
 
 	// (GET /media/{media_id}/{variant}/{derivative_version})
-	GetMediaVariant(c *gin.Context, mediaId openapi_types.UUID, variant string, derivativeVersion int)
+	GetMediaVariant(c *gin.Context, mediaId openapi_types.UUID, variant GetMediaVariantParamsVariant, derivativeVersion int)
 
 	// (DELETE /v1/account/discord)
 	DetachDiscord(c *gin.Context)
@@ -588,7 +624,7 @@ func (siw *ServerInterfaceWrapper) GetMediaVariant(c *gin.Context) {
 	}
 
 	// ------------- Path parameter "variant" -------------
-	var variant string
+	var variant GetMediaVariantParamsVariant
 
 	err = runtime.BindStyledParameterWithOptions("simple", "variant", c.Param("variant"), &variant, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
 	if err != nil {

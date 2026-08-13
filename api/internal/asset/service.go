@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/sync/singleflight"
 )
 
 var (
@@ -25,12 +26,14 @@ var (
 // Service runs the catalog. It knows the module interfaces, never a concrete
 // format.
 type Service struct {
-	pool   *pgxpool.Pool
-	reg    *format.Registry
-	store  storage.Store
-	media  *mediaproc.Processor
-	ingest IngestSettings
-	now    func() time.Time
+	pool        *pgxpool.Pool
+	reg         *format.Registry
+	store       storage.Store
+	media       MediaProcessor
+	mediaSlots  chan struct{}
+	mediaFlight singleflight.Group
+	ingest      IngestSettings
+	now         func() time.Time
 }
 
 type IngestSettings struct {
@@ -39,6 +42,14 @@ type IngestSettings struct {
 	NeedsKindTTL  time.Duration
 	RetryBase     time.Duration
 	MaxAttempts   int
+	MediaWorkers  int
+}
+
+type MediaProcessor interface {
+	Prepare(context.Context, io.Reader) (mediaproc.Prepared, error)
+	Render(context.Context, io.Reader, string) (mediaproc.Derivative, error)
+	ComposeSocialPreview(context.Context, io.Reader) (mediaproc.Derivative, error)
+	DerivativeType() string
 }
 
 func DefaultIngestSettings() IngestSettings {
@@ -48,6 +59,7 @@ func DefaultIngestSettings() IngestSettings {
 		NeedsKindTTL:  7 * 24 * time.Hour,
 		RetryBase:     time.Second,
 		MaxAttempts:   3,
+		MediaWorkers:  2,
 	}
 }
 
@@ -72,10 +84,27 @@ func NewServiceWithIngestSettings(
 	store storage.Store,
 	settings IngestSettings,
 ) *Service {
+	return NewServiceWithMediaProcessor(
+		pool, reg, store, settings,
+		mediaproc.NewProcessor(mediaproc.DefaultLimits()),
+	)
+}
+
+func NewServiceWithMediaProcessor(
+	pool *pgxpool.Pool,
+	reg *format.Registry,
+	store storage.Store,
+	settings IngestSettings,
+	processor MediaProcessor,
+) *Service {
+	workers := settings.MediaWorkers
+	if workers < 1 {
+		workers = 1
+	}
 	return &Service{
-		pool: pool, reg: reg, store: store,
-		media:  mediaproc.NewProcessor(mediaproc.DefaultLimits()),
-		ingest: settings, now: time.Now,
+		pool: pool, reg: reg, store: store, media: processor,
+		mediaSlots: make(chan struct{}, workers),
+		ingest:     settings, now: time.Now,
 	}
 }
 

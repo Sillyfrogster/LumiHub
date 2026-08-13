@@ -316,7 +316,12 @@ paths:
       operationId: getMediaVariant
       parameters:
         - { name: media_id, in: path, required: true, schema: { type: string, format: uuid } }
-        - { name: variant, in: path, required: true, schema: { type: string } }
+        - name: variant
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [grid, grid_blurred, detail, detail_blurred, thumb, thumb_blurred, og]
         - { name: derivative_version, in: path, required: true, schema: { type: integer, minimum: 1 } }
       responses:
         "200":

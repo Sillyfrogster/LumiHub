@@ -831,7 +831,7 @@ func (h *Handlers) DownloadSource(c *gin.Context, id types.UUID) {
 func (h *Handlers) GetMediaVariant(
 	c *gin.Context,
 	mediaID types.UUID,
-	variant string,
+	variant GetMediaVariantParamsVariant,
 	derivativeVersion int,
 ) {
 	if derivativeVersion < 1 || uint64(derivativeVersion) > math.MaxUint32 {
@@ -839,7 +839,7 @@ func (h *Handlers) GetMediaVariant(
 		return
 	}
 	download, err := h.assets.MediaVariant(
-		c.Request.Context(), uuid.UUID(mediaID), variant, uint32(derivativeVersion),
+		c.Request.Context(), uuid.UUID(mediaID), string(variant), uint32(derivativeVersion),
 	)
 	if errors.Is(err, asset.ErrMediaNotFound) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "no such media variant"})
