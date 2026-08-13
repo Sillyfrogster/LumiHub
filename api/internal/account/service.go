@@ -32,12 +32,15 @@ var (
 	ErrVerification      = errors.New("verification link is invalid")
 	ErrCredentials       = errors.New("credentials do not identify an account")
 	ErrUnauthorized      = errors.New("no account is signed in")
+	ErrEmailUnverified   = errors.New("email is not verified")
 	ErrProfileNotFound   = errors.New("profile does not exist")
 	ErrEmailVerified     = errors.New("verified email cannot be replaced here")
 )
 
 var dummyPasswordHash = func() []byte {
-	hash, err := bcrypt.GenerateFromPassword([]byte("password used only for timing"), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword(
+		passwordMaterial("password used only for timing"), bcrypt.DefaultCost,
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -77,14 +80,14 @@ func (s *Service) SignUp(ctx context.Context, in SignUpInput) (Account, string, 
 	if err := validateHandle(in.Handle); err != nil {
 		return Account{}, "", time.Time{}, err
 	}
-	if n := len([]byte(in.Password)); n < 12 || n > 72 {
+	if in.Password == "" {
 		return Account{}, "", time.Time{}, FieldError{
 			Field:   "password",
-			Message: "Password needs to be between 12 and 72 characters.",
+			Message: "Enter a password.",
 		}
 	}
 
-	passwordHash, err := bcrypt.GenerateFromPassword([]byte(in.Password), bcrypt.DefaultCost)
+	passwordHash, err := bcrypt.GenerateFromPassword(passwordMaterial(in.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return Account{}, "", time.Time{}, fmt.Errorf("hash password: %w", err)
 	}
@@ -106,7 +109,7 @@ func (s *Service) SignUp(ctx context.Context, in SignUpInput) (Account, string, 
 	defer tx.Rollback(ctx)
 	queries := db.New(tx)
 
-	if _, err := queries.LockHandle(ctx, text(in.Handle)); err != nil {
+	if _, err := queries.LockHandle(ctx, in.Handle); err != nil {
 		return Account{}, "", time.Time{}, fmt.Errorf("lock handle: %w", err)
 	}
 	unavailable, err := queries.HandleUnavailable(ctx, in.Handle)
@@ -115,6 +118,9 @@ func (s *Service) SignUp(ctx context.Context, in SignUpInput) (Account, string, 
 	}
 	if unavailable {
 		return Account{}, "", time.Time{}, ErrHandleUnavailable
+	}
+	if _, err := queries.LockEmail(ctx, email); err != nil {
+		return Account{}, "", time.Time{}, fmt.Errorf("lock email: %w", err)
 	}
 	claimed, err := queries.VerifiedEmailExists(ctx, text(email))
 	if err != nil {
@@ -197,6 +203,9 @@ func (s *Service) VerifyEmail(ctx context.Context, token string) (Account, error
 	if err != nil {
 		return Account{}, fmt.Errorf("read verification: %w", err)
 	}
+	if _, err := queries.LockEmail(ctx, verification.Email); err != nil {
+		return Account{}, fmt.Errorf("lock email: %w", err)
+	}
 	verified, err := queries.VerifyUserEmail(ctx, db.VerifyUserEmailParams{
 		ID:    verification.UserID,
 		Email: text(verification.Email),
@@ -230,7 +239,7 @@ func (s *Service) VerifyEmail(ctx context.Context, token string) (Account, error
 func (s *Service) SignIn(ctx context.Context, email, password string) (Account, string, time.Time, error) {
 	normalized, err := normalizeEmail(email)
 	if err != nil {
-		_ = bcrypt.CompareHashAndPassword(dummyPasswordHash, []byte(password))
+		_ = bcrypt.CompareHashAndPassword(dummyPasswordHash, passwordMaterial(password))
 		return Account{}, "", time.Time{}, ErrCredentials
 	}
 	rows, err := db.New(s.pool).UsersForSignIn(ctx, text(normalized))
@@ -240,10 +249,12 @@ func (s *Service) SignIn(ctx context.Context, email, password string) (Account, 
 
 	matches := make([]db.UsersForSignInRow, 0, 1)
 	if len(rows) == 0 {
-		_ = bcrypt.CompareHashAndPassword(dummyPasswordHash, []byte(password))
+		_ = bcrypt.CompareHashAndPassword(dummyPasswordHash, passwordMaterial(password))
 	}
 	for _, row := range rows {
-		if bcrypt.CompareHashAndPassword([]byte(row.PasswordHash.String), []byte(password)) == nil {
+		if bcrypt.CompareHashAndPassword(
+			[]byte(row.PasswordHash.String), passwordMaterial(password),
+		) == nil {
 			matches = append(matches, row)
 		}
 	}
@@ -301,6 +312,9 @@ func (s *Service) RenameHandle(ctx context.Context, token, handle string) (Accou
 	if err != nil {
 		return Account{}, fmt.Errorf("read account: %w", err)
 	}
+	if !current.EmailVerifiedAt.Valid {
+		return Account{}, ErrEmailUnverified
+	}
 	oldHandle, err := queries.UserHandleForUpdate(ctx, current.ID)
 	if err != nil {
 		return Account{}, fmt.Errorf("lock account: %w", err)
@@ -313,7 +327,7 @@ func (s *Service) RenameHandle(ctx context.Context, token, handle string) (Accou
 		return unchanged, nil
 	}
 	for _, value := range orderedHandles(oldHandle, handle) {
-		if _, err := queries.LockHandle(ctx, text(value)); err != nil {
+		if _, err := queries.LockHandle(ctx, value); err != nil {
 			return Account{}, fmt.Errorf("lock handle: %w", err)
 		}
 	}
@@ -381,6 +395,9 @@ func (s *Service) ChangeUnverifiedEmail(ctx context.Context, token, rawEmail str
 	}
 	if current.EmailVerifiedAt.Valid {
 		return Account{}, ErrEmailVerified
+	}
+	if _, err := queries.LockEmail(ctx, email); err != nil {
+		return Account{}, fmt.Errorf("lock email: %w", err)
 	}
 	claimed, err := queries.VerifiedEmailExists(ctx, text(email))
 	if err != nil {
@@ -485,6 +502,12 @@ func credentialHash(token string) ([]byte, bool) {
 	}
 	hash := sha256.Sum256(raw)
 	return hash[:], true
+}
+
+// bcrypt accepts at most 72 bytes. Hashing first keeps longer passwords distinct.
+func passwordMaterial(password string) []byte {
+	digest := sha256.Sum256([]byte(password))
+	return digest[:]
 }
 
 func accountFrom(

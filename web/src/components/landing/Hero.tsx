@@ -15,7 +15,7 @@ export function Hero() {
           name="hero-lumi"
           alt="Lumi, the guide of LumiHub"
           sizes="(max-width: 1100px) 100vw, 56vw"
-          priority
+          preload
         />
       </Parallax>
 

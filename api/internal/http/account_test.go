@@ -65,6 +65,49 @@ func TestSignUpStartsAnUnverifiedSessionAndSendsAVerificationLink(t *testing.T) 
 	}
 }
 
+func TestSignUpAcceptsAnyNonemptyPassword(t *testing.T) {
+	r := newTestRouter(t)
+
+	short := sendJSON(t, r, http.MethodPost, "/v1/auth/sign-up", `{
+		"email":"short.password@example.com",
+		"password":"x",
+		"handle":"short.password"
+	}`)
+	if short.Code != http.StatusCreated {
+		t.Errorf("one-character password status = %d, want 201. body: %s",
+			short.Code, short.Body.String())
+	}
+
+	longPassword := strings.Repeat("long password ", 16)
+	long := sendJSON(t, r, http.MethodPost, "/v1/auth/sign-up", `{
+		"email":"long.password@example.com",
+		"password":"`+longPassword+`",
+		"handle":"long.password"
+	}`)
+	if long.Code != http.StatusCreated {
+		t.Errorf("long password status = %d, want 201. body: %s",
+			long.Code, long.Body.String())
+	}
+	longSignIn := sendJSON(t, r, http.MethodPost, "/v1/auth/sign-in", `{
+		"email":"long.password@example.com",
+		"password":"`+longPassword+`"
+	}`)
+	if longSignIn.Code != http.StatusOK {
+		t.Errorf("long password sign-in status = %d, want 200. body: %s",
+			longSignIn.Code, longSignIn.Body.String())
+	}
+
+	empty := sendJSON(t, r, http.MethodPost, "/v1/auth/sign-up", `{
+		"email":"empty.password@example.com",
+		"password":"",
+		"handle":"empty.password"
+	}`)
+	if empty.Code != http.StatusBadRequest {
+		t.Errorf("empty password status = %d, want 400. body: %s",
+			empty.Code, empty.Body.String())
+	}
+}
+
 func TestSignUpAcceptsOnlyTheHandleVocabulary(t *testing.T) {
 	r := newTestRouter(t)
 	invalid := []string{
@@ -225,14 +268,34 @@ func TestAnUnverifiedAccountCanSignOutAndBackIn(t *testing.T) {
 }
 
 func TestRenamingAHandleRetiresTheOldProfileWithoutARedirect(t *testing.T) {
-	r := newTestRouter(t)
+	outbox := &verificationOutbox{}
+	r := newTestRouterWithSender(t, 1<<20, DefaultDeadlines(), outbox)
 	session := signUp(t, r, "rename@example.com", "first.handle")
 
 	renameRequest := httptest.NewRequest(http.MethodPatch, "/v1/account/handle",
 		strings.NewReader(`{"handle":"second.handle"}`))
 	renameRequest.Header.Set("Content-Type", "application/json")
 	renameRequest.AddCookie(session)
-	renamed := send(t, r, renameRequest)
+	if unverified := send(t, r, renameRequest); unverified.Code != http.StatusForbidden {
+		t.Fatalf("unverified rename status = %d, want 403. body: %s",
+			unverified.Code, unverified.Body.String())
+	}
+
+	verificationURL, err := url.Parse(outbox.messages[0].link)
+	if err != nil {
+		t.Fatalf("parse verification link: %v", err)
+	}
+	verified := sendJSON(t, r, http.MethodPost, "/v1/auth/verify-email",
+		`{"token":"`+verificationURL.Query().Get("token")+`"}`)
+	if verified.Code != http.StatusOK {
+		t.Fatalf("verify status = %d, want 200. body: %s", verified.Code, verified.Body.String())
+	}
+
+	renamedRequest := httptest.NewRequest(http.MethodPatch, "/v1/account/handle",
+		strings.NewReader(`{"handle":"second.handle"}`))
+	renamedRequest.Header.Set("Content-Type", "application/json")
+	renamedRequest.AddCookie(session)
+	renamed := send(t, r, renamedRequest)
 	if renamed.Code != http.StatusOK {
 		t.Fatalf("rename status = %d, want 200. body: %s", renamed.Code, renamed.Body.String())
 	}

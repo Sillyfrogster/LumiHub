@@ -73,7 +73,7 @@
 .note {
   max-width: 45ch;
   margin-top: 24px;
-  color: var(--muted);
+  color: var(--body);
   font-family: var(--font-display);
   font-size: 1rem;
   font-style: italic;

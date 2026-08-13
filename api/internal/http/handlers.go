@@ -142,6 +142,8 @@ func (h *Handlers) RenameHandle(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": field.Message, "field": field.Field})
 		case errors.Is(err, account.ErrUnauthorized):
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Sign in before changing your handle."})
+		case errors.Is(err, account.ErrEmailUnverified):
+			c.JSON(http.StatusForbidden, gin.H{"error": "Verify your email before changing your handle."})
 		case errors.Is(err, account.ErrHandleUnavailable):
 			c.JSON(http.StatusConflict, gin.H{"error": "That handle is not available."})
 		default:

@@ -369,12 +369,27 @@ func (q *Queries) ListAssets(ctx context.Context, arg ListAssetsParams) ([]ListA
 	return items, nil
 }
 
-const lockHandle = `-- name: LockHandle :one
-select 1 from pg_advisory_xact_lock(hashtextextended('lumihub-handle:' || $1, 0))
+const lockEmail = `-- name: LockEmail :one
+select 1 from pg_advisory_xact_lock(
+    hashtextextended('lumihub-email:' || $1::text, 0)
+)
 `
 
-func (q *Queries) LockHandle(ctx context.Context, dollar_1 pgtype.Text) (int32, error) {
-	row := q.db.QueryRow(ctx, lockHandle, dollar_1)
+func (q *Queries) LockEmail(ctx context.Context, email string) (int32, error) {
+	row := q.db.QueryRow(ctx, lockEmail, email)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const lockHandle = `-- name: LockHandle :one
+select 1 from pg_advisory_xact_lock(
+    hashtextextended('lumihub-handle:' || $1::text, 0)
+)
+`
+
+func (q *Queries) LockHandle(ctx context.Context, handle string) (int32, error) {
+	row := q.db.QueryRow(ctx, lockHandle, handle)
 	var column_1 int32
 	err := row.Scan(&column_1)
 	return column_1, err

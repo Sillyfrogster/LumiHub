@@ -323,6 +323,13 @@ export interface operations {
         };
         content?: never;
       };
+      /** @description The signed-in account has not verified its email */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
       /** @description The handle is active or retired */
       409: {
         headers: {
@@ -564,6 +571,20 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["Asset"];
         };
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The signed-in account has not verified its email */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };

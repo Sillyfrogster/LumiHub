@@ -63,7 +63,14 @@ returning id, sha256, byte_size, storage_key;
 select storage_key, byte_size from blobs where id = $1;
 
 -- name: LockHandle :one
-select 1 from pg_advisory_xact_lock(hashtextextended('lumihub-handle:' || $1, 0));
+select 1 from pg_advisory_xact_lock(
+    hashtextextended('lumihub-handle:' || sqlc.arg('handle')::text, 0)
+);
+
+-- name: LockEmail :one
+select 1 from pg_advisory_xact_lock(
+    hashtextextended('lumihub-email:' || sqlc.arg('email')::text, 0)
+);
 
 -- name: HandleUnavailable :one
 select exists (

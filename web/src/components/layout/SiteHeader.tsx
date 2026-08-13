@@ -21,7 +21,7 @@ export function SiteHeader() {
   const { account, signOut } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
 
-  async function leave() {
+  async function handleSignOut() {
     setSigningOut(true);
     try {
       await signOut();
@@ -86,7 +86,7 @@ export function SiteHeader() {
               <button
                 type="button"
                 className={styles.signOut}
-                onClick={leave}
+                onClick={handleSignOut}
                 disabled={signingOut}
               >
                 {signingOut ? "Leaving…" : "Sign out"}

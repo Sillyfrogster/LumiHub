@@ -115,18 +115,10 @@ export function AccountForm({ mode }: { mode: "sign-in" | "sign-up" }) {
           id="account-password"
           name="password"
           type="password"
-          minLength={signUp ? 12 : undefined}
-          maxLength={72}
           autoComplete={signUp ? "new-password" : "current-password"}
-          aria-describedby={signUp ? "password-hint" : undefined}
           aria-invalid={error?.field === "password" || undefined}
           required
         />
-        {signUp ? (
-          <p id="password-hint" className={styles.hint}>
-            Use at least 12 characters.
-          </p>
-        ) : null}
       </div>
 
       {error?.error ? (

@@ -11,7 +11,8 @@ type ArtProps = {
   className?: string;
   style?: CSSProperties;
   alt?: string;
-  priority?: boolean;
+  preload?: boolean;
+  loading?: "eager" | "lazy";
 };
 
 /**
@@ -25,7 +26,8 @@ export function Art({
   className,
   style,
   alt,
-  priority,
+  preload,
+  loading,
 }: ArtProps) {
   return (
     <Image
@@ -33,7 +35,8 @@ export function Art({
       alt={alt ?? ""}
       aria-hidden={alt ? undefined : true}
       sizes={sizes ?? (width ? `${width}px` : "100vw")}
-      priority={priority}
+      preload={preload}
+      loading={loading}
       className={className ? `${styles.art} ${className}` : styles.art}
       style={width ? { width, height: "auto", ...style } : style}
     />
