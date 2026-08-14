@@ -15,6 +15,7 @@ import (
 	"github.com/Sillyfrogster/LumiHub/api/internal/account"
 	"github.com/Sillyfrogster/LumiHub/api/internal/asset"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
+	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/oapi-codegen/runtime/types"
@@ -684,6 +685,10 @@ func (h *Handlers) CreateAsset(c *gin.Context) {
 	operation, err := h.assets.AcceptIngest(
 		c.Request.Context(), ingestInput(metadata, file.FileName(), limitedFile, owner.ID),
 	)
+	if errors.Is(err, storage.ErrTombstoned) {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "This file cannot be accepted."})
+		return
+	}
 	if err != nil {
 		h.refuse(c, err)
 		return
@@ -692,6 +697,64 @@ func (h *Handlers) CreateAsset(c *gin.Context) {
 	location := "/v1/ingests/" + operation.ID.String()
 	c.Header("Location", location)
 	c.JSON(http.StatusAccepted, toAPIIngest(operation))
+}
+
+func (h *Handlers) DeleteAsset(c *gin.Context, id types.UUID) {
+	owner, ok := h.uploadOwner(c)
+	if !ok {
+		return
+	}
+	err := h.assets.Delete(c.Request.Context(), owner.ID, uuid.UUID(id))
+	switch {
+	case errors.Is(err, asset.ErrNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": "no such asset"})
+	case errors.Is(err, asset.ErrAssetFrozen):
+		c.JSON(http.StatusConflict, gin.H{"error": "A withheld asset cannot be deleted."})
+	case err != nil:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not delete the asset."})
+	default:
+		c.Status(http.StatusNoContent)
+	}
+}
+
+func (h *Handlers) RestoreAsset(c *gin.Context, id types.UUID) {
+	owner, ok := h.uploadOwner(c)
+	if !ok {
+		return
+	}
+	err := h.assets.Restore(c.Request.Context(), owner.ID, uuid.UUID(id))
+	switch {
+	case errors.Is(err, asset.ErrNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": "no such recoverable asset"})
+	case err != nil:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not restore the asset."})
+	default:
+		c.Status(http.StatusNoContent)
+	}
+}
+
+func (h *Handlers) ListDeletedAssets(c *gin.Context, handle string) {
+	owner, ok := h.uploadOwner(c)
+	if !ok {
+		return
+	}
+	if !strings.EqualFold(owner.Handle, handle) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "no such deleted listing"})
+		return
+	}
+	found, err := h.assets.Deleted(c.Request.Context(), owner.ID, strings.ToLower(handle))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not list deleted assets."})
+		return
+	}
+	items := make([]DeletedAsset, len(found))
+	for i, item := range found {
+		items[i] = DeletedAsset{
+			Id: types.UUID(item.ID), Name: item.Name, Kind: DeletedAssetKind(item.Kind),
+			DeletedAt: item.DeletedAt, RecoverableUntil: item.RecoverableUntil,
+		}
+	}
+	c.JSON(http.StatusOK, DeletedAssetList{Items: items})
 }
 
 func (h *Handlers) AddMedia(c *gin.Context, id types.UUID) {

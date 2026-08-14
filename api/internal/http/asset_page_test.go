@@ -168,7 +168,7 @@ func TestWithheldDeletedAndNeverExistedAssetsAnswerAlike(t *testing.T) {
 		t.Fatalf("withhold asset: %v", err)
 	}
 	if _, err := pool.Exec(context.Background(),
-		`update assets set deleted_at = now() where id = $1`, deleted,
+		`update assets set deleted_at = now(), recoverable_until = now() + interval '30 days' where id = $1`, deleted,
 	); err != nil {
 		t.Fatalf("delete asset: %v", err)
 	}

@@ -271,6 +271,22 @@ export interface paths {
     get: operations["getAsset"];
     put?: never;
     post?: never;
+    delete: operations["deleteAsset"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/assets/{id}/restore": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["restoreAsset"];
     delete?: never;
     options?: never;
     head?: never;
@@ -286,6 +302,22 @@ export interface paths {
     };
     get?: never;
     put: operations["setAssetDiscovery"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/profiles/{handle}/deleted": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["listDeletedAssets"];
+    put?: never;
     post?: never;
     delete?: never;
     options?: never;
@@ -474,6 +506,20 @@ export interface components {
     AssetDiscoveryRequest: {
       /** @enum {string} */
       discovery: "listed" | "unlisted";
+    };
+    DeletedAssetList: {
+      items: components["schemas"]["DeletedAsset"][];
+    };
+    DeletedAsset: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      /** @enum {string} */
+      kind: "character" | "lorebook" | "preset" | "theme";
+      /** Format: date-time */
+      deletedAt: string;
+      /** Format: date-time */
+      recoverableUntil: string;
     };
     WithholdAssetRequest: {
       reason: string;
@@ -1219,6 +1265,13 @@ export interface operations {
         };
         content?: never;
       };
+      /** @description The uploaded bytes have been purged and cannot return */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
     };
   };
   getAsset: {
@@ -1245,6 +1298,95 @@ export interface operations {
         };
       };
       /** @description No asset a visitor may see */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  deleteAsset: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The asset is recoverable from the creator's Deleted section */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The signed-in account has not verified its email */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The asset does not belong to the creator */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The asset is withheld and cannot be deleted */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  restoreAsset: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The existing asset and retained bytes are live again */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The signed-in account has not verified its email */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No recoverable asset belongs to the creator */
       404: {
         headers: {
           [name: string]: unknown;
@@ -1305,6 +1447,42 @@ export interface operations {
       };
       /** @description The asset is withheld and cannot be changed */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  listDeletedAssets: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        handle: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The signed-in creator's assets still inside the recovery window */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeletedAssetList"];
+        };
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The signed-in account has not verified its email */
+      403: {
         headers: {
           [name: string]: unknown;
         };

@@ -383,6 +383,11 @@ func (s *Service) finalizeIngest(ctx context.Context, job ingestJob, prepared pr
 		return fmt.Errorf("begin ingest finalization: %w", err)
 	}
 	defer tx.Rollback(ctx)
+	if err := lockBlobDigest(ctx, tx, job.BlobID); errors.Is(err, pgx.ErrNoRows) {
+		return errIngestLeaseLost
+	} else if err != nil {
+		return fmt.Errorf("lock ingest digest: %w", err)
+	}
 
 	var status IngestStatus
 	var lease pgtype.UUID

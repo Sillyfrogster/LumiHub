@@ -21,6 +21,7 @@ import (
 
 type contentStore struct {
 	queries *db.Queries
+	pool    *pgxpool.Pool
 	root    string
 }
 
@@ -36,7 +37,7 @@ func NewStore(pool *pgxpool.Pool, root string) (Store, error) {
 			return nil, fmt.Errorf("create storage directory: %w", err)
 		}
 	}
-	return &contentStore{queries: db.New(pool), root: root}, nil
+	return &contentStore{queries: db.New(pool), pool: pool, root: root}, nil
 }
 
 func (s *contentStore) Put(ctx context.Context, r io.Reader) (StoredBlob, error) {
@@ -51,6 +52,30 @@ func (s *contentStore) Put(ctx context.Context, r io.Reader) (StoredBlob, error)
 	copy(digest[:], hash.Sum(nil))
 	key := blobKey(digest)
 	path := filepath.Join(s.root, filepath.FromSlash(key))
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return StoredBlob{}, fmt.Errorf("begin blob write: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	var locked int
+	if err := tx.QueryRow(ctx, `
+		select 1 from pg_advisory_xact_lock(
+		    hashtextextended('lumihub-blob:' || encode($1::bytea, 'hex'), 0)
+		)
+	`, digest[:]).Scan(&locked); err != nil {
+		return StoredBlob{}, fmt.Errorf("lock blob digest: %w", err)
+	}
+	var tombstoned bool
+	if err := tx.QueryRow(ctx,
+		`select exists (select 1 from blob_tombstones where sha256 = $1)`, digest[:],
+	).Scan(&tombstoned); err != nil {
+		return StoredBlob{}, fmt.Errorf("check blob tombstone: %w", err)
+	}
+	if tombstoned {
+		return StoredBlob{}, ErrTombstoned
+	}
+
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return StoredBlob{}, fmt.Errorf("create blob directory: %w", err)
 	}
@@ -61,7 +86,7 @@ func (s *contentStore) Put(ctx context.Context, r io.Reader) (StoredBlob, error)
 		return StoredBlob{}, fmt.Errorf("make blob readable by the byte server: %w", err)
 	}
 
-	row, err := s.queries.UpsertBlob(ctx, db.UpsertBlobParams{
+	row, err := db.New(tx).UpsertBlob(ctx, db.UpsertBlobParams{
 		ID:         pgUUID(uuid.New()),
 		Sha256:     digest[:],
 		ByteSize:   byteSize,
@@ -72,8 +97,14 @@ func (s *contentStore) Put(ctx context.Context, r io.Reader) (StoredBlob, error)
 	}
 	stored := StoredBlob{ID: uuid.UUID(row.ID.Bytes), ByteSize: row.ByteSize}
 	copy(stored.Digest[:], row.Sha256)
+	if _, err := tx.Exec(ctx, `delete from blob_sweep_marks where blob_id = $1`, row.ID); err != nil {
+		return StoredBlob{}, fmt.Errorf("clear blob sweep mark: %w", err)
+	}
 	if row.StorageKey != key {
 		_ = os.Remove(path)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return StoredBlob{}, fmt.Errorf("commit blob write: %w", err)
 	}
 	return stored, nil
 }
@@ -137,6 +168,33 @@ func (s *contentStore) InternalRedirect(ctx context.Context, id uuid.UUID) (stri
 		return "", fmt.Errorf("blob storage key is outside the blob directory")
 	}
 	return internalBlobPrefix + relative, nil
+}
+
+func (s *contentStore) Delete(ctx context.Context, id uuid.UUID) error {
+	location, err := s.blobLocation(ctx, id)
+	if err != nil {
+		return err
+	}
+	path, err := s.path(location.StorageKey)
+	if err != nil {
+		return err
+	}
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("delete blob: %w", err)
+	}
+	return nil
+}
+
+func (s *contentStore) DeleteDerivatives(ctx context.Context, digest [sha256.Size]byte) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	encoded := hex.EncodeToString(digest[:])
+	path := filepath.Join(s.root, "derivatives", encoded[:2], encoded)
+	if err := os.RemoveAll(path); err != nil {
+		return fmt.Errorf("delete blob derivatives: %w", err)
+	}
+	return nil
 }
 
 func (s *contentStore) blobLocation(ctx context.Context, id uuid.UUID) (db.BlobLocationRow, error) {

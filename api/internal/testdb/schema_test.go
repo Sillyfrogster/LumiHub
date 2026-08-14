@@ -19,6 +19,8 @@ func TestCoreTablesExist(t *testing.T) {
 		"asset_facets",
 		"asset_media",
 		"blobs",
+		"blob_sweep_marks",
+		"blob_tombstones",
 		"users",
 		"retired_handles",
 		"email_verification_tokens",
@@ -77,6 +79,22 @@ func TestBlobDigestIsUnique(t *testing.T) {
 		 values (gen_random_uuid(), $1, 1, 'second')`, digest)
 	if err == nil {
 		t.Fatal("the same digest was stored twice")
+	}
+}
+
+func TestSchemaHasNoMutableReferenceCount(t *testing.T) {
+	pool := Connect(t)
+	var count int
+	if err := pool.QueryRow(context.Background(), `
+		select count(*)
+		  from information_schema.columns
+		 where table_schema = 'public'
+		   and lower(column_name) in ('reference_count', 'ref_count', 'references_count')
+	`).Scan(&count); err != nil {
+		t.Fatalf("inspect reference-count columns: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("schema contains %d mutable reference-count columns", count)
 	}
 }
 
@@ -183,7 +201,13 @@ func TestWithholdingFieldsPopulateTogether(t *testing.T) {
 	ctx := context.Background()
 
 	assetID := uuid.New()
+	actorID := uuid.New()
 	_, err := pool.Exec(ctx,
+		`insert into users (id, username) values ($1, 'withhold.actor')`, actorID)
+	if err != nil {
+		t.Fatalf("insert withhold actor: %v", err)
+	}
+	_, err = pool.Exec(ctx,
 		`insert into assets (id, kind, name) values ($1, 'character', 'Held')`, assetID)
 	if err != nil {
 		t.Fatalf("insert asset: %v", err)
@@ -192,7 +216,7 @@ func TestWithholdingFieldsPopulateTogether(t *testing.T) {
 	_, err = pool.Exec(ctx,
 		`update assets
 		    set withheld_at = now(), withheld_by = $2, withheld_reason = 'review'
-		  where id = $1`, assetID, uuid.New())
+		  where id = $1`, assetID, actorID)
 	if err != nil {
 		t.Fatalf("set complete withhold: %v", err)
 	}

@@ -316,6 +316,30 @@ func (e CreateAssetRequestDiscovery) Valid() bool {
 	}
 }
 
+// Defines values for DeletedAssetKind.
+const (
+	DeletedAssetKindCharacter DeletedAssetKind = "character"
+	DeletedAssetKindLorebook  DeletedAssetKind = "lorebook"
+	DeletedAssetKindPreset    DeletedAssetKind = "preset"
+	DeletedAssetKindTheme     DeletedAssetKind = "theme"
+)
+
+// Valid indicates whether the value is a known member of the DeletedAssetKind enum.
+func (e DeletedAssetKind) Valid() bool {
+	switch e {
+	case DeletedAssetKindCharacter:
+		return true
+	case DeletedAssetKindLorebook:
+		return true
+	case DeletedAssetKindPreset:
+		return true
+	case DeletedAssetKindTheme:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for IngestFailureReason.
 const (
 	InternalFailure    IngestFailureReason = "internal_failure"
@@ -771,6 +795,23 @@ type CreateAssetRequest struct {
 // CreateAssetRequestDiscovery defines model for CreateAssetRequest.Discovery.
 type CreateAssetRequestDiscovery string
 
+// DeletedAsset defines model for DeletedAsset.
+type DeletedAsset struct {
+	DeletedAt        time.Time          `json:"deletedAt"`
+	Id               openapi_types.UUID `json:"id"`
+	Kind             DeletedAssetKind   `json:"kind"`
+	Name             string             `json:"name"`
+	RecoverableUntil time.Time          `json:"recoverableUntil"`
+}
+
+// DeletedAssetKind defines model for DeletedAsset.Kind.
+type DeletedAssetKind string
+
+// DeletedAssetList defines model for DeletedAssetList.
+type DeletedAssetList struct {
+	Items []DeletedAsset `json:"items"`
+}
+
 // IngestFailure defines model for IngestFailure.
 type IngestFailure struct {
 	Message string              `json:"message"`
@@ -1018,6 +1059,9 @@ type ServerInterface interface {
 	// (POST /v1/assets)
 	CreateAsset(c *gin.Context)
 
+	// (DELETE /v1/assets/{id})
+	DeleteAsset(c *gin.Context, id openapi_types.UUID)
+
 	// (GET /v1/assets/{id})
 	GetAsset(c *gin.Context, id openapi_types.UUID, params GetAssetParams)
 
@@ -1029,6 +1073,9 @@ type ServerInterface interface {
 
 	// (POST /v1/assets/{id}/media)
 	AddMedia(c *gin.Context, id openapi_types.UUID)
+
+	// (POST /v1/assets/{id}/restore)
+	RestoreAsset(c *gin.Context, id openapi_types.UUID)
 
 	// (DELETE /v1/assets/{id}/withhold)
 	ClearAssetWithhold(c *gin.Context, id openapi_types.UUID)
@@ -1071,6 +1118,9 @@ type ServerInterface interface {
 
 	// (GET /v1/profiles/{handle})
 	GetProfile(c *gin.Context, handle string)
+
+	// (GET /v1/profiles/{handle}/deleted)
+	ListDeletedAssets(c *gin.Context, handle string)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -1319,6 +1369,31 @@ func (siw *ServerInterfaceWrapper) CreateAsset(c *gin.Context) {
 	siw.Handler.CreateAsset(c)
 }
 
+// DeleteAsset operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAsset(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DeleteAsset(c, id)
+}
+
 // GetAsset operation middleware
 func (siw *ServerInterfaceWrapper) GetAsset(c *gin.Context) {
 
@@ -1428,6 +1503,31 @@ func (siw *ServerInterfaceWrapper) AddMedia(c *gin.Context) {
 	}
 
 	siw.Handler.AddMedia(c, id)
+}
+
+// RestoreAsset operation middleware
+func (siw *ServerInterfaceWrapper) RestoreAsset(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RestoreAsset(c, id)
 }
 
 // ClearAssetWithhold operation middleware
@@ -1716,6 +1816,31 @@ func (siw *ServerInterfaceWrapper) GetProfile(c *gin.Context) {
 	siw.Handler.GetProfile(c, handle)
 }
 
+// ListDeletedAssets operation middleware
+func (siw *ServerInterfaceWrapper) ListDeletedAssets(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "handle" -------------
+	var handle string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "handle", c.Param("handle"), &handle, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter handle: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListDeletedAssets(c, handle)
+}
+
 // GinServerOptions provides options for the Gin server.
 type GinServerOptions struct {
 	BaseURL      string
@@ -1760,8 +1885,11 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/v1/profiles/:handle", wrapper.GetProfile)
 	router.GET(options.BaseURL+"/v1/assets", wrapper.ListAssets)
 	router.POST(options.BaseURL+"/v1/assets", wrapper.CreateAsset)
+	router.DELETE(options.BaseURL+"/v1/assets/:id", wrapper.DeleteAsset)
 	router.GET(options.BaseURL+"/v1/assets/:id", wrapper.GetAsset)
+	router.POST(options.BaseURL+"/v1/assets/:id/restore", wrapper.RestoreAsset)
 	router.PUT(options.BaseURL+"/v1/assets/:id/discovery", wrapper.SetAssetDiscovery)
+	router.GET(options.BaseURL+"/v1/profiles/:handle/deleted", wrapper.ListDeletedAssets)
 	router.DELETE(options.BaseURL+"/v1/assets/:id/withhold", wrapper.ClearAssetWithhold)
 	router.PUT(options.BaseURL+"/v1/assets/:id/withhold", wrapper.WithholdAsset)
 	router.GET(options.BaseURL+"/download/:id", wrapper.DownloadSource)

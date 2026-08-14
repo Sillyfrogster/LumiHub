@@ -279,6 +279,7 @@ paths:
               schema: { $ref: "#/components/schemas/IngestOperation" }
         "401": { description: No account is signed in }
         "403": { description: The signed-in account has not verified its email }
+        "422": { description: The uploaded bytes have been purged and cannot return }
   /v1/assets/{id}:
     get:
       operationId: getAsset
@@ -302,6 +303,28 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/AssetDetail" }
         "404": { description: No asset a visitor may see }
+    delete:
+      operationId: deleteAsset
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: The asset is recoverable from the creator's Deleted section }
+        "401": { description: No account is signed in }
+        "403": { description: The signed-in account has not verified its email }
+        "404": { description: The asset does not belong to the creator }
+        "409": { description: The asset is withheld and cannot be deleted }
+  /v1/assets/{id}/restore:
+    post:
+      operationId: restoreAsset
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: The existing asset and retained bytes are live again }
+        "401": { description: No account is signed in }
+        "403": { description: The signed-in account has not verified its email }
+        "404": { description: No recoverable asset belongs to the creator }
   /v1/assets/{id}/discovery:
     put:
       operationId: setAssetDiscovery
@@ -320,6 +343,20 @@ paths:
         "403": { description: The signed-in account has not verified its email }
         "404": { description: The asset does not belong to the creator }
         "409": { description: The asset is withheld and cannot be changed }
+  /v1/profiles/{handle}/deleted:
+    get:
+      operationId: listDeletedAssets
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: handle, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: The signed-in creator's assets still inside the recovery window
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeletedAssetList" }
+        "401": { description: No account is signed in }
+        "403": { description: The signed-in account has not verified its email }
   /v1/assets/{id}/withhold:
     put:
       operationId: withholdAsset
@@ -619,6 +656,22 @@ components:
       required: [discovery]
       properties:
         discovery: { type: string, enum: [listed, unlisted] }
+    DeletedAssetList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/DeletedAsset" }
+    DeletedAsset:
+      type: object
+      required: [id, name, kind, deletedAt, recoverableUntil]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        kind: { type: string, enum: [character, lorebook, preset, theme] }
+        deletedAt: { type: string, format: date-time }
+        recoverableUntil: { type: string, format: date-time }
     WithholdAssetRequest:
       type: object
       additionalProperties: false

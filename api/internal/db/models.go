@@ -26,6 +26,7 @@ type Asset struct {
 	WithheldBy        pgtype.UUID
 	WithheldReason    pgtype.Text
 	DeletedAt         pgtype.Timestamptz
+	RecoverableUntil  pgtype.Timestamptz
 }
 
 type AssetFacet struct {
@@ -61,6 +62,18 @@ type Blob struct {
 	Sha256     []byte
 	ByteSize   int64
 	StorageKey string
+}
+
+type BlobSweepMark struct {
+	BlobID   pgtype.UUID
+	MarkedAt pgtype.Timestamptz
+}
+
+type BlobTombstone struct {
+	Sha256     []byte
+	ReasonCode string
+	PurgedAt   pgtype.Timestamptz
+	ActorID    pgtype.UUID
 }
 
 type EmailVerificationToken struct {

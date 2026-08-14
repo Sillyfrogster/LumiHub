@@ -53,6 +53,29 @@ func (q *Queries) AssetByID(ctx context.Context, id pgtype.UUID) (AssetByIDRow, 
 	return i, err
 }
 
+const assetDeletionState = `-- name: AssetDeletionState :one
+select withheld_at, deleted_at
+  from assets
+ where id = $1 and owner_id = $2
+`
+
+type AssetDeletionStateParams struct {
+	ID      pgtype.UUID
+	OwnerID pgtype.UUID
+}
+
+type AssetDeletionStateRow struct {
+	WithheldAt pgtype.Timestamptz
+	DeletedAt  pgtype.Timestamptz
+}
+
+func (q *Queries) AssetDeletionState(ctx context.Context, arg AssetDeletionStateParams) (AssetDeletionStateRow, error) {
+	row := q.db.QueryRow(ctx, assetDeletionState, arg.ID, arg.OwnerID)
+	var i AssetDeletionStateRow
+	err := row.Scan(&i.WithheldAt, &i.DeletedAt)
+	return i, err
+}
+
 const assetPage = `-- name: AssetPage :one
 select a.id, a.kind, a.name, a.blurb, a.tags, a.is_nsfw, a.discovery, a.created_at,
        coalesce(owner.username, 'unknown') as creator,
@@ -115,6 +138,7 @@ select media.id, media.role, media.width, media.height
  where a.id = $1
    and media.width is not null
    and media.height is not null
+   and media.blob_id is not null
  order by case media.role
             when 'avatar' then 1
             when 'avatar_alt' then 2
@@ -540,6 +564,7 @@ select r.blob_id, r.media_type
   from assets a
   join asset_revisions r on r.id = a.current_revision_id
  where a.id = $1
+   and r.blob_id is not null
    and a.deleted_at is null
    and (a.withheld_at is null or a.owner_id = $2::uuid)
 `
@@ -1011,6 +1036,55 @@ func (q *Queries) ListAssets(ctx context.Context, arg ListAssetsParams) ([]ListA
 	return items, nil
 }
 
+const listDeletedAssets = `-- name: ListDeletedAssets :many
+select asset.id, asset.name, asset.kind, asset.deleted_at, asset.recoverable_until
+  from assets asset
+  join users owner on owner.id = asset.owner_id
+ where asset.owner_id = $1 and owner.username = $2
+   and asset.deleted_at is not null and asset.recoverable_until > $3
+ order by asset.deleted_at desc, asset.id desc
+`
+
+type ListDeletedAssetsParams struct {
+	OwnerID          pgtype.UUID
+	Username         string
+	RecoverableUntil pgtype.Timestamptz
+}
+
+type ListDeletedAssetsRow struct {
+	ID               pgtype.UUID
+	Name             string
+	Kind             string
+	DeletedAt        pgtype.Timestamptz
+	RecoverableUntil pgtype.Timestamptz
+}
+
+func (q *Queries) ListDeletedAssets(ctx context.Context, arg ListDeletedAssetsParams) ([]ListDeletedAssetsRow, error) {
+	rows, err := q.db.Query(ctx, listDeletedAssets, arg.OwnerID, arg.Username, arg.RecoverableUntil)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListDeletedAssetsRow
+	for rows.Next() {
+		var i ListDeletedAssetsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Kind,
+			&i.DeletedAt,
+			&i.RecoverableUntil,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockEmail = `-- name: LockEmail :one
 select 1 from pg_advisory_xact_lock(
     hashtextextended('lumihub-email:' || $1::text, 0)
@@ -1117,6 +1191,27 @@ func (q *Queries) ReplacePassword(ctx context.Context, arg ReplacePasswordParams
 	return err
 }
 
+const restoreAsset = `-- name: RestoreAsset :execrows
+update assets
+   set deleted_at = null, recoverable_until = null, updated_at = $3
+ where id = $1 and owner_id = $2
+   and deleted_at is not null and recoverable_until > $3
+`
+
+type RestoreAssetParams struct {
+	ID        pgtype.UUID
+	OwnerID   pgtype.UUID
+	UpdatedAt pgtype.Timestamptz
+}
+
+func (q *Queries) RestoreAsset(ctx context.Context, arg RestoreAssetParams) (int64, error) {
+	result, err := q.db.Exec(ctx, restoreAsset, arg.ID, arg.OwnerID, arg.UpdatedAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const setAssetDiscovery = `-- name: SetAssetDiscovery :execrows
 update assets
    set discovery = $3, updated_at = now()
@@ -1198,6 +1293,33 @@ type SetNSFWVisibilityBySessionHashParams struct {
 
 func (q *Queries) SetNSFWVisibilityBySessionHash(ctx context.Context, arg SetNSFWVisibilityBySessionHashParams) (int64, error) {
 	result, err := q.db.Exec(ctx, setNSFWVisibilityBySessionHash, arg.NsfwVisibility, arg.TokenHash)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const softDeleteAsset = `-- name: SoftDeleteAsset :execrows
+update assets
+   set deleted_at = $3, recoverable_until = $4, updated_at = $3
+ where id = $1 and owner_id = $2
+   and withheld_at is null and deleted_at is null
+`
+
+type SoftDeleteAssetParams struct {
+	ID               pgtype.UUID
+	OwnerID          pgtype.UUID
+	DeletedAt        pgtype.Timestamptz
+	RecoverableUntil pgtype.Timestamptz
+}
+
+func (q *Queries) SoftDeleteAsset(ctx context.Context, arg SoftDeleteAssetParams) (int64, error) {
+	result, err := q.db.Exec(ctx, softDeleteAsset,
+		arg.ID,
+		arg.OwnerID,
+		arg.DeletedAt,
+		arg.RecoverableUntil,
+	)
 	if err != nil {
 		return 0, err
 	}

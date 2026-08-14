@@ -125,7 +125,7 @@ func TestOwnerProfileAlwaysListsActiveWorkWithoutChangingBrowse(t *testing.T) {
 		t.Fatalf("withhold asset: %v", err)
 	}
 	if _, err := pool.Exec(context.Background(),
-		`update assets set deleted_at = now() where id = $1`, deletedID); err != nil {
+		`update assets set deleted_at = now(), recoverable_until = now() + interval '30 days' where id = $1`, deletedID); err != nil {
 		t.Fatalf("soft-delete asset: %v", err)
 	}
 

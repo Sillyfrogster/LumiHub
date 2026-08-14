@@ -228,6 +228,7 @@ select media.id, media.role, media.width, media.height
  where a.id = $1
    and media.width is not null
    and media.height is not null
+   and media.blob_id is not null
  order by case media.role
             when 'avatar' then 1
             when 'avatar_alt' then 2
@@ -242,6 +243,7 @@ select r.blob_id, r.media_type
   from assets a
   join asset_revisions r on r.id = a.current_revision_id
  where a.id = $1
+   and r.blob_id is not null
    and a.deleted_at is null
    and (a.withheld_at is null or a.owner_id = sqlc.narg('viewer_id')::uuid);
 
@@ -275,6 +277,31 @@ update assets
    set withheld_at = null, withheld_by = null, withheld_reason = null,
        updated_at = now()
  where id = $1 and withheld_at is not null and deleted_at is null;
+
+-- name: AssetDeletionState :one
+select withheld_at, deleted_at
+  from assets
+ where id = $1 and owner_id = $2;
+
+-- name: SoftDeleteAsset :execrows
+update assets
+   set deleted_at = $3, recoverable_until = $4, updated_at = $3
+ where id = $1 and owner_id = $2
+   and withheld_at is null and deleted_at is null;
+
+-- name: RestoreAsset :execrows
+update assets
+   set deleted_at = null, recoverable_until = null, updated_at = $3
+ where id = $1 and owner_id = $2
+   and deleted_at is not null and recoverable_until > $3;
+
+-- name: ListDeletedAssets :many
+select asset.id, asset.name, asset.kind, asset.deleted_at, asset.recoverable_until
+  from assets asset
+  join users owner on owner.id = asset.owner_id
+ where asset.owner_id = $1 and owner.username = $2
+   and asset.deleted_at is not null and asset.recoverable_until > $3
+ order by asset.deleted_at desc, asset.id desc;
 
 -- name: UpsertBlob :one
 insert into blobs (id, sha256, byte_size, storage_key)
