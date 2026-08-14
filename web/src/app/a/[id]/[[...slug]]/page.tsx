@@ -9,8 +9,9 @@ import sprig from "@/assets/art/sprig.webp";
 import wash from "@/assets/art/wash.webp";
 import { Shell } from "@/components/layout/Shell";
 import { type AssetDetail, fetchAsset } from "@/lib/api/query";
-import { assetHref } from "@/lib/asset-url";
-import { DEFAULT_COVERS, KIND_LABELS } from "@/lib/kinds";
+import { assetMetadata } from "@/lib/asset-metadata";
+import { assetRedirect } from "@/lib/asset-url";
+import { KIND_LABELS } from "@/lib/kinds";
 import { AssetMedia } from "./AssetMedia";
 import styles from "./page.module.css";
 
@@ -35,32 +36,7 @@ export async function generateMetadata({
   params,
 }: PageProps<"/a/[id]/[[...slug]]">): Promise<Metadata> {
   const asset = await loadAsset((await params).id);
-  if (!asset) return { title: "Not found" };
-
-  const title = `${asset.name} · ${KIND_LABELS[asset.kind]}`;
-  const description = asset.blurb || `A ${asset.kind} by ${asset.creator}.`;
-  const image = asset.preview ?? DEFAULT_COVERS[asset.kind];
-
-  return {
-    title,
-    description,
-    alternates: { canonical: assetHref(asset.id, asset.name) },
-    robots: asset.discovery === "unlisted" ? { index: false } : undefined,
-    openGraph: {
-      type: "article",
-      siteName: "LumiHub",
-      title,
-      description,
-      url: assetHref(asset.id, asset.name),
-      images: [{ url: image, alt: asset.name, width: 1200, height: 630 }],
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: [image],
-    },
-  };
+  return asset ? assetMetadata(asset) : { title: "Not found" };
 }
 
 export default async function AssetPage({
@@ -70,9 +46,8 @@ export default async function AssetPage({
   const asset = await loadAsset(id);
   if (!asset) notFound();
 
-  const here = slug?.length ? `/a/${id}/${slug.join("/")}` : `/a/${id}`;
-  const canonical = assetHref(asset.id, asset.name);
-  if (here !== canonical) redirect(canonical);
+  const canonical = assetRedirect({ id, slug }, asset);
+  if (canonical) redirect(canonical);
 
   const kind = KIND_LABELS[asset.kind];
   const made = new Date(asset.createdAt).toLocaleDateString("en-GB", {
@@ -87,13 +62,7 @@ export default async function AssetPage({
         <div className={styles.wash}>
           <Image src={wash} alt="" fill priority sizes="100vw" />
         </div>
-        <Image
-          className={styles.sprig}
-          src={sprig}
-          alt=""
-          sizes="226px"
-          priority
-        />
+        <Image className={styles.sprig} src={sprig} alt="" sizes="178px" />
       </div>
 
       <Shell as="article" className={styles.body}>

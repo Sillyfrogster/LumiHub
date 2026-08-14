@@ -25,3 +25,18 @@ export function assetHref(id: string, name: string): string {
   const slug = assetSlug(name);
   return slug ? `/a/${id}/${slug}` : `/a/${id}`;
 }
+
+/**
+ * Where an address should send a reader, or null when they are already at the
+ * canonical one. The redirect is temporary because a rename moves it.
+ */
+export function assetRedirect(
+  visited: { id: string; slug?: string[] },
+  asset: { id: string; name: string },
+): string | null {
+  const here = visited.slug?.length
+    ? `/a/${visited.id}/${visited.slug.join("/")}`
+    : `/a/${visited.id}`;
+  const canonical = assetHref(asset.id, asset.name);
+  return here === canonical ? null : canonical;
+}

@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { assetHref, assetSlug } from "./asset-url";
+import { assetHref, assetRedirect, assetSlug } from "./asset-url";
+
+const ID = "0f6b7a4c-3d21-4a5e-9c8b-1f2e3d4c5b6a";
+const CHRISSY = { id: ID, name: "Christine Novak" };
 
 test("lowercases and joins words with single hyphens", () => {
   expect(assetSlug("The Quiet Archivist")).toBe("the-quiet-archivist");
@@ -42,10 +45,36 @@ test("transliterates nothing", () => {
 });
 
 test("addresses an asset by id, with the slug only when there is one", () => {
-  const id = "0f6b7a4c-3d21-4a5e-9c8b-1f2e3d4c5b6a";
-
-  expect(assetHref(id, "The Quiet Archivist")).toBe(
-    `/a/${id}/the-quiet-archivist`,
+  expect(assetHref(ID, "The Quiet Archivist")).toBe(
+    `/a/${ID}/the-quiet-archivist`,
   );
-  expect(assetHref(id, "日本語")).toBe(`/a/${id}`);
+  expect(assetHref(ID, "日本語")).toBe(`/a/${ID}`);
+});
+
+test("sends a bare address to the slugged one", () => {
+  expect(assetRedirect({ id: ID }, CHRISSY)).toBe(`/a/${ID}/christine-novak`);
+});
+
+test("sends a stale or wrong slug to the current one", () => {
+  expect(assetRedirect({ id: ID, slug: ["chrissy-old-name"] }, CHRISSY)).toBe(
+    `/a/${ID}/christine-novak`,
+  );
+  expect(assetRedirect({ id: ID, slug: ["christine", "novak"] }, CHRISSY)).toBe(
+    `/a/${ID}/christine-novak`,
+  );
+});
+
+test("leaves the canonical address alone", () => {
+  expect(assetRedirect({ id: ID, slug: ["christine-novak"] }, CHRISSY)).toBe(
+    null,
+  );
+});
+
+test("makes the bare address canonical when there is no slug", () => {
+  const unnamed = { id: ID, name: "日本語" };
+
+  expect(assetRedirect({ id: ID }, unnamed)).toBe(null);
+  expect(assetRedirect({ id: ID, slug: ["something"] }, unnamed)).toBe(
+    `/a/${ID}`,
+  );
 });
