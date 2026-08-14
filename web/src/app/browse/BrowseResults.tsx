@@ -79,7 +79,7 @@ export function BrowseResults({
       setVisibilityOverride(undefined);
       return;
     }
-    const stored = window.localStorage.getItem(STORED_VISIBILITY);
+    const stored = window.sessionStorage.getItem(STORED_VISIBILITY);
     setVisibilityOverride(isVisibility(stored) ? stored : undefined);
   }, [account]);
 
@@ -140,7 +140,7 @@ export function BrowseResults({
         await saveNsfwVisibility(next);
         await queryClient.invalidateQueries({ queryKey: assetKeys.all });
       } else {
-        window.localStorage.setItem(STORED_VISIBILITY, next);
+        window.sessionStorage.setItem(STORED_VISIBILITY, next);
         setVisibilityOverride(next);
       }
     } catch {

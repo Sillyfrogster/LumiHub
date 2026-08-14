@@ -11,9 +11,9 @@ import styles from "./SiteHeader.module.css";
 
 const NAV = [
   { label: "Discover", href: "/browse" },
-  { label: "Characters", href: "/browse?type=characters" },
-  { label: "Lorebooks", href: "/browse?type=lorebooks" },
-  { label: "Presets", href: "/browse?type=presets" },
+  { label: "Characters", href: "/browse?kind=character" },
+  { label: "Lorebooks", href: "/browse?kind=lorebook" },
+  { label: "Presets", href: "/browse?kind=preset" },
 ];
 
 export function SiteHeader() {
