@@ -13,6 +13,27 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for AccountRole.
+const (
+	Admin     AccountRole = "admin"
+	Moderator AccountRole = "moderator"
+	User      AccountRole = "user"
+)
+
+// Valid indicates whether the value is a known member of the AccountRole enum.
+func (e AccountRole) Valid() bool {
+	switch e {
+	case Admin:
+		return true
+	case Moderator:
+		return true
+	case User:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AddMediaRequestRole.
 const (
 	AddMediaRequestRoleAvatar           AddMediaRequestRole = "avatar"
@@ -552,7 +573,11 @@ type Account struct {
 	Handle        string               `json:"handle"`
 	HasPassword   bool                 `json:"hasPassword"`
 	Id            openapi_types.UUID   `json:"id"`
+	Role          AccountRole          `json:"role"`
 }
+
+// AccountRole defines model for Account.Role.
+type AccountRole string
 
 // AddMediaRequest defines model for AddMediaRequest.
 type AddMediaRequest struct {
@@ -598,6 +623,7 @@ type AssetDetail struct {
 	Preview    *string               `json:"preview"`
 	Tags       []AssetTag            `json:"tags"`
 	Visibility AssetDetailVisibility `json:"visibility"`
+	Withhold   *AssetWithhold        `json:"withhold,omitempty"`
 }
 
 // AssetDetailDiscovery defines model for AssetDetail.Discovery.
@@ -657,6 +683,13 @@ type AssetTag struct {
 	Value string `json:"value"`
 }
 
+// AssetWithhold defines model for AssetWithhold.
+type AssetWithhold struct {
+	Actor  string    `json:"actor"`
+	At     time.Time `json:"at"`
+	Reason string    `json:"reason"`
+}
+
 // BrowseAsset defines model for BrowseAsset.
 type BrowseAsset struct {
 	Cover   *BrowseCover       `json:"cover"`
@@ -668,6 +701,7 @@ type BrowseAsset struct {
 
 	// OwnerState Present only on the owner's own listing.
 	OwnerState *BrowseAssetOwnerState `json:"ownerState,omitempty"`
+	Withhold   *AssetWithhold         `json:"withhold,omitempty"`
 }
 
 // BrowseAssetKind defines model for BrowseAsset.Kind.
@@ -839,6 +873,11 @@ type VerifyEmailRequest struct {
 	Token string `json:"token"`
 }
 
+// WithholdAssetRequest defines model for WithholdAssetRequest.
+type WithholdAssetRequest struct {
+	Reason string `json:"reason"`
+}
+
 // GetMediaVariantParamsVariant defines parameters for GetMediaVariant.
 type GetMediaVariantParamsVariant string
 
@@ -928,6 +967,9 @@ type SetAssetDiscoveryJSONRequestBody = AssetDiscoveryRequest
 // AddMediaMultipartRequestBody defines body for AddMedia for multipart/form-data ContentType.
 type AddMediaMultipartRequestBody AddMediaMultipartBody
 
+// WithholdAssetJSONRequestBody defines body for WithholdAsset for application/json ContentType.
+type WithholdAssetJSONRequestBody = WithholdAssetRequest
+
 // RequestPasswordResetJSONRequestBody defines body for RequestPasswordReset for application/json ContentType.
 type RequestPasswordResetJSONRequestBody = PasswordResetRequest
 
@@ -987,6 +1029,12 @@ type ServerInterface interface {
 
 	// (POST /v1/assets/{id}/media)
 	AddMedia(c *gin.Context, id openapi_types.UUID)
+
+	// (DELETE /v1/assets/{id}/withhold)
+	ClearAssetWithhold(c *gin.Context, id openapi_types.UUID)
+
+	// (PUT /v1/assets/{id}/withhold)
+	WithholdAsset(c *gin.Context, id openapi_types.UUID)
 
 	// (GET /v1/auth/discord)
 	BeginDiscord(c *gin.Context, params BeginDiscordParams)
@@ -1382,6 +1430,56 @@ func (siw *ServerInterfaceWrapper) AddMedia(c *gin.Context) {
 	siw.Handler.AddMedia(c, id)
 }
 
+// ClearAssetWithhold operation middleware
+func (siw *ServerInterfaceWrapper) ClearAssetWithhold(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ClearAssetWithhold(c, id)
+}
+
+// WithholdAsset operation middleware
+func (siw *ServerInterfaceWrapper) WithholdAsset(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.WithholdAsset(c, id)
+}
+
 // BeginDiscord operation middleware
 func (siw *ServerInterfaceWrapper) BeginDiscord(c *gin.Context) {
 
@@ -1664,6 +1762,8 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/v1/assets", wrapper.CreateAsset)
 	router.GET(options.BaseURL+"/v1/assets/:id", wrapper.GetAsset)
 	router.PUT(options.BaseURL+"/v1/assets/:id/discovery", wrapper.SetAssetDiscovery)
+	router.DELETE(options.BaseURL+"/v1/assets/:id/withhold", wrapper.ClearAssetWithhold)
+	router.PUT(options.BaseURL+"/v1/assets/:id/withhold", wrapper.WithholdAsset)
 	router.GET(options.BaseURL+"/download/:id", wrapper.DownloadSource)
 	router.GET(options.BaseURL+"/v1/assets/:id/media", wrapper.ListMedia)
 	router.POST(options.BaseURL+"/v1/assets/:id/media", wrapper.AddMedia)

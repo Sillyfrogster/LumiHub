@@ -66,15 +66,27 @@ func (s *Service) AddMedia(ctx context.Context, in AddMediaInput) (Media, error)
 	if !in.Role.Valid() {
 		return Media{}, ErrInvalidMediaRole
 	}
-	var owned bool
-	if err := s.pool.QueryRow(ctx,
-		`select exists (select 1 from assets where id = $1 and owner_id = $2)`,
-		in.AssetID, in.OwnerID,
-	).Scan(&owned); err != nil {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Media{}, fmt.Errorf("begin media addition: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	var withheldAt pgtype.Timestamptz
+	err = tx.QueryRow(ctx, `
+		select withheld_at
+		  from assets
+		 where id = $1 and owner_id = $2 and deleted_at is null
+		 for update
+	`, in.AssetID, in.OwnerID).Scan(&withheldAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Media{}, ErrMediaNotFound
+	}
+	if err != nil {
 		return Media{}, fmt.Errorf("check media owner: %w", err)
 	}
-	if !owned {
-		return Media{}, ErrMediaNotFound
+	if withheldAt.Valid {
+		return Media{}, ErrAssetFrozen
 	}
 
 	stored, err := s.store.Put(ctx, in.File)
@@ -86,12 +98,15 @@ func (s *Service) AddMedia(ctx context.Context, in AddMediaInput) (Media, error)
 		return Media{}, err
 	}
 	id := uuid.New()
-	_, err = s.pool.Exec(ctx, `
+	_, err = tx.Exec(ctx, `
 		insert into asset_media (id, asset_id, role, width, height, blob_id)
 		values ($1, $2, $3, $4, $5, $6)
 	`, id, in.AssetID, in.Role, prepared.Width, prepared.Height, stored.ID)
 	if err != nil {
 		return Media{}, fmt.Errorf("record media: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Media{}, fmt.Errorf("commit media addition: %w", err)
 	}
 	assetID := in.AssetID
 	return Media{
@@ -102,10 +117,13 @@ func (s *Service) AddMedia(ctx context.Context, in AddMediaInput) (Media, error)
 }
 
 // ListMedia returns creator-managed media and media from the current revision.
-func (s *Service) ListMedia(ctx context.Context, assetID uuid.UUID) ([]Media, error) {
+func (s *Service) ListMedia(ctx context.Context, assetID uuid.UUID, viewerID *uuid.UUID) ([]Media, error) {
 	var revisionID uuid.UUID
 	err := s.pool.QueryRow(ctx,
-		`select current_revision_id from assets where id = $1`, assetID,
+		`select current_revision_id
+		   from assets
+		  where id = $1 and deleted_at is null
+		    and (withheld_at is null or owner_id = $2)`, assetID, viewerID,
 	).Scan(&revisionID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
@@ -239,6 +257,7 @@ func (s *Service) MediaVariant(
 	mediaID uuid.UUID,
 	variant string,
 	version uint32,
+	viewerID *uuid.UUID,
 ) (MediaDownload, error) {
 	_, ordinary := mediaproc.VariantByName(variant)
 	_, composed := mediaproc.SocialPreviewByName(variant)
@@ -250,9 +269,13 @@ func (s *Service) MediaVariant(
 	err := s.pool.QueryRow(ctx, `
 		select media.blob_id, blob.sha256
 		  from asset_media media
+		  left join asset_revisions revision on revision.id = media.revision_id
+		  join assets asset on asset.id = coalesce(media.asset_id, revision.asset_id)
 		  join blobs blob on blob.id = media.blob_id
 		 where media.id = $1
-	`, mediaID).Scan(&blobID, &digestBytes)
+		   and asset.deleted_at is null
+		   and (asset.withheld_at is null or asset.owner_id = $2)
+	`, mediaID, viewerID).Scan(&blobID, &digestBytes)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return MediaDownload{}, ErrMediaNotFound
 	}

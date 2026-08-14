@@ -44,19 +44,28 @@ type Detail struct {
 	// Media is cover first.
 	Media []DetailImage
 	// Preview is the composed social preview a link unfurler fetches.
-	Preview *string
+	Preview  *string
+	Withhold *Withhold
 }
 
-// Detail returns one asset by id. Unlisted assets answer normally, because
-// unlisted is discovery and not authorization; withheld and deleted ones are
-// absent, and so answer exactly as an id that never existed does.
+type Withhold struct {
+	Reason string
+	Actor  string
+	At     time.Time
+}
+
+// Detail returns one asset by id. Unlisted assets answer normally. A withheld
+// asset answers only to its owner, and a deleted asset answers to nobody.
 func (s *Service) Detail(
 	ctx context.Context,
 	id uuid.UUID,
+	viewerID *uuid.UUID,
 	visibility ContentVisibility,
 ) (Detail, error) {
 	queries := db.New(s.pool)
-	row, err := queries.AssetPage(ctx, uuidToPgtype(id))
+	row, err := queries.AssetPage(ctx, db.AssetPageParams{
+		ID: uuidToPgtype(id), ViewerID: uuidToNullable(viewerID),
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Detail{}, ErrNotFound
 	}
@@ -74,6 +83,13 @@ func (s *Service) Detail(
 		Discovery: Discovery(row.Discovery),
 		CreatedAt: timeFromPgtype(row.CreatedAt),
 		Media:     []DetailImage{},
+	}
+	if row.WithheldAt.Valid {
+		found.Withhold = &Withhold{
+			Reason: row.WithheldReason.String,
+			Actor:  row.WithheldBy.String,
+			At:     row.WithheldAt.Time,
+		}
 	}
 
 	images, err := queries.AssetPageMedia(ctx, uuidToPgtype(id))

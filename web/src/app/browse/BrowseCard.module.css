@@ -124,6 +124,28 @@
   white-space: nowrap;
 }
 
+.withhold {
+  display: grid;
+  gap: 3px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(163, 135, 77, 0.24);
+  color: #664f25;
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+
+.withhold strong {
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.withhold span {
+  color: #75613a;
+}
+
 @media (max-width: 560px) {
   .ownerState {
     right: auto;

@@ -148,7 +148,7 @@ func TestMediaVariantRegeneratesABoundedCacheMiss(t *testing.T) {
 	}
 
 	download, err := svc.MediaVariant(
-		context.Background(), added.ID, "grid", mediaproc.DerivativeVersion,
+		context.Background(), added.ID, "grid", mediaproc.DerivativeVersion, nil,
 	)
 	if err != nil {
 		t.Fatalf("MediaVariant cache miss: %v", err)
@@ -164,7 +164,7 @@ func TestMediaVariantRegeneratesABoundedCacheMiss(t *testing.T) {
 		{variant: "1200x630", version: mediaproc.DerivativeVersion},
 		{variant: "grid", version: mediaproc.DerivativeVersion + 1},
 	} {
-		_, err := svc.MediaVariant(context.Background(), added.ID, request.variant, request.version)
+		_, err := svc.MediaVariant(context.Background(), added.ID, request.variant, request.version, nil)
 		if !errors.Is(err, ErrMediaNotFound) {
 			t.Fatalf("MediaVariant(%q, %d) error = %v, want ErrMediaNotFound",
 				request.variant, request.version, err)
@@ -279,7 +279,7 @@ func TestConcurrentCacheMissesShareOneBoundedRender(t *testing.T) {
 		go func() {
 			ready.Done()
 			<-start
-			_, err := svc.MediaVariant(context.Background(), added.ID, "grid", 1)
+			_, err := svc.MediaVariant(context.Background(), added.ID, "grid", 1, nil)
 			errors <- err
 		}()
 	}

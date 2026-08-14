@@ -51,6 +51,15 @@ export function BrowseCard({
         <div className={styles.identity}>
           <h3>{asset.name}</h3>
           <p>@{asset.creator}</p>
+          {asset.withhold ? (
+            <div className={styles.withhold}>
+              <strong>{asset.withhold.reason}</strong>
+              <span>
+                @{asset.withhold.actor} ·{" "}
+                {new Date(asset.withhold.at).toLocaleDateString("en-GB")}
+              </span>
+            </div>
+          ) : null}
         </div>
       </Link>
     </li>

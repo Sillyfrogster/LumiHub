@@ -136,4 +136,5 @@ type User struct {
 	UpdatedAt                      pgtype.Timestamptz
 	NsfwVisibility                 string
 	ShowNsfwContributionsOnProfile bool
+	Role                           string
 }

@@ -293,6 +293,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/assets/{id}/withhold": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations["withholdAsset"];
+    post?: never;
+    delete: operations["clearAssetWithhold"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/download/{id}": {
     parameters: {
       query?: never;
@@ -370,6 +386,8 @@ export interface components {
       emailVerified: boolean;
       discordLinked: boolean;
       hasPassword: boolean;
+      /** @enum {string} */
+      role: "user" | "moderator" | "admin";
     };
     ChangeEmailRequest: {
       /** Format: email */
@@ -451,10 +469,20 @@ export interface components {
       preview: string | null;
       /** @enum {string} */
       visibility: "hidden" | "blurred" | "shown";
+      withhold?: components["schemas"]["AssetWithhold"];
     };
     AssetDiscoveryRequest: {
       /** @enum {string} */
       discovery: "listed" | "unlisted";
+    };
+    WithholdAssetRequest: {
+      reason: string;
+    };
+    AssetWithhold: {
+      reason: string;
+      actor: string;
+      /** Format: date-time */
+      at: string;
     };
     AssetTag: {
       /** @description The creator's own text, shown as written. */
@@ -502,6 +530,7 @@ export interface components {
        * @enum {string}
        */
       ownerState?: "unlisted" | "withheld";
+      withhold?: components["schemas"]["AssetWithhold"];
       cover: components["schemas"]["BrowseCover"] | null;
     };
     BrowseCover: {
@@ -1283,6 +1312,99 @@ export interface operations {
       };
     };
   };
+  withholdAsset: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WithholdAssetRequest"];
+      };
+    };
+    responses: {
+      /** @description The asset is withheld */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The reason is empty or invalid */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The signed-in account is not an admin */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No live asset has that id */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  clearAssetWithhold: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The asset is no longer withheld */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The signed-in account is not an admin */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No withheld asset has that id */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   downloadSource: {
     parameters: {
       query?: never;
@@ -1399,6 +1521,13 @@ export interface operations {
       };
       /** @description The asset does not belong to the creator */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The asset is withheld and cannot be changed */
+      409: {
         headers: {
           [name: string]: unknown;
         };

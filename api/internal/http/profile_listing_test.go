@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/asset"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
@@ -18,6 +19,11 @@ type profileListingResponse struct {
 	Items []struct {
 		Name       string  `json:"name"`
 		OwnerState *string `json:"ownerState"`
+		Withhold   *struct {
+			Reason string    `json:"reason"`
+			Actor  string    `json:"actor"`
+			At     time.Time `json:"at"`
+		} `json:"withhold"`
 	} `json:"items"`
 	Total      int `json:"total"`
 	Suppressed int `json:"suppressed"`
@@ -150,6 +156,13 @@ func TestOwnerProfileAlwaysListsActiveWorkWithoutChangingBrowse(t *testing.T) {
 		states["Unlisted garden"] == nil || *states["Unlisted garden"] != "unlisted" ||
 		states["Withheld garden"] == nil || *states["Withheld garden"] != "withheld" {
 		t.Fatalf("owner profile states = %#v", states)
+	}
+	for _, item := range owner.Items {
+		if item.Name == "Withheld garden" &&
+			(item.Withhold == nil || item.Withhold.Reason != "testing" ||
+				item.Withhold.Actor != "verified.creator" || item.Withhold.At.IsZero()) {
+			t.Fatalf("owner profile withhold = %+v", item.Withhold)
+		}
 	}
 	if _, exists := states["Deleted garden"]; exists {
 		t.Fatalf("soft-deleted asset appeared in the active owner listing")

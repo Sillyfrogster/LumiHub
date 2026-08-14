@@ -350,7 +350,7 @@ func (s *Service) Browse(
 
 // OpenSource opens the stored upload exactly as it arrived.
 func (s *Service) OpenSource(ctx context.Context, assetID uuid.UUID) (io.ReadCloser, error) {
-	blobID, _, err := currentRevisionLocation(ctx, s.pool, assetID)
+	blobID, _, err := currentRevisionLocation(ctx, s.pool, assetID, nil)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
@@ -372,8 +372,8 @@ type SourceDownload struct {
 }
 
 // DownloadSource resolves the current source file for an nginx handoff.
-func (s *Service) DownloadSource(ctx context.Context, assetID uuid.UUID) (SourceDownload, error) {
-	blobID, mediaType, err := currentRevisionLocation(ctx, s.pool, assetID)
+func (s *Service) DownloadSource(ctx context.Context, assetID uuid.UUID, viewerID *uuid.UUID) (SourceDownload, error) {
+	blobID, mediaType, err := currentRevisionLocation(ctx, s.pool, assetID, viewerID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return SourceDownload{}, ErrNotFound

@@ -59,6 +59,7 @@ type BrowseItem struct {
 	IsNSFW     bool
 	OwnerState string
 	Cover      *BrowseCover
+	Withhold   *Withhold
 }
 
 type BrowsePage struct {
@@ -176,6 +177,11 @@ func browseAssets(
 			switch {
 			case row.WithheldAt.Valid:
 				item.OwnerState = "withheld"
+				item.Withhold = &Withhold{
+					Reason: row.WithheldReason.String,
+					Actor:  row.WithheldBy.String,
+					At:     row.WithheldAt.Time,
+				}
 			case row.Discovery == "unlisted":
 				item.OwnerState = "unlisted"
 			}

@@ -15,6 +15,8 @@ import { KIND_LABELS } from "@/lib/kinds";
 import { AssetMedia } from "./AssetMedia";
 import { DiscoveryControl } from "./DiscoveryControl";
 import styles from "./page.module.css";
+import { WithholdControl } from "./WithholdControl";
+import { WithholdNotice } from "./WithholdNotice";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -91,6 +93,10 @@ export default async function AssetPage({
               <span className={styles.made}>{made}</span>
             </p>
 
+            {asset.withhold ? (
+              <WithholdNotice withhold={asset.withhold} />
+            ) : null}
+
             {asset.blurb ? (
               <p className={styles.blurb}>{asset.blurb}</p>
             ) : (
@@ -119,7 +125,9 @@ export default async function AssetPage({
               assetId={asset.id}
               creator={asset.creator}
               initialDiscovery={asset.discovery}
+              frozen={Boolean(asset.withhold)}
             />
+            {!asset.withhold ? <WithholdControl assetId={asset.id} /> : null}
           </div>
         </div>
       </Shell>

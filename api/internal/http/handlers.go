@@ -441,12 +441,92 @@ func toAPIAccount(value account.Account) Account {
 		EmailVerified: value.EmailVerified,
 		DiscordLinked: value.DiscordLinked,
 		HasPassword:   value.HasPassword,
+		Role:          AccountRole(value.Role),
 	}
 	if value.Email != nil {
 		email := types.Email(*value.Email)
 		result.Email = &email
 	}
 	return result
+}
+
+func (h *Handlers) WithholdAsset(c *gin.Context, id types.UUID) {
+	admin, ok := h.admin(c)
+	if !ok {
+		return
+	}
+	var request WithholdAssetRequest
+	if err := decodeOneJSON(c.Request.Body, &request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Give a reason for withholding the asset."})
+		return
+	}
+	err := h.assets.Withhold(c.Request.Context(), uuid.UUID(id), admin.ID, request.Reason)
+	switch {
+	case errors.Is(err, asset.ErrInvalidWithholdReason):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Give a reason for withholding the asset."})
+	case errors.Is(err, asset.ErrNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": "no such asset"})
+	case err != nil:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not withhold the asset."})
+	default:
+		c.Status(http.StatusNoContent)
+	}
+}
+
+func (h *Handlers) ClearAssetWithhold(c *gin.Context, id types.UUID) {
+	if _, ok := h.admin(c); !ok {
+		return
+	}
+	err := h.assets.ClearWithhold(c.Request.Context(), uuid.UUID(id))
+	switch {
+	case errors.Is(err, asset.ErrNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": "no such asset"})
+	case err != nil:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not clear the withhold."})
+	default:
+		c.Status(http.StatusNoContent)
+	}
+}
+
+func (h *Handlers) admin(c *gin.Context) (account.Account, bool) {
+	token, err := c.Cookie(sessionCookieName)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sign in before managing assets."})
+		return account.Account{}, false
+	}
+	current, err := h.accounts.Current(c.Request.Context(), token)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not check the signed-in account."})
+		return account.Account{}, false
+	}
+	if current == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sign in before managing assets."})
+		return account.Account{}, false
+	}
+	if !current.EmailVerified || current.Role != account.RoleAdmin {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only an admin can manage withholds."})
+		return account.Account{}, false
+	}
+	return *current, true
+}
+
+func (h *Handlers) viewerID(c *gin.Context) (*uuid.UUID, bool) {
+	token, err := c.Cookie(sessionCookieName)
+	if errors.Is(err, http.ErrNoCookie) {
+		return nil, true
+	}
+	if err != nil {
+		return nil, true
+	}
+	current, err := h.accounts.Current(c.Request.Context(), token)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not read the signed-in account."})
+		return nil, false
+	}
+	if current == nil {
+		return nil, true
+	}
+	return &current.ID, true
 }
 
 func (h *Handlers) ListAssets(c *gin.Context, params ListAssetsParams) {
@@ -534,6 +614,7 @@ func (h *Handlers) ListAssets(c *gin.Context, params ListAssetsParams) {
 			Id: types.UUID(item.ID), Name: item.Name, Creator: item.Creator,
 			Kind: BrowseAssetKind(item.Kind), IsNsfw: item.IsNSFW, Cover: cover,
 			OwnerState: ownerState,
+			Withhold:   toAPIWithhold(item.Withhold),
 		})
 	}
 	var next *BrowseCursor
@@ -648,6 +729,10 @@ func (h *Handlers) AddMedia(c *gin.Context, id types.UUID) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "no such asset"})
 		return
 	}
+	if errors.Is(err, asset.ErrAssetFrozen) {
+		c.JSON(http.StatusConflict, gin.H{"error": "A withheld asset cannot be changed."})
+		return
+	}
 	if err != nil {
 		h.refuse(c, err)
 		return
@@ -678,6 +763,10 @@ func (h *Handlers) readerVisibility(
 // GetAsset answers an asset's own page. Withheld, deleted and never-existed all
 // leave through the same 404, so no response says which.
 func (h *Handlers) GetAsset(c *gin.Context, id types.UUID, params GetAssetParams) {
+	viewerID, ok := h.viewerID(c)
+	if !ok {
+		return
+	}
 	var requested *string
 	if params.Nsfw != nil {
 		value := string(*params.Nsfw)
@@ -687,7 +776,7 @@ func (h *Handlers) GetAsset(c *gin.Context, id types.UUID, params GetAssetParams
 	if !ok {
 		return
 	}
-	found, err := h.assets.Detail(c.Request.Context(), uuid.UUID(id), visibility)
+	found, err := h.assets.Detail(c.Request.Context(), uuid.UUID(id), viewerID, visibility)
 	if errors.Is(err, asset.ErrNotFound) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "no such asset"})
 		return
@@ -753,11 +842,23 @@ func toAPIDetail(found asset.Detail, visibility asset.ContentVisibility) AssetDe
 		Media:      media,
 		Preview:    found.Preview,
 		Visibility: AssetDetailVisibility(visibility),
+		Withhold:   toAPIWithhold(found.Withhold),
 	}
 }
 
+func toAPIWithhold(found *asset.Withhold) *AssetWithhold {
+	if found == nil {
+		return nil
+	}
+	return &AssetWithhold{Reason: found.Reason, Actor: found.Actor, At: found.At}
+}
+
 func (h *Handlers) ListMedia(c *gin.Context, id types.UUID) {
-	found, err := h.assets.ListMedia(c.Request.Context(), uuid.UUID(id))
+	viewerID, ok := h.viewerID(c)
+	if !ok {
+		return
+	}
+	found, err := h.assets.ListMedia(c.Request.Context(), uuid.UUID(id), viewerID)
 	if errors.Is(err, asset.ErrNotFound) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "no such asset"})
 		return
@@ -1006,7 +1107,11 @@ func (h *Handlers) refuse(c *gin.Context, err error) {
 }
 
 func (h *Handlers) DownloadSource(c *gin.Context, id types.UUID) {
-	download, err := h.assets.DownloadSource(c.Request.Context(), id)
+	viewerID, ok := h.viewerID(c)
+	if !ok {
+		return
+	}
+	download, err := h.assets.DownloadSource(c.Request.Context(), id, viewerID)
 	if err != nil {
 		if errors.Is(err, asset.ErrNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "no such asset"})
@@ -1034,12 +1139,16 @@ func (h *Handlers) GetMediaVariant(
 	variant GetMediaVariantParamsVariant,
 	derivativeVersion int,
 ) {
+	viewerID, ok := h.viewerID(c)
+	if !ok {
+		return
+	}
 	if derivativeVersion < 1 || uint64(derivativeVersion) > math.MaxUint32 {
 		c.JSON(http.StatusNotFound, gin.H{"error": "no such media variant"})
 		return
 	}
 	download, err := h.assets.MediaVariant(
-		c.Request.Context(), uuid.UUID(mediaID), string(variant), uint32(derivativeVersion),
+		c.Request.Context(), uuid.UUID(mediaID), string(variant), uint32(derivativeVersion), viewerID,
 	)
 	if errors.Is(err, asset.ErrMediaNotFound) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "no such media variant"})

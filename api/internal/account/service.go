@@ -216,7 +216,7 @@ func (s *Service) Current(ctx context.Context, token string) (*Account, error) {
 	}
 	account := accountFrom(accountRecord{
 		ID: row.ID, Handle: row.Username, Email: row.Email, Verified: row.EmailVerifiedAt,
-		HasPassword: row.HasPassword, DiscordLinked: row.DiscordLinked,
+		HasPassword: row.HasPassword, DiscordLinked: row.DiscordLinked, Role: Role(row.Role),
 	})
 	return &account, nil
 }
@@ -372,7 +372,7 @@ func (s *Service) SignIn(ctx context.Context, email, password string) (Account, 
 	row := matches[0]
 	return accountFrom(accountRecord{
 		ID: row.ID, Handle: row.Username, Email: row.Email, Verified: row.EmailVerifiedAt,
-		HasPassword: true, DiscordLinked: row.DiscordLinked,
+		HasPassword: true, DiscordLinked: row.DiscordLinked, Role: Role(row.Role),
 	}), token, expires, nil
 }
 
@@ -420,7 +420,7 @@ func (s *Service) RenameHandle(ctx context.Context, token, handle string) (Accou
 		unchanged := accountFrom(accountRecord{
 			ID: current.ID, Handle: oldHandle, Email: current.Email,
 			Verified: current.EmailVerifiedAt, HasPassword: current.HasPassword,
-			DiscordLinked: current.DiscordLinked,
+			DiscordLinked: current.DiscordLinked, Role: Role(current.Role),
 		})
 		if err := tx.Commit(ctx); err != nil {
 			return Account{}, fmt.Errorf("commit unchanged handle: %w", err)
@@ -455,7 +455,7 @@ func (s *Service) RenameHandle(ctx context.Context, token, handle string) (Accou
 	return accountFrom(accountRecord{
 		ID: updated.ID, Handle: updated.Username, Email: updated.Email,
 		Verified: updated.EmailVerifiedAt, HasPassword: current.HasPassword,
-		DiscordLinked: current.DiscordLinked,
+		DiscordLinked: current.DiscordLinked, Role: Role(current.Role),
 	}), nil
 }
 
@@ -545,7 +545,7 @@ func (s *Service) ChangeUnverifiedEmail(ctx context.Context, token, rawEmail str
 	return accountFrom(accountRecord{
 		ID: updated.ID, Handle: updated.Username, Email: updated.Email,
 		Verified: updated.EmailVerifiedAt, HasPassword: current.HasPassword,
-		DiscordLinked: current.DiscordLinked,
+		DiscordLinked: current.DiscordLinked, Role: Role(current.Role),
 	}), nil
 }
 
@@ -701,7 +701,7 @@ func (s *Service) signInDiscord(
 		current := accountFrom(accountRecord{
 			ID: linked.ID, Handle: linked.Username, Email: linked.Email,
 			Verified: linked.EmailVerifiedAt, HasPassword: linked.HasPassword,
-			DiscordLinked: true,
+			DiscordLinked: true, Role: Role(linked.Role),
 		})
 		token, expires, err := insertSession(ctx, queries, linked.ID)
 		if err != nil {
@@ -815,7 +815,7 @@ func (s *Service) attachDiscord(
 		return accountFrom(accountRecord{
 			ID: linked.ID, Handle: linked.Username, Email: linked.Email,
 			Verified: linked.EmailVerifiedAt, HasPassword: linked.HasPassword,
-			DiscordLinked: true,
+			DiscordLinked: true, Role: Role(linked.Role),
 		}), nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
@@ -843,7 +843,7 @@ func (s *Service) attachDiscord(
 	return accountFrom(accountRecord{
 		ID: current.ID, Handle: current.Username, Email: current.Email,
 		Verified: current.EmailVerifiedAt, HasPassword: current.HasPassword,
-		DiscordLinked: true,
+		DiscordLinked: true, Role: Role(current.Role),
 	}), nil
 }
 
@@ -879,7 +879,7 @@ func (s *Service) SetPassword(ctx context.Context, sessionToken, password string
 	return accountFrom(accountRecord{
 		ID: updated.ID, Handle: updated.Username, Email: updated.Email,
 		Verified: updated.EmailVerifiedAt, HasPassword: true,
-		DiscordLinked: current.DiscordLinked,
+		DiscordLinked: current.DiscordLinked, Role: Role(current.Role),
 	}), nil
 }
 
@@ -936,7 +936,7 @@ func (s *Service) DetachDiscord(ctx context.Context, sessionToken string) (Accou
 	return accountFrom(accountRecord{
 		ID: current.ID, Handle: current.Username, Email: current.Email,
 		Verified: current.EmailVerifiedAt, HasPassword: current.HasPassword,
-		DiscordLinked: false,
+		DiscordLinked: false, Role: Role(current.Role),
 	}), nil
 }
 
@@ -1178,15 +1178,20 @@ type accountRecord struct {
 	Verified      pgtype.Timestamptz
 	HasPassword   bool
 	DiscordLinked bool
+	Role          Role
 }
 
 func accountFrom(row accountRecord) Account {
+	if row.Role == "" {
+		row.Role = RoleUser
+	}
 	account := Account{
 		ID:            uuid.UUID(row.ID.Bytes),
 		Handle:        row.Handle,
 		EmailVerified: row.Verified.Valid,
 		DiscordLinked: row.DiscordLinked,
 		HasPassword:   row.HasPassword,
+		Role:          row.Role,
 	}
 	if row.Email.Valid {
 		account.Email = &row.Email.String

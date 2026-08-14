@@ -55,30 +55,40 @@ func (q *Queries) AssetByID(ctx context.Context, id pgtype.UUID) (AssetByIDRow, 
 
 const assetPage = `-- name: AssetPage :one
 select a.id, a.kind, a.name, a.blurb, a.tags, a.is_nsfw, a.discovery, a.created_at,
-       coalesce(owner.username, 'unknown') as creator
+       coalesce(owner.username, 'unknown') as creator,
+       a.withheld_reason, a.withheld_at, actor.username as withheld_by
   from assets a
   left join users owner on owner.id = a.owner_id
+  left join users actor on actor.id = a.withheld_by
  where a.id = $1
-   and a.withheld_at is null
    and a.deleted_at is null
+   and (a.withheld_at is null or a.owner_id = $2::uuid)
 `
 
+type AssetPageParams struct {
+	ID       pgtype.UUID
+	ViewerID pgtype.UUID
+}
+
 type AssetPageRow struct {
-	ID        pgtype.UUID
-	Kind      string
-	Name      string
-	Blurb     string
-	Tags      []string
-	IsNsfw    bool
-	Discovery string
-	CreatedAt pgtype.Timestamptz
-	Creator   string
+	ID             pgtype.UUID
+	Kind           string
+	Name           string
+	Blurb          string
+	Tags           []string
+	IsNsfw         bool
+	Discovery      string
+	CreatedAt      pgtype.Timestamptz
+	Creator        string
+	WithheldReason pgtype.Text
+	WithheldAt     pgtype.Timestamptz
+	WithheldBy     pgtype.Text
 }
 
 // Unlisted is missing from this predicate on purpose. A stranger holding the
 // link gets a normal answer.
-func (q *Queries) AssetPage(ctx context.Context, id pgtype.UUID) (AssetPageRow, error) {
-	row := q.db.QueryRow(ctx, assetPage, id)
+func (q *Queries) AssetPage(ctx context.Context, arg AssetPageParams) (AssetPageRow, error) {
+	row := q.db.QueryRow(ctx, assetPage, arg.ID, arg.ViewerID)
 	var i AssetPageRow
 	err := row.Scan(
 		&i.ID,
@@ -90,6 +100,9 @@ func (q *Queries) AssetPage(ctx context.Context, id pgtype.UUID) (AssetPageRow, 
 		&i.Discovery,
 		&i.CreatedAt,
 		&i.Creator,
+		&i.WithheldReason,
+		&i.WithheldAt,
+		&i.WithheldBy,
 	)
 	return i, err
 }
@@ -183,10 +196,11 @@ const browseAssets = `-- name: BrowseAssets :many
 select a.id, a.name, coalesce(owner.username, 'unknown') as creator,
        a.kind, a.is_nsfw, a.created_at,
        cover.id as cover_id, cover.width as cover_width, cover.height as cover_height,
-       a.discovery, a.withheld_at
+       a.discovery, a.withheld_at, a.withheld_reason, actor.username as withheld_by
   from assets a
   join asset_revisions revision on revision.id = a.current_revision_id
   left join users owner on owner.id = a.owner_id
+  left join users actor on actor.id = a.withheld_by
   left join lateral (
       select media.id, media.width, media.height
         from asset_media media
@@ -269,17 +283,19 @@ type BrowseAssetsParams struct {
 }
 
 type BrowseAssetsRow struct {
-	ID          pgtype.UUID
-	Name        string
-	Creator     string
-	Kind        string
-	IsNsfw      bool
-	CreatedAt   pgtype.Timestamptz
-	CoverID     pgtype.UUID
-	CoverWidth  pgtype.Int4
-	CoverHeight pgtype.Int4
-	Discovery   string
-	WithheldAt  pgtype.Timestamptz
+	ID             pgtype.UUID
+	Name           string
+	Creator        string
+	Kind           string
+	IsNsfw         bool
+	CreatedAt      pgtype.Timestamptz
+	CoverID        pgtype.UUID
+	CoverWidth     pgtype.Int4
+	CoverHeight    pgtype.Int4
+	Discovery      string
+	WithheldAt     pgtype.Timestamptz
+	WithheldReason pgtype.Text
+	WithheldBy     pgtype.Text
 }
 
 func (q *Queries) BrowseAssets(ctx context.Context, arg BrowseAssetsParams) ([]BrowseAssetsRow, error) {
@@ -319,6 +335,8 @@ func (q *Queries) BrowseAssets(ctx context.Context, arg BrowseAssetsParams) ([]B
 			&i.CoverHeight,
 			&i.Discovery,
 			&i.WithheldAt,
+			&i.WithheldReason,
+			&i.WithheldBy,
 		); err != nil {
 			return nil, err
 		}
@@ -328,6 +346,21 @@ func (q *Queries) BrowseAssets(ctx context.Context, arg BrowseAssetsParams) ([]B
 		return nil, err
 	}
 	return items, nil
+}
+
+const clearAssetWithhold = `-- name: ClearAssetWithhold :execrows
+update assets
+   set withheld_at = null, withheld_by = null, withheld_reason = null,
+       updated_at = now()
+ where id = $1 and withheld_at is not null and deleted_at is null
+`
+
+func (q *Queries) ClearAssetWithhold(ctx context.Context, id pgtype.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, clearAssetWithhold, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const clearPendingEmailCopies = `-- name: ClearPendingEmailCopies :exec
@@ -507,15 +540,22 @@ select r.blob_id, r.media_type
   from assets a
   join asset_revisions r on r.id = a.current_revision_id
  where a.id = $1
+   and a.deleted_at is null
+   and (a.withheld_at is null or a.owner_id = $2::uuid)
 `
+
+type CurrentRevisionLocationParams struct {
+	ID       pgtype.UUID
+	ViewerID pgtype.UUID
+}
 
 type CurrentRevisionLocationRow struct {
 	BlobID    pgtype.UUID
 	MediaType string
 }
 
-func (q *Queries) CurrentRevisionLocation(ctx context.Context, id pgtype.UUID) (CurrentRevisionLocationRow, error) {
-	row := q.db.QueryRow(ctx, currentRevisionLocation, id)
+func (q *Queries) CurrentRevisionLocation(ctx context.Context, arg CurrentRevisionLocationParams) (CurrentRevisionLocationRow, error) {
+	row := q.db.QueryRow(ctx, currentRevisionLocation, arg.ID, arg.ViewerID)
 	var i CurrentRevisionLocationRow
 	err := row.Scan(&i.BlobID, &i.MediaType)
 	return i, err
@@ -1339,6 +1379,7 @@ func (q *Queries) UpsertBlob(ctx context.Context, arg UpsertBlobParams) (Blob, e
 
 const userByOAuthIdentity = `-- name: UserByOAuthIdentity :one
 select u.id, u.username, u.email, u.email_verified_at, u.email_source,
+       u.role,
        case when u.password_hash is null then false else true end as has_password
   from oauth_identities oi
   join users u on u.id = oi.user_id
@@ -1356,6 +1397,7 @@ type UserByOAuthIdentityRow struct {
 	Email           pgtype.Text
 	EmailVerifiedAt pgtype.Timestamptz
 	EmailSource     pgtype.Text
+	Role            string
 	HasPassword     bool
 }
 
@@ -1368,6 +1410,7 @@ func (q *Queries) UserByOAuthIdentity(ctx context.Context, arg UserByOAuthIdenti
 		&i.Email,
 		&i.EmailVerifiedAt,
 		&i.EmailSource,
+		&i.Role,
 		&i.HasPassword,
 	)
 	return i, err
@@ -1375,6 +1418,7 @@ func (q *Queries) UserByOAuthIdentity(ctx context.Context, arg UserByOAuthIdenti
 
 const userBySessionHash = `-- name: UserBySessionHash :one
 select u.id, u.username, u.email, u.email_verified_at,
+       u.role,
        case when u.password_hash is null then false else true end as has_password,
        exists (
            select 1 from oauth_identities oi
@@ -1390,6 +1434,7 @@ type UserBySessionHashRow struct {
 	Username        string
 	Email           pgtype.Text
 	EmailVerifiedAt pgtype.Timestamptz
+	Role            string
 	HasPassword     bool
 	DiscordLinked   bool
 }
@@ -1402,6 +1447,7 @@ func (q *Queries) UserBySessionHash(ctx context.Context, tokenHash []byte) (User
 		&i.Username,
 		&i.Email,
 		&i.EmailVerifiedAt,
+		&i.Role,
 		&i.HasPassword,
 		&i.DiscordLinked,
 	)
@@ -1410,6 +1456,7 @@ func (q *Queries) UserBySessionHash(ctx context.Context, tokenHash []byte) (User
 
 const userForDiscordAttach = `-- name: UserForDiscordAttach :one
 select id, username, email, email_verified_at, email_source,
+       role,
        case when password_hash is null then false else true end as has_password
   from users
  where id = $1
@@ -1422,6 +1469,7 @@ type UserForDiscordAttachRow struct {
 	Email           pgtype.Text
 	EmailVerifiedAt pgtype.Timestamptz
 	EmailSource     pgtype.Text
+	Role            string
 	HasPassword     bool
 }
 
@@ -1434,6 +1482,7 @@ func (q *Queries) UserForDiscordAttach(ctx context.Context, id pgtype.UUID) (Use
 		&i.Email,
 		&i.EmailVerifiedAt,
 		&i.EmailSource,
+		&i.Role,
 		&i.HasPassword,
 	)
 	return i, err
@@ -1452,6 +1501,7 @@ func (q *Queries) UserHandleForUpdate(ctx context.Context, id pgtype.UUID) (stri
 
 const usersForSignIn = `-- name: UsersForSignIn :many
 select u.id, u.username, u.email, u.email_verified_at, u.password_hash,
+       u.role,
        exists (
            select 1 from oauth_identities oi
             where oi.user_id = u.id and oi.provider = 'discord'
@@ -1466,6 +1516,7 @@ type UsersForSignInRow struct {
 	Email           pgtype.Text
 	EmailVerifiedAt pgtype.Timestamptz
 	PasswordHash    pgtype.Text
+	Role            string
 	DiscordLinked   bool
 }
 
@@ -1484,6 +1535,7 @@ func (q *Queries) UsersForSignIn(ctx context.Context, email pgtype.Text) ([]User
 			&i.Email,
 			&i.EmailVerifiedAt,
 			&i.PasswordHash,
+			&i.Role,
 			&i.DiscordLinked,
 		); err != nil {
 			return nil, err
@@ -1611,4 +1663,25 @@ func (q *Queries) VerifyUserEmail(ctx context.Context, arg VerifyUserEmailParams
 		&i.DiscordLinked,
 	)
 	return i, err
+}
+
+const withholdAsset = `-- name: WithholdAsset :execrows
+update assets
+   set withheld_at = now(), withheld_by = $2, withheld_reason = $3,
+       updated_at = now()
+ where id = $1 and withheld_at is null and deleted_at is null
+`
+
+type WithholdAssetParams struct {
+	ID             pgtype.UUID
+	WithheldBy     pgtype.UUID
+	WithheldReason pgtype.Text
+}
+
+func (q *Queries) WithholdAsset(ctx context.Context, arg WithholdAssetParams) (int64, error) {
+	result, err := q.db.Exec(ctx, withholdAsset, arg.ID, arg.WithheldBy, arg.WithheldReason)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

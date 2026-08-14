@@ -50,9 +50,11 @@ func setCurrentRevision(ctx context.Context, tx pgx.Tx, assetID, revisionID uuid
 }
 
 // currentRevisionLocation returns the current revision's blob and media type.
-func currentRevisionLocation(ctx context.Context, q db.DBTX, assetID uuid.UUID) (blobID uuid.UUID, mediaType string, err error) {
+func currentRevisionLocation(ctx context.Context, q db.DBTX, assetID uuid.UUID, viewerID *uuid.UUID) (blobID uuid.UUID, mediaType string, err error) {
 	queries := db.New(q)
-	row, err := queries.CurrentRevisionLocation(ctx, uuidToPgtype(assetID))
+	row, err := queries.CurrentRevisionLocation(ctx, db.CurrentRevisionLocationParams{
+		ID: uuidToPgtype(assetID), ViewerID: uuidToNullable(viewerID),
+	})
 	if err != nil {
 		return uuid.Nil, "", err
 	}

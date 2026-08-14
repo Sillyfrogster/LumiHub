@@ -96,3 +96,11 @@ export async function saveAssetDiscovery(
   });
   if (error) throw new Error("Could not save discovery");
 }
+
+export async function withholdAsset(id: string, reason: string) {
+  const { error } = await api.PUT("/v1/assets/{id}/withhold", {
+    params: { path: { id } },
+    body: { reason },
+  });
+  if (error) throw new Error("Could not withhold the asset");
+}

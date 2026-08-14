@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 )
@@ -34,6 +35,11 @@ type assetPageResponse struct {
 	} `json:"media"`
 	Preview    *string `json:"preview"`
 	Visibility string  `json:"visibility"`
+	Withhold   *struct {
+		Reason string    `json:"reason"`
+		Actor  string    `json:"actor"`
+		At     time.Time `json:"at"`
+	} `json:"withhold"`
 }
 
 func fetchAssetPage(t *testing.T, r http.Handler, path string) assetPageResponse {

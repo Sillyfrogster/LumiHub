@@ -51,10 +51,11 @@ select a.id, a.kind, revision.passthrough_platform, revision.format,
 select a.id, a.name, coalesce(owner.username, 'unknown') as creator,
        a.kind, a.is_nsfw, a.created_at,
        cover.id as cover_id, cover.width as cover_width, cover.height as cover_height,
-       a.discovery, a.withheld_at
+       a.discovery, a.withheld_at, a.withheld_reason, actor.username as withheld_by
   from assets a
   join asset_revisions revision on revision.id = a.current_revision_id
   left join users owner on owner.id = a.owner_id
+  left join users actor on actor.id = a.withheld_by
   left join lateral (
       select media.id, media.width, media.height
         from asset_media media
@@ -209,12 +210,14 @@ select count(*)
 -- Unlisted is missing from this predicate on purpose. A stranger holding the
 -- link gets a normal answer.
 select a.id, a.kind, a.name, a.blurb, a.tags, a.is_nsfw, a.discovery, a.created_at,
-       coalesce(owner.username, 'unknown') as creator
+       coalesce(owner.username, 'unknown') as creator,
+       a.withheld_reason, a.withheld_at, actor.username as withheld_by
   from assets a
   left join users owner on owner.id = a.owner_id
+  left join users actor on actor.id = a.withheld_by
  where a.id = $1
-   and a.withheld_at is null
-   and a.deleted_at is null;
+   and a.deleted_at is null
+   and (a.withheld_at is null or a.owner_id = sqlc.narg('viewer_id')::uuid);
 
 -- name: AssetPageMedia :many
 -- The role order matches BrowseAssets, so the first image is the card's cover.
@@ -238,7 +241,9 @@ select media.id, media.role, media.width, media.height
 select r.blob_id, r.media_type
   from assets a
   join asset_revisions r on r.id = a.current_revision_id
- where a.id = $1;
+ where a.id = $1
+   and a.deleted_at is null
+   and (a.withheld_at is null or a.owner_id = sqlc.narg('viewer_id')::uuid);
 
 -- name: AssetByID :one
 select a.id, a.kind, revision.passthrough_platform, revision.format,
@@ -258,6 +263,18 @@ update assets
 select withheld_at
   from assets
  where id = $1 and owner_id = $2 and deleted_at is null;
+
+-- name: WithholdAsset :execrows
+update assets
+   set withheld_at = now(), withheld_by = $2, withheld_reason = $3,
+       updated_at = now()
+ where id = $1 and withheld_at is null and deleted_at is null;
+
+-- name: ClearAssetWithhold :execrows
+update assets
+   set withheld_at = null, withheld_by = null, withheld_reason = null,
+       updated_at = now()
+ where id = $1 and withheld_at is not null and deleted_at is null;
 
 -- name: UpsertBlob :one
 insert into blobs (id, sha256, byte_size, storage_key)
@@ -313,6 +330,7 @@ values ($1, $2, $3);
 
 -- name: UserBySessionHash :one
 select u.id, u.username, u.email, u.email_verified_at,
+       u.role,
        case when u.password_hash is null then false else true end as has_password,
        exists (
            select 1 from oauth_identities oi
@@ -375,6 +393,7 @@ delete from email_verification_tokens where user_id = $1;
 
 -- name: UsersForSignIn :many
 select u.id, u.username, u.email, u.email_verified_at, u.password_hash,
+       u.role,
        exists (
            select 1 from oauth_identities oi
             where oi.user_id = u.id and oi.provider = 'discord'
@@ -427,6 +446,7 @@ select 1 from pg_advisory_xact_lock(
 
 -- name: UserByOAuthIdentity :one
 select u.id, u.username, u.email, u.email_verified_at, u.email_source,
+       u.role,
        case when u.password_hash is null then false else true end as has_password
   from oauth_identities oi
   join users u on u.id = oi.user_id
@@ -455,6 +475,7 @@ update oauth_identities
 
 -- name: UserForDiscordAttach :one
 select id, username, email, email_verified_at, email_source,
+       role,
        case when password_hash is null then false else true end as has_password
   from users
  where id = $1

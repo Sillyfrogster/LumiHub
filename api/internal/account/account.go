@@ -14,7 +14,16 @@ type Account struct {
 	EmailVerified bool
 	DiscordLinked bool
 	HasPassword   bool
+	Role          Role
 }
+
+type Role string
+
+const (
+	RoleUser      Role = "user"
+	RoleModerator Role = "moderator"
+	RoleAdmin     Role = "admin"
+)
 
 type NSFWVisibility string
 

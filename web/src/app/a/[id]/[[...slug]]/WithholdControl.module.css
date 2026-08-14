@@ -1,0 +1,90 @@
+.control {
+  max-width: 56ch;
+  margin-top: 34px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+
+.heading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.heading > svg {
+  color: var(--accent);
+}
+
+.heading h2 {
+  color: var(--ink-strong);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.heading p,
+.control label,
+.error {
+  color: var(--body);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.heading p {
+  margin-top: 4px;
+}
+
+.control form {
+  display: grid;
+  gap: 9px;
+  margin-top: 16px;
+}
+
+.control label {
+  color: var(--ink-strong);
+  font-weight: 700;
+}
+
+.control textarea {
+  width: 100%;
+  min-height: 88px;
+  resize: vertical;
+  padding: 11px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.control button {
+  justify-self: start;
+  min-height: 44px;
+  padding-inline: 16px;
+  border: 1px solid rgba(129, 63, 63, 0.34);
+  border-radius: var(--radius-sm);
+  background: #fffafa;
+  color: #743b3b;
+  font-size: 0.76rem;
+  font-weight: 900;
+  transition:
+    border-color 180ms var(--ease),
+    background 180ms var(--ease);
+}
+
+.control button:hover:not(:disabled) {
+  border-color: rgba(129, 63, 63, 0.64);
+  background: #fff4f4;
+}
+
+.control button:disabled,
+.control textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.error {
+  color: #813f3f;
+}

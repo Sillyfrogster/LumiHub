@@ -320,6 +320,33 @@ paths:
         "403": { description: The signed-in account has not verified its email }
         "404": { description: The asset does not belong to the creator }
         "409": { description: The asset is withheld and cannot be changed }
+  /v1/assets/{id}/withhold:
+    put:
+      operationId: withholdAsset
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WithholdAssetRequest" }
+      responses:
+        "204": { description: The asset is withheld }
+        "400": { description: The reason is empty or invalid }
+        "401": { description: No account is signed in }
+        "403": { description: The signed-in account is not an admin }
+        "404": { description: No live asset has that id }
+    delete:
+      operationId: clearAssetWithhold
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: The asset is no longer withheld }
+        "401": { description: No account is signed in }
+        "403": { description: The signed-in account is not an admin }
+        "404": { description: No withheld asset has that id }
   /download/{id}:
     get:
       operationId: downloadSource
@@ -387,6 +414,7 @@ paths:
         "401": { description: No account is signed in }
         "403": { description: The signed-in account has not verified its email }
         "404": { description: The asset does not belong to the creator }
+        "409": { description: The asset is withheld and cannot be changed }
   /media/{media_id}/{variant}/{derivative_version}:
     get:
       operationId: getMediaVariant
@@ -463,7 +491,7 @@ components:
   schemas:
     Account:
       type: object
-      required: [id, handle, email, emailVerified, discordLinked, hasPassword]
+      required: [id, handle, email, emailVerified, discordLinked, hasPassword, role]
       properties:
         id: { type: string, format: uuid }
         handle: { type: string }
@@ -471,6 +499,7 @@ components:
         emailVerified: { type: boolean }
         discordLinked: { type: boolean }
         hasPassword: { type: boolean }
+        role: { type: string, enum: [user, moderator, admin] }
     ChangeEmailRequest:
       type: object
       required: [email]
@@ -582,12 +611,28 @@ components:
             - { type: string }
             - { type: "null" }
         visibility: { type: string, enum: [hidden, blurred, shown] }
+        withhold:
+          $ref: "#/components/schemas/AssetWithhold"
     AssetDiscoveryRequest:
       type: object
       additionalProperties: false
       required: [discovery]
       properties:
         discovery: { type: string, enum: [listed, unlisted] }
+    WithholdAssetRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 1 }
+    AssetWithhold:
+      type: object
+      additionalProperties: false
+      required: [reason, actor, at]
+      properties:
+        reason: { type: string }
+        actor: { type: string }
+        at: { type: string, format: date-time }
     AssetTag:
       type: object
       required: [label, value]
@@ -646,6 +691,8 @@ components:
           type: string
           enum: [unlisted, withheld]
           description: Present only on the owner's own listing.
+        withhold:
+          $ref: "#/components/schemas/AssetWithhold"
         cover:
           anyOf:
             - { $ref: "#/components/schemas/BrowseCover" }
