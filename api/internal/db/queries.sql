@@ -545,3 +545,69 @@ values ($1, $2, $3);
 delete from password_reset_tokens
  where token_hash = $1 and expires_at > now()
 returning user_id;
+
+-- name: DeleteExpiredLinkRequests :exec
+delete from link_requests where expires_at <= now();
+
+-- name: InsertLinkRequest :exec
+insert into link_requests (device_code_hash, user_code, client_name, scopes, expires_at)
+values ($1, $2, $3, $4, $5);
+
+-- name: LinkRequestByUserCode :one
+select client_name, scopes, expires_at
+  from link_requests
+ where user_code = $1 and expires_at > now() and approved_at is null;
+
+-- name: ApproveLinkRequest :execrows
+update link_requests
+   set approved_by = $2, approved_at = now()
+ where user_code = $1 and expires_at > now() and approved_at is null;
+
+-- name: LockLinkRequest :one
+select approved_by, client_name, scopes, approved_at, redeemed_at, last_polled_at
+  from link_requests
+ where device_code_hash = $1 and expires_at > now()
+ for update;
+
+-- name: RecordLinkPoll :exec
+update link_requests set last_polled_at = now() where device_code_hash = $1;
+
+-- name: RedeemLinkRequest :execrows
+update link_requests
+   set redeemed_at = now()
+ where device_code_hash = $1 and approved_at is not null and redeemed_at is null;
+
+-- name: LinkCodeFailures :one
+select failures from link_code_attempts where user_id = $1 and window_start > $2;
+
+-- name: RecordLinkCodeFailure :exec
+insert into link_code_attempts (user_id, failures, window_start)
+values ($1, 1, now())
+on conflict (user_id) do update
+   set failures = case when link_code_attempts.window_start > $2 then link_code_attempts.failures + 1 else 1 end,
+       window_start = case when link_code_attempts.window_start > $2 then link_code_attempts.window_start else now() end;
+
+-- name: ClearLinkCodeFailures :exec
+delete from link_code_attempts where user_id = $1;
+
+-- name: InsertLinkedInstance :one
+insert into linked_instances (id, user_id, name, token_hash, token_prefix, scopes)
+values ($1, $2, $3, $4, $5, $6)
+returning id, name, token_prefix, scopes, linked_at, last_seen_at, revoked_at;
+
+-- name: ListLinkedInstances :many
+select id, name, token_prefix, scopes, linked_at, last_seen_at, revoked_at
+  from linked_instances
+ where user_id = $1
+ order by (revoked_at is not null), coalesce(last_seen_at, linked_at) desc, linked_at desc;
+
+-- name: RevokeLinkedInstance :execrows
+update linked_instances
+   set token_hash = null, revoked_at = now()
+ where id = $1 and user_id = $2 and revoked_at is null;
+
+-- name: TouchLinkedInstance :one
+update linked_instances
+   set last_seen_at = now()
+ where token_hash = $1 and revoked_at is null
+returning id, user_id, name, token_prefix, scopes, linked_at, last_seen_at;

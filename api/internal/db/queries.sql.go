@@ -11,6 +11,25 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const approveLinkRequest = `-- name: ApproveLinkRequest :execrows
+update link_requests
+   set approved_by = $2, approved_at = now()
+ where user_code = $1 and expires_at > now() and approved_at is null
+`
+
+type ApproveLinkRequestParams struct {
+	UserCode   string
+	ApprovedBy pgtype.UUID
+}
+
+func (q *Queries) ApproveLinkRequest(ctx context.Context, arg ApproveLinkRequestParams) (int64, error) {
+	result, err := q.db.Exec(ctx, approveLinkRequest, arg.UserCode, arg.ApprovedBy)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const assetByID = `-- name: AssetByID :one
 select a.id, a.kind, revision.passthrough_platform, revision.format,
        a.name, a.blurb, a.tags, a.is_nsfw, a.discovery,
@@ -389,6 +408,15 @@ func (q *Queries) ClearAssetWithhold(ctx context.Context, id pgtype.UUID) (int64
 	return result.RowsAffected(), nil
 }
 
+const clearLinkCodeFailures = `-- name: ClearLinkCodeFailures :exec
+delete from link_code_attempts where user_id = $1
+`
+
+func (q *Queries) ClearLinkCodeFailures(ctx context.Context, userID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, clearLinkCodeFailures, userID)
+	return err
+}
+
 const clearPendingEmailCopies = `-- name: ClearPendingEmailCopies :exec
 update users
    set email = null, email_source = null, updated_at = now()
@@ -597,6 +625,15 @@ func (q *Queries) CurrentRevisionLocation(ctx context.Context, arg CurrentRevisi
 	return i, err
 }
 
+const deleteExpiredLinkRequests = `-- name: DeleteExpiredLinkRequests :exec
+delete from link_requests where expires_at <= now()
+`
+
+func (q *Queries) DeleteExpiredLinkRequests(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteExpiredLinkRequests)
+	return err
+}
+
 const deleteOAuthIdentitiesForUser = `-- name: DeleteOAuthIdentitiesForUser :exec
 delete from oauth_identities
  where user_id = $1 and provider = 'discord'
@@ -799,6 +836,77 @@ func (q *Queries) InsertFacet(ctx context.Context, arg InsertFacetParams) error 
 	return err
 }
 
+const insertLinkRequest = `-- name: InsertLinkRequest :exec
+insert into link_requests (device_code_hash, user_code, client_name, scopes, expires_at)
+values ($1, $2, $3, $4, $5)
+`
+
+type InsertLinkRequestParams struct {
+	DeviceCodeHash []byte
+	UserCode       string
+	ClientName     string
+	Scopes         []string
+	ExpiresAt      pgtype.Timestamptz
+}
+
+func (q *Queries) InsertLinkRequest(ctx context.Context, arg InsertLinkRequestParams) error {
+	_, err := q.db.Exec(ctx, insertLinkRequest,
+		arg.DeviceCodeHash,
+		arg.UserCode,
+		arg.ClientName,
+		arg.Scopes,
+		arg.ExpiresAt,
+	)
+	return err
+}
+
+const insertLinkedInstance = `-- name: InsertLinkedInstance :one
+insert into linked_instances (id, user_id, name, token_hash, token_prefix, scopes)
+values ($1, $2, $3, $4, $5, $6)
+returning id, name, token_prefix, scopes, linked_at, last_seen_at, revoked_at
+`
+
+type InsertLinkedInstanceParams struct {
+	ID          pgtype.UUID
+	UserID      pgtype.UUID
+	Name        string
+	TokenHash   []byte
+	TokenPrefix string
+	Scopes      []string
+}
+
+type InsertLinkedInstanceRow struct {
+	ID          pgtype.UUID
+	Name        string
+	TokenPrefix string
+	Scopes      []string
+	LinkedAt    pgtype.Timestamptz
+	LastSeenAt  pgtype.Timestamptz
+	RevokedAt   pgtype.Timestamptz
+}
+
+func (q *Queries) InsertLinkedInstance(ctx context.Context, arg InsertLinkedInstanceParams) (InsertLinkedInstanceRow, error) {
+	row := q.db.QueryRow(ctx, insertLinkedInstance,
+		arg.ID,
+		arg.UserID,
+		arg.Name,
+		arg.TokenHash,
+		arg.TokenPrefix,
+		arg.Scopes,
+	)
+	var i InsertLinkedInstanceRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.TokenPrefix,
+		&i.Scopes,
+		&i.LinkedAt,
+		&i.LastSeenAt,
+		&i.RevokedAt,
+	)
+	return i, err
+}
+
 const insertOAuthIdentity = `-- name: InsertOAuthIdentity :exec
 insert into oauth_identities (user_id, provider, subject, provider_email)
 values ($1, $2, $3, $4)
@@ -950,6 +1058,41 @@ func (q *Queries) InsertUser(ctx context.Context, arg InsertUserParams) (InsertU
 	return i, err
 }
 
+const linkCodeFailures = `-- name: LinkCodeFailures :one
+select failures from link_code_attempts where user_id = $1 and window_start > $2
+`
+
+type LinkCodeFailuresParams struct {
+	UserID      pgtype.UUID
+	WindowStart pgtype.Timestamptz
+}
+
+func (q *Queries) LinkCodeFailures(ctx context.Context, arg LinkCodeFailuresParams) (int32, error) {
+	row := q.db.QueryRow(ctx, linkCodeFailures, arg.UserID, arg.WindowStart)
+	var failures int32
+	err := row.Scan(&failures)
+	return failures, err
+}
+
+const linkRequestByUserCode = `-- name: LinkRequestByUserCode :one
+select client_name, scopes, expires_at
+  from link_requests
+ where user_code = $1 and expires_at > now() and approved_at is null
+`
+
+type LinkRequestByUserCodeRow struct {
+	ClientName string
+	Scopes     []string
+	ExpiresAt  pgtype.Timestamptz
+}
+
+func (q *Queries) LinkRequestByUserCode(ctx context.Context, userCode string) (LinkRequestByUserCodeRow, error) {
+	row := q.db.QueryRow(ctx, linkRequestByUserCode, userCode)
+	var i LinkRequestByUserCodeRow
+	err := row.Scan(&i.ClientName, &i.Scopes, &i.ExpiresAt)
+	return i, err
+}
+
 const listAssets = `-- name: ListAssets :many
 with facet_pairs as (
   select unnest($5::text[]) as k, unnest($6::text[]) as v
@@ -1096,6 +1239,51 @@ func (q *Queries) ListDeletedAssets(ctx context.Context, arg ListDeletedAssetsPa
 	return items, nil
 }
 
+const listLinkedInstances = `-- name: ListLinkedInstances :many
+select id, name, token_prefix, scopes, linked_at, last_seen_at, revoked_at
+  from linked_instances
+ where user_id = $1
+ order by (revoked_at is not null), coalesce(last_seen_at, linked_at) desc, linked_at desc
+`
+
+type ListLinkedInstancesRow struct {
+	ID          pgtype.UUID
+	Name        string
+	TokenPrefix string
+	Scopes      []string
+	LinkedAt    pgtype.Timestamptz
+	LastSeenAt  pgtype.Timestamptz
+	RevokedAt   pgtype.Timestamptz
+}
+
+func (q *Queries) ListLinkedInstances(ctx context.Context, userID pgtype.UUID) ([]ListLinkedInstancesRow, error) {
+	rows, err := q.db.Query(ctx, listLinkedInstances, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLinkedInstancesRow
+	for rows.Next() {
+		var i ListLinkedInstancesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.TokenPrefix,
+			&i.Scopes,
+			&i.LinkedAt,
+			&i.LastSeenAt,
+			&i.RevokedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockEmail = `-- name: LockEmail :one
 select 1 from pg_advisory_xact_lock(
     hashtextextended('lumihub-email:' || $1::text, 0)
@@ -1120,6 +1308,36 @@ func (q *Queries) LockHandle(ctx context.Context, handle string) (int32, error) 
 	var column_1 int32
 	err := row.Scan(&column_1)
 	return column_1, err
+}
+
+const lockLinkRequest = `-- name: LockLinkRequest :one
+select approved_by, client_name, scopes, approved_at, redeemed_at, last_polled_at
+  from link_requests
+ where device_code_hash = $1 and expires_at > now()
+ for update
+`
+
+type LockLinkRequestRow struct {
+	ApprovedBy   pgtype.UUID
+	ClientName   string
+	Scopes       []string
+	ApprovedAt   pgtype.Timestamptz
+	RedeemedAt   pgtype.Timestamptz
+	LastPolledAt pgtype.Timestamptz
+}
+
+func (q *Queries) LockLinkRequest(ctx context.Context, deviceCodeHash []byte) (LockLinkRequestRow, error) {
+	row := q.db.QueryRow(ctx, lockLinkRequest, deviceCodeHash)
+	var i LockLinkRequestRow
+	err := row.Scan(
+		&i.ApprovedBy,
+		&i.ClientName,
+		&i.Scopes,
+		&i.ApprovedAt,
+		&i.RedeemedAt,
+		&i.LastPolledAt,
+	)
+	return i, err
 }
 
 const lockOAuthIdentity = `-- name: LockOAuthIdentity :one
@@ -1186,6 +1404,47 @@ func (q *Queries) ProfileByHandle(ctx context.Context, username string) (Profile
 	return i, err
 }
 
+const recordLinkCodeFailure = `-- name: RecordLinkCodeFailure :exec
+insert into link_code_attempts (user_id, failures, window_start)
+values ($1, 1, now())
+on conflict (user_id) do update
+   set failures = case when link_code_attempts.window_start > $2 then link_code_attempts.failures + 1 else 1 end,
+       window_start = case when link_code_attempts.window_start > $2 then link_code_attempts.window_start else now() end
+`
+
+type RecordLinkCodeFailureParams struct {
+	UserID      pgtype.UUID
+	WindowStart pgtype.Timestamptz
+}
+
+func (q *Queries) RecordLinkCodeFailure(ctx context.Context, arg RecordLinkCodeFailureParams) error {
+	_, err := q.db.Exec(ctx, recordLinkCodeFailure, arg.UserID, arg.WindowStart)
+	return err
+}
+
+const recordLinkPoll = `-- name: RecordLinkPoll :exec
+update link_requests set last_polled_at = now() where device_code_hash = $1
+`
+
+func (q *Queries) RecordLinkPoll(ctx context.Context, deviceCodeHash []byte) error {
+	_, err := q.db.Exec(ctx, recordLinkPoll, deviceCodeHash)
+	return err
+}
+
+const redeemLinkRequest = `-- name: RedeemLinkRequest :execrows
+update link_requests
+   set redeemed_at = now()
+ where device_code_hash = $1 and approved_at is not null and redeemed_at is null
+`
+
+func (q *Queries) RedeemLinkRequest(ctx context.Context, deviceCodeHash []byte) (int64, error) {
+	result, err := q.db.Exec(ctx, redeemLinkRequest, deviceCodeHash)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const replacePassword = `-- name: ReplacePassword :exec
 update users
    set password_hash = $2, updated_at = now()
@@ -1217,6 +1476,25 @@ type RestoreAssetParams struct {
 
 func (q *Queries) RestoreAsset(ctx context.Context, arg RestoreAssetParams) (int64, error) {
 	result, err := q.db.Exec(ctx, restoreAsset, arg.ID, arg.OwnerID, arg.UpdatedAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const revokeLinkedInstance = `-- name: RevokeLinkedInstance :execrows
+update linked_instances
+   set token_hash = null, revoked_at = now()
+ where id = $1 and user_id = $2 and revoked_at is null
+`
+
+type RevokeLinkedInstanceParams struct {
+	ID     pgtype.UUID
+	UserID pgtype.UUID
+}
+
+func (q *Queries) RevokeLinkedInstance(ctx context.Context, arg RevokeLinkedInstanceParams) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeLinkedInstance, arg.ID, arg.UserID)
 	if err != nil {
 		return 0, err
 	}
@@ -1366,6 +1644,38 @@ func (q *Queries) TakePasswordReset(ctx context.Context, tokenHash []byte) (pgty
 	var user_id pgtype.UUID
 	err := row.Scan(&user_id)
 	return user_id, err
+}
+
+const touchLinkedInstance = `-- name: TouchLinkedInstance :one
+update linked_instances
+   set last_seen_at = now()
+ where token_hash = $1 and revoked_at is null
+returning id, user_id, name, token_prefix, scopes, linked_at, last_seen_at
+`
+
+type TouchLinkedInstanceRow struct {
+	ID          pgtype.UUID
+	UserID      pgtype.UUID
+	Name        string
+	TokenPrefix string
+	Scopes      []string
+	LinkedAt    pgtype.Timestamptz
+	LastSeenAt  pgtype.Timestamptz
+}
+
+func (q *Queries) TouchLinkedInstance(ctx context.Context, tokenHash []byte) (TouchLinkedInstanceRow, error) {
+	row := q.db.QueryRow(ctx, touchLinkedInstance, tokenHash)
+	var i TouchLinkedInstanceRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.TokenPrefix,
+		&i.Scopes,
+		&i.LinkedAt,
+		&i.LastSeenAt,
+	)
+	return i, err
 }
 
 const updateDiscordEmail = `-- name: UpdateDiscordEmail :one

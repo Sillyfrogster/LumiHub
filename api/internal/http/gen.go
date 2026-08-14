@@ -397,6 +397,24 @@ func (e IngestOperationStatus) Valid() bool {
 	}
 }
 
+// Defines values for LinkPollResultStatus.
+const (
+	LinkPollResultStatusLinked  LinkPollResultStatus = "linked"
+	LinkPollResultStatusPending LinkPollResultStatus = "pending"
+)
+
+// Valid indicates whether the value is a known member of the LinkPollResultStatus enum.
+func (e LinkPollResultStatus) Valid() bool {
+	switch e {
+	case LinkPollResultStatusLinked:
+		return true
+	case LinkPollResultStatusPending:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MediaRole.
 const (
 	MediaRoleAvatar           MediaRole = "avatar"
@@ -466,6 +484,24 @@ func (e NsfwVisibilityRequestVisibility) Valid() bool {
 	case NsfwVisibilityRequestVisibilityHidden:
 		return true
 	case NsfwVisibilityRequestVisibilityShown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for Scope.
+const (
+	AssetReceive Scope = "asset:receive"
+	LibrarySync  Scope = "library:sync"
+)
+
+// Valid indicates whether the value is a known member of the Scope enum.
+func (e Scope) Valid() bool {
+	switch e {
+	case AssetReceive:
+		return true
+	case LibrarySync:
 		return true
 	default:
 		return false
@@ -849,6 +885,55 @@ type IngestOperation struct {
 // IngestOperationStatus defines model for IngestOperation.Status.
 type IngestOperationStatus string
 
+// LinkPollResult defines model for LinkPollResult.
+type LinkPollResult struct {
+	Instance *LinkedInstance      `json:"instance,omitempty"`
+	Status   LinkPollResultStatus `json:"status"`
+
+	// Token The instance credential, sent once and never again. It does not expire and there is nothing to refresh.
+	Token *string `json:"token,omitempty"`
+}
+
+// LinkPollResultStatus defines model for LinkPollResult.Status.
+type LinkPollResultStatus string
+
+// LinkRequest defines model for LinkRequest.
+type LinkRequest struct {
+	// DeviceCode Kept private by the client and sent when polling.
+	DeviceCode string    `json:"deviceCode"`
+	ExpiresAt  time.Time `json:"expiresAt"`
+
+	// Interval Seconds to wait between polls.
+	Interval int `json:"interval"`
+
+	// UserCode Shown to the creator, who enters it on LumiHub.
+	UserCode string `json:"userCode"`
+
+	// VerificationUrl Where the creator enters the user code.
+	VerificationUrl string `json:"verificationUrl"`
+
+	// VerificationUrlComplete The same page with the code already filled in. A client running on the creator's own machine may open it.
+	VerificationUrlComplete string `json:"verificationUrlComplete"`
+}
+
+// LinkedInstance defines model for LinkedInstance.
+type LinkedInstance struct {
+	Id         openapi_types.UUID `json:"id"`
+	LastSeenAt *time.Time         `json:"lastSeenAt"`
+	LinkedAt   time.Time          `json:"linkedAt"`
+	Name       string             `json:"name"`
+
+	// Prefix The start of the credential, so two links are told apart.
+	Prefix    string     `json:"prefix"`
+	RevokedAt *time.Time `json:"revokedAt"`
+	Scopes    []Scope    `json:"scopes"`
+}
+
+// LinkedInstanceList defines model for LinkedInstanceList.
+type LinkedInstanceList struct {
+	Items []LinkedInstance `json:"items"`
+}
+
 // Media defines model for Media.
 type Media struct {
 	AssetId           *openapi_types.UUID `json:"assetId"`
@@ -895,6 +980,18 @@ type PasswordResetRequest struct {
 	Email openapi_types.Email `json:"email"`
 }
 
+// PendingLink defines model for PendingLink.
+type PendingLink struct {
+	ExpiresAt time.Time `json:"expiresAt"`
+	Name      string    `json:"name"`
+	Scopes    []Scope   `json:"scopes"`
+}
+
+// PollLinkRequest defines model for PollLinkRequest.
+type PollLinkRequest struct {
+	DeviceCode string `json:"deviceCode"`
+}
+
 // Profile defines model for Profile.
 type Profile struct {
 	Handle string             `json:"handle"`
@@ -905,6 +1002,9 @@ type Profile struct {
 type RenameHandleRequest struct {
 	Handle string `json:"handle"`
 }
+
+// Scope asset:receive lets an instance receive assets sent to it. library:sync lets it report what it has installed.
+type Scope string
 
 // SessionState defines model for SessionState.
 type SessionState struct {
@@ -922,6 +1022,13 @@ type SignUpRequest struct {
 	Email    openapi_types.Email `json:"email"`
 	Handle   string              `json:"handle"`
 	Password string              `json:"password"`
+}
+
+// StartLinkRequest defines model for StartLinkRequest.
+type StartLinkRequest struct {
+	// Name What the creator sees on the approval screen. Name the installation, not the product, so somebody with two of them can tell which is which.
+	Name   string  `json:"name"`
+	Scopes []Scope `json:"scopes"`
 }
 
 // VerifyEmailRequest defines model for VerifyEmailRequest.
@@ -1055,6 +1162,12 @@ type VerifyEmailJSONRequestBody = VerifyEmailRequest
 // CompleteIngestJSONRequestBody defines body for CompleteIngest for application/json ContentType.
 type CompleteIngestJSONRequestBody = CompleteIngestRequest
 
+// PollLinkRequestJSONRequestBody defines body for PollLinkRequest for application/json ContentType.
+type PollLinkRequestJSONRequestBody = PollLinkRequest
+
+// StartLinkRequestJSONRequestBody defines body for StartLinkRequest for application/json ContentType.
+type StartLinkRequestJSONRequestBody = StartLinkRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 
@@ -1150,6 +1263,27 @@ type ServerInterface interface {
 
 	// (PATCH /v1/ingests/{id})
 	CompleteIngest(c *gin.Context, id openapi_types.UUID)
+
+	// (GET /v1/instances)
+	ListInstances(c *gin.Context)
+
+	// (GET /v1/instances/me)
+	GetInstance(c *gin.Context)
+
+	// (DELETE /v1/instances/{id})
+	RevokeInstance(c *gin.Context, id openapi_types.UUID)
+
+	// (POST /v1/link/poll)
+	PollLinkRequest(c *gin.Context)
+
+	// (POST /v1/link/requests)
+	StartLinkRequest(c *gin.Context)
+
+	// (GET /v1/link/requests/{userCode})
+	GetLinkRequest(c *gin.Context, userCode string)
+
+	// (POST /v1/link/requests/{userCode}/approve)
+	ApproveLinkRequest(c *gin.Context, userCode string)
 
 	// (GET /v1/profiles/{handle})
 	GetProfile(c *gin.Context, handle string)
@@ -1910,6 +2044,133 @@ func (siw *ServerInterfaceWrapper) CompleteIngest(c *gin.Context) {
 	siw.Handler.CompleteIngest(c, id)
 }
 
+// ListInstances operation middleware
+func (siw *ServerInterfaceWrapper) ListInstances(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListInstances(c)
+}
+
+// GetInstance operation middleware
+func (siw *ServerInterfaceWrapper) GetInstance(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetInstance(c)
+}
+
+// RevokeInstance operation middleware
+func (siw *ServerInterfaceWrapper) RevokeInstance(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RevokeInstance(c, id)
+}
+
+// PollLinkRequest operation middleware
+func (siw *ServerInterfaceWrapper) PollLinkRequest(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.PollLinkRequest(c)
+}
+
+// StartLinkRequest operation middleware
+func (siw *ServerInterfaceWrapper) StartLinkRequest(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.StartLinkRequest(c)
+}
+
+// GetLinkRequest operation middleware
+func (siw *ServerInterfaceWrapper) GetLinkRequest(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "userCode" -------------
+	var userCode string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userCode", c.Param("userCode"), &userCode, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter userCode: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetLinkRequest(c, userCode)
+}
+
+// ApproveLinkRequest operation middleware
+func (siw *ServerInterfaceWrapper) ApproveLinkRequest(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "userCode" -------------
+	var userCode string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userCode", c.Param("userCode"), &userCode, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter userCode: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ApproveLinkRequest(c, userCode)
+}
+
 // GetProfile operation middleware
 func (siw *ServerInterfaceWrapper) GetProfile(c *gin.Context) {
 
@@ -2001,6 +2262,13 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/v1/auth/verify-email", wrapper.VerifyEmail)
 	router.POST(options.BaseURL+"/v1/auth/password-reset", wrapper.RequestPasswordReset)
 	router.POST(options.BaseURL+"/v1/auth/password-reset/complete", wrapper.CompletePasswordReset)
+	router.POST(options.BaseURL+"/v1/link/requests", wrapper.StartLinkRequest)
+	router.POST(options.BaseURL+"/v1/link/poll", wrapper.PollLinkRequest)
+	router.GET(options.BaseURL+"/v1/link/requests/:userCode", wrapper.GetLinkRequest)
+	router.POST(options.BaseURL+"/v1/link/requests/:userCode/approve", wrapper.ApproveLinkRequest)
+	router.GET(options.BaseURL+"/v1/instances", wrapper.ListInstances)
+	router.GET(options.BaseURL+"/v1/instances/me", wrapper.GetInstance)
+	router.DELETE(options.BaseURL+"/v1/instances/:id", wrapper.RevokeInstance)
 	router.GET(options.BaseURL+"/v1/profiles/:handle", wrapper.GetProfile)
 	router.GET(options.BaseURL+"/v1/assets", wrapper.ListAssets)
 	router.POST(options.BaseURL+"/v1/assets", wrapper.CreateAsset)

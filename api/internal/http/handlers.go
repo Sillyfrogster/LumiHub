@@ -15,6 +15,7 @@ import (
 	"github.com/Sillyfrogster/LumiHub/api/internal/account"
 	"github.com/Sillyfrogster/LumiHub/api/internal/asset"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
+	"github.com/Sillyfrogster/LumiHub/api/internal/linking"
 	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -25,11 +26,22 @@ import (
 type Handlers struct {
 	assets         *asset.Service
 	accounts       *account.Service
+	links          *linking.Service
 	maxUploadBytes int64
 }
 
-func NewHandlers(assets *asset.Service, accounts *account.Service, maxUploadBytes int64) *Handlers {
-	return &Handlers{assets: assets, accounts: accounts, maxUploadBytes: maxUploadBytes}
+func NewHandlers(
+	assets *asset.Service,
+	accounts *account.Service,
+	links *linking.Service,
+	maxUploadBytes int64,
+) *Handlers {
+	return &Handlers{
+		assets:         assets,
+		accounts:       accounts,
+		links:          links,
+		maxUploadBytes: maxUploadBytes,
+	}
 }
 
 const (
@@ -1104,13 +1116,15 @@ func ingestAsset(a *asset.Asset) *Asset {
 }
 
 func (h *Handlers) uploadOwner(c *gin.Context) (account.Account, bool) {
+	return h.verifiedAccount(c, "uploading")
+}
+
+// signedInAccount answers the account behind the session cookie, or writes the
+// refusal and returns false. The action finishes the sentence "Sign in before".
+func (h *Handlers) signedInAccount(c *gin.Context, action string) (account.Account, bool) {
 	token, err := c.Cookie(sessionCookieName)
-	if errors.Is(err, http.ErrNoCookie) {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sign in before uploading."})
-		return account.Account{}, false
-	}
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sign in before uploading."})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sign in before " + action + "."})
 		return account.Account{}, false
 	}
 	current, err := h.accounts.Current(c.Request.Context(), token)
@@ -1119,14 +1133,24 @@ func (h *Handlers) uploadOwner(c *gin.Context) (account.Account, bool) {
 		return account.Account{}, false
 	}
 	if current == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sign in before uploading."})
-		return account.Account{}, false
-	}
-	if !current.EmailVerified {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Verify your email before uploading."})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sign in before " + action + "."})
 		return account.Account{}, false
 	}
 	return *current, true
+}
+
+// verifiedAccount is signedInAccount for the work an unverified account may not
+// do.
+func (h *Handlers) verifiedAccount(c *gin.Context, action string) (account.Account, bool) {
+	current, ok := h.signedInAccount(c, action)
+	if !ok {
+		return account.Account{}, false
+	}
+	if !current.EmailVerified {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Verify your email before " + action + "."})
+		return account.Account{}, false
+	}
+	return current, true
 }
 
 const (

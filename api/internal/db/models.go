@@ -125,6 +125,37 @@ type IngestOperation struct {
 	TargetAssetID  pgtype.UUID
 }
 
+type LinkCodeAttempt struct {
+	UserID      pgtype.UUID
+	Failures    int32
+	WindowStart pgtype.Timestamptz
+}
+
+type LinkRequest struct {
+	DeviceCodeHash []byte
+	UserCode       string
+	ClientName     string
+	Scopes         []string
+	ApprovedBy     pgtype.UUID
+	ApprovedAt     pgtype.Timestamptz
+	RedeemedAt     pgtype.Timestamptz
+	LastPolledAt   pgtype.Timestamptz
+	CreatedAt      pgtype.Timestamptz
+	ExpiresAt      pgtype.Timestamptz
+}
+
+type LinkedInstance struct {
+	ID          pgtype.UUID
+	UserID      pgtype.UUID
+	Name        string
+	TokenHash   []byte
+	TokenPrefix string
+	Scopes      []string
+	LinkedAt    pgtype.Timestamptz
+	LastSeenAt  pgtype.Timestamptz
+	RevokedAt   pgtype.Timestamptz
+}
+
 type OauthIdentity struct {
 	UserID        pgtype.UUID
 	Provider      string

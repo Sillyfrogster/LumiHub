@@ -228,6 +228,125 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/link/requests": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Start linking a client application to a creator's account. Anyone may call this: LumiHub authenticates the creator and the individual installation, never the software vendor, so there is no registration step, no client id and no client secret. */
+    post: operations["startLinkRequest"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/link/poll": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Ask whether the creator has approved yet. Wait at least the interval the link request came with between calls. */
+    post: operations["pollLinkRequest"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/link/requests/{userCode}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description What the client behind a user code is asking for. */
+    get: operations["getLinkRequest"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/link/requests/{userCode}/approve": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Approve a link request. A link request may be approved once and redeemed once. */
+    post: operations["approveLinkRequest"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/instances": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Every instance linked to the signed-in account, live ones first, then the record of the ones they revoked. */
+    get: operations["listInstances"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/instances/me": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description The instance the bearer credential belongs to. Every authenticated request updates lastSeenAt, and this one exists so a client can check its credential without sending anything. */
+    get: operations["getInstance"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/instances/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Cut an instance off. Its credential stops working immediately and the state it held here is discarded. A record that it was linked and revoked stays. */
+    delete: operations["revokeInstance"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/profiles/{handle}": {
     parameters: {
       query?: never;
@@ -459,6 +578,63 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /**
+     * @description asset:receive lets an instance receive assets sent to it. library:sync lets it report what it has installed.
+     * @enum {string}
+     */
+    Scope: "asset:receive" | "library:sync";
+    StartLinkRequest: {
+      /** @description What the creator sees on the approval screen. Name the installation, not the product, so somebody with two of them can tell which is which. */
+      name: string;
+      scopes: components["schemas"]["Scope"][];
+    };
+    LinkRequest: {
+      /** @description Kept private by the client and sent when polling. */
+      deviceCode: string;
+      /** @description Shown to the creator, who enters it on LumiHub. */
+      userCode: string;
+      /** @description Where the creator enters the user code. */
+      verificationUrl: string;
+      /** @description The same page with the code already filled in. A client running on the creator's own machine may open it. */
+      verificationUrlComplete: string;
+      /** Format: date-time */
+      expiresAt: string;
+      /** @description Seconds to wait between polls. */
+      interval: number;
+    };
+    PollLinkRequest: {
+      deviceCode: string;
+    };
+    LinkPollResult: {
+      /** @enum {string} */
+      status: "pending" | "linked";
+      /** @description The instance credential, sent once and never again. It does not expire and there is nothing to refresh. */
+      token?: string;
+      instance?: components["schemas"]["LinkedInstance"];
+    };
+    PendingLink: {
+      name: string;
+      scopes: components["schemas"]["Scope"][];
+      /** Format: date-time */
+      expiresAt: string;
+    };
+    LinkedInstance: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      /** @description The start of the credential, so two links are told apart. */
+      prefix: string;
+      scopes: components["schemas"]["Scope"][];
+      /** Format: date-time */
+      linkedAt: string;
+      /** Format: date-time */
+      lastSeenAt: string | null;
+      /** Format: date-time */
+      revokedAt: string | null;
+    };
+    LinkedInstanceList: {
+      items: components["schemas"]["LinkedInstance"][];
+    };
     Account: {
       /** Format: uuid */
       id: string;
@@ -1213,6 +1389,264 @@ export interface operations {
       };
       /** @description The link or password is invalid */
       400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  startLinkRequest: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["StartLinkRequest"];
+      };
+    };
+    responses: {
+      /** @description The codes the client shows and the code it keeps */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LinkRequest"];
+        };
+      };
+      /** @description The name or the requested scopes are not valid */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  pollLinkRequest: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PollLinkRequest"];
+      };
+    };
+    responses: {
+      /** @description Still waiting, or linked and holding the credential */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LinkPollResult"];
+        };
+      };
+      /** @description The link request has expired */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Polled faster than the interval */
+      429: {
+        headers: {
+          "Retry-After"?: number;
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getLinkRequest: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        userCode: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The name and scopes to show before approving */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PendingLink"];
+        };
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The signed-in account has not verified its email */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No unapproved link request has that code */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Too many codes were entered */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  approveLinkRequest: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        userCode: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description What was approved */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PendingLink"];
+        };
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The signed-in account has not verified its email */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No unapproved link request has that code */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Too many codes were entered */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  listInstances: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The creator's linked instances */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LinkedInstanceList"];
+        };
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getInstance: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The instance holding the credential */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LinkedInstance"];
+        };
+      };
+      /** @description The credential does not identify a live instance */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  revokeInstance: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The instance is revoked */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The account has no live instance with that id */
+      404: {
         headers: {
           [name: string]: unknown;
         };

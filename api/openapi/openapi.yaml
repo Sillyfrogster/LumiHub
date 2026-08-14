@@ -191,6 +191,128 @@ paths:
       responses:
         "204": { description: The password is set }
         "400": { description: The link or password is invalid }
+  /v1/link/requests:
+    post:
+      operationId: startLinkRequest
+      description: >-
+        Start linking a client application to a creator's account. Anyone may
+        call this: LumiHub authenticates the creator and the individual
+        installation, never the software vendor, so there is no registration
+        step, no client id and no client secret.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StartLinkRequest" }
+      responses:
+        "201":
+          description: The codes the client shows and the code it keeps
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LinkRequest" }
+        "400": { description: The name or the requested scopes are not valid }
+  /v1/link/poll:
+    post:
+      operationId: pollLinkRequest
+      description: >-
+        Ask whether the creator has approved yet. Wait at least the interval the
+        link request came with between calls.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PollLinkRequest" }
+      responses:
+        "200":
+          description: Still waiting, or linked and holding the credential
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LinkPollResult" }
+        "404": { description: The link request has expired, was redeemed, or never existed }
+        "429":
+          description: Polled faster than the interval
+          headers:
+            Retry-After:
+              schema: { type: integer }
+  /v1/link/requests/{userCode}:
+    get:
+      operationId: getLinkRequest
+      description: What the client behind a user code is asking for.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: userCode, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: The name and scopes to show before approving
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PendingLink" }
+        "401": { description: No account is signed in }
+        "403": { description: The signed-in account has not verified its email }
+        "404": { description: No unapproved link request has that code }
+        "429": { description: Too many codes were entered }
+  /v1/link/requests/{userCode}/approve:
+    post:
+      operationId: approveLinkRequest
+      description: >-
+        Approve a link request. A link request may be approved once and redeemed
+        once.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: userCode, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: What was approved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PendingLink" }
+        "401": { description: No account is signed in }
+        "403": { description: The signed-in account has not verified its email }
+        "404": { description: No unapproved link request has that code }
+        "429": { description: Too many codes were entered }
+  /v1/instances:
+    get:
+      operationId: listInstances
+      description: >-
+        Every instance linked to the signed-in account, live ones first, then
+        the record of the ones they revoked.
+      security: [{ sessionCookie: [] }]
+      responses:
+        "200":
+          description: The creator's linked instances
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LinkedInstanceList" }
+        "401": { description: No account is signed in }
+  /v1/instances/me:
+    get:
+      operationId: getInstance
+      description: >-
+        The instance the bearer credential belongs to. Every authenticated
+        request updates lastSeenAt, and this one exists so a client can check
+        its credential without sending anything.
+      security: [{ instanceToken: [] }]
+      responses:
+        "200":
+          description: The instance holding the credential
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LinkedInstance" }
+        "401": { description: The credential does not identify a live instance }
+  /v1/instances/{id}:
+    delete:
+      operationId: revokeInstance
+      description: >-
+        Cut an instance off. Its credential stops working immediately and the
+        state it held here is discarded. A record that it was linked and revoked
+        stays.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: The instance is revoked }
+        "401": { description: No account is signed in }
+        "404": { description: The account has no live instance with that id }
   /v1/profiles/{handle}:
     get:
       operationId: getProfile
@@ -615,7 +737,106 @@ components:
       type: apiKey
       in: cookie
       name: lumihub_session
+    instanceToken:
+      type: http
+      scheme: bearer
+      description: The credential a linked instance received when it was approved.
   schemas:
+    Scope:
+      type: string
+      enum: [asset:receive, library:sync]
+      description: >-
+        asset:receive lets an instance receive assets sent to it. library:sync
+        lets it report what it has installed.
+    StartLinkRequest:
+      type: object
+      additionalProperties: false
+      required: [name, scopes]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: >-
+            What the creator sees on the approval screen. Name the installation,
+            not the product, so somebody with two of them can tell which is which.
+        scopes:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/Scope" }
+    LinkRequest:
+      type: object
+      required:
+        [deviceCode, userCode, verificationUrl, verificationUrlComplete,
+         expiresAt, interval]
+      properties:
+        deviceCode:
+          type: string
+          description: Kept private by the client and sent when polling.
+        userCode:
+          type: string
+          description: Shown to the creator, who enters it on LumiHub.
+        verificationUrl:
+          type: string
+          description: Where the creator enters the user code.
+        verificationUrlComplete:
+          type: string
+          description: >-
+            The same page with the code already filled in. A client running on
+            the creator's own machine may open it.
+        expiresAt: { type: string, format: date-time }
+        interval:
+          type: integer
+          description: Seconds to wait between polls.
+    PollLinkRequest:
+      type: object
+      additionalProperties: false
+      required: [deviceCode]
+      properties:
+        deviceCode: { type: string }
+    LinkPollResult:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [pending, linked] }
+        token:
+          type: string
+          description: >-
+            The instance credential, sent once and never again. It does not
+            expire and there is nothing to refresh.
+        instance:
+          $ref: "#/components/schemas/LinkedInstance"
+    PendingLink:
+      type: object
+      required: [name, scopes, expiresAt]
+      properties:
+        name: { type: string }
+        scopes:
+          type: array
+          items: { $ref: "#/components/schemas/Scope" }
+        expiresAt: { type: string, format: date-time }
+    LinkedInstance:
+      type: object
+      required: [id, name, prefix, scopes, linkedAt, lastSeenAt, revokedAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        prefix:
+          type: string
+          description: The start of the credential, so two links are told apart.
+        scopes:
+          type: array
+          items: { $ref: "#/components/schemas/Scope" }
+        linkedAt: { type: string, format: date-time }
+        lastSeenAt: { type: [string, "null"], format: date-time }
+        revokedAt: { type: [string, "null"], format: date-time }
+    LinkedInstanceList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/LinkedInstance" }
     Account:
       type: object
       required: [id, handle, email, emailVerified, discordLinked, hasPassword, role]

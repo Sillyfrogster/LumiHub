@@ -13,6 +13,7 @@ import (
 	"github.com/Sillyfrogster/LumiHub/api/internal/account"
 	"github.com/Sillyfrogster/LumiHub/api/internal/asset"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
+	"github.com/Sillyfrogster/LumiHub/api/internal/linking"
 	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
 	"github.com/Sillyfrogster/LumiHub/api/internal/testdb"
 	"github.com/gin-gonic/gin"
@@ -110,8 +111,9 @@ func newTestHandlersWithPool(
 	}
 	svc := asset.NewService(pool, format.NewRegistry(), blob)
 	accounts := account.NewService(pool, sender, nil, "http://localhost:3000")
+	links := linking.NewService(pool, "http://localhost:3000")
 
-	return NewHandlers(svc, accounts, maxUploadBytes)
+	return NewHandlers(svc, accounts, links, maxUploadBytes)
 }
 
 func newTestRouterWithDiscord(
@@ -138,7 +140,7 @@ func newTestRouterWithDiscordAndOutbox(
 	accounts := account.NewService(
 		pool, outbox, provider, "http://localhost:3000",
 	)
-	return registerTestRouter(t, NewHandlers(assets, accounts, 1<<20), DefaultDeadlines()), outbox
+	return registerTestRouter(t, NewHandlers(assets, accounts, linking.NewService(pool, "http://localhost:3000"), 1<<20), DefaultDeadlines()), outbox
 }
 
 func registerTestRouter(t *testing.T, handlers *Handlers, deadlines Deadlines) *gin.Engine {

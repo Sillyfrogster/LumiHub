@@ -12,6 +12,7 @@ import (
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format/character"
 	apihttp "github.com/Sillyfrogster/LumiHub/api/internal/http"
+	"github.com/Sillyfrogster/LumiHub/api/internal/linking"
 	"github.com/Sillyfrogster/LumiHub/api/internal/postgres"
 	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
 	"github.com/gin-gonic/gin"
@@ -73,10 +74,12 @@ func main() {
 		}
 	}
 	accounts := account.NewService(pool, verificationSender, discordProvider, cfg.SiteURL)
+	links := linking.NewService(pool, cfg.SiteURL)
 
 	r := gin.New()
 	r.Use(gin.Recovery())
-	if err := apihttp.Register(r, apihttp.NewHandlers(svc, accounts, cfg.MaxUploadBytes), cfg.Deadlines); err != nil {
+	handlers := apihttp.NewHandlers(svc, accounts, links, cfg.MaxUploadBytes)
+	if err := apihttp.Register(r, handlers, cfg.Deadlines); err != nil {
 		log.Fatalf("routes: %v", err)
 	}
 
