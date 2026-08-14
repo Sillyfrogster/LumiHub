@@ -1093,6 +1093,7 @@ export interface operations {
       query?: {
         kind?: "character" | "lorebook" | "preset" | "theme";
         platform?: string;
+        /** @description One search expression. Bare text matches names, creator handles and blurbs. Repeat tag: to require every tag; one author: qualifier may narrow the creator. Quote qualifier values that contain spaces. */
         q?: string;
         facet?: string[];
         /** @description The reader's presentation preference. Browse page URLs keep this preference out of their own query string. */

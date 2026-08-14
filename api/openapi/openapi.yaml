@@ -212,7 +212,14 @@ paths:
           in: query
           schema: { type: string, enum: [character, lorebook, preset, theme] }
         - { name: platform, in: query, schema: { type: string } }
-        - { name: q, in: query, schema: { type: string } }
+        -
+          name: q
+          in: query
+          description: >-
+            One search expression. Bare text matches names, creator handles and
+            blurbs. Repeat tag: to require every tag; one author: qualifier may
+            narrow the creator. Quote qualifier values that contain spaces.
+          schema: { type: string }
         - { name: facet, in: query, schema: { type: array, items: { type: string } } }
         -
           name: nsfw

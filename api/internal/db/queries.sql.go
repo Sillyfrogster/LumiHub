@@ -75,8 +75,8 @@ type AssetPageRow struct {
 	Creator   string
 }
 
-// Unlisted is discovery rather than authorization, so it is absent here on
-// purpose: a stranger holding the link gets a normal answer.
+// Unlisted is missing from this predicate on purpose. A stranger holding the
+// link gets a normal answer.
 func (q *Queries) AssetPage(ctx context.Context, id pgtype.UUID) (AssetPageRow, error) {
 	row := q.db.QueryRow(ctx, assetPage, id)
 	var i AssetPageRow
@@ -119,8 +119,7 @@ type AssetPageMediaRow struct {
 	Height pgtype.Int4
 }
 
-// The role order matches BrowseAssets, so the first image here is the same one
-// the reader already saw on the card.
+// The role order matches BrowseAssets, so the first image is the card's cover.
 func (q *Queries) AssetPageMedia(ctx context.Context, id pgtype.UUID) ([]AssetPageMediaRow, error) {
 	rows, err := q.db.Query(ctx, assetPageMedia, id)
 	if err != nil {

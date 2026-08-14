@@ -796,8 +796,10 @@ type GetMediaVariantParamsVariant string
 type ListAssetsParams struct {
 	Kind     *ListAssetsParamsKind `form:"kind,omitempty" json:"kind,omitempty"`
 	Platform *string               `form:"platform,omitempty" json:"platform,omitempty"`
-	Q        *string               `form:"q,omitempty" json:"q,omitempty"`
-	Facet    *[]string             `form:"facet,omitempty" json:"facet,omitempty"`
+
+	// Q One search expression. Bare text matches names, creator handles and blurbs. Repeat tag: to require every tag; one author: qualifier may narrow the creator. Quote qualifier values that contain spaces.
+	Q     *string   `form:"q,omitempty" json:"q,omitempty"`
+	Facet *[]string `form:"facet,omitempty" json:"facet,omitempty"`
 
 	// Nsfw The reader's presentation preference. Browse page URLs keep this preference out of their own query string.
 	Nsfw  *ListAssetsParamsNsfw `form:"nsfw,omitempty" json:"nsfw,omitempty"`

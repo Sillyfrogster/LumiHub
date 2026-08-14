@@ -22,6 +22,7 @@ import {
   saveNsfwVisibility,
 } from "@/lib/api/query";
 import { useAuth } from "@/lib/auth";
+import { buildBrowseHref } from "@/lib/browse-url";
 import {
   readSessionVisibility,
   writeSessionVisibility,
@@ -42,16 +43,6 @@ const VISIBILITY: Array<{ value: NsfwVisibility; label: string }> = [
   { value: "blurred", label: "Blur" },
   { value: "shown", label: "Show" },
 ];
-
-function buildBrowseHref(filters: BrowseFilters) {
-  const params = new URLSearchParams();
-  if (filters.kind) params.set("kind", filters.kind);
-  if (filters.platform) params.set("platform", filters.platform);
-  if (filters.q) params.set("q", filters.q);
-  for (const facet of filters.facet ?? []) params.append("facet", facet);
-  const query = params.toString();
-  return query ? `/browse?${query}` : "/browse";
-}
 
 export function BrowseResults({
   filters,

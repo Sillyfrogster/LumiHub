@@ -16,8 +16,10 @@ func parseBrowseQuery(raw string) browseQuery {
 		switch {
 		case strings.HasPrefix(lower, "tag:") && len(lower) > len("tag:"):
 			parsed.Tags = append(parsed.Tags, normalizeBrowseText(token[len("tag:"):]))
-		case strings.HasPrefix(lower, "author:") && len(lower) > len("author:") && parsed.Author == "":
-			parsed.Author = normalizeBrowseText(token[len("author:"):])
+		case strings.HasPrefix(lower, "author:") && len(lower) > len("author:"):
+			if parsed.Author == "" {
+				parsed.Author = normalizeBrowseText(token[len("author:"):])
+			}
 		default:
 			text = append(text, lower)
 		}

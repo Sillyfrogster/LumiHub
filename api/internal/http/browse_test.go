@@ -108,32 +108,46 @@ func TestBrowseReturnsOnlyCardContentAndTheReadersEffectiveCount(t *testing.T) {
 func TestBrowseSearchUsesCatalogWordsAndItsTwoQualifiers(t *testing.T) {
 	router, session, assets := newVerifiedIngestRouter(t, format.NewRegistry())
 	entries := []struct {
-		name  string
-		blurb string
-		tags  []string
+		name        string
+		blurb       string
+		tags        []string
+		sourceBytes string
 	}{
-		{name: "Moon Garden", blurb: "A place for patient stories.", tags: []string{"Botanical"}},
-		{name: "Quiet Harbor", blurb: "Moonlit conversations by the water.", tags: []string{"Slow Burn"}},
-		{name: "Mood:gentle", blurb: "An unknown qualifier remains ordinary text.", tags: []string{"Comfort"}},
+		{
+			name: "Moon Garden", blurb: "A place for patient stories.",
+			tags: []string{"Botanical", "Original Character"}, sourceBytes: "buried-prompt-word",
+		},
+		{
+			name: "Quiet Harbor", blurb: "Moonlit conversations by the water.",
+			tags: []string{"Slow Burn", "Botanical"}, sourceBytes: "harbor",
+		},
+		{
+			name: "Mood:gentle", blurb: "An unknown qualifier remains ordinary text.",
+			tags: []string{"Comfort"}, sourceBytes: "gentle",
+		},
 	}
 	for _, entry := range entries {
 		metadata := exampleMetadata(entry.name)
 		metadata["filename"] = entry.name + ".lumitheme"
 		metadata["blurb"] = entry.blurb
 		metadata["tags"] = entry.tags
-		uploadAndFinish(t, router, session, assets, metadata, []byte(entry.name))
+		uploadAndFinish(t, router, session, assets, metadata, []byte(entry.sourceBytes))
 	}
 
 	cases := []struct {
 		query string
 		want  []string
 	}{
-		{query: "moon", want: []string{"Quiet Harbor", "Moon Garden"}},
+		{query: "MOON", want: []string{"Quiet Harbor", "Moon Garden"}},
+		{query: "verified.creator", want: []string{"Mood:gentle", "Quiet Harbor", "Moon Garden"}},
 		{query: "botanical", want: nil},
-		{query: "tag:botanical", want: []string{"Moon Garden"}},
+		{query: "tag:botanical", want: []string{"Quiet Harbor", "Moon Garden"}},
 		{query: `tag:"slow burn"`, want: []string{"Quiet Harbor"}},
+		{query: `tag:botanical tag:"slow burn"`, want: []string{"Quiet Harbor"}},
 		{query: "author:verified.creator patient", want: []string{"Moon Garden"}},
+		{query: "author:verified.creator author:verified.creator patient", want: []string{"Moon Garden"}},
 		{query: "mood:gentle", want: []string{"Mood:gentle"}},
+		{query: "buried-prompt-word", want: nil},
 	}
 	for _, tc := range cases {
 		t.Run(tc.query, func(t *testing.T) {
