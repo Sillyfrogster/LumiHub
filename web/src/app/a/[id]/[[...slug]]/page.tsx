@@ -13,6 +13,7 @@ import { assetMetadata } from "@/lib/asset-metadata";
 import { assetRedirect } from "@/lib/asset-url";
 import { KIND_LABELS } from "@/lib/kinds";
 import { AssetMedia } from "./AssetMedia";
+import { DeleteControl } from "./DeleteControl";
 import { DiscoveryControl } from "./DiscoveryControl";
 import styles from "./page.module.css";
 import { WithholdControl } from "./WithholdControl";
@@ -128,6 +129,11 @@ export default async function AssetPage({
               frozen={Boolean(asset.withhold)}
             />
             {!asset.withhold ? <WithholdControl assetId={asset.id} /> : null}
+            <DeleteControl
+              assetId={asset.id}
+              creator={asset.creator}
+              frozen={Boolean(asset.withhold)}
+            />
           </div>
         </div>
       </Shell>

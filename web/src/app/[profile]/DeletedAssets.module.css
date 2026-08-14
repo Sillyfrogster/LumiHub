@@ -1,0 +1,139 @@
+.section {
+  scroll-margin-top: calc(var(--header-height) + 24px);
+  padding-block: 68px 88px;
+  border-top: 1px solid var(--line-soft);
+  background: rgba(239, 245, 251, 0.44);
+}
+
+.heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  max-width: 760px;
+  color: var(--accent);
+}
+
+.heading h2 {
+  color: var(--ink-strong);
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+
+.heading p,
+.empty {
+  max-width: 58ch;
+  margin-top: 8px;
+  color: var(--body);
+  font-size: 0.88rem;
+  line-height: 1.65;
+}
+
+.list {
+  max-width: 760px;
+  margin-top: 30px;
+  border-top: 1px solid var(--line);
+  list-style: none;
+}
+
+.list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: clamp(20px, 4vw, 44px);
+  align-items: center;
+  min-height: 104px;
+  padding-block: 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.identity {
+  min-width: 0;
+}
+
+.identity span {
+  color: var(--accent);
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.identity h3 {
+  overflow: hidden;
+  margin-top: 5px;
+  color: var(--ink-strong);
+  font-family: var(--font-display);
+  font-size: 1.18rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.list li > p {
+  color: var(--muted);
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
+.list button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  padding-inline: 16px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-strong);
+  font-size: 0.76rem;
+  font-weight: 900;
+  transition:
+    border-color 180ms var(--ease),
+    background 180ms var(--ease);
+}
+
+.list button:hover:not(:disabled) {
+  border-color: var(--faint);
+  background: var(--surface-frame);
+}
+
+.list button:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.error {
+  max-width: 760px;
+  margin-top: 22px;
+  color: #813f3f;
+  font-size: 0.82rem;
+}
+
+.empty {
+  margin-top: 26px;
+  font-family: var(--font-display);
+  font-style: italic;
+}
+
+@media (max-width: 680px) {
+  .section {
+    padding-block: 52px 68px;
+  }
+
+  .list li {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px 18px;
+  }
+
+  .list li > p {
+    grid-column: 1;
+    white-space: normal;
+  }
+
+  .list button {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+}

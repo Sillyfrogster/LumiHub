@@ -9,6 +9,7 @@ export type Profile = components["schemas"]["Profile"];
 export type BrowseAsset = components["schemas"]["BrowseAsset"];
 export type BrowsePage = components["schemas"]["AssetList"];
 export type BrowseCursor = components["schemas"]["BrowseCursor"];
+export type DeletedAsset = components["schemas"]["DeletedAsset"];
 export type BrowseKind = BrowseAsset["kind"];
 export type NsfwVisibility =
   components["schemas"]["NsfwVisibilityRequest"]["visibility"];
@@ -63,6 +64,18 @@ export async function fetchAssets(
   return data;
 }
 
+export async function fetchDeletedAssets(
+  handle: string,
+  cookie: string,
+): Promise<DeletedAsset[] | null> {
+  const { data, error } = await api.GET("/v1/profiles/{handle}/deleted", {
+    params: { path: { handle } },
+    headers: { cookie },
+  });
+  if (error || !data) return null;
+  return data.items;
+}
+
 /**
  * One asset by id. A withheld, deleted or never-existed asset comes back null,
  * because the API answers all three the same way.
@@ -103,4 +116,18 @@ export async function withholdAsset(id: string, reason: string) {
     body: { reason },
   });
   if (error) throw new Error("Could not withhold the asset");
+}
+
+export async function deleteAsset(id: string) {
+  const { error } = await api.DELETE("/v1/assets/{id}", {
+    params: { path: { id } },
+  });
+  if (error) throw new Error("Could not delete the asset");
+}
+
+export async function restoreAsset(id: string) {
+  const { error } = await api.POST("/v1/assets/{id}/restore", {
+    params: { path: { id } },
+  });
+  if (error) throw new Error("Could not restore the asset");
 }

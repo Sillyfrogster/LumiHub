@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import { fetchAssets, fetchProfile } from "@/lib/api/query";
+import { fetchAssets, fetchDeletedAssets, fetchProfile } from "@/lib/api/query";
 import { buildBrowseHref, readBrowseFilters } from "@/lib/browse-url";
 import { ProfileListing } from "./ProfileListing";
 
@@ -16,9 +16,12 @@ export default async function CreatorProfileListing({
   if (!requestedProfile.startsWith("@")) notFound();
 
   const requestedHandle = requestedProfile.slice(1);
-  const filters = readBrowseFilters(await searchParams);
   const handle = requestedHandle.toLowerCase();
-  const profile = await fetchProfile(handle);
+  const [filters, profile, cookie] = await Promise.all([
+    searchParams.then(readBrowseFilters),
+    fetchProfile(handle),
+    cookies().then((value) => value.toString()),
+  ]);
   if (!profile) notFound();
 
   const basePath = `/@${profile.handle}`;
@@ -26,17 +29,20 @@ export default async function CreatorProfileListing({
     redirect(buildBrowseHref(filters, basePath));
   }
 
-  const cookie = (await cookies()).toString();
-  const initialPage = await fetchAssets(
-    { ...filters, creator: profile.handle, limit: 24 },
-    cookie,
-  ).catch(() => null);
+  const [initialPage, deletedAssets] = await Promise.all([
+    fetchAssets(
+      { ...filters, creator: profile.handle, limit: 24 },
+      cookie,
+    ).catch(() => null),
+    fetchDeletedAssets(profile.handle, cookie),
+  ]);
 
   return (
     <ProfileListing
       profile={profile}
       filters={filters}
       initialPage={initialPage}
+      deletedAssets={deletedAssets}
     />
   );
 }
