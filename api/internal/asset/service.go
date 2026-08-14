@@ -299,6 +299,9 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Asset, error) {
 	if err := setCurrentRevision(ctx, tx, a.ID, revisionID); err != nil {
 		return Asset{}, err
 	}
+	if err := setPreviewMedia(ctx, tx, a.ID, avatarMedia(extractedMedia)); err != nil {
+		return Asset{}, err
+	}
 
 	if err := tx.Commit(ctx); err != nil {
 		return Asset{}, err

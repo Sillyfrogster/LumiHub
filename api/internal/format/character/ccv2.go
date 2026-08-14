@@ -23,20 +23,9 @@ func (m CCv2Module) Parse(
 	file probe.Inspection,
 	claim format.Claim,
 ) (format.Parsed, error) {
-	if err := readableVersion(file, claim, 2); err != nil {
-		return format.Parsed{}, err
-	}
-	read, err := readCard(file, claim)
+	read, err := readCard(file, claim, 2)
 	if err != nil {
 		return format.Parsed{}, err
 	}
-	return format.Parsed{
-		Kind:   Kind,
-		Format: m.ID(),
-		Name:   read.name(),
-		Blurb:  read.blurb(),
-		Tags:   read.tags(),
-		Facets: read.facets(),
-		Media:  documentImage(file),
-	}, nil
+	return read.parsed(m.ID(), documentImage(file)), nil
 }

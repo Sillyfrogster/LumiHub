@@ -84,7 +84,16 @@ type card struct {
 	fields map[string]json.RawMessage
 }
 
-func readCard(file probe.Inspection, claim format.Claim) (card, error) {
+// readCard checks the payload's version against the one this module implements
+// and reads the card body out of it.
+func readCard(file probe.Inspection, claim format.Claim, implemented int) (card, error) {
+	payload, ok := claim.Payload(file)
+	if !ok {
+		return card{}, fmt.Errorf("the claimed payload is missing")
+	}
+	if err := readableVersion(payload, implemented); err != nil {
+		return card{}, err
+	}
 	fields, ok := Fields(file, claim)
 	if !ok {
 		return card{}, fmt.Errorf("the card has no readable body")
@@ -96,11 +105,7 @@ func readCard(file probe.Inspection, claim format.Claim) (card, error) {
 // this module implements. A later major version may have changed what a field
 // means, so it is refused rather than guessed at. A later minor version only
 // adds, so it is read and the additions are left alone.
-func readableVersion(file probe.Inspection, claim format.Claim, implemented int) error {
-	payload, ok := claim.Payload(file)
-	if !ok {
-		return fmt.Errorf("the claimed payload is missing")
-	}
+func readableVersion(payload probe.Payload, implemented int) error {
 	declared, ok := payload.String("spec_version")
 	if !ok || declared == "" {
 		return nil
@@ -116,6 +121,21 @@ func readableVersion(file probe.Inspection, claim format.Claim, implemented int)
 		)
 	}
 	return nil
+}
+
+// parsed is what ingest stores. Only the format id and which pictures count
+// differ between the three standards.
+func (c card) parsed(formatID string, pictures []format.Media) format.Parsed {
+	return format.Parsed{
+		Kind:      Kind,
+		Format:    formatID,
+		Name:      c.name(),
+		Blurb:     c.blurb(),
+		Tags:      c.tags(),
+		Facets:    c.facets(),
+		Media:     pictures,
+		CreatedAt: c.createdAt(),
+	}
 }
 
 func (c card) text(name string) string {
