@@ -63,7 +63,13 @@ export default async function BrowsePage({
             priority
             sizes="(max-width: 720px) 72vw, 520px"
           />
-          <Image src={sprig} alt="" className={styles.sprig} sizes="220px" />
+          <Image
+            src={sprig}
+            alt=""
+            className={styles.sprig}
+            sizes="220px"
+            priority
+          />
         </Shell>
       </section>
       <BrowseResults filters={filters} initialPage={initialPage} />

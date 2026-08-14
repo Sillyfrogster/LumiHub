@@ -68,6 +68,7 @@
   right: 39%;
   bottom: -84px;
   width: 210px;
+  height: auto;
   opacity: 0.36;
   transform: rotate(-22deg);
 }
