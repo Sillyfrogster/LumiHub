@@ -217,6 +217,24 @@ func (e BrowseAssetKind) Valid() bool {
 	}
 }
 
+// Defines values for BrowseAssetOwnerState.
+const (
+	BrowseAssetOwnerStateUnlisted BrowseAssetOwnerState = "unlisted"
+	BrowseAssetOwnerStateWithheld BrowseAssetOwnerState = "withheld"
+)
+
+// Valid indicates whether the value is a known member of the BrowseAssetOwnerState enum.
+func (e BrowseAssetOwnerState) Valid() bool {
+	switch e {
+	case BrowseAssetOwnerStateUnlisted:
+		return true
+	case BrowseAssetOwnerStateWithheld:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CompleteIngestRequestKind.
 const (
 	CompleteIngestRequestKindCharacter CompleteIngestRequestKind = "character"
@@ -621,10 +639,16 @@ type BrowseAsset struct {
 	IsNsfw  bool               `json:"isNsfw"`
 	Kind    BrowseAssetKind    `json:"kind"`
 	Name    string             `json:"name"`
+
+	// OwnerState Present only on the owner's own listing.
+	OwnerState *BrowseAssetOwnerState `json:"ownerState,omitempty"`
 }
 
 // BrowseAssetKind defines model for BrowseAsset.Kind.
 type BrowseAssetKind string
+
+// BrowseAssetOwnerState Present only on the owner's own listing.
+type BrowseAssetOwnerState string
 
 // BrowseCover defines model for BrowseCover.
 type BrowseCover struct {
@@ -796,6 +820,9 @@ type GetMediaVariantParamsVariant string
 type ListAssetsParams struct {
 	Kind     *ListAssetsParamsKind `form:"kind,omitempty" json:"kind,omitempty"`
 	Platform *string               `form:"platform,omitempty" json:"platform,omitempty"`
+
+	// Creator Scope the listing to one creator's public profile.
+	Creator *string `form:"creator,omitempty" json:"creator,omitempty"`
 
 	// Q One search expression. Bare text matches names, creator handles and blurbs. Repeat tag: to require every tag; one author: qualifier may narrow the creator. Quote qualifier values that contain spaces.
 	Q     *string   `form:"q,omitempty" json:"q,omitempty"`
@@ -1130,6 +1157,14 @@ func (siw *ServerInterfaceWrapper) ListAssets(c *gin.Context) {
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "platform", c.Request.URL.Query(), &params.Platform, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
 	if err != nil {
 		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter platform: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "creator" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "creator", c.Request.URL.Query(), &params.Creator, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter creator: %w", err), http.StatusBadRequest)
 		return
 	}
 

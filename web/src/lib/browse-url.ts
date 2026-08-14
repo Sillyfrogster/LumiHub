@@ -24,12 +24,12 @@ export function readBrowseFilters(
   return { kind, q, platform, facet: facets };
 }
 
-export function buildBrowseHref(filters: BrowseFilters) {
+export function buildBrowseHref(filters: BrowseFilters, basePath = "/browse") {
   const params = new URLSearchParams();
   if (filters.kind) params.set("kind", filters.kind);
   if (filters.platform) params.set("platform", filters.platform);
   if (filters.q) params.set("q", filters.q);
   for (const facet of filters.facet ?? []) params.append("facet", facet);
   const query = params.toString();
-  return query ? `/browse?${query}` : "/browse";
+  return query ? `${basePath}?${query}` : basePath;
 }

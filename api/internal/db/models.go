@@ -126,13 +126,14 @@ type Session struct {
 }
 
 type User struct {
-	ID              pgtype.UUID
-	Username        string
-	Email           pgtype.Text
-	PasswordHash    pgtype.Text
-	EmailVerifiedAt pgtype.Timestamptz
-	EmailSource     pgtype.Text
-	CreatedAt       pgtype.Timestamptz
-	UpdatedAt       pgtype.Timestamptz
-	NsfwVisibility  string
+	ID                             pgtype.UUID
+	Username                       string
+	Email                          pgtype.Text
+	PasswordHash                   pgtype.Text
+	EmailVerifiedAt                pgtype.Timestamptz
+	EmailSource                    pgtype.Text
+	CreatedAt                      pgtype.Timestamptz
+	UpdatedAt                      pgtype.Timestamptz
+	NsfwVisibility                 string
+	ShowNsfwContributionsOnProfile bool
 }

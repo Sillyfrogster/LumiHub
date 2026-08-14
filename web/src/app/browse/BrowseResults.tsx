@@ -47,9 +47,15 @@ const VISIBILITY: Array<{ value: NsfwVisibility; label: string }> = [
 export function BrowseResults({
   filters,
   initialPage,
+  creator,
+  basePath = "/browse",
+  heading = "Newest additions",
 }: {
   filters: BrowseFilters;
   initialPage: BrowsePage | null;
+  creator?: string;
+  basePath?: string;
+  heading?: string;
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -76,10 +82,11 @@ export function BrowseResults({
   }, [account]);
 
   const query = useInfiniteQuery({
-    queryKey: assetKeys.list(filters, visibilityOverride),
+    queryKey: assetKeys.list(filters, visibilityOverride, creator),
     queryFn: ({ pageParam }) =>
       fetchAssets({
         ...filters,
+        creator,
         limit: 24,
         nsfw: visibilityOverride,
         before: pageParam?.before,
@@ -117,7 +124,7 @@ export function BrowseResults({
 
   function navigate(next: BrowseFilters) {
     startNavigation(() =>
-      router.push(buildBrowseHref(next), { scroll: false }),
+      router.push(buildBrowseHref(next, basePath), { scroll: false }),
     );
   }
 
@@ -171,7 +178,7 @@ export function BrowseResults({
       <header className={styles.resultsHeader}>
         <div className={styles.resultsHeaderContent}>
           <div>
-            <h2 id="browse-heading">Newest additions</h2>
+            <h2 id="browse-heading">{heading}</h2>
             {overview ? (
               <p aria-live="polite">
                 {overview.total === 1
@@ -185,13 +192,19 @@ export function BrowseResults({
               <form className={styles.searchForm} onSubmit={submitSearch}>
                 <Search size={18} strokeWidth={1.5} aria-hidden="true" />
                 <label htmlFor="browse-search" className="sr-only">
-                  Search the collection
+                  {creator
+                    ? `Search @${creator}'s creations`
+                    : "Search the collection"}
                 </label>
                 <input
                   id="browse-search"
                   value={queryText}
                   onChange={(event) => setQueryText(event.target.value)}
-                  placeholder="Search names, creators, and blurbs"
+                  placeholder={
+                    creator
+                      ? `Search @${creator}'s creations`
+                      : "Search names, creators, and blurbs"
+                  }
                 />
                 {queryText ? (
                   <button
@@ -209,8 +222,15 @@ export function BrowseResults({
               </form>
             </search>
             <p className={styles.searchHint}>
-              Narrow further with <code>tag:fantasy</code> or{" "}
-              <code>author:handle</code>.
+              Narrow further with <code>tag:fantasy</code>
+              {creator ? (
+                "."
+              ) : (
+                <>
+                  {" "}
+                  or <code>author:handle</code>.
+                </>
+              )}
             </p>
           </div>
         </div>

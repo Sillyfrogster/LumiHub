@@ -16,6 +16,7 @@ import (
 // restriction.
 type ListFilter struct {
 	Kind        string
+	Profile     *ProfileListingScope
 	Platform    *string
 	PlatformSet bool
 	Tags        []string
@@ -23,6 +24,12 @@ type ListFilter struct {
 	Query       string
 	Limit       int
 	Before      *Cursor
+}
+
+type ProfileListingScope struct {
+	CreatorID        uuid.UUID
+	ViewerID         *uuid.UUID
+	CreatorShowsNSFW bool
 }
 
 type Cursor struct {
@@ -45,12 +52,13 @@ type BrowseCover struct {
 }
 
 type BrowseItem struct {
-	ID      uuid.UUID
-	Name    string
-	Creator string
-	Kind    string
-	IsNSFW  bool
-	Cover   *BrowseCover
+	ID         uuid.UUID
+	Name       string
+	Creator    string
+	Kind       string
+	IsNSFW     bool
+	OwnerState string
+	Cover      *BrowseCover
 }
 
 type BrowsePage struct {
@@ -139,8 +147,11 @@ func browseAssets(
 	}
 	formats := formatsForPlatform(definitions, platform)
 	facetKeys, facetValues := facetPairs(f.Facets)
+	creatorID, creatorShowsNSFW, ownProfile := profileListingValues(f.Profile)
 	params := db.BrowseAssetsParams{
 		Kind: f.Kind, NsfwVisibility: string(visibility),
+		CreatorID: uuidToNullable(creatorID), CreatorAllowsNsfw: creatorShowsNSFW,
+		OwnProfile: ownProfile,
 		SearchText: search.Text, Author: search.Author, Tags: search.Tags,
 		Platform: platform, Formats: formats,
 		FacetKeys: facetKeys, FacetValues: facetValues,
@@ -161,11 +172,19 @@ func browseAssets(
 			ID: uuidFromPgtype(row.ID), Name: row.Name, Creator: row.Creator,
 			Kind: row.Kind, IsNSFW: row.IsNsfw,
 		}
+		if ownProfile {
+			switch {
+			case row.WithheldAt.Valid:
+				item.OwnerState = "withheld"
+			case row.Discovery == "unlisted":
+				item.OwnerState = "unlisted"
+			}
+		}
 		if row.CoverID.Valid && row.CoverWidth.Valid && row.CoverHeight.Valid {
 			item.Cover = &BrowseCover{
 				URL: variantURL(
 					uuidFromPgtype(row.CoverID), "grid",
-					visibility == ContentBlurred && row.IsNsfw,
+					visibility != ContentShown && row.IsNsfw,
 				),
 				Width: int(row.CoverWidth.Int32), Height: int(row.CoverHeight.Int32),
 			}
@@ -179,6 +198,8 @@ func browseAssets(
 
 	countParams := db.CountBrowseAssetsParams{
 		Kind: f.Kind, NsfwVisibility: string(visibility),
+		CreatorID: uuidToNullable(creatorID), CreatorAllowsNsfw: creatorShowsNSFW,
+		OwnProfile: ownProfile,
 		SearchText: search.Text, Author: search.Author, Tags: search.Tags,
 		Platform: platform, Formats: formats,
 		FacetKeys: facetKeys, FacetValues: facetValues,
@@ -188,11 +209,13 @@ func browseAssets(
 		return BrowsePage{}, fmt.Errorf("count browse assets: %w", err)
 	}
 	page.Total = int(count)
-	if visibility == ContentHidden {
+	if visibility == ContentHidden && !ownProfile {
 		suppressed, err := queries.CountSuppressedBrowseAssets(
 			ctx, db.CountSuppressedBrowseAssetsParams{
 				Kind: f.Kind, SearchText: search.Text, Author: search.Author, Tags: search.Tags,
-				Platform: platform, Formats: formats,
+				CreatorID:         uuidToNullable(creatorID),
+				CreatorAllowsNsfw: creatorShowsNSFW,
+				Platform:          platform, Formats: formats,
 				FacetKeys: facetKeys, FacetValues: facetValues,
 			},
 		)
@@ -220,6 +243,14 @@ func browseAssets(
 		}
 	}
 	return page, nil
+}
+
+func profileListingValues(scope *ProfileListingScope) (*uuid.UUID, bool, bool) {
+	if scope == nil {
+		return nil, false, false
+	}
+	ownedByViewer := scope.ViewerID != nil && *scope.ViewerID == scope.CreatorID
+	return &scope.CreatorID, scope.CreatorShowsNSFW, ownedByViewer
 }
 
 func browsePlatforms(definitions []format.RegisteredBrowseDefinition) []format.BrowseOption {

@@ -36,13 +36,16 @@ export function BrowseCard({
           <span className={styles.kind}>{KIND_LABELS[asset.kind]}</span>
           {asset.isNsfw ? (
             <span className={styles.nsfw}>
-              {visibility === "blurred" ? (
+              {visibility !== "shown" ? (
                 <EyeOff size={12} aria-hidden="true" />
               ) : (
                 <Eye size={12} aria-hidden="true" />
               )}
-              {visibility === "blurred" ? "Adult · blurred" : "Adult"}
+              {visibility !== "shown" ? "Adult · blurred" : "Adult"}
             </span>
+          ) : null}
+          {asset.ownerState ? (
+            <span className={styles.ownerState}>{asset.ownerState}</span>
           ) : null}
         </div>
         <div className={styles.identity}>

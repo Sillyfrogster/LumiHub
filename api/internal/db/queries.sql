@@ -50,7 +50,8 @@ select a.id, a.kind, revision.passthrough_platform, revision.format,
 -- name: BrowseAssets :many
 select a.id, a.name, coalesce(owner.username, 'unknown') as creator,
        a.kind, a.is_nsfw, a.created_at,
-       cover.id as cover_id, cover.width as cover_width, cover.height as cover_height
+       cover.id as cover_id, cover.width as cover_width, cover.height as cover_height,
+       a.discovery, a.withheld_at
   from assets a
   join asset_revisions revision on revision.id = a.current_revision_id
   left join users owner on owner.id = a.owner_id
@@ -69,11 +70,20 @@ select a.id, a.name, coalesce(owner.username, 'unknown') as creator,
                 media.created_at desc, media.id desc
        limit 1
   ) cover on true
- where a.discovery = 'listed'
-   and a.withheld_at is null
-   and a.deleted_at is null
+ where a.deleted_at is null
+   and (
+       (sqlc.narg('creator_id')::uuid is null
+        and a.discovery = 'listed' and a.withheld_at is null)
+       or
+       (a.owner_id = sqlc.narg('creator_id')::uuid
+        and (sqlc.arg('own_profile')::boolean
+             or (a.discovery = 'listed' and a.withheld_at is null)))
+   )
+   and (sqlc.narg('creator_id')::uuid is null or sqlc.arg('own_profile')::boolean
+        or sqlc.arg('creator_allows_nsfw')::boolean or not a.is_nsfw)
    and (sqlc.arg('kind')::text = '' or a.kind = sqlc.arg('kind')::text)
-   and (sqlc.arg('nsfw_visibility')::text <> 'hidden' or not a.is_nsfw)
+   and (sqlc.arg('own_profile')::boolean
+        or sqlc.arg('nsfw_visibility')::text <> 'hidden' or not a.is_nsfw)
    and (sqlc.arg('platform')::text = ''
         or sqlc.arg('platform')::text = 'raw'
         or revision.format = any(sqlc.arg('formats')::text[])
@@ -112,11 +122,20 @@ select count(*)
   from assets a
   join asset_revisions revision on revision.id = a.current_revision_id
   left join users owner on owner.id = a.owner_id
- where a.discovery = 'listed'
-   and a.withheld_at is null
-   and a.deleted_at is null
+ where a.deleted_at is null
+   and (
+       (sqlc.narg('creator_id')::uuid is null
+        and a.discovery = 'listed' and a.withheld_at is null)
+       or
+       (a.owner_id = sqlc.narg('creator_id')::uuid
+        and (sqlc.arg('own_profile')::boolean
+             or (a.discovery = 'listed' and a.withheld_at is null)))
+   )
+   and (sqlc.narg('creator_id')::uuid is null or sqlc.arg('own_profile')::boolean
+        or sqlc.arg('creator_allows_nsfw')::boolean or not a.is_nsfw)
    and (sqlc.arg('kind')::text = '' or a.kind = sqlc.arg('kind')::text)
-   and (sqlc.arg('nsfw_visibility')::text <> 'hidden' or not a.is_nsfw)
+   and (sqlc.arg('own_profile')::boolean
+        or sqlc.arg('nsfw_visibility')::text <> 'hidden' or not a.is_nsfw)
    and (sqlc.arg('platform')::text = ''
         or sqlc.arg('platform')::text = 'raw'
         or revision.format = any(sqlc.arg('formats')::text[])
@@ -153,6 +172,9 @@ select count(*)
  where a.discovery = 'listed'
    and a.withheld_at is null
    and a.deleted_at is null
+   and (sqlc.narg('creator_id')::uuid is null or a.owner_id = sqlc.narg('creator_id')::uuid)
+   and (sqlc.narg('creator_id')::uuid is null
+        or sqlc.arg('creator_allows_nsfw')::boolean or not a.is_nsfw)
    and (sqlc.arg('kind')::text = '' or a.kind = sqlc.arg('kind')::text)
    and (sqlc.arg('platform')::text = ''
         or sqlc.arg('platform')::text = 'raw'
@@ -363,7 +385,8 @@ update users set username = $2, updated_at = now() where id = $1
 returning id, username, email, email_verified_at;
 
 -- name: ProfileByHandle :one
-select id, username from users where username = $1;
+select id, username, show_nsfw_contributions_on_profile
+  from users where username = $1;
 
 -- name: UpdateUnverifiedEmail :one
 update users

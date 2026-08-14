@@ -57,7 +57,8 @@
 }
 
 .kind,
-.nsfw {
+.nsfw,
+.ownerState {
   position: absolute;
   z-index: 2;
   display: inline-flex;
@@ -90,6 +91,14 @@
   letter-spacing: 0.06em;
 }
 
+.ownerState {
+  right: 13px;
+  top: 13px;
+  padding: 5px 8px;
+  border-radius: 8px 2px 2px 2px;
+  background: rgba(89, 74, 45, 0.88);
+}
+
 .identity {
   padding: 17px 4px 4px;
 }
@@ -116,6 +125,13 @@
 }
 
 @media (max-width: 560px) {
+  .ownerState {
+    right: auto;
+    top: 47px;
+    left: 13px;
+    border-radius: 2px 8px 2px 2px;
+  }
+
   .identity h3 {
     font-size: 1.05rem;
   }

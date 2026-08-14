@@ -5,6 +5,7 @@ import type { components, paths } from "./schema";
 export type AssetDetail = components["schemas"]["AssetDetail"];
 export type AssetImage = components["schemas"]["AssetImage"];
 export type AssetTag = components["schemas"]["AssetTag"];
+export type Profile = components["schemas"]["Profile"];
 export type BrowseAsset = components["schemas"]["BrowseAsset"];
 export type BrowsePage = components["schemas"]["AssetList"];
 export type BrowseCursor = components["schemas"]["BrowseCursor"];
@@ -22,7 +23,7 @@ export type BrowseFilters = Pick<
 >;
 
 export type AssetListParams = BrowseFilters &
-  Pick<AssetQuery, "limit" | "before" | "beforeId" | "nsfw">;
+  Pick<AssetQuery, "creator" | "limit" | "before" | "beforeId" | "nsfw">;
 
 /** A fresh client every call. A shared one would leak one visitor's cache into another's page. */
 export function makeQueryClient() {
@@ -35,9 +36,20 @@ export function makeQueryClient() {
 
 export const assetKeys = {
   all: ["assets"] as const,
-  list: (filters: BrowseFilters, visibility?: NsfwVisibility) =>
-    ["assets", "list", filters, visibility] as const,
+  list: (
+    filters: BrowseFilters,
+    visibility?: NsfwVisibility,
+    creator?: string,
+  ) => ["assets", "list", creator, filters, visibility] as const,
 };
+
+export async function fetchProfile(handle: string): Promise<Profile | null> {
+  const { data, error } = await api.GET("/v1/profiles/{handle}", {
+    params: { path: { handle } },
+  });
+  if (error || !data) return null;
+  return data;
+}
 
 export async function fetchAssets(
   params: AssetListParams,

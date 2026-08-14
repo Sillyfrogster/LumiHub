@@ -20,4 +20,10 @@ describe("browse URL state", () => {
       facet: ["tone=gentle"],
     });
   });
+
+  test("keeps creator profile filters on the creator profile", () => {
+    expect(
+      buildBrowseHref({ kind: "lorebook", q: "moonlit" }, "/@verified.creator"),
+    ).toBe("/@verified.creator?kind=lorebook&q=moonlit");
+  });
 });

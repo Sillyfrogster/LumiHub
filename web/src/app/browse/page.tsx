@@ -1,11 +1,7 @@
 import { cookies } from "next/headers";
-import Image from "next/image";
-import heroLumi from "@/assets/art/full/hero-lumi.webp";
-import { Shell } from "@/components/layout/Shell";
 import { fetchAssets } from "@/lib/api/query";
 import { readBrowseFilters } from "@/lib/browse-url";
-import { BrowseResults } from "./BrowseResults";
-import styles from "./page.module.css";
+import { CatalogListing } from "./CatalogListing";
 
 export default async function BrowsePage({
   searchParams,
@@ -18,28 +14,11 @@ export default async function BrowsePage({
   ).catch(() => null);
 
   return (
-    <div className={styles.page}>
-      <section className={styles.masthead}>
-        <div className={styles.lumiArt}>
-          <Image
-            src={heroLumi}
-            alt=""
-            fill
-            priority
-            sizes="(max-width: 760px) 100vw, 58vw"
-          />
-        </div>
-        <Shell className={styles.mastheadInner}>
-          <div className={styles.intro}>
-            <h1>Browse the collection</h1>
-            <p>
-              Find characters, lorebooks, presets, and themes made for stories
-              still unfolding.
-            </p>
-          </div>
-        </Shell>
-      </section>
-      <BrowseResults filters={filters} initialPage={initialPage} />
-    </div>
+    <CatalogListing
+      title="Browse the collection"
+      introduction="Find characters, lorebooks, presets, and themes made for stories still unfolding."
+      filters={filters}
+      initialPage={initialPage}
+    />
   );
 }

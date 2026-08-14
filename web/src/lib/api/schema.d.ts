@@ -477,6 +477,11 @@ export interface components {
       /** @enum {string} */
       kind: "character" | "lorebook" | "preset" | "theme";
       isNsfw: boolean;
+      /**
+       * @description Present only on the owner's own listing.
+       * @enum {string}
+       */
+      ownerState?: "unlisted" | "withheld";
       cover: components["schemas"]["BrowseCover"] | null;
     };
     BrowseCover: {
@@ -1093,6 +1098,8 @@ export interface operations {
       query?: {
         kind?: "character" | "lorebook" | "preset" | "theme";
         platform?: string;
+        /** @description Scope the listing to one creator's public profile. */
+        creator?: string;
         /** @description One search expression. Bare text matches names, creator handles and blurbs. Repeat tag: to require every tag; one author: qualifier may narrow the creator. Quote qualifier values that contain spaces. */
         q?: string;
         facet?: string[];

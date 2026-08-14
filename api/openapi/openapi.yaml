@@ -213,6 +213,11 @@ paths:
           schema: { type: string, enum: [character, lorebook, preset, theme] }
         - { name: platform, in: query, schema: { type: string } }
         -
+          name: creator
+          in: query
+          description: Scope the listing to one creator's public profile.
+          schema: { type: string }
+        -
           name: q
           in: query
           description: >-
@@ -613,6 +618,10 @@ components:
         creator: { type: string }
         kind: { type: string, enum: [character, lorebook, preset, theme] }
         isNsfw: { type: boolean }
+        ownerState:
+          type: string
+          enum: [unlisted, withheld]
+          description: Present only on the owner's own listing.
         cover:
           anyOf:
             - { $ref: "#/components/schemas/BrowseCover" }

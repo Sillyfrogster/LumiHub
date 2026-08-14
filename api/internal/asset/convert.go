@@ -29,6 +29,13 @@ func uuidToPgtype(u uuid.UUID) pgtype.UUID {
 	return pgtype.UUID{Bytes: u, Valid: true}
 }
 
+func uuidToNullable(u *uuid.UUID) pgtype.UUID {
+	if u == nil {
+		return pgtype.UUID{Valid: false}
+	}
+	return uuidToPgtype(*u)
+}
+
 func timeFromPgtype(p pgtype.Timestamptz) time.Time {
 	return p.Time
 }

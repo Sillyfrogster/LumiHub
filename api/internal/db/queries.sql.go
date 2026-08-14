@@ -164,7 +164,8 @@ func (q *Queries) BlobLocation(ctx context.Context, id pgtype.UUID) (BlobLocatio
 const browseAssets = `-- name: BrowseAssets :many
 select a.id, a.name, coalesce(owner.username, 'unknown') as creator,
        a.kind, a.is_nsfw, a.created_at,
-       cover.id as cover_id, cover.width as cover_width, cover.height as cover_height
+       cover.id as cover_id, cover.width as cover_width, cover.height as cover_height,
+       a.discovery, a.withheld_at
   from assets a
   join asset_revisions revision on revision.id = a.current_revision_id
   left join users owner on owner.id = a.owner_id
@@ -183,58 +184,70 @@ select a.id, a.name, coalesce(owner.username, 'unknown') as creator,
                 media.created_at desc, media.id desc
        limit 1
   ) cover on true
- where a.discovery = 'listed'
-   and a.withheld_at is null
-   and a.deleted_at is null
-   and ($1::text = '' or a.kind = $1::text)
-   and ($2::text <> 'hidden' or not a.is_nsfw)
-   and ($3::text = ''
-        or $3::text = 'raw'
-        or revision.format = any($4::text[])
+ where a.deleted_at is null
+   and (
+       ($1::uuid is null
+        and a.discovery = 'listed' and a.withheld_at is null)
+       or
+       (a.owner_id = $1::uuid
+        and ($2::boolean
+             or (a.discovery = 'listed' and a.withheld_at is null)))
+   )
+   and ($1::uuid is null or $2::boolean
+        or $3::boolean or not a.is_nsfw)
+   and ($4::text = '' or a.kind = $4::text)
+   and ($2::boolean
+        or $5::text <> 'hidden' or not a.is_nsfw)
+   and ($6::text = ''
+        or $6::text = 'raw'
+        or revision.format = any($7::text[])
         or (revision.format = 'unknown'
-            and revision.passthrough_platform = $3::text))
-   and (cardinality($5::text[]) = 0 or not exists (
+            and revision.passthrough_platform = $6::text))
+   and (cardinality($8::text[]) = 0 or not exists (
         select 1
-          from (select unnest($5::text[]) as key,
-                       unnest($6::text[]) as value) selected
+          from (select unnest($8::text[]) as key,
+                       unnest($9::text[]) as value) selected
          where not exists (
              select 1 from asset_facets stored
               where stored.revision_id = a.current_revision_id
                 and stored.key = selected.key and stored.value = selected.value
          )
    ))
-   and ($7::text = ''
-        or position($7::text in lower(a.name)) > 0
-        or position($7::text in lower(a.blurb)) > 0
-        or position($7::text in lower(coalesce(owner.username, ''))) > 0)
-   and ($8::text = '' or lower(coalesce(owner.username, '')) = $8::text)
-   and (cardinality($9::text[]) = 0 or not exists (
-        select 1 from unnest($9::text[]) wanted(tag)
+   and ($10::text = ''
+        or position($10::text in lower(a.name)) > 0
+        or position($10::text in lower(a.blurb)) > 0
+        or position($10::text in lower(coalesce(owner.username, ''))) > 0)
+   and ($11::text = '' or lower(coalesce(owner.username, '')) = $11::text)
+   and (cardinality($12::text[]) = 0 or not exists (
+        select 1 from unnest($12::text[]) wanted(tag)
          where not exists (
              select 1 from unnest(a.tags) stored(tag)
               where lower(btrim(stored.tag)) = wanted.tag
          )
    ))
-   and ($10::timestamptz is null
+   and ($13::timestamptz is null
         or (a.created_at, a.id)
-           < ($10::timestamptz, $11::uuid))
+           < ($13::timestamptz, $14::uuid))
  order by a.created_at desc, a.id desc
- limit $12
+ limit $15
 `
 
 type BrowseAssetsParams struct {
-	Kind           string
-	NsfwVisibility string
-	Platform       string
-	Formats        []string
-	FacetKeys      []string
-	FacetValues    []string
-	SearchText     string
-	Author         string
-	Tags           []string
-	Before         pgtype.Timestamptz
-	BeforeID       pgtype.UUID
-	PageSize       int32
+	CreatorID         pgtype.UUID
+	OwnProfile        bool
+	CreatorAllowsNsfw bool
+	Kind              string
+	NsfwVisibility    string
+	Platform          string
+	Formats           []string
+	FacetKeys         []string
+	FacetValues       []string
+	SearchText        string
+	Author            string
+	Tags              []string
+	Before            pgtype.Timestamptz
+	BeforeID          pgtype.UUID
+	PageSize          int32
 }
 
 type BrowseAssetsRow struct {
@@ -247,10 +260,15 @@ type BrowseAssetsRow struct {
 	CoverID     pgtype.UUID
 	CoverWidth  pgtype.Int4
 	CoverHeight pgtype.Int4
+	Discovery   string
+	WithheldAt  pgtype.Timestamptz
 }
 
 func (q *Queries) BrowseAssets(ctx context.Context, arg BrowseAssetsParams) ([]BrowseAssetsRow, error) {
 	rows, err := q.db.Query(ctx, browseAssets,
+		arg.CreatorID,
+		arg.OwnProfile,
+		arg.CreatorAllowsNsfw,
 		arg.Kind,
 		arg.NsfwVisibility,
 		arg.Platform,
@@ -281,6 +299,8 @@ func (q *Queries) BrowseAssets(ctx context.Context, arg BrowseAssetsParams) ([]B
 			&i.CoverID,
 			&i.CoverWidth,
 			&i.CoverHeight,
+			&i.Discovery,
+			&i.WithheldAt,
 		); err != nil {
 			return nil, err
 		}
@@ -313,33 +333,42 @@ select count(*)
   from assets a
   join asset_revisions revision on revision.id = a.current_revision_id
   left join users owner on owner.id = a.owner_id
- where a.discovery = 'listed'
-   and a.withheld_at is null
-   and a.deleted_at is null
-   and ($1::text = '' or a.kind = $1::text)
-   and ($2::text <> 'hidden' or not a.is_nsfw)
-   and ($3::text = ''
-        or $3::text = 'raw'
-        or revision.format = any($4::text[])
+ where a.deleted_at is null
+   and (
+       ($1::uuid is null
+        and a.discovery = 'listed' and a.withheld_at is null)
+       or
+       (a.owner_id = $1::uuid
+        and ($2::boolean
+             or (a.discovery = 'listed' and a.withheld_at is null)))
+   )
+   and ($1::uuid is null or $2::boolean
+        or $3::boolean or not a.is_nsfw)
+   and ($4::text = '' or a.kind = $4::text)
+   and ($2::boolean
+        or $5::text <> 'hidden' or not a.is_nsfw)
+   and ($6::text = ''
+        or $6::text = 'raw'
+        or revision.format = any($7::text[])
         or (revision.format = 'unknown'
-            and revision.passthrough_platform = $3::text))
-   and (cardinality($5::text[]) = 0 or not exists (
+            and revision.passthrough_platform = $6::text))
+   and (cardinality($8::text[]) = 0 or not exists (
         select 1
-          from (select unnest($5::text[]) as key,
-                       unnest($6::text[]) as value) selected
+          from (select unnest($8::text[]) as key,
+                       unnest($9::text[]) as value) selected
          where not exists (
              select 1 from asset_facets stored
               where stored.revision_id = a.current_revision_id
                 and stored.key = selected.key and stored.value = selected.value
          )
    ))
-   and ($7::text = ''
-        or position($7::text in lower(a.name)) > 0
-        or position($7::text in lower(a.blurb)) > 0
-        or position($7::text in lower(coalesce(owner.username, ''))) > 0)
-   and ($8::text = '' or lower(coalesce(owner.username, '')) = $8::text)
-   and (cardinality($9::text[]) = 0 or not exists (
-        select 1 from unnest($9::text[]) wanted(tag)
+   and ($10::text = ''
+        or position($10::text in lower(a.name)) > 0
+        or position($10::text in lower(a.blurb)) > 0
+        or position($10::text in lower(coalesce(owner.username, ''))) > 0)
+   and ($11::text = '' or lower(coalesce(owner.username, '')) = $11::text)
+   and (cardinality($12::text[]) = 0 or not exists (
+        select 1 from unnest($12::text[]) wanted(tag)
          where not exists (
              select 1 from unnest(a.tags) stored(tag)
               where lower(btrim(stored.tag)) = wanted.tag
@@ -348,19 +377,25 @@ select count(*)
 `
 
 type CountBrowseAssetsParams struct {
-	Kind           string
-	NsfwVisibility string
-	Platform       string
-	Formats        []string
-	FacetKeys      []string
-	FacetValues    []string
-	SearchText     string
-	Author         string
-	Tags           []string
+	CreatorID         pgtype.UUID
+	OwnProfile        bool
+	CreatorAllowsNsfw bool
+	Kind              string
+	NsfwVisibility    string
+	Platform          string
+	Formats           []string
+	FacetKeys         []string
+	FacetValues       []string
+	SearchText        string
+	Author            string
+	Tags              []string
 }
 
 func (q *Queries) CountBrowseAssets(ctx context.Context, arg CountBrowseAssetsParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countBrowseAssets,
+		arg.CreatorID,
+		arg.OwnProfile,
+		arg.CreatorAllowsNsfw,
 		arg.Kind,
 		arg.NsfwVisibility,
 		arg.Platform,
@@ -384,29 +419,32 @@ select count(*)
  where a.discovery = 'listed'
    and a.withheld_at is null
    and a.deleted_at is null
-   and ($1::text = '' or a.kind = $1::text)
-   and ($2::text = ''
-        or $2::text = 'raw'
-        or revision.format = any($3::text[])
+   and ($1::uuid is null or a.owner_id = $1::uuid)
+   and ($1::uuid is null
+        or $2::boolean or not a.is_nsfw)
+   and ($3::text = '' or a.kind = $3::text)
+   and ($4::text = ''
+        or $4::text = 'raw'
+        or revision.format = any($5::text[])
         or (revision.format = 'unknown'
-            and revision.passthrough_platform = $2::text))
-   and (cardinality($4::text[]) = 0 or not exists (
+            and revision.passthrough_platform = $4::text))
+   and (cardinality($6::text[]) = 0 or not exists (
         select 1
-          from (select unnest($4::text[]) as key,
-                       unnest($5::text[]) as value) selected
+          from (select unnest($6::text[]) as key,
+                       unnest($7::text[]) as value) selected
          where not exists (
              select 1 from asset_facets stored
               where stored.revision_id = a.current_revision_id
                 and stored.key = selected.key and stored.value = selected.value
          )
    ))
-   and ($6::text = ''
-        or position($6::text in lower(a.name)) > 0
-        or position($6::text in lower(a.blurb)) > 0
-        or position($6::text in lower(coalesce(owner.username, ''))) > 0)
-   and ($7::text = '' or lower(coalesce(owner.username, '')) = $7::text)
-   and (cardinality($8::text[]) = 0 or not exists (
-        select 1 from unnest($8::text[]) wanted(tag)
+   and ($8::text = ''
+        or position($8::text in lower(a.name)) > 0
+        or position($8::text in lower(a.blurb)) > 0
+        or position($8::text in lower(coalesce(owner.username, ''))) > 0)
+   and ($9::text = '' or lower(coalesce(owner.username, '')) = $9::text)
+   and (cardinality($10::text[]) = 0 or not exists (
+        select 1 from unnest($10::text[]) wanted(tag)
          where not exists (
              select 1 from unnest(a.tags) stored(tag)
               where lower(btrim(stored.tag)) = wanted.tag
@@ -416,18 +454,22 @@ select count(*)
 `
 
 type CountSuppressedBrowseAssetsParams struct {
-	Kind        string
-	Platform    string
-	Formats     []string
-	FacetKeys   []string
-	FacetValues []string
-	SearchText  string
-	Author      string
-	Tags        []string
+	CreatorID         pgtype.UUID
+	CreatorAllowsNsfw bool
+	Kind              string
+	Platform          string
+	Formats           []string
+	FacetKeys         []string
+	FacetValues       []string
+	SearchText        string
+	Author            string
+	Tags              []string
 }
 
 func (q *Queries) CountSuppressedBrowseAssets(ctx context.Context, arg CountSuppressedBrowseAssetsParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countSuppressedBrowseAssets,
+		arg.CreatorID,
+		arg.CreatorAllowsNsfw,
 		arg.Kind,
 		arg.Platform,
 		arg.Formats,
@@ -984,18 +1026,20 @@ func (q *Queries) NSFWVisibilityBySessionHash(ctx context.Context, tokenHash []b
 }
 
 const profileByHandle = `-- name: ProfileByHandle :one
-select id, username from users where username = $1
+select id, username, show_nsfw_contributions_on_profile
+  from users where username = $1
 `
 
 type ProfileByHandleRow struct {
-	ID       pgtype.UUID
-	Username string
+	ID                             pgtype.UUID
+	Username                       string
+	ShowNsfwContributionsOnProfile bool
 }
 
 func (q *Queries) ProfileByHandle(ctx context.Context, username string) (ProfileByHandleRow, error) {
 	row := q.db.QueryRow(ctx, profileByHandle, username)
 	var i ProfileByHandleRow
-	err := row.Scan(&i.ID, &i.Username)
+	err := row.Scan(&i.ID, &i.Username, &i.ShowNsfwContributionsOnProfile)
 	return i, err
 }
 

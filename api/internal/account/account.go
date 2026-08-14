@@ -58,6 +58,7 @@ type DiscordCompletion struct {
 }
 
 type Profile struct {
-	ID     uuid.UUID
-	Handle string
+	ID                             uuid.UUID
+	Handle                         string
+	ShowNSFWContributionsOnProfile bool
 }

@@ -467,7 +467,10 @@ func (s *Service) Profile(ctx context.Context, handle string) (Profile, error) {
 	if err != nil {
 		return Profile{}, fmt.Errorf("read profile: %w", err)
 	}
-	return Profile{ID: uuid.UUID(row.ID.Bytes), Handle: row.Username}, nil
+	return Profile{
+		ID: uuid.UUID(row.ID.Bytes), Handle: row.Username,
+		ShowNSFWContributionsOnProfile: row.ShowNsfwContributionsOnProfile,
+	}, nil
 }
 
 func (s *Service) ChangeUnverifiedEmail(ctx context.Context, token, rawEmail string) (Account, error) {

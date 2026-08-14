@@ -452,6 +452,31 @@ func toAPIAccount(value account.Account) Account {
 func (h *Handlers) ListAssets(c *gin.Context, params ListAssetsParams) {
 	f := asset.ListFilter{}
 
+	if params.Creator != nil {
+		profile, err := h.accounts.Profile(c.Request.Context(), strings.ToLower(*params.Creator))
+		if errors.Is(err, account.ErrProfileNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "No such profile."})
+			return
+		}
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not read the profile."})
+			return
+		}
+		token, _ := c.Cookie(sessionCookieName)
+		current, err := h.accounts.Current(c.Request.Context(), token)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not read the signed-in account."})
+			return
+		}
+		f.Profile = &asset.ProfileListingScope{
+			CreatorID:        profile.ID,
+			CreatorShowsNSFW: profile.ShowNSFWContributionsOnProfile,
+		}
+		if current != nil {
+			f.Profile.ViewerID = &current.ID
+		}
+	}
+
 	if params.Kind != nil {
 		f.Kind = string(*params.Kind)
 	}
@@ -500,9 +525,15 @@ func (h *Handlers) ListAssets(c *gin.Context, params ListAssetsParams) {
 				Url: item.Cover.URL, Width: item.Cover.Width, Height: item.Cover.Height,
 			}
 		}
+		var ownerState *BrowseAssetOwnerState
+		if item.OwnerState != "" {
+			value := BrowseAssetOwnerState(item.OwnerState)
+			ownerState = &value
+		}
 		items = append(items, BrowseAsset{
 			Id: types.UUID(item.ID), Name: item.Name, Creator: item.Creator,
 			Kind: BrowseAssetKind(item.Kind), IsNsfw: item.IsNSFW, Cover: cover,
+			OwnerState: ownerState,
 		})
 	}
 	var next *BrowseCursor
