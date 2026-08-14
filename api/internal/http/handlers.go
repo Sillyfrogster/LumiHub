@@ -760,8 +760,9 @@ func (h *Handlers) readerVisibility(
 	return asset.ContentVisibility(preference), true
 }
 
-// GetAsset answers an asset's own page. Withheld, deleted and never-existed all
-// leave through the same 404, so no response says which.
+// GetAsset answers an asset's own page. For anyone but the owner, withheld,
+// deleted and never-existed all leave through the same 404, so no response says
+// which.
 func (h *Handlers) GetAsset(c *gin.Context, id types.UUID, params GetAssetParams) {
 	viewerID, ok := h.viewerID(c)
 	if !ok {

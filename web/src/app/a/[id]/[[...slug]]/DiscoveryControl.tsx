@@ -60,7 +60,7 @@ export function DiscoveryControl({
         <h2 id="discovery-heading">Catalog discovery</h2>
         <p>
           {frozen
-            ? "Locked while this asset is withheld. Only staff can remove the withhold."
+            ? "Locked while this asset is withheld. Only an admin can remove the withhold."
             : listed
               ? "Listed in the catalog and on your public profile."
               : "Unlisted from discovery. Anyone with the link can still view and download it."}

@@ -19,6 +19,12 @@ export function BrowseCard({
   const [failed, setFailed] = useState(false);
   const fallback = DEFAULT_COVERS[asset.kind];
   const src = failed || !asset.cover ? fallback : asset.cover.url;
+  const withheldAt = asset.withhold
+    ? new Date(asset.withhold.at).toLocaleString("en-GB", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      })
+    : "";
 
   return (
     <li className={styles.item}>
@@ -51,17 +57,16 @@ export function BrowseCard({
         <div className={styles.identity}>
           <h3>{asset.name}</h3>
           <p>@{asset.creator}</p>
-          {asset.withhold ? (
-            <div className={styles.withhold}>
-              <strong>{asset.withhold.reason}</strong>
-              <span>
-                @{asset.withhold.actor} ·{" "}
-                {new Date(asset.withhold.at).toLocaleDateString("en-GB")}
-              </span>
-            </div>
-          ) : null}
         </div>
       </Link>
+      {asset.withhold ? (
+        <div className={styles.withhold}>
+          <strong>{asset.withhold.reason}</strong>
+          <span>
+            @{asset.withhold.actor} · {withheldAt}
+          </span>
+        </div>
+      ) : null}
     </li>
   );
 }

@@ -127,8 +127,8 @@
 .withhold {
   display: grid;
   gap: 3px;
-  margin-top: 10px;
-  padding-top: 10px;
+  margin: 8px 4px 0;
+  padding-top: 9px;
   border-top: 1px solid rgba(163, 135, 77, 0.24);
   color: #664f25;
   font-size: 0.7rem;
