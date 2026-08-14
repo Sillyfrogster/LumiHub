@@ -361,6 +361,118 @@ func TestRevisionIdentityCanBackACompositeForeignKey(t *testing.T) {
 	}
 }
 
+func TestDownloadEventCarriesOnlyAuthorizedHandoffFacts(t *testing.T) {
+	pool := Connect(t)
+	assetID, revisionID, _ := insertAssetRevision(t, pool)
+
+	columns, err := tableColumns(pool, "download_events")
+	if err != nil {
+		t.Fatalf("read download event columns: %v", err)
+	}
+	want := []string{
+		"id",
+		"asset_id",
+		"revision_id",
+		"export_target",
+		"handed_off_at",
+		"authorization_class",
+		"discovery",
+	}
+	if !slices.Equal(columns, want) {
+		t.Fatalf("download event columns = %v, want %v", columns, want)
+	}
+
+	_, err = pool.Exec(context.Background(), `
+		insert into download_events
+			(asset_id, revision_id, export_target, authorization_class, discovery)
+		values ($1, $2, 'raw', 'anonymous', 'listed')
+	`, assetID, revisionID)
+	if err != nil {
+		t.Fatalf("insert download event: %v", err)
+	}
+}
+
+func TestDownloadEventsAreImmutable(t *testing.T) {
+	pool := Connect(t)
+	assetID, revisionID, _ := insertAssetRevision(t, pool)
+	ctx := context.Background()
+
+	var eventID int64
+	err := pool.QueryRow(ctx, `
+		insert into download_events
+			(asset_id, revision_id, export_target, authorization_class, discovery)
+		values ($1, $2, 'raw', 'anonymous', 'listed')
+		returning id
+	`, assetID, revisionID).Scan(&eventID)
+	if err != nil {
+		t.Fatalf("insert download event: %v", err)
+	}
+
+	if _, err := pool.Exec(ctx, `
+		update download_events set authorization_class = 'owner' where id = $1
+	`, eventID); err == nil {
+		t.Fatal("download event was updated")
+	}
+	if _, err := pool.Exec(ctx, `delete from download_events where id = $1`, eventID); err == nil {
+		t.Fatal("download event was deleted")
+	}
+	if _, err := pool.Exec(ctx, `truncate download_events`); err == nil {
+		t.Fatal("download events were truncated")
+	}
+}
+
+func TestDownloadEventRevisionMustBelongToItsAsset(t *testing.T) {
+	pool := Connect(t)
+	firstAssetID, firstRevisionID, _ := insertAssetRevision(t, pool)
+	secondAssetID, _, _ := insertAssetRevision(t, pool)
+
+	_, err := pool.Exec(context.Background(), `
+		insert into download_events
+			(asset_id, revision_id, export_target, authorization_class, discovery)
+		values ($1, $2, 'raw', 'anonymous', 'listed')
+	`, secondAssetID, firstRevisionID)
+	if err == nil {
+		t.Fatalf("revision %s from asset %s was recorded for asset %s",
+			firstRevisionID, firstAssetID, secondAssetID)
+	}
+}
+
+func TestDownloadEventVocabularyIsClosed(t *testing.T) {
+	pool := Connect(t)
+	assetID, revisionID, _ := insertAssetRevision(t, pool)
+	ctx := context.Background()
+
+	for _, authorizationClass := range []string{
+		"anonymous", "signed_in", "owner", "linked_instance",
+	} {
+		_, err := pool.Exec(ctx, `
+			insert into download_events
+				(asset_id, revision_id, export_target, authorization_class, discovery)
+			values ($1, $2, 'raw', $3, 'listed')
+		`, assetID, revisionID, authorizationClass)
+		if err != nil {
+			t.Fatalf("insert %s download event: %v", authorizationClass, err)
+		}
+	}
+
+	for name, values := range map[string][3]string{
+		"blank target":          {" ", "anonymous", "listed"},
+		"unknown authorization": {"raw", "crawler", "listed"},
+		"unknown discovery":     {"raw", "anonymous", "private"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := pool.Exec(ctx, `
+				insert into download_events
+					(asset_id, revision_id, export_target, authorization_class, discovery)
+				values ($1, $2, $3, $4, $5)
+			`, assetID, revisionID, values[0], values[1], values[2])
+			if err == nil {
+				t.Fatal("invalid download event was accepted")
+			}
+		})
+	}
+}
+
 func TestFacetsBindOnlyToARevision(t *testing.T) {
 	pool := Connect(t)
 	assetID, revisionID, _ := insertAssetRevision(t, pool)

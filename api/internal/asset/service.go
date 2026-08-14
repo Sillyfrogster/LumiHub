@@ -355,7 +355,7 @@ func (s *Service) Browse(
 
 // OpenSource opens the stored upload exactly as it arrived.
 func (s *Service) OpenSource(ctx context.Context, assetID uuid.UUID) (io.ReadCloser, error) {
-	blobID, _, err := currentRevisionLocation(ctx, s.pool, assetID, nil)
+	location, err := currentRevisionLocation(ctx, s.pool, assetID, nil)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
@@ -363,7 +363,7 @@ func (s *Service) OpenSource(ctx context.Context, assetID uuid.UUID) (io.ReadClo
 		return nil, fmt.Errorf("find current revision: %w", err)
 	}
 
-	rc, err := s.store.Open(ctx, blobID)
+	rc, err := s.store.Open(ctx, location.BlobID)
 	if err != nil {
 		return nil, fmt.Errorf("open stored file: %w", err)
 	}
@@ -374,6 +374,7 @@ type SourceDownload struct {
 	InternalRedirect string
 	MediaType        string
 	Inline           bool
+	Event            DownloadEvent
 }
 
 type ExportDownload struct {
@@ -387,20 +388,24 @@ func (s *Service) DownloadSource(
 	assetID uuid.UUID,
 	viewerID *uuid.UUID,
 ) (SourceDownload, error) {
-	blobID, mediaType, err := currentRevisionLocation(ctx, s.pool, assetID, viewerID)
+	location, err := currentRevisionLocation(ctx, s.pool, assetID, viewerID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return SourceDownload{}, ErrNotFound
 		}
 		return SourceDownload{}, fmt.Errorf("find current revision: %w", err)
 	}
-	redirect, err := s.store.InternalRedirect(ctx, blobID)
+	redirect, err := s.store.InternalRedirect(ctx, location.BlobID)
 	if err != nil {
 		return SourceDownload{}, fmt.Errorf("resolve stored file: %w", err)
 	}
 	return SourceDownload{
-		InternalRedirect: redirect, MediaType: mediaType,
-		Inline: probe.IsInlineMediaType(mediaType),
+		InternalRedirect: redirect, MediaType: location.MediaType,
+		Inline: probe.IsInlineMediaType(location.MediaType),
+		Event: downloadEvent(
+			location.AssetID, location.RevisionID, format.RawTarget,
+			location.OwnerID, viewerID,
+		),
 	}, nil
 }
 
@@ -425,11 +430,8 @@ func (s *Service) DownloadExport(
 			return ExportDownload{}, fmt.Errorf("resolve source export: %w", err)
 		}
 		return ExportDownload{
-			SourceDownload: SourceDownload{
-				InternalRedirect: redirect, MediaType: exported.MediaType,
-				Inline: probe.IsInlineMediaType(exported.MediaType),
-			},
-			Target: exported.Target,
+			SourceDownload: exported.sourceDownload(redirect, assetID, viewerID),
+			Target:         exported.Target,
 		}, nil
 	}
 	putErr := s.store.PutDerivative(ctx, exported.derivativeID, exported.Artifact)
@@ -445,10 +447,35 @@ func (s *Service) DownloadExport(
 		return ExportDownload{}, fmt.Errorf("resolve generated export: %w", err)
 	}
 	return ExportDownload{
-		SourceDownload: SourceDownload{
-			InternalRedirect: redirect, MediaType: exported.MediaType,
-			Inline: probe.IsInlineMediaType(exported.MediaType),
-		},
-		Target: exported.Target,
+		SourceDownload: exported.sourceDownload(redirect, assetID, viewerID),
+		Target:         exported.Target,
 	}, nil
+}
+
+// DownloadExportForLinkedInstance prepares an export after instance authentication.
+func (s *Service) DownloadExportForLinkedInstance(
+	ctx context.Context,
+	assetID uuid.UUID,
+	target string,
+) (ExportDownload, error) {
+	download, err := s.DownloadExport(ctx, assetID, nil, target)
+	if err != nil {
+		return ExportDownload{}, err
+	}
+	download.Event.AuthorizationClass = AuthorizationLinkedInstance
+	return download, nil
+}
+
+func (exported ExportFile) sourceDownload(
+	redirect string,
+	assetID uuid.UUID,
+	viewerID *uuid.UUID,
+) SourceDownload {
+	return SourceDownload{
+		InternalRedirect: redirect, MediaType: exported.MediaType,
+		Inline: probe.IsInlineMediaType(exported.MediaType),
+		Event: downloadEvent(
+			assetID, exported.revisionID, exported.Target, exported.ownerID, viewerID,
+		),
+	}
 }

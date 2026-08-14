@@ -241,7 +241,7 @@ select media.id, media.role, media.width, media.height
           media.created_at desc, media.id desc;
 
 -- name: CurrentRevisionLocation :one
-select r.blob_id, r.media_type
+select a.id as asset_id, r.id as revision_id, r.blob_id, r.media_type, a.owner_id
   from assets a
   join asset_revisions r on r.id = a.current_revision_id
  where a.id = $1

@@ -76,6 +76,16 @@ type BlobTombstone struct {
 	ActorID    pgtype.UUID
 }
 
+type DownloadEvent struct {
+	ID                 int64
+	AssetID            pgtype.UUID
+	RevisionID         pgtype.UUID
+	ExportTarget       string
+	HandedOffAt        pgtype.Timestamptz
+	AuthorizationClass string
+	Discovery          string
+}
+
 type EmailVerificationToken struct {
 	TokenHash []byte
 	UserID    pgtype.UUID

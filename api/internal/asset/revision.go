@@ -87,16 +87,37 @@ func setCurrentRevision(ctx context.Context, tx pgx.Tx, assetID, revisionID uuid
 	return nil
 }
 
-// currentRevisionLocation returns the current revision's blob and media type.
-func currentRevisionLocation(ctx context.Context, q db.DBTX, assetID uuid.UUID, viewerID *uuid.UUID) (blobID uuid.UUID, mediaType string, err error) {
+type revisionLocation struct {
+	AssetID    uuid.UUID
+	RevisionID uuid.UUID
+	BlobID     uuid.UUID
+	MediaType  string
+	OwnerID    *uuid.UUID
+}
+
+func currentRevisionLocation(
+	ctx context.Context,
+	q db.DBTX,
+	assetID uuid.UUID,
+	viewerID *uuid.UUID,
+) (revisionLocation, error) {
 	queries := db.New(q)
 	row, err := queries.CurrentRevisionLocation(ctx, db.CurrentRevisionLocationParams{
 		ID: uuidToPgtype(assetID), ViewerID: uuidToNullable(viewerID),
 	})
 	if err != nil {
-		return uuid.Nil, "", err
+		return revisionLocation{}, err
 	}
-	return uuidFromPgtype(row.BlobID), row.MediaType, nil
+	var ownerID *uuid.UUID
+	if row.OwnerID.Valid {
+		owner := uuidFromPgtype(row.OwnerID)
+		ownerID = &owner
+	}
+	return revisionLocation{
+		AssetID: uuidFromPgtype(row.AssetID), RevisionID: uuidFromPgtype(row.RevisionID),
+		BlobID: uuidFromPgtype(row.BlobID), MediaType: row.MediaType,
+		OwnerID: ownerID,
+	}, nil
 }
 
 // setPreviewMedia points the asset at the picture a reader should see first.

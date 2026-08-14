@@ -37,14 +37,23 @@ func ConnectWith(t *testing.T, tune func(*postgres.Settings)) *pgxpool.Pool {
 	}
 	t.Cleanup(pool.Close)
 
-	_, err = pool.Exec(context.Background(),
-		`truncate ingest_operations, assets, asset_revisions, asset_facets, asset_media,
+	if _, err = pool.Exec(context.Background(),
+		`alter table download_events disable trigger user`); err != nil {
+		t.Fatalf("allow download event test reset: %v", err)
+	}
+	_, truncateErr := pool.Exec(context.Background(),
+		`truncate download_events, ingest_operations, assets, asset_revisions, asset_facets, asset_media,
 		          blob_tombstones, blob_sweep_marks, blobs,
 		          password_reset_tokens, oauth_states, oauth_identities, sessions,
 		          email_verification_tokens,
 		          retired_handles, users cascade`)
-	if err != nil {
-		t.Fatalf("truncate: %v", err)
+	_, enableErr := pool.Exec(context.Background(),
+		`alter table download_events enable trigger user`)
+	if truncateErr != nil {
+		t.Fatalf("reset test database: %v", truncateErr)
+	}
+	if enableErr != nil {
+		t.Fatalf("restore download event immutability: %v", enableErr)
 	}
 
 	return pool

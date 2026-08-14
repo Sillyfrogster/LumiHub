@@ -6,11 +6,6 @@ export interface Creation {
   author: string;
   kind: CreationKind;
   cover?: string;
-  downloads: number;
-  favorites?: number;
-  comments?: number;
-  rating?: number;
-  frontends?: number;
   adult?: boolean;
 }
 

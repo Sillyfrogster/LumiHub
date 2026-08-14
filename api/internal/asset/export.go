@@ -15,6 +15,7 @@ import (
 	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // ExportFile is one resolved primary export artifact.
@@ -26,6 +27,8 @@ type ExportFile struct {
 	UnembeddedMedia []format.ExportMedia
 	sourceBlobID    uuid.UUID
 	derivativeID    storage.DerivativeID
+	revisionID      uuid.UUID
+	ownerID         *uuid.UUID
 }
 
 type exportSource struct {
@@ -34,6 +37,7 @@ type exportSource struct {
 	formatID   string
 	mediaType  string
 	digest     [sha256.Size]byte
+	ownerID    *uuid.UUID
 }
 
 // OpenExport applies additions to the current source for a resolved target.
@@ -53,10 +57,7 @@ func (s *Service) OpenExport(
 		if err != nil {
 			return ExportFile{}, fmt.Errorf("open raw export: %w", err)
 		}
-		return ExportFile{
-			Artifact: artifact, MediaType: source.mediaType, Target: format.RawTarget,
-			sourceBlobID: source.blobID,
-		}, nil
+		return rawExportFile(source, artifact), nil
 	}
 	patch, err := s.filePatch(ctx, assetID, source.revisionID)
 	if err != nil {
@@ -71,10 +72,7 @@ func (s *Service) OpenExport(
 		if err != nil {
 			return ExportFile{}, fmt.Errorf("open raw export: %w", err)
 		}
-		return ExportFile{
-			Artifact: artifact, MediaType: source.mediaType, Target: format.RawTarget,
-			sourceBlobID: source.blobID,
-		}, nil
+		return rawExportFile(source, artifact), nil
 	}
 	stored, err := s.store.Open(ctx, source.blobID)
 	if err != nil {
@@ -95,14 +93,26 @@ func (s *Service) OpenExport(
 		Extension: written.Extension, Target: resolvedTarget,
 		UnembeddedMedia: written.UnembeddedMedia,
 		derivativeID:    exportDerivativeID(source.digest, resolvedTarget, patch, media),
+		revisionID:      source.revisionID,
+		ownerID:         source.ownerID,
 	}, nil
+}
+
+func rawExportFile(source exportSource, artifact io.ReadCloser) ExportFile {
+	return ExportFile{
+		Artifact: artifact, MediaType: source.mediaType, Target: format.RawTarget,
+		sourceBlobID: source.blobID, revisionID: source.revisionID,
+		ownerID: source.ownerID,
+	}
 }
 
 func (s *Service) exportSource(ctx context.Context, assetID uuid.UUID, viewerID *uuid.UUID) (exportSource, error) {
 	var source exportSource
 	var digest []byte
+	var ownerID pgtype.UUID
 	err := s.pool.QueryRow(ctx, `
-		select revision.id, revision.blob_id, revision.format, revision.media_type, blob.sha256
+		select revision.id, revision.blob_id, revision.format, revision.media_type, blob.sha256,
+		       asset.owner_id
 		  from assets asset
 		  join asset_revisions revision on revision.id = asset.current_revision_id
 		  join blobs blob on blob.id = revision.blob_id
@@ -110,6 +120,7 @@ func (s *Service) exportSource(ctx context.Context, assetID uuid.UUID, viewerID 
 		   and (asset.withheld_at is null or asset.owner_id = $2)
 	`, assetID, viewerID).Scan(
 		&source.revisionID, &source.blobID, &source.formatID, &source.mediaType, &digest,
+		&ownerID,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return exportSource{}, ErrNotFound
@@ -121,6 +132,10 @@ func (s *Service) exportSource(ctx context.Context, assetID uuid.UUID, viewerID 
 		return exportSource{}, fmt.Errorf("find export source: invalid blob digest length %d", len(digest))
 	}
 	copy(source.digest[:], digest)
+	if ownerID.Valid {
+		owner := uuidFromPgtype(ownerID)
+		source.ownerID = &owner
+	}
 	return source, nil
 }
 

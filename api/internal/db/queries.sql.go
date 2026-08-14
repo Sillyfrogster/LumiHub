@@ -562,7 +562,7 @@ func (q *Queries) CountSuppressedBrowseAssets(ctx context.Context, arg CountSupp
 }
 
 const currentRevisionLocation = `-- name: CurrentRevisionLocation :one
-select r.blob_id, r.media_type
+select a.id as asset_id, r.id as revision_id, r.blob_id, r.media_type, a.owner_id
   from assets a
   join asset_revisions r on r.id = a.current_revision_id
  where a.id = $1
@@ -577,14 +577,23 @@ type CurrentRevisionLocationParams struct {
 }
 
 type CurrentRevisionLocationRow struct {
-	BlobID    pgtype.UUID
-	MediaType string
+	AssetID    pgtype.UUID
+	RevisionID pgtype.UUID
+	BlobID     pgtype.UUID
+	MediaType  string
+	OwnerID    pgtype.UUID
 }
 
 func (q *Queries) CurrentRevisionLocation(ctx context.Context, arg CurrentRevisionLocationParams) (CurrentRevisionLocationRow, error) {
 	row := q.db.QueryRow(ctx, currentRevisionLocation, arg.ID, arg.ViewerID)
 	var i CurrentRevisionLocationRow
-	err := row.Scan(&i.BlobID, &i.MediaType)
+	err := row.Scan(
+		&i.AssetID,
+		&i.RevisionID,
+		&i.BlobID,
+		&i.MediaType,
+		&i.OwnerID,
+	)
 	return i, err
 }
 

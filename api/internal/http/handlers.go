@@ -1272,7 +1272,7 @@ func (h *Handlers) DownloadSource(c *gin.Context, id types.UUID) {
 		h.downloadError(c, err)
 		return
 	}
-	handOffDownload(c, download)
+	h.handOffDownload(c, download)
 }
 
 func (h *Handlers) DownloadExport(c *gin.Context, id types.UUID, target string) {
@@ -1286,7 +1286,7 @@ func (h *Handlers) DownloadExport(c *gin.Context, id types.UUID, target string) 
 		return
 	}
 	c.Header("X-LumiHub-Export-Target", download.Target)
-	handOffDownload(c, download.SourceDownload)
+	h.handOffDownload(c, download.SourceDownload)
 }
 
 func (h *Handlers) downloadError(c *gin.Context, err error) {
@@ -1297,7 +1297,11 @@ func (h *Handlers) downloadError(c *gin.Context, err error) {
 	c.JSON(http.StatusInternalServerError, gin.H{"error": "could not read the file"})
 }
 
-func handOffDownload(c *gin.Context, download asset.SourceDownload) {
+func (h *Handlers) handOffDownload(c *gin.Context, download asset.SourceDownload) {
+	if err := h.assets.RecordDownload(c.Request.Context(), download.Event); err != nil {
+		h.downloadError(c, err)
+		return
+	}
 	disposition := "attachment"
 	mediaType := "application/octet-stream"
 	if download.Inline {

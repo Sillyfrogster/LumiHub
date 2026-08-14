@@ -149,11 +149,24 @@ func newVerifiedIngestRouterWithSettings(
 	settings asset.IngestSettings,
 ) (*gin.Engine, *http.Cookie, *asset.Service, *pgxpool.Pool) {
 	t.Helper()
+	return newVerifiedIngestRouterWithStore(t, registry, settings, nil)
+}
+
+func newVerifiedIngestRouterWithStore(
+	t *testing.T,
+	registry *format.Registry,
+	settings asset.IngestSettings,
+	decorate func(storage.Store) storage.Store,
+) (*gin.Engine, *http.Cookie, *asset.Service, *pgxpool.Pool) {
+	t.Helper()
 	gin.SetMode(gin.TestMode)
 	pool := testdb.Connect(t)
 	blobs, err := storage.NewStore(pool, t.TempDir())
 	if err != nil {
 		t.Fatalf("storage: %v", err)
+	}
+	if decorate != nil {
+		blobs = decorate(blobs)
 	}
 	assets := asset.NewServiceWithIngestSettings(pool, registry, blobs, settings)
 	outbox := &verificationOutbox{}

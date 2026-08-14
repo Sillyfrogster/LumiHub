@@ -15,11 +15,15 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/textproto"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/Sillyfrogster/LumiHub/api/internal/asset"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format/character"
+	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
 	"github.com/google/uuid"
 )
 
@@ -83,14 +87,251 @@ func TestDownloadHandsTheCurrentSourceToNginx(t *testing.T) {
 	}
 }
 
+func TestAnonymousSourceDownloadRecordsTheAuthorizedHandoff(t *testing.T) {
+	router, session, assets, pool := newVerifiedIngestRouterWithPool(t, format.NewRegistry())
+	assetID := uploadDiscoveryTestAsset(t, router, session, assets, asset.DiscoveryListed)
+
+	before := time.Now()
+	download := send(t, router, httptest.NewRequest(http.MethodGet, "/download/"+assetID, nil))
+	after := time.Now()
+	if download.Code != http.StatusOK || download.Header().Get("X-Accel-Redirect") == "" {
+		t.Fatalf("download = %d, headers %v", download.Code, download.Header())
+	}
+
+	var revisionID, currentRevisionID uuid.UUID
+	var target, authorizationClass, discovery string
+	var handedOffAt time.Time
+	err := pool.QueryRow(context.Background(), `
+		select revision_id, export_target, handed_off_at, authorization_class, discovery
+		  from download_events
+		 where asset_id = $1
+	`, assetID).Scan(&revisionID, &target, &handedOffAt, &authorizationClass, &discovery)
+	if err != nil {
+		t.Fatalf("read download event: %v", err)
+	}
+	if err := pool.QueryRow(context.Background(), `
+		select current_revision_id from assets where id = $1
+	`, assetID).Scan(&currentRevisionID); err != nil {
+		t.Fatalf("read current revision: %v", err)
+	}
+	if revisionID != currentRevisionID || target != "raw" ||
+		authorizationClass != "anonymous" || discovery != "listed" {
+		t.Fatalf(
+			"download event = revision %s, target %q, class %q, discovery %q",
+			revisionID, target, authorizationClass, discovery,
+		)
+	}
+	if handedOffAt.Before(before) || handedOffAt.After(after) {
+		t.Fatalf("handoff time %s is outside request interval %s to %s", handedOffAt, before, after)
+	}
+	var eventCount int
+	if err := pool.QueryRow(context.Background(), `
+		select count(*) from download_events where asset_id = $1
+	`, assetID).Scan(&eventCount); err != nil {
+		t.Fatalf("count download events: %v", err)
+	}
+	if eventCount != 1 {
+		t.Fatalf("one handoff wrote %d download events", eventCount)
+	}
+}
+
+type blockingRedirectStore struct {
+	storage.Store
+	reached chan struct{}
+	release chan struct{}
+}
+
+func (s *blockingRedirectStore) InternalRedirect(ctx context.Context, id uuid.UUID) (string, error) {
+	s.reached <- struct{}{}
+	select {
+	case <-s.release:
+		return s.Store.InternalRedirect(ctx, id)
+	case <-ctx.Done():
+		return "", ctx.Err()
+	}
+}
+
+func TestDownloadSnapshotsDiscoveryAtHandoff(t *testing.T) {
+	var blocker *blockingRedirectStore
+	router, session, assets, pool := newVerifiedIngestRouterWithStore(
+		t,
+		format.NewRegistry(),
+		asset.DefaultIngestSettings(),
+		func(store storage.Store) storage.Store {
+			blocker = &blockingRedirectStore{
+				Store: store, reached: make(chan struct{}, 1), release: make(chan struct{}),
+			}
+			return blocker
+		},
+	)
+	assetID := uploadDiscoveryTestAsset(t, router, session, assets, asset.DiscoveryListed)
+
+	response := make(chan *httptest.ResponseRecorder, 1)
+	go func() {
+		response <- send(t, router, httptest.NewRequest(http.MethodGet, "/download/"+assetID, nil))
+	}()
+	select {
+	case <-blocker.reached:
+	case <-time.After(time.Second):
+		t.Fatal("download did not reach the handoff boundary")
+	}
+	changed := send(t, router, authorizedJSONRequest(
+		t, http.MethodPut, "/v1/assets/"+assetID+"/discovery",
+		`{"discovery":"unlisted"}`, session,
+	))
+	if changed.Code != http.StatusNoContent {
+		t.Fatalf("change discovery status = %d, want 204", changed.Code)
+	}
+	close(blocker.release)
+	if download := <-response; download.Code != http.StatusOK {
+		t.Fatalf("download status = %d, want 200", download.Code)
+	}
+
+	var discovery string
+	if err := pool.QueryRow(context.Background(), `
+		select discovery from download_events where asset_id = $1
+	`, assetID).Scan(&discovery); err != nil {
+		t.Fatalf("read download event: %v", err)
+	}
+	if discovery != "unlisted" {
+		t.Fatalf("discovery at handoff = %q, want unlisted", discovery)
+	}
+}
+
+func TestExportDownloadRecordsTheResolvedTarget(t *testing.T) {
+	router, session, assets, pool := newVerifiedIngestRouterWithPool(t, format.NewRegistry())
+	assetID := uploadDiscoveryTestAsset(t, router, session, assets, asset.DiscoveryListed)
+
+	download := send(t, router, httptest.NewRequest(
+		http.MethodGet, "/download/"+assetID+"/unsupported-target", nil,
+	))
+	if download.Code != http.StatusOK {
+		t.Fatalf("download status = %d, want 200", download.Code)
+	}
+	if got := download.Header().Get("X-LumiHub-Export-Target"); got != "raw" {
+		t.Fatalf("resolved target header = %q, want raw", got)
+	}
+
+	var target string
+	if err := pool.QueryRow(context.Background(), `
+		select export_target from download_events where asset_id = $1
+	`, assetID).Scan(&target); err != nil {
+		t.Fatalf("read download event: %v", err)
+	}
+	if target != "raw" {
+		t.Fatalf("recorded target = %q, want raw", target)
+	}
+}
+
+func TestDownloadRecordsOneExclusiveBrowserAuthorizationClass(t *testing.T) {
+	router, ownerSession, assets, pool := newVerifiedIngestRouterWithPool(t, format.NewRegistry())
+	assetID := uploadDiscoveryTestAsset(t, router, ownerSession, assets, asset.DiscoveryListed)
+	readerSession := signUp(t, router, "reader@example.com", "signed.reader")
+
+	requests := []*http.Request{
+		httptest.NewRequest(http.MethodGet, "/download/"+assetID, nil),
+		authorized(httptest.NewRequest(http.MethodGet, "/download/"+assetID, nil), ownerSession),
+		authorized(httptest.NewRequest(http.MethodGet, "/download/"+assetID, nil), readerSession),
+	}
+	for _, request := range requests {
+		if response := send(t, router, request); response.Code != http.StatusOK {
+			t.Fatalf("download status = %d, want 200", response.Code)
+		}
+	}
+
+	rows, err := pool.Query(context.Background(), `
+		select authorization_class from download_events order by id
+	`)
+	if err != nil {
+		t.Fatalf("read authorization classes: %v", err)
+	}
+	defer rows.Close()
+	var classes []string
+	for rows.Next() {
+		var class string
+		if err := rows.Scan(&class); err != nil {
+			t.Fatalf("scan authorization class: %v", err)
+		}
+		classes = append(classes, class)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("read authorization classes: %v", err)
+	}
+	if want := []string{"anonymous", "owner", "signed_in"}; !slices.Equal(classes, want) {
+		t.Fatalf("authorization classes = %v, want %v", classes, want)
+	}
+}
+
+func TestDownloadSnapshotsUnlistedAndOwnerWithheldAssets(t *testing.T) {
+	router, ownerSession, assets, pool := newVerifiedIngestRouterWithPool(t, format.NewRegistry())
+	unlistedID := uploadDiscoveryTestAsset(
+		t, router, ownerSession, assets, asset.DiscoveryUnlisted,
+	)
+	withheldID := uploadDiscoveryTestAsset(
+		t, router, ownerSession, assets, asset.DiscoveryListed,
+	)
+	if _, err := pool.Exec(context.Background(), `
+		update assets asset
+		   set withheld_at = now(), withheld_by = owner.id, withheld_reason = 'review'
+		  from users owner
+		 where asset.id = $1 and owner.username = 'verified.creator'
+	`, withheldID); err != nil {
+		t.Fatalf("withhold asset: %v", err)
+	}
+
+	unlisted := send(t, router, httptest.NewRequest(
+		http.MethodGet, "/download/"+unlistedID, nil,
+	))
+	withheldRequest := authorized(httptest.NewRequest(
+		http.MethodGet, "/download/"+withheldID, nil,
+	), ownerSession)
+	withheld := send(t, router, withheldRequest)
+	if unlisted.Code != http.StatusOK || withheld.Code != http.StatusOK {
+		t.Fatalf("download statuses = unlisted %d, withheld owner %d", unlisted.Code, withheld.Code)
+	}
+
+	for _, want := range []struct {
+		assetID       string
+		discovery     string
+		authorization string
+	}{
+		{assetID: unlistedID, discovery: "unlisted", authorization: "anonymous"},
+		{assetID: withheldID, discovery: "listed", authorization: "owner"},
+	} {
+		var discovery, authorization string
+		if err := pool.QueryRow(context.Background(), `
+			select discovery, authorization_class
+			  from download_events
+			 where asset_id = $1
+		`, want.assetID).Scan(&discovery, &authorization); err != nil {
+			t.Fatalf("read download event for %s: %v", want.assetID, err)
+		}
+		if discovery != want.discovery || authorization != want.authorization {
+			t.Fatalf(
+				"event for %s = discovery %q, class %q; want %q, %q",
+				want.assetID, discovery, authorization, want.discovery, want.authorization,
+			)
+		}
+	}
+}
+
 func TestDownloadUnknownAssetIs404(t *testing.T) {
-	r := newTestRouter(t)
+	r, pool := newTestRouterWithSenderAndPool(
+		t, 1<<20, DefaultDeadlines(), &verificationOutbox{},
+	)
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet,
 		"/download/11111111-1111-1111-1111-111111111111", nil))
 
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404", rec.Code)
+	}
+	var eventCount int
+	if err := pool.QueryRow(context.Background(), `select count(*) from download_events`).Scan(&eventCount); err != nil {
+		t.Fatalf("count download events: %v", err)
+	}
+	if eventCount != 0 {
+		t.Fatalf("rejected request wrote %d download events", eventCount)
 	}
 }
 

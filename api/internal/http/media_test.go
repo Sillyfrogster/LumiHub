@@ -2,6 +2,7 @@ package http
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"image"
 	"image/color"
@@ -16,7 +17,7 @@ import (
 )
 
 func TestCreatorAddsMediaAndAnyoneFetchesAnImmutableVariant(t *testing.T) {
-	r, session, assets := newVerifiedIngestRouter(t, format.NewRegistry())
+	r, session, assets, pool := newVerifiedIngestRouterWithPool(t, format.NewRegistry())
 	metadata := exampleMetadata("Theme with screenshots")
 	metadata["filename"] = "theme.lumitheme"
 	created := uploadAndFinish(t, r, session, assets, metadata, []byte("theme"))
@@ -95,6 +96,13 @@ func TestCreatorAddsMediaAndAnyoneFetchesAnImmutableVariant(t *testing.T) {
 	}
 	if preview.Header().Get("X-Accel-Redirect") == variant.Header().Get("X-Accel-Redirect") {
 		t.Fatal("composed og preview reused the grid derivative")
+	}
+	var eventCount int
+	if err := pool.QueryRow(context.Background(), `select count(*) from download_events`).Scan(&eventCount); err != nil {
+		t.Fatalf("count download events: %v", err)
+	}
+	if eventCount != 0 {
+		t.Fatalf("media handoffs wrote %d download events", eventCount)
 	}
 }
 
