@@ -47,8 +47,8 @@ func (s *Service) OpenExport(
 	if err != nil {
 		return ExportFile{}, err
 	}
-	exporter, resolvedTarget, supported := s.reg.ResolveExporter(source.formatID, target)
-	if !supported {
+	exporter, resolvedTarget, exportable := s.reg.ResolveExporter(source.formatID, target)
+	if !exportable {
 		artifact, err := s.store.Open(ctx, source.blobID)
 		if err != nil {
 			return ExportFile{}, fmt.Errorf("open raw export: %w", err)

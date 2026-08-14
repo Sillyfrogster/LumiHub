@@ -69,17 +69,7 @@ func exportPNG(source []byte, formatID, chunkName string, patch format.Patch) ([
 	var output bytes.Buffer
 	output.Write(source[:8])
 	inserted := false
-	for offset := 8; offset < len(source); {
-		if offset+12 > len(source) {
-			return nil, fmt.Errorf("PNG chunk at byte %d is truncated", offset)
-		}
-		length := int(binary.BigEndian.Uint32(source[offset : offset+4]))
-		end := offset + 12 + length
-		if length < 0 || end < offset || end > len(source) {
-			return nil, fmt.Errorf("PNG chunk at byte %d exceeds the file", offset)
-		}
-		kind := string(source[offset+4 : offset+8])
-		data := source[offset+8 : offset+8+length]
+	err := visitPNGChunks(source, func(kind string, data, raw []byte) error {
 		keyword, _, hasText := bytes.Cut(data, []byte{0})
 		isCard := kind == "tEXt" && hasText && (string(keyword) == "chara" || string(keyword) == "ccv3")
 		if isCard {
@@ -88,7 +78,7 @@ func exportPNG(source []byte, formatID, chunkName string, patch format.Patch) ([
 				if err == nil && cardMatchesFormat(card, formatID) {
 					written, err := patchCardJSON(card, patch)
 					if err != nil {
-						return nil, err
+						return err
 					}
 					encoded := base64.StdEncoding.EncodeToString(written)
 					output.Write(makePNGChunk("tEXt", slices.Concat([]byte(chunkName), []byte{0}, []byte(encoded))))
@@ -96,9 +86,12 @@ func exportPNG(source []byte, formatID, chunkName string, patch format.Patch) ([
 				}
 			}
 		} else {
-			output.Write(source[offset:end])
+			output.Write(raw)
 		}
-		offset = end
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	if !inserted {
 		return nil, fmt.Errorf("PNG has no %s card payload", formatID)
@@ -258,7 +251,7 @@ func exportCharXPNG(
 	entries map[string]*zip.File,
 	available []format.ExportMedia,
 ) (format.ExportedArtifact, error) {
-	picture, _, err := charXAvatarPNG(card, entries, available)
+	picture, err := charXAvatarPNG(card, entries, available)
 	if err != nil {
 		return format.ExportedArtifact{}, err
 	}
@@ -381,15 +374,15 @@ func charXAvatarPNG(
 	card []byte,
 	entries map[string]*zip.File,
 	available []format.ExportMedia,
-) ([]byte, int, error) {
-	for i, item := range available {
+) ([]byte, error) {
+	for _, item := range available {
 		if item.Role == media.Avatar && item.MediaType == "image/png" && bytes.HasPrefix(item.Data, []byte("\x89PNG\r\n\x1a\n")) {
-			return item.Data, i, nil
+			return item.Data, nil
 		}
 	}
 	root := make(map[string]json.RawMessage)
 	if err := json.Unmarshal(card, &root); err != nil {
-		return nil, -1, errInvalidJSON
+		return nil, errInvalidJSON
 	}
 	var data map[string]json.RawMessage
 	if err := json.Unmarshal(root["data"], &data); err == nil {
@@ -403,18 +396,18 @@ func charXAvatarPNG(
 			}
 			picture, err := readZipEntry(entry)
 			if err != nil {
-				return nil, -1, err
+				return nil, err
 			}
 			if bytes.HasPrefix(picture, []byte("\x89PNG\r\n\x1a\n")) {
-				return picture, -1, nil
+				return picture, nil
 			}
 		}
 	}
 	var fallback bytes.Buffer
 	if err := png.Encode(&fallback, image.NewNRGBA(image.Rect(0, 0, 1, 1))); err != nil {
-		return nil, -1, fmt.Errorf("create fallback PNG: %w", err)
+		return nil, fmt.Errorf("create fallback PNG: %w", err)
 	}
-	return fallback.Bytes(), -1, nil
+	return fallback.Bytes(), nil
 }
 
 func embedCardInPNG(source, card []byte, chunkName string) ([]byte, error) {
@@ -424,17 +417,7 @@ func embedCardInPNG(source, card []byte, chunkName string) ([]byte, error) {
 	var output bytes.Buffer
 	output.Write(source[:8])
 	inserted := false
-	for offset := 8; offset < len(source); {
-		if offset+12 > len(source) {
-			return nil, fmt.Errorf("PNG chunk at byte %d is truncated", offset)
-		}
-		length := int(binary.BigEndian.Uint32(source[offset : offset+4]))
-		end := offset + 12 + length
-		if length < 0 || end < offset || end > len(source) {
-			return nil, fmt.Errorf("PNG chunk at byte %d exceeds the file", offset)
-		}
-		kind := string(source[offset+4 : offset+8])
-		data := source[offset+8 : offset+8+length]
+	err := visitPNGChunks(source, func(kind string, data, raw []byte) error {
 		keyword, _, hasText := bytes.Cut(data, []byte{0})
 		isCard := kind == "tEXt" && hasText && (string(keyword) == "chara" || string(keyword) == "ccv3")
 		if kind == "IEND" && !inserted {
@@ -443,14 +426,42 @@ func embedCardInPNG(source, card []byte, chunkName string) ([]byte, error) {
 			inserted = true
 		}
 		if !isCard {
-			output.Write(source[offset:end])
+			output.Write(raw)
 		}
-		offset = end
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	if !inserted {
 		return nil, errors.New("PNG has no IEND chunk")
 	}
 	return output.Bytes(), nil
+}
+
+func visitPNGChunks(source []byte, visit func(kind string, data, raw []byte) error) error {
+	if !bytes.HasPrefix(source, []byte("\x89PNG\r\n\x1a\n")) {
+		return errors.New("file is not a PNG")
+	}
+	for offset := 8; offset < len(source); {
+		if offset+12 > len(source) {
+			return fmt.Errorf("PNG chunk at byte %d is truncated", offset)
+		}
+		length := int(binary.BigEndian.Uint32(source[offset : offset+4]))
+		end := offset + 12 + length
+		if length < 0 || end < offset || end > len(source) {
+			return fmt.Errorf("PNG chunk at byte %d exceeds the file", offset)
+		}
+		if err := visit(
+			string(source[offset+4:offset+8]),
+			source[offset+8:offset+8+length],
+			source[offset:end],
+		); err != nil {
+			return err
+		}
+		offset = end
+	}
+	return nil
 }
 
 type charXMediaEntry struct {
