@@ -41,36 +41,7 @@ func (s *Service) Sweep(ctx context.Context) (SweepResult, error) {
 		select blob.id, $1
 		  from blobs blob
 		 where not exists (select 1 from blob_sweep_marks mark where mark.blob_id = blob.id)
-		   and not exists (
-		       select 1
-		         from ingest_operations operation
-		        where operation.blob_id = blob.id
-		          and (operation.status in ('pending', 'processing')
-		               or (operation.status = 'needs_kind' and operation.expires_at > $1))
-		   )
-		   and not exists (
-		       select 1
-		         from asset_revisions revision
-		         join assets asset on asset.id = revision.asset_id
-		        where revision.blob_id = blob.id
-		          and (asset.deleted_at is null or asset.recoverable_until > $1)
-		   )
-		   and not exists (
-		       select 1
-		         from asset_media media
-		         join assets asset on asset.id = media.asset_id
-		        where media.blob_id = blob.id
-		          and (asset.deleted_at is null or asset.recoverable_until > $1)
-		   )
-		   and not exists (
-		       select 1
-		         from asset_media media
-		         join asset_revisions revision on revision.id = media.revision_id
-		         join assets asset on asset.id = revision.asset_id
-		        where media.blob_id = blob.id
-		          and (asset.deleted_at is null or asset.recoverable_until > $1)
-		   )
-	`, now)
+		   and not `+liveBlobReferenceExpression("blob.id", "$1"), now)
 	if err != nil {
 		return SweepResult{}, fmt.Errorf("mark unreferenced blobs: %w", err)
 	}
@@ -289,34 +260,36 @@ func lockBlobDigest(ctx context.Context, tx pgx.Tx, id uuid.UUID) error {
 
 func blobHasLiveReference(ctx context.Context, tx pgx.Tx, id uuid.UUID, now time.Time) (bool, error) {
 	var referenced bool
-	err := tx.QueryRow(ctx, `
-		select exists (
-		    select 1 from ingest_operations operation
-		     where operation.blob_id = $1
-		       and (operation.status in ('pending', 'processing')
-		            or (operation.status = 'needs_kind' and operation.expires_at > $2))
-		    union all
-		    select 1 from asset_revisions revision
-		      join assets asset on asset.id = revision.asset_id
-		     where revision.blob_id = $1
-		       and (asset.deleted_at is null or asset.recoverable_until > $2)
-		    union all
-		    select 1 from asset_media media
-		      join assets asset on asset.id = media.asset_id
-		     where media.blob_id = $1
-		       and (asset.deleted_at is null or asset.recoverable_until > $2)
-		    union all
-		    select 1 from asset_media media
-		      join asset_revisions revision on revision.id = media.revision_id
-		      join assets asset on asset.id = revision.asset_id
-		     where media.blob_id = $1
-		       and (asset.deleted_at is null or asset.recoverable_until > $2)
-		)
-	`, id, now).Scan(&referenced)
+	err := tx.QueryRow(ctx, "select "+liveBlobReferenceExpression("$1", "$2"), id, now).Scan(&referenced)
 	if err != nil {
 		return false, fmt.Errorf("recheck blob references: %w", err)
 	}
 	return referenced, nil
+}
+
+func liveBlobReferenceExpression(blobID, at string) string {
+	return `exists (
+		select 1 from ingest_operations operation
+		 where operation.blob_id = ` + blobID + `
+		   and (operation.status in ('pending', 'processing')
+		        or (operation.status = 'needs_kind' and operation.expires_at > ` + at + `))
+		union all
+		select 1 from asset_revisions revision
+		  join assets asset on asset.id = revision.asset_id
+		 where revision.blob_id = ` + blobID + `
+		   and (asset.deleted_at is null or asset.recoverable_until > ` + at + `)
+		union all
+		select 1 from asset_media media
+		  join assets asset on asset.id = media.asset_id
+		 where media.blob_id = ` + blobID + `
+		   and (asset.deleted_at is null or asset.recoverable_until > ` + at + `)
+		union all
+		select 1 from asset_media media
+		  join asset_revisions revision on revision.id = media.revision_id
+		  join assets asset on asset.id = revision.asset_id
+		 where media.blob_id = ` + blobID + `
+		   and (asset.deleted_at is null or asset.recoverable_until > ` + at + `)
+	)`
 }
 
 func releaseExpiredReferences(ctx context.Context, tx pgx.Tx, id uuid.UUID, now time.Time) error {
