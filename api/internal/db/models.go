@@ -134,4 +134,5 @@ type User struct {
 	EmailSource     pgtype.Text
 	CreatedAt       pgtype.Timestamptz
 	UpdatedAt       pgtype.Timestamptz
+	NsfwVisibility  string
 }

@@ -16,6 +16,14 @@ type Account struct {
 	HasPassword   bool
 }
 
+type NSFWVisibility string
+
+const (
+	NSFWHidden  NSFWVisibility = "hidden"
+	NSFWBlurred NSFWVisibility = "blurred"
+	NSFWShown   NSFWVisibility = "shown"
+)
+
 type SignUpInput struct {
 	Email    string
 	Password string

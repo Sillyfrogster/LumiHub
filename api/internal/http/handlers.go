@@ -320,6 +320,27 @@ func (h *Handlers) SetPassword(c *gin.Context) {
 	c.JSON(http.StatusOK, toAPIAccount(updated))
 }
 
+func (h *Handlers) SetNsfwVisibility(c *gin.Context) {
+	var request NsfwVisibilityRequest
+	if err := decodeOneJSON(c.Request.Body, &request); err != nil || !request.Visibility.Valid() {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Choose hidden, blurred or shown."})
+		return
+	}
+	token, _ := c.Cookie(sessionCookieName)
+	err := h.accounts.SetNSFWVisibility(
+		c.Request.Context(), token, account.NSFWVisibility(request.Visibility),
+	)
+	if errors.Is(err, account.ErrUnauthorized) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Sign in before saving a content preference."})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not save the content preference."})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
 func (h *Handlers) DetachDiscord(c *gin.Context) {
 	token, _ := c.Cookie(sessionCookieName)
 	updated, err := h.accounts.DetachDiscord(c.Request.Context(), token)
@@ -432,13 +453,13 @@ func (h *Handlers) ListAssets(c *gin.Context, params ListAssetsParams) {
 	f := asset.ListFilter{}
 
 	if params.Kind != nil {
-		f.Kind = *params.Kind
+		f.Kind = string(*params.Kind)
 	}
 	if params.Platform != nil {
 		f.Platform, f.PlatformSet = params.Platform, true
 	}
-	if params.Tag != nil {
-		f.Tags = *params.Tag
+	if params.Q != nil {
+		f.Query = *params.Q
 	}
 	if params.Facet != nil {
 		f.Facets = parseFacets(*params.Facet)
@@ -456,17 +477,67 @@ func (h *Handlers) ListAssets(c *gin.Context, params ListAssetsParams) {
 	}
 	f.Before = before
 
-	found, err := h.assets.List(c.Request.Context(), f)
+	visibility := asset.ContentBlurred
+	if params.Nsfw != nil {
+		visibility = asset.ContentVisibility(*params.Nsfw)
+	} else {
+		token, _ := c.Cookie(sessionCookieName)
+		preference, err := h.accounts.NSFWVisibility(c.Request.Context(), token)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "could not read the content preference"})
+			return
+		}
+		visibility = asset.ContentVisibility(preference)
+	}
+	found, err := h.assets.Browse(c.Request.Context(), f, visibility)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not list assets"})
 		return
 	}
 
-	items := make([]Asset, 0, len(found))
-	for _, a := range found {
-		items = append(items, toAPI(a))
+	items := make([]BrowseAsset, 0, len(found.Items))
+	for _, item := range found.Items {
+		var cover *BrowseCover
+		if item.Cover != nil {
+			cover = &BrowseCover{
+				Url: item.Cover.URL, Width: item.Cover.Width, Height: item.Cover.Height,
+			}
+		}
+		items = append(items, BrowseAsset{
+			Id: types.UUID(item.ID), Name: item.Name, Creator: item.Creator,
+			Kind: BrowseAssetKind(item.Kind), IsNsfw: item.IsNSFW, Cover: cover,
+		})
 	}
-	c.JSON(http.StatusOK, AssetList{Items: items})
+	var next *BrowseCursor
+	if found.Next != nil {
+		next = &BrowseCursor{Before: found.Next.MadeAt, BeforeId: types.UUID(found.Next.ID)}
+	}
+	var empty *AssetListEmptyState
+	if found.EmptyState != "" {
+		value := AssetListEmptyState(found.EmptyState)
+		empty = &value
+	}
+	platforms := make([]BrowseOption, 0, len(found.Platforms))
+	for _, option := range found.Platforms {
+		platforms = append(platforms, BrowseOption{
+			Value: option.Value, Label: option.Label, Count: option.Count, Selected: option.Selected,
+		})
+	}
+	facets := make([]BrowseFacet, 0, len(found.Facets))
+	for _, group := range found.Facets {
+		options := make([]BrowseOption, 0, len(group.Options))
+		for _, option := range group.Options {
+			options = append(options, BrowseOption{
+				Value: option.Value, Label: option.Label, Count: option.Count, Selected: option.Selected,
+			})
+		}
+		facets = append(facets, BrowseFacet{Key: group.Key, Label: group.Label, Options: options})
+	}
+	c.JSON(http.StatusOK, AssetList{
+		Items: items, Total: found.Total, Suppressed: found.Suppressed,
+		Visibility: AssetListVisibility(visibility),
+		NextCursor: next, Platforms: platforms, Facets: facets, EmptyState: empty,
+	})
 }
 
 func (h *Handlers) CreateAsset(c *gin.Context) {

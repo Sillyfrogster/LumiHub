@@ -70,6 +70,19 @@ paths:
         "400": { description: The password is empty }
         "401": { description: No account is signed in }
         "409": { description: The account already has a password }
+  /v1/account/nsfw-visibility:
+    put:
+      operationId: setNsfwVisibility
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NsfwVisibilityRequest" }
+      responses:
+        "204": { description: The reader's content preference is saved }
+        "400": { description: The visibility value is invalid }
+        "401": { description: No account is signed in }
   /v1/auth/sign-up:
     post:
       operationId: signUp
@@ -194,11 +207,21 @@ paths:
     get:
       operationId: listAssets
       parameters:
-        - { name: kind, in: query, schema: { type: string } }
+        -
+          name: kind
+          in: query
+          schema: { type: string, enum: [character, lorebook, preset, theme] }
         - { name: platform, in: query, schema: { type: string } }
-        - { name: tag, in: query, schema: { type: array, items: { type: string } } }
+        - { name: q, in: query, schema: { type: string } }
         - { name: facet, in: query, schema: { type: array, items: { type: string } } }
-        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
+        -
+          name: nsfw
+          in: query
+          description: >-
+            The reader's presentation preference. Browse page URLs keep this
+            preference out of their own query string.
+          schema: { type: string, enum: [hidden, blurred, shown] }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 24 } }
         - name: before
           in: query
           description: >-
@@ -437,6 +460,12 @@ components:
       required: [password]
       properties:
         password: { type: string, minLength: 1 }
+    NsfwVisibilityRequest:
+      type: object
+      additionalProperties: false
+      required: [visibility]
+      properties:
+        visibility: { type: string, enum: [hidden, blurred, shown] }
     PasswordResetRequest:
       type: object
       required: [email]
@@ -469,11 +498,70 @@ components:
         createdAt: { type: string, format: date-time }
     AssetList:
       type: object
-      required: [items]
+      required: [items, total, suppressed, visibility, platforms, facets, emptyState]
       properties:
         items:
           type: array
-          items: { $ref: "#/components/schemas/Asset" }
+          items: { $ref: "#/components/schemas/BrowseAsset" }
+        total: { type: integer, minimum: 0 }
+        suppressed: { type: integer, minimum: 0 }
+        visibility: { type: string, enum: [hidden, blurred, shown] }
+        nextCursor:
+          anyOf:
+            - { $ref: "#/components/schemas/BrowseCursor" }
+            - { type: "null" }
+        platforms:
+          type: array
+          items: { $ref: "#/components/schemas/BrowseOption" }
+        facets:
+          type: array
+          items: { $ref: "#/components/schemas/BrowseFacet" }
+        emptyState:
+          type: [string, "null"]
+          enum: [catalog, no_matches, suppressed, null]
+    BrowseAsset:
+      type: object
+      required: [id, name, creator, kind, isNsfw, cover]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        creator: { type: string }
+        kind: { type: string, enum: [character, lorebook, preset, theme] }
+        isNsfw: { type: boolean }
+        cover:
+          anyOf:
+            - { $ref: "#/components/schemas/BrowseCover" }
+            - { type: "null" }
+    BrowseCover:
+      type: object
+      required: [url, width, height]
+      properties:
+        url: { type: string }
+        width: { type: integer, minimum: 1 }
+        height: { type: integer, minimum: 1 }
+    BrowseCursor:
+      type: object
+      required: [before, beforeId]
+      properties:
+        before: { type: string, format: date-time }
+        beforeId: { type: string, format: uuid }
+    BrowseOption:
+      type: object
+      required: [value, label, count, selected]
+      properties:
+        value: { type: string }
+        label: { type: string }
+        count: { type: integer, minimum: 0 }
+        selected: { type: boolean }
+    BrowseFacet:
+      type: object
+      required: [key, label, options]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        options:
+          type: array
+          items: { $ref: "#/components/schemas/BrowseOption" }
     CreateAssetRequest:
       type: object
       required: [confirmed]

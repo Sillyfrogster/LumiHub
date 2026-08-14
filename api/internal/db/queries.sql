@@ -47,6 +47,142 @@ select a.id, a.kind, revision.passthrough_platform, revision.format,
  order by a.created_at desc, a.id desc
  limit $7;
 
+-- name: BrowseAssets :many
+select a.id, a.name, coalesce(owner.username, 'unknown') as creator,
+       a.kind, a.is_nsfw, a.created_at,
+       cover.id as cover_id, cover.width as cover_width, cover.height as cover_height
+  from assets a
+  join asset_revisions revision on revision.id = a.current_revision_id
+  left join users owner on owner.id = a.owner_id
+  left join lateral (
+      select media.id, media.width, media.height
+        from asset_media media
+       where (media.asset_id = a.id or media.revision_id = a.current_revision_id)
+         and media.width is not null and media.height is not null
+       order by case media.role
+                  when 'avatar' then 1
+                  when 'avatar_alt' then 2
+                  when 'gallery' then 3
+                  when 'expression' then 4
+                  else 5
+                end,
+                media.created_at desc, media.id desc
+       limit 1
+  ) cover on true
+ where a.discovery = 'listed'
+   and a.withheld_at is null
+   and a.deleted_at is null
+   and (sqlc.arg('kind')::text = '' or a.kind = sqlc.arg('kind')::text)
+   and (sqlc.arg('nsfw_visibility')::text <> 'hidden' or not a.is_nsfw)
+   and (sqlc.arg('platform')::text = ''
+        or sqlc.arg('platform')::text = 'raw'
+        or revision.format = any(sqlc.arg('formats')::text[])
+        or (revision.format = 'unknown'
+            and revision.passthrough_platform = sqlc.arg('platform')::text))
+   and (cardinality(sqlc.arg('facet_keys')::text[]) = 0 or not exists (
+        select 1
+          from (select unnest(sqlc.arg('facet_keys')::text[]) as key,
+                       unnest(sqlc.arg('facet_values')::text[]) as value) selected
+         where not exists (
+             select 1 from asset_facets stored
+              where stored.revision_id = a.current_revision_id
+                and stored.key = selected.key and stored.value = selected.value
+         )
+   ))
+   and (sqlc.arg('search_text')::text = ''
+        or position(sqlc.arg('search_text')::text in lower(a.name)) > 0
+        or position(sqlc.arg('search_text')::text in lower(a.blurb)) > 0
+        or position(sqlc.arg('search_text')::text in lower(coalesce(owner.username, ''))) > 0)
+   and (sqlc.arg('author')::text = '' or lower(coalesce(owner.username, '')) = sqlc.arg('author')::text)
+   and (cardinality(sqlc.arg('tags')::text[]) = 0 or not exists (
+        select 1 from unnest(sqlc.arg('tags')::text[]) wanted(tag)
+         where not exists (
+             select 1 from unnest(a.tags) stored(tag)
+              where lower(btrim(stored.tag)) = wanted.tag
+         )
+   ))
+   and (sqlc.narg('before')::timestamptz is null
+        or (a.created_at, a.id)
+           < (sqlc.narg('before')::timestamptz, sqlc.narg('before_id')::uuid))
+ order by a.created_at desc, a.id desc
+ limit sqlc.arg('page_size');
+
+-- name: CountBrowseAssets :one
+select count(*)
+  from assets a
+  join asset_revisions revision on revision.id = a.current_revision_id
+  left join users owner on owner.id = a.owner_id
+ where a.discovery = 'listed'
+   and a.withheld_at is null
+   and a.deleted_at is null
+   and (sqlc.arg('kind')::text = '' or a.kind = sqlc.arg('kind')::text)
+   and (sqlc.arg('nsfw_visibility')::text <> 'hidden' or not a.is_nsfw)
+   and (sqlc.arg('platform')::text = ''
+        or sqlc.arg('platform')::text = 'raw'
+        or revision.format = any(sqlc.arg('formats')::text[])
+        or (revision.format = 'unknown'
+            and revision.passthrough_platform = sqlc.arg('platform')::text))
+   and (cardinality(sqlc.arg('facet_keys')::text[]) = 0 or not exists (
+        select 1
+          from (select unnest(sqlc.arg('facet_keys')::text[]) as key,
+                       unnest(sqlc.arg('facet_values')::text[]) as value) selected
+         where not exists (
+             select 1 from asset_facets stored
+              where stored.revision_id = a.current_revision_id
+                and stored.key = selected.key and stored.value = selected.value
+         )
+   ))
+   and (sqlc.arg('search_text')::text = ''
+        or position(sqlc.arg('search_text')::text in lower(a.name)) > 0
+        or position(sqlc.arg('search_text')::text in lower(a.blurb)) > 0
+        or position(sqlc.arg('search_text')::text in lower(coalesce(owner.username, ''))) > 0)
+   and (sqlc.arg('author')::text = '' or lower(coalesce(owner.username, '')) = sqlc.arg('author')::text)
+   and (cardinality(sqlc.arg('tags')::text[]) = 0 or not exists (
+        select 1 from unnest(sqlc.arg('tags')::text[]) wanted(tag)
+         where not exists (
+             select 1 from unnest(a.tags) stored(tag)
+              where lower(btrim(stored.tag)) = wanted.tag
+         )
+   ));
+
+-- name: CountSuppressedBrowseAssets :one
+select count(*)
+  from assets a
+  join asset_revisions revision on revision.id = a.current_revision_id
+  left join users owner on owner.id = a.owner_id
+ where a.discovery = 'listed'
+   and a.withheld_at is null
+   and a.deleted_at is null
+   and (sqlc.arg('kind')::text = '' or a.kind = sqlc.arg('kind')::text)
+   and (sqlc.arg('platform')::text = ''
+        or sqlc.arg('platform')::text = 'raw'
+        or revision.format = any(sqlc.arg('formats')::text[])
+        or (revision.format = 'unknown'
+            and revision.passthrough_platform = sqlc.arg('platform')::text))
+   and (cardinality(sqlc.arg('facet_keys')::text[]) = 0 or not exists (
+        select 1
+          from (select unnest(sqlc.arg('facet_keys')::text[]) as key,
+                       unnest(sqlc.arg('facet_values')::text[]) as value) selected
+         where not exists (
+             select 1 from asset_facets stored
+              where stored.revision_id = a.current_revision_id
+                and stored.key = selected.key and stored.value = selected.value
+         )
+   ))
+   and (sqlc.arg('search_text')::text = ''
+        or position(sqlc.arg('search_text')::text in lower(a.name)) > 0
+        or position(sqlc.arg('search_text')::text in lower(a.blurb)) > 0
+        or position(sqlc.arg('search_text')::text in lower(coalesce(owner.username, ''))) > 0)
+   and (sqlc.arg('author')::text = '' or lower(coalesce(owner.username, '')) = sqlc.arg('author')::text)
+   and (cardinality(sqlc.arg('tags')::text[]) = 0 or not exists (
+        select 1 from unnest(sqlc.arg('tags')::text[]) wanted(tag)
+         where not exists (
+             select 1 from unnest(a.tags) stored(tag)
+              where lower(btrim(stored.tag)) = wanted.tag
+         )
+   ))
+   and a.is_nsfw;
+
 -- name: CurrentRevisionLocation :one
 select r.blob_id, r.media_type
   from assets a

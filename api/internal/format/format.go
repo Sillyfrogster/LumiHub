@@ -59,6 +59,28 @@ type Facet struct {
 	Value string
 }
 
+type BrowseOption struct {
+	Value string
+	Label string
+}
+
+type BrowseFacet struct {
+	Key       string
+	Label     string
+	Platforms []string
+	Options   []BrowseOption
+}
+
+type BrowseDefinition struct {
+	Kind          string
+	ExportTargets []BrowseOption
+	Facets        []BrowseFacet
+}
+
+type BrowseDeclarer interface {
+	BrowseDefinition() BrowseDefinition
+}
+
 // Media is one image extracted from a source file.
 type Media struct {
 	Role  media.Role

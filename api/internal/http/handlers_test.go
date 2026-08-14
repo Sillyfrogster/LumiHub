@@ -236,12 +236,19 @@ func post(
 }
 
 type listedAsset struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	CreatedAt time.Time `json:"createdAt"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
-func get(t *testing.T, r *gin.Engine, url string) []listedAsset {
+type listedPage struct {
+	Items      []listedAsset `json:"items"`
+	NextCursor *struct {
+		Before   time.Time `json:"before"`
+		BeforeID string    `json:"beforeId"`
+	} `json:"nextCursor"`
+}
+
+func getPage(t *testing.T, r *gin.Engine, url string) listedPage {
 	t.Helper()
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, url, nil))
@@ -249,13 +256,16 @@ func get(t *testing.T, r *gin.Engine, url string) []listedAsset {
 		t.Fatalf("GET %s status = %d, want 200. body: %s", url, rec.Code, rec.Body.String())
 	}
 
-	var list struct {
-		Items []listedAsset `json:"items"`
-	}
+	var list listedPage
 	if err := json.Unmarshal(rec.Body.Bytes(), &list); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	return list.Items
+	return list
+}
+
+func get(t *testing.T, r *gin.Engine, url string) []listedAsset {
+	t.Helper()
+	return getPage(t, r, url).Items
 }
 
 func TestCreateThenListRoundTrip(t *testing.T) {
@@ -282,9 +292,6 @@ func TestCreateThenListRoundTrip(t *testing.T) {
 	if len(items) != 1 || items[0].Name != "Mystery" {
 		t.Fatalf("list returned %+v, want one asset named Mystery", items)
 	}
-	if !items[0].CreatedAt.Equal(created.Asset.CreatedAt) {
-		t.Errorf("listed made date %v, created said %v", items[0].CreatedAt, created.Asset.CreatedAt)
-	}
 }
 
 func TestListPagesFromWhereTheLastPageEnded(t *testing.T) {
@@ -295,14 +302,16 @@ func TestListPagesFromWhereTheLastPageEnded(t *testing.T) {
 		}
 	}
 
-	page := get(t, r, "/v1/assets?limit=2")
-	if len(page) != 2 || page[0].Name != "third" || page[1].Name != "second" {
+	page := getPage(t, r, "/v1/assets?limit=2")
+	if len(page.Items) != 2 || page.Items[0].Name != "third" || page.Items[1].Name != "second" {
 		t.Fatalf("first page = %+v, want third then second", page)
 	}
+	if page.NextCursor == nil {
+		t.Fatal("first page has no next cursor")
+	}
 
-	last := page[len(page)-1]
 	next := get(t, r, "/v1/assets?limit=2&before="+
-		url.QueryEscape(last.CreatedAt.Format(time.RFC3339Nano))+"&beforeId="+last.ID)
+		url.QueryEscape(page.NextCursor.Before.Format(time.RFC3339Nano))+"&beforeId="+page.NextCursor.BeforeID)
 	if len(next) != 1 || next[0].Name != "first" {
 		t.Fatalf("second page = %+v, want only first", next)
 	}

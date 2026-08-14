@@ -69,6 +69,137 @@ func (q *Queries) BlobLocation(ctx context.Context, id pgtype.UUID) (BlobLocatio
 	return i, err
 }
 
+const browseAssets = `-- name: BrowseAssets :many
+select a.id, a.name, coalesce(owner.username, 'unknown') as creator,
+       a.kind, a.is_nsfw, a.created_at,
+       cover.id as cover_id, cover.width as cover_width, cover.height as cover_height
+  from assets a
+  join asset_revisions revision on revision.id = a.current_revision_id
+  left join users owner on owner.id = a.owner_id
+  left join lateral (
+      select media.id, media.width, media.height
+        from asset_media media
+       where (media.asset_id = a.id or media.revision_id = a.current_revision_id)
+         and media.width is not null and media.height is not null
+       order by case media.role
+                  when 'avatar' then 1
+                  when 'avatar_alt' then 2
+                  when 'gallery' then 3
+                  when 'expression' then 4
+                  else 5
+                end,
+                media.created_at desc, media.id desc
+       limit 1
+  ) cover on true
+ where a.discovery = 'listed'
+   and a.withheld_at is null
+   and a.deleted_at is null
+   and ($1::text = '' or a.kind = $1::text)
+   and ($2::text <> 'hidden' or not a.is_nsfw)
+   and ($3::text = ''
+        or $3::text = 'raw'
+        or revision.format = any($4::text[])
+        or (revision.format = 'unknown'
+            and revision.passthrough_platform = $3::text))
+   and (cardinality($5::text[]) = 0 or not exists (
+        select 1
+          from (select unnest($5::text[]) as key,
+                       unnest($6::text[]) as value) selected
+         where not exists (
+             select 1 from asset_facets stored
+              where stored.revision_id = a.current_revision_id
+                and stored.key = selected.key and stored.value = selected.value
+         )
+   ))
+   and ($7::text = ''
+        or position($7::text in lower(a.name)) > 0
+        or position($7::text in lower(a.blurb)) > 0
+        or position($7::text in lower(coalesce(owner.username, ''))) > 0)
+   and ($8::text = '' or lower(coalesce(owner.username, '')) = $8::text)
+   and (cardinality($9::text[]) = 0 or not exists (
+        select 1 from unnest($9::text[]) wanted(tag)
+         where not exists (
+             select 1 from unnest(a.tags) stored(tag)
+              where lower(btrim(stored.tag)) = wanted.tag
+         )
+   ))
+   and ($10::timestamptz is null
+        or (a.created_at, a.id)
+           < ($10::timestamptz, $11::uuid))
+ order by a.created_at desc, a.id desc
+ limit $12
+`
+
+type BrowseAssetsParams struct {
+	Kind           string
+	NsfwVisibility string
+	Platform       string
+	Formats        []string
+	FacetKeys      []string
+	FacetValues    []string
+	SearchText     string
+	Author         string
+	Tags           []string
+	Before         pgtype.Timestamptz
+	BeforeID       pgtype.UUID
+	PageSize       int32
+}
+
+type BrowseAssetsRow struct {
+	ID          pgtype.UUID
+	Name        string
+	Creator     string
+	Kind        string
+	IsNsfw      bool
+	CreatedAt   pgtype.Timestamptz
+	CoverID     pgtype.UUID
+	CoverWidth  pgtype.Int4
+	CoverHeight pgtype.Int4
+}
+
+func (q *Queries) BrowseAssets(ctx context.Context, arg BrowseAssetsParams) ([]BrowseAssetsRow, error) {
+	rows, err := q.db.Query(ctx, browseAssets,
+		arg.Kind,
+		arg.NsfwVisibility,
+		arg.Platform,
+		arg.Formats,
+		arg.FacetKeys,
+		arg.FacetValues,
+		arg.SearchText,
+		arg.Author,
+		arg.Tags,
+		arg.Before,
+		arg.BeforeID,
+		arg.PageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []BrowseAssetsRow
+	for rows.Next() {
+		var i BrowseAssetsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Creator,
+			&i.Kind,
+			&i.IsNsfw,
+			&i.CreatedAt,
+			&i.CoverID,
+			&i.CoverWidth,
+			&i.CoverHeight,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const clearPendingEmailCopies = `-- name: ClearPendingEmailCopies :exec
 update users
    set email = null, email_source = null, updated_at = now()
@@ -83,6 +214,140 @@ type ClearPendingEmailCopiesParams struct {
 func (q *Queries) ClearPendingEmailCopies(ctx context.Context, arg ClearPendingEmailCopiesParams) error {
 	_, err := q.db.Exec(ctx, clearPendingEmailCopies, arg.Email, arg.ID)
 	return err
+}
+
+const countBrowseAssets = `-- name: CountBrowseAssets :one
+select count(*)
+  from assets a
+  join asset_revisions revision on revision.id = a.current_revision_id
+  left join users owner on owner.id = a.owner_id
+ where a.discovery = 'listed'
+   and a.withheld_at is null
+   and a.deleted_at is null
+   and ($1::text = '' or a.kind = $1::text)
+   and ($2::text <> 'hidden' or not a.is_nsfw)
+   and ($3::text = ''
+        or $3::text = 'raw'
+        or revision.format = any($4::text[])
+        or (revision.format = 'unknown'
+            and revision.passthrough_platform = $3::text))
+   and (cardinality($5::text[]) = 0 or not exists (
+        select 1
+          from (select unnest($5::text[]) as key,
+                       unnest($6::text[]) as value) selected
+         where not exists (
+             select 1 from asset_facets stored
+              where stored.revision_id = a.current_revision_id
+                and stored.key = selected.key and stored.value = selected.value
+         )
+   ))
+   and ($7::text = ''
+        or position($7::text in lower(a.name)) > 0
+        or position($7::text in lower(a.blurb)) > 0
+        or position($7::text in lower(coalesce(owner.username, ''))) > 0)
+   and ($8::text = '' or lower(coalesce(owner.username, '')) = $8::text)
+   and (cardinality($9::text[]) = 0 or not exists (
+        select 1 from unnest($9::text[]) wanted(tag)
+         where not exists (
+             select 1 from unnest(a.tags) stored(tag)
+              where lower(btrim(stored.tag)) = wanted.tag
+         )
+   ))
+`
+
+type CountBrowseAssetsParams struct {
+	Kind           string
+	NsfwVisibility string
+	Platform       string
+	Formats        []string
+	FacetKeys      []string
+	FacetValues    []string
+	SearchText     string
+	Author         string
+	Tags           []string
+}
+
+func (q *Queries) CountBrowseAssets(ctx context.Context, arg CountBrowseAssetsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countBrowseAssets,
+		arg.Kind,
+		arg.NsfwVisibility,
+		arg.Platform,
+		arg.Formats,
+		arg.FacetKeys,
+		arg.FacetValues,
+		arg.SearchText,
+		arg.Author,
+		arg.Tags,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countSuppressedBrowseAssets = `-- name: CountSuppressedBrowseAssets :one
+select count(*)
+  from assets a
+  join asset_revisions revision on revision.id = a.current_revision_id
+  left join users owner on owner.id = a.owner_id
+ where a.discovery = 'listed'
+   and a.withheld_at is null
+   and a.deleted_at is null
+   and ($1::text = '' or a.kind = $1::text)
+   and ($2::text = ''
+        or $2::text = 'raw'
+        or revision.format = any($3::text[])
+        or (revision.format = 'unknown'
+            and revision.passthrough_platform = $2::text))
+   and (cardinality($4::text[]) = 0 or not exists (
+        select 1
+          from (select unnest($4::text[]) as key,
+                       unnest($5::text[]) as value) selected
+         where not exists (
+             select 1 from asset_facets stored
+              where stored.revision_id = a.current_revision_id
+                and stored.key = selected.key and stored.value = selected.value
+         )
+   ))
+   and ($6::text = ''
+        or position($6::text in lower(a.name)) > 0
+        or position($6::text in lower(a.blurb)) > 0
+        or position($6::text in lower(coalesce(owner.username, ''))) > 0)
+   and ($7::text = '' or lower(coalesce(owner.username, '')) = $7::text)
+   and (cardinality($8::text[]) = 0 or not exists (
+        select 1 from unnest($8::text[]) wanted(tag)
+         where not exists (
+             select 1 from unnest(a.tags) stored(tag)
+              where lower(btrim(stored.tag)) = wanted.tag
+         )
+   ))
+   and a.is_nsfw
+`
+
+type CountSuppressedBrowseAssetsParams struct {
+	Kind        string
+	Platform    string
+	Formats     []string
+	FacetKeys   []string
+	FacetValues []string
+	SearchText  string
+	Author      string
+	Tags        []string
+}
+
+func (q *Queries) CountSuppressedBrowseAssets(ctx context.Context, arg CountSuppressedBrowseAssetsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countSuppressedBrowseAssets,
+		arg.Kind,
+		arg.Platform,
+		arg.Formats,
+		arg.FacetKeys,
+		arg.FacetValues,
+		arg.SearchText,
+		arg.Author,
+		arg.Tags,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
 }
 
 const currentRevisionLocation = `-- name: CurrentRevisionLocation :one

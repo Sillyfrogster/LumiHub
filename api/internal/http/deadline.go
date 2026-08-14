@@ -38,6 +38,7 @@ func Register(r *gin.Engine, h *Handlers, d Deadlines) error {
 		routeKey(http.MethodPatch, "/v1/account/email"):               d.JSON,
 		routeKey(http.MethodPatch, "/v1/account/handle"):              d.JSON,
 		routeKey(http.MethodPut, "/v1/account/password"):              d.JSON,
+		routeKey(http.MethodPut, "/v1/account/nsfw-visibility"):       d.JSON,
 		routeKey(http.MethodDelete, "/v1/account/discord"):            d.JSON,
 		routeKey(http.MethodGet, "/v1/auth/session"):                  d.JSON,
 		routeKey(http.MethodGet, "/v1/auth/discord"):                  d.JSON,

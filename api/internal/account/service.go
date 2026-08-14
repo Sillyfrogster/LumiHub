@@ -221,6 +221,55 @@ func (s *Service) Current(ctx context.Context, token string) (*Account, error) {
 	return &account, nil
 }
 
+func (s *Service) NSFWVisibility(ctx context.Context, token string) (NSFWVisibility, error) {
+	hash, ok := credentialHash(token)
+	if !ok {
+		return NSFWBlurred, nil
+	}
+	var visibility NSFWVisibility
+	err := s.pool.QueryRow(ctx, `
+		select u.nsfw_visibility
+		  from sessions session
+		  join users u on u.id = session.user_id
+		 where session.token_hash = $1 and session.expires_at > now()
+	`, hash).Scan(&visibility)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return NSFWBlurred, nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("read content preference: %w", err)
+	}
+	return visibility, nil
+}
+
+func (s *Service) SetNSFWVisibility(
+	ctx context.Context,
+	token string,
+	visibility NSFWVisibility,
+) error {
+	if visibility != NSFWHidden && visibility != NSFWBlurred && visibility != NSFWShown {
+		return FieldError{Field: "visibility", Message: "Choose hidden, blurred or shown."}
+	}
+	hash, ok := credentialHash(token)
+	if !ok {
+		return ErrUnauthorized
+	}
+	command, err := s.pool.Exec(ctx, `
+		update users u
+		   set nsfw_visibility = $1, updated_at = now()
+		  from sessions session
+		 where session.user_id = u.id and session.token_hash = $2
+		   and session.expires_at > now()
+	`, visibility, hash)
+	if err != nil {
+		return fmt.Errorf("save content preference: %w", err)
+	}
+	if command.RowsAffected() == 0 {
+		return ErrUnauthorized
+	}
+	return nil
+}
+
 func (s *Service) VerifyEmail(ctx context.Context, token string) (Account, error) {
 	hash, ok := credentialHash(token)
 	if !ok {

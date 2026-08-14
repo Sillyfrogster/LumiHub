@@ -3,10 +3,13 @@ package asset
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/db"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
+	mediaproc "github.com/Sillyfrogster/LumiHub/api/internal/media"
 	"github.com/google/uuid"
 )
 
@@ -18,6 +21,7 @@ type ListFilter struct {
 	PlatformSet bool
 	Tags        []string
 	Facets      []format.Facet
+	Query       string
 	Limit       int
 	Before      *Cursor
 }
@@ -25,6 +29,52 @@ type ListFilter struct {
 type Cursor struct {
 	MadeAt time.Time
 	ID     uuid.UUID // two assets can share a made date
+}
+
+type ContentVisibility string
+
+const (
+	ContentHidden  ContentVisibility = "hidden"
+	ContentBlurred ContentVisibility = "blurred"
+	ContentShown   ContentVisibility = "shown"
+)
+
+type BrowseCover struct {
+	URL    string
+	Width  int
+	Height int
+}
+
+type BrowseItem struct {
+	ID      uuid.UUID
+	Name    string
+	Creator string
+	Kind    string
+	IsNSFW  bool
+	Cover   *BrowseCover
+}
+
+type BrowsePage struct {
+	Items      []BrowseItem
+	Total      int
+	Suppressed int
+	Next       *Cursor
+	EmptyState string
+	Platforms  []BrowseOption
+	Facets     []BrowseFacet
+}
+
+type BrowseOption struct {
+	Value    string
+	Label    string
+	Count    int
+	Selected bool
+}
+
+type BrowseFacet struct {
+	Key     string
+	Label   string
+	Options []BrowseOption
 }
 
 // listAssets takes anything that runs a query, so a read does not have to open
@@ -69,6 +119,282 @@ func listAssets(ctx context.Context, q db.DBTX, f ListFilter) ([]Asset, error) {
 		}
 	}
 	return out, nil
+}
+
+func browseAssets(
+	ctx context.Context,
+	q db.DBTX,
+	registry *format.Registry,
+	f ListFilter,
+	visibility ContentVisibility,
+) (BrowsePage, error) {
+	queries := db.New(q)
+	search := parseBrowseQuery(f.Query)
+	definitions := registry.BrowseDefinitions()
+	facetDefinitions := browseFacetDefinitions(definitions, f.Kind, f.Platform)
+	f.Facets = declaredFacetSelections(f.Facets, facetDefinitions)
+	platforms := browsePlatforms(definitions)
+	platform := ""
+	if f.Platform != nil {
+		platform = normalizeBrowseText(*f.Platform)
+	}
+	formats := formatsForPlatform(definitions, platform)
+	facetKeys, facetValues := facetPairs(f.Facets)
+	params := db.BrowseAssetsParams{
+		Kind: f.Kind, NsfwVisibility: string(visibility),
+		SearchText: search.Text, Author: search.Author, Tags: search.Tags,
+		Platform: platform, Formats: formats,
+		FacetKeys: facetKeys, FacetValues: facetValues,
+		PageSize: int32(f.Limit + 1),
+	}
+	if f.Before != nil {
+		params.Before = timeToNullable(&f.Before.MadeAt)
+		params.BeforeID = uuidToPgtype(f.Before.ID)
+	}
+	rows, err := queries.BrowseAssets(ctx, params)
+	if err != nil {
+		return BrowsePage{}, fmt.Errorf("browse assets: %w", err)
+	}
+
+	page := BrowsePage{Items: make([]BrowseItem, 0, min(len(rows), f.Limit))}
+	for _, row := range rows[:min(len(rows), f.Limit)] {
+		item := BrowseItem{
+			ID: uuidFromPgtype(row.ID), Name: row.Name, Creator: row.Creator,
+			Kind: row.Kind, IsNSFW: row.IsNsfw,
+		}
+		if row.CoverID.Valid && row.CoverWidth.Valid && row.CoverHeight.Valid {
+			variant := "grid"
+			if visibility == ContentBlurred && row.IsNsfw {
+				variant = "grid_blurred"
+			}
+			item.Cover = &BrowseCover{
+				URL: fmt.Sprintf(
+					"/media/%s/%s/%d",
+					uuidFromPgtype(row.CoverID), variant, mediaproc.DerivativeVersion,
+				),
+				Width: int(row.CoverWidth.Int32), Height: int(row.CoverHeight.Int32),
+			}
+		}
+		page.Items = append(page.Items, item)
+	}
+	if len(rows) > f.Limit && len(page.Items) > 0 {
+		last := rows[f.Limit-1]
+		page.Next = &Cursor{MadeAt: timeFromPgtype(last.CreatedAt), ID: uuidFromPgtype(last.ID)}
+	}
+
+	countParams := db.CountBrowseAssetsParams{
+		Kind: f.Kind, NsfwVisibility: string(visibility),
+		SearchText: search.Text, Author: search.Author, Tags: search.Tags,
+		Platform: platform, Formats: formats,
+		FacetKeys: facetKeys, FacetValues: facetValues,
+	}
+	count, err := queries.CountBrowseAssets(ctx, countParams)
+	if err != nil {
+		return BrowsePage{}, fmt.Errorf("count browse assets: %w", err)
+	}
+	page.Total = int(count)
+	if visibility == ContentHidden {
+		suppressed, err := queries.CountSuppressedBrowseAssets(
+			ctx, db.CountSuppressedBrowseAssetsParams{
+				Kind: f.Kind, SearchText: search.Text, Author: search.Author, Tags: search.Tags,
+				Platform: platform, Formats: formats,
+				FacetKeys: facetKeys, FacetValues: facetValues,
+			},
+		)
+		if err != nil {
+			return BrowsePage{}, fmt.Errorf("count suppressed browse assets: %w", err)
+		}
+		page.Suppressed = int(suppressed)
+	}
+	page.Platforms, err = countedPlatforms(ctx, queries, countParams, definitions, platforms, platform)
+	if err != nil {
+		return BrowsePage{}, err
+	}
+	page.Facets, err = countedFacets(ctx, queries, countParams, f.Facets, facetDefinitions)
+	if err != nil {
+		return BrowsePage{}, err
+	}
+	if page.Total == 0 {
+		if page.Suppressed > 0 {
+			page.EmptyState = "suppressed"
+		} else if f.Kind == "" && search.Text == "" && search.Author == "" &&
+			len(search.Tags) == 0 && f.Platform == nil && len(f.Facets) == 0 {
+			page.EmptyState = "catalog"
+		} else {
+			page.EmptyState = "no_matches"
+		}
+	}
+	return page, nil
+}
+
+func browsePlatforms(definitions []format.RegisteredBrowseDefinition) []format.BrowseOption {
+	byValue := map[string]format.BrowseOption{
+		"raw":       {Value: "raw", Label: "Original file"},
+		"lumiverse": {Value: "lumiverse", Label: "Lumiverse"},
+	}
+	for _, registered := range definitions {
+		for _, target := range registered.Definition.ExportTargets {
+			value := normalizeBrowseText(target.Value)
+			if value != "" {
+				byValue[value] = format.BrowseOption{Value: value, Label: target.Label}
+			}
+		}
+	}
+	options := make([]format.BrowseOption, 0, len(byValue))
+	for _, option := range byValue {
+		options = append(options, option)
+	}
+	slices.SortFunc(options, func(a, b format.BrowseOption) int {
+		if a.Value == "raw" {
+			return -1
+		}
+		if b.Value == "raw" {
+			return 1
+		}
+		return strings.Compare(a.Label, b.Label)
+	})
+	return options
+}
+
+func formatsForPlatform(
+	definitions []format.RegisteredBrowseDefinition,
+	platform string,
+) []string {
+	if platform == "" || platform == "raw" {
+		return nil
+	}
+	var formats []string
+	for _, registered := range definitions {
+		for _, target := range registered.Definition.ExportTargets {
+			if normalizeBrowseText(target.Value) == platform {
+				formats = append(formats, registered.Format)
+				break
+			}
+		}
+	}
+	return formats
+}
+
+func browseFacetDefinitions(
+	definitions []format.RegisteredBrowseDefinition,
+	kind string,
+	platform *string,
+) []format.BrowseFacet {
+	if kind == "" {
+		return nil
+	}
+	selectedPlatform := ""
+	if platform != nil {
+		selectedPlatform = normalizeBrowseText(*platform)
+	}
+	byKey := make(map[string]format.BrowseFacet)
+	order := make([]string, 0)
+	for _, registered := range definitions {
+		if registered.Definition.Kind != kind {
+			continue
+		}
+		for _, facet := range registered.Definition.Facets {
+			if len(facet.Platforms) > 0 && !slices.ContainsFunc(facet.Platforms, func(value string) bool {
+				return normalizeBrowseText(value) == selectedPlatform
+			}) {
+				continue
+			}
+			current, exists := byKey[facet.Key]
+			if !exists {
+				current = format.BrowseFacet{Key: facet.Key, Label: facet.Label}
+				order = append(order, facet.Key)
+			}
+			for _, option := range facet.Options {
+				if !slices.ContainsFunc(current.Options, func(existing format.BrowseOption) bool {
+					return existing.Value == option.Value
+				}) {
+					current.Options = append(current.Options, option)
+				}
+			}
+			byKey[facet.Key] = current
+		}
+	}
+	result := make([]format.BrowseFacet, 0, len(order))
+	for _, key := range order {
+		result = append(result, byKey[key])
+	}
+	return result
+}
+
+func declaredFacetSelections(
+	requested []format.Facet,
+	definitions []format.BrowseFacet,
+) []format.Facet {
+	var selected []format.Facet
+	for _, request := range requested {
+		for _, definition := range definitions {
+			if request.Key != definition.Key {
+				continue
+			}
+			if slices.ContainsFunc(definition.Options, func(option format.BrowseOption) bool {
+				return request.Value == option.Value
+			}) {
+				selected = append(selected, request)
+			}
+		}
+	}
+	return selected
+}
+
+func countedPlatforms(
+	ctx context.Context,
+	queries *db.Queries,
+	base db.CountBrowseAssetsParams,
+	definitions []format.RegisteredBrowseDefinition,
+	options []format.BrowseOption,
+	selected string,
+) ([]BrowseOption, error) {
+	result := make([]BrowseOption, 0, len(options))
+	for _, option := range options {
+		params := base
+		params.Platform = option.Value
+		params.Formats = formatsForPlatform(definitions, option.Value)
+		count, err := queries.CountBrowseAssets(ctx, params)
+		if err != nil {
+			return nil, fmt.Errorf("count platform %s: %w", option.Value, err)
+		}
+		result = append(result, BrowseOption{
+			Value: option.Value, Label: option.Label, Count: int(count), Selected: option.Value == selected,
+		})
+	}
+	return result, nil
+}
+
+func countedFacets(
+	ctx context.Context,
+	queries *db.Queries,
+	base db.CountBrowseAssetsParams,
+	selected []format.Facet,
+	definitions []format.BrowseFacet,
+) ([]BrowseFacet, error) {
+	result := make([]BrowseFacet, 0, len(definitions))
+	for _, definition := range definitions {
+		group := BrowseFacet{Key: definition.Key, Label: definition.Label}
+		withoutKey := slices.DeleteFunc(slices.Clone(selected), func(facet format.Facet) bool {
+			return facet.Key == definition.Key
+		})
+		for _, option := range definition.Options {
+			candidate := append(slices.Clone(withoutKey), format.Facet{Key: definition.Key, Value: option.Value})
+			keys, values := facetPairs(candidate)
+			params := base
+			params.FacetKeys, params.FacetValues = keys, values
+			count, err := queries.CountBrowseAssets(ctx, params)
+			if err != nil {
+				return nil, fmt.Errorf("count facet %s=%s: %w", definition.Key, option.Value, err)
+			}
+			group.Options = append(group.Options, BrowseOption{
+				Value: option.Value, Label: option.Label, Count: int(count),
+				Selected: slices.Contains(selected, format.Facet{Key: definition.Key, Value: option.Value}),
+			})
+		}
+		result = append(result, group)
+	}
+	return result, nil
 }
 
 func assetByID(ctx context.Context, q db.DBTX, id uuid.UUID) (Asset, error) {

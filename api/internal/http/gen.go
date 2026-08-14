@@ -58,6 +58,75 @@ func (e AssetDiscovery) Valid() bool {
 	}
 }
 
+// Defines values for AssetListEmptyState.
+const (
+	AssetListEmptyStateCatalog     AssetListEmptyState = "catalog"
+	AssetListEmptyStateLessThannil AssetListEmptyState = "<nil>"
+	AssetListEmptyStateNoMatches   AssetListEmptyState = "no_matches"
+	AssetListEmptyStateSuppressed  AssetListEmptyState = "suppressed"
+)
+
+// Valid indicates whether the value is a known member of the AssetListEmptyState enum.
+func (e AssetListEmptyState) Valid() bool {
+	switch e {
+	case AssetListEmptyStateCatalog:
+		return true
+	case AssetListEmptyStateLessThannil:
+		return true
+	case AssetListEmptyStateNoMatches:
+		return true
+	case AssetListEmptyStateSuppressed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AssetListVisibility.
+const (
+	AssetListVisibilityBlurred AssetListVisibility = "blurred"
+	AssetListVisibilityHidden  AssetListVisibility = "hidden"
+	AssetListVisibilityShown   AssetListVisibility = "shown"
+)
+
+// Valid indicates whether the value is a known member of the AssetListVisibility enum.
+func (e AssetListVisibility) Valid() bool {
+	switch e {
+	case AssetListVisibilityBlurred:
+		return true
+	case AssetListVisibilityHidden:
+		return true
+	case AssetListVisibilityShown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BrowseAssetKind.
+const (
+	BrowseAssetKindCharacter BrowseAssetKind = "character"
+	BrowseAssetKindLorebook  BrowseAssetKind = "lorebook"
+	BrowseAssetKindPreset    BrowseAssetKind = "preset"
+	BrowseAssetKindTheme     BrowseAssetKind = "theme"
+)
+
+// Valid indicates whether the value is a known member of the BrowseAssetKind enum.
+func (e BrowseAssetKind) Valid() bool {
+	switch e {
+	case BrowseAssetKindCharacter:
+		return true
+	case BrowseAssetKindLorebook:
+		return true
+	case BrowseAssetKindPreset:
+		return true
+	case BrowseAssetKindTheme:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CompleteIngestRequestKind.
 const (
 	CompleteIngestRequestKindCharacter CompleteIngestRequestKind = "character"
@@ -208,6 +277,27 @@ func (e NeedsKindKind) Valid() bool {
 	}
 }
 
+// Defines values for NsfwVisibilityRequestVisibility.
+const (
+	NsfwVisibilityRequestVisibilityBlurred NsfwVisibilityRequestVisibility = "blurred"
+	NsfwVisibilityRequestVisibilityHidden  NsfwVisibilityRequestVisibility = "hidden"
+	NsfwVisibilityRequestVisibilityShown   NsfwVisibilityRequestVisibility = "shown"
+)
+
+// Valid indicates whether the value is a known member of the NsfwVisibilityRequestVisibility enum.
+func (e NsfwVisibilityRequestVisibility) Valid() bool {
+	switch e {
+	case NsfwVisibilityRequestVisibilityBlurred:
+		return true
+	case NsfwVisibilityRequestVisibilityHidden:
+		return true
+	case NsfwVisibilityRequestVisibilityShown:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetMediaVariantParamsVariant.
 const (
 	Detail        GetMediaVariantParamsVariant = "detail"
@@ -235,6 +325,51 @@ func (e GetMediaVariantParamsVariant) Valid() bool {
 	case Thumb:
 		return true
 	case ThumbBlurred:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListAssetsParamsKind.
+const (
+	ListAssetsParamsKindCharacter ListAssetsParamsKind = "character"
+	ListAssetsParamsKindLorebook  ListAssetsParamsKind = "lorebook"
+	ListAssetsParamsKindPreset    ListAssetsParamsKind = "preset"
+	ListAssetsParamsKindTheme     ListAssetsParamsKind = "theme"
+)
+
+// Valid indicates whether the value is a known member of the ListAssetsParamsKind enum.
+func (e ListAssetsParamsKind) Valid() bool {
+	switch e {
+	case ListAssetsParamsKindCharacter:
+		return true
+	case ListAssetsParamsKindLorebook:
+		return true
+	case ListAssetsParamsKindPreset:
+		return true
+	case ListAssetsParamsKindTheme:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListAssetsParamsNsfw.
+const (
+	ListAssetsParamsNsfwBlurred ListAssetsParamsNsfw = "blurred"
+	ListAssetsParamsNsfwHidden  ListAssetsParamsNsfw = "hidden"
+	ListAssetsParamsNsfwShown   ListAssetsParamsNsfw = "shown"
+)
+
+// Valid indicates whether the value is a known member of the ListAssetsParamsNsfw enum.
+func (e ListAssetsParamsNsfw) Valid() bool {
+	switch e {
+	case ListAssetsParamsNsfwBlurred:
+		return true
+	case ListAssetsParamsNsfwHidden:
+		return true
+	case ListAssetsParamsNsfwShown:
 		return true
 	default:
 		return false
@@ -296,7 +431,61 @@ type AssetDiscovery string
 
 // AssetList defines model for AssetList.
 type AssetList struct {
-	Items []Asset `json:"items"`
+	EmptyState *AssetListEmptyState `json:"emptyState"`
+	Facets     []BrowseFacet        `json:"facets"`
+	Items      []BrowseAsset        `json:"items"`
+	NextCursor *BrowseCursor        `json:"nextCursor,omitempty"`
+	Platforms  []BrowseOption       `json:"platforms"`
+	Suppressed int                  `json:"suppressed"`
+	Total      int                  `json:"total"`
+	Visibility AssetListVisibility  `json:"visibility"`
+}
+
+// AssetListEmptyState defines model for AssetList.EmptyState.
+type AssetListEmptyState string
+
+// AssetListVisibility defines model for AssetList.Visibility.
+type AssetListVisibility string
+
+// BrowseAsset defines model for BrowseAsset.
+type BrowseAsset struct {
+	Cover   *BrowseCover       `json:"cover"`
+	Creator string             `json:"creator"`
+	Id      openapi_types.UUID `json:"id"`
+	IsNsfw  bool               `json:"isNsfw"`
+	Kind    BrowseAssetKind    `json:"kind"`
+	Name    string             `json:"name"`
+}
+
+// BrowseAssetKind defines model for BrowseAsset.Kind.
+type BrowseAssetKind string
+
+// BrowseCover defines model for BrowseCover.
+type BrowseCover struct {
+	Height int    `json:"height"`
+	Url    string `json:"url"`
+	Width  int    `json:"width"`
+}
+
+// BrowseCursor defines model for BrowseCursor.
+type BrowseCursor struct {
+	Before   time.Time          `json:"before"`
+	BeforeId openapi_types.UUID `json:"beforeId"`
+}
+
+// BrowseFacet defines model for BrowseFacet.
+type BrowseFacet struct {
+	Key     string         `json:"key"`
+	Label   string         `json:"label"`
+	Options []BrowseOption `json:"options"`
+}
+
+// BrowseOption defines model for BrowseOption.
+type BrowseOption struct {
+	Count    int    `json:"count"`
+	Label    string `json:"label"`
+	Selected bool   `json:"selected"`
+	Value    string `json:"value"`
 }
 
 // ChangeEmailRequest defines model for ChangeEmailRequest.
@@ -382,6 +571,14 @@ type NeedsKind struct {
 // NeedsKindKind defines model for NeedsKind.Kind.
 type NeedsKindKind string
 
+// NsfwVisibilityRequest defines model for NsfwVisibilityRequest.
+type NsfwVisibilityRequest struct {
+	Visibility NsfwVisibilityRequestVisibility `json:"visibility"`
+}
+
+// NsfwVisibilityRequestVisibility defines model for NsfwVisibilityRequest.Visibility.
+type NsfwVisibilityRequestVisibility string
+
 // PasswordRequest defines model for PasswordRequest.
 type PasswordRequest struct {
 	Password string `json:"password"`
@@ -431,11 +628,14 @@ type GetMediaVariantParamsVariant string
 
 // ListAssetsParams defines parameters for ListAssets.
 type ListAssetsParams struct {
-	Kind     *string   `form:"kind,omitempty" json:"kind,omitempty"`
-	Platform *string   `form:"platform,omitempty" json:"platform,omitempty"`
-	Tag      *[]string `form:"tag,omitempty" json:"tag,omitempty"`
-	Facet    *[]string `form:"facet,omitempty" json:"facet,omitempty"`
-	Limit    *int      `form:"limit,omitempty" json:"limit,omitempty"`
+	Kind     *ListAssetsParamsKind `form:"kind,omitempty" json:"kind,omitempty"`
+	Platform *string               `form:"platform,omitempty" json:"platform,omitempty"`
+	Q        *string               `form:"q,omitempty" json:"q,omitempty"`
+	Facet    *[]string             `form:"facet,omitempty" json:"facet,omitempty"`
+
+	// Nsfw The reader's presentation preference. Browse page URLs keep this preference out of their own query string.
+	Nsfw  *ListAssetsParamsNsfw `form:"nsfw,omitempty" json:"nsfw,omitempty"`
+	Limit *int                  `form:"limit,omitempty" json:"limit,omitempty"`
 
 	// Before The made date of the last asset on the previous page. Send it with beforeId or not at all.
 	Before *time.Time `form:"before,omitempty" json:"before,omitempty"`
@@ -443,6 +643,12 @@ type ListAssetsParams struct {
 	// BeforeId The id of that same asset
 	BeforeId *openapi_types.UUID `form:"beforeId,omitempty" json:"beforeId,omitempty"`
 }
+
+// ListAssetsParamsKind defines parameters for ListAssets.
+type ListAssetsParamsKind string
+
+// ListAssetsParamsNsfw defines parameters for ListAssets.
+type ListAssetsParamsNsfw string
 
 // CreateAssetMultipartBody defines parameters for CreateAsset.
 type CreateAssetMultipartBody struct {
@@ -476,6 +682,9 @@ type ChangeUnverifiedEmailJSONRequestBody = ChangeEmailRequest
 
 // RenameHandleJSONRequestBody defines body for RenameHandle for application/json ContentType.
 type RenameHandleJSONRequestBody = RenameHandleRequest
+
+// SetNsfwVisibilityJSONRequestBody defines body for SetNsfwVisibility for application/json ContentType.
+type SetNsfwVisibilityJSONRequestBody = NsfwVisibilityRequest
 
 // SetPasswordJSONRequestBody defines body for SetPassword for application/json ContentType.
 type SetPasswordJSONRequestBody = PasswordRequest
@@ -521,6 +730,9 @@ type ServerInterface interface {
 
 	// (PATCH /v1/account/handle)
 	RenameHandle(c *gin.Context)
+
+	// (PUT /v1/account/nsfw-visibility)
+	SetNsfwVisibility(c *gin.Context)
 
 	// (PUT /v1/account/password)
 	SetPassword(c *gin.Context)
@@ -690,6 +902,19 @@ func (siw *ServerInterfaceWrapper) RenameHandle(c *gin.Context) {
 	siw.Handler.RenameHandle(c)
 }
 
+// SetNsfwVisibility operation middleware
+func (siw *ServerInterfaceWrapper) SetNsfwVisibility(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.SetNsfwVisibility(c)
+}
+
 // SetPassword operation middleware
 func (siw *ServerInterfaceWrapper) SetPassword(c *gin.Context) {
 
@@ -728,11 +953,11 @@ func (siw *ServerInterfaceWrapper) ListAssets(c *gin.Context) {
 		return
 	}
 
-	// ------------- Optional query parameter "tag" -------------
+	// ------------- Optional query parameter "q" -------------
 
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "tag", c.Request.URL.Query(), &params.Tag, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", c.Request.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
 	if err != nil {
-		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter tag: %w", err), http.StatusBadRequest)
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter q: %w", err), http.StatusBadRequest)
 		return
 	}
 
@@ -741,6 +966,14 @@ func (siw *ServerInterfaceWrapper) ListAssets(c *gin.Context) {
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "facet", c.Request.URL.Query(), &params.Facet, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
 	if err != nil {
 		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter facet: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "nsfw" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "nsfw", c.Request.URL.Query(), &params.Nsfw, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter nsfw: %w", err), http.StatusBadRequest)
 		return
 	}
 
@@ -1108,6 +1341,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.PATCH(options.BaseURL+"/v1/account/email", wrapper.ChangeUnverifiedEmail)
 	router.PATCH(options.BaseURL+"/v1/account/handle", wrapper.RenameHandle)
 	router.PUT(options.BaseURL+"/v1/account/password", wrapper.SetPassword)
+	router.PUT(options.BaseURL+"/v1/account/nsfw-visibility", wrapper.SetNsfwVisibility)
 	router.POST(options.BaseURL+"/v1/auth/sign-up", wrapper.SignUp)
 	router.POST(options.BaseURL+"/v1/auth/sign-in", wrapper.SignIn)
 	router.GET(options.BaseURL+"/v1/auth/discord", wrapper.BeginDiscord)

@@ -68,6 +68,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/account/nsfw-visibility": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations["setNsfwVisibility"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/auth/sign-up": {
     parameters: {
       query?: never;
@@ -351,6 +367,10 @@ export interface components {
     PasswordRequest: {
       password: string;
     };
+    NsfwVisibilityRequest: {
+      /** @enum {string} */
+      visibility: "hidden" | "blurred" | "shown";
+    };
     PasswordResetRequest: {
       /** Format: email */
       email: string;
@@ -378,7 +398,48 @@ export interface components {
       createdAt: string;
     };
     AssetList: {
-      items: components["schemas"]["Asset"][];
+      items: components["schemas"]["BrowseAsset"][];
+      total: number;
+      suppressed: number;
+      /** @enum {string} */
+      visibility: "hidden" | "blurred" | "shown";
+      nextCursor?: components["schemas"]["BrowseCursor"] | null;
+      platforms: components["schemas"]["BrowseOption"][];
+      facets: components["schemas"]["BrowseFacet"][];
+      /** @enum {string|null} */
+      emptyState: "catalog" | "no_matches" | "suppressed" | null;
+    };
+    BrowseAsset: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      creator: string;
+      /** @enum {string} */
+      kind: "character" | "lorebook" | "preset" | "theme";
+      isNsfw: boolean;
+      cover: components["schemas"]["BrowseCover"] | null;
+    };
+    BrowseCover: {
+      url: string;
+      width: number;
+      height: number;
+    };
+    BrowseCursor: {
+      /** Format: date-time */
+      before: string;
+      /** Format: uuid */
+      beforeId: string;
+    };
+    BrowseOption: {
+      value: string;
+      label: string;
+      count: number;
+      selected: boolean;
+    };
+    BrowseFacet: {
+      key: string;
+      label: string;
+      options: components["schemas"]["BrowseOption"][];
     };
     CreateAssetRequest: {
       confirmed: boolean;
@@ -627,6 +688,42 @@ export interface operations {
       };
       /** @description The account already has a password */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  setNsfwVisibility: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["NsfwVisibilityRequest"];
+      };
+    };
+    responses: {
+      /** @description The reader's content preference is saved */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The visibility value is invalid */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No account is signed in */
+      401: {
         headers: {
           [name: string]: unknown;
         };
@@ -934,10 +1031,12 @@ export interface operations {
   listAssets: {
     parameters: {
       query?: {
-        kind?: string;
+        kind?: "character" | "lorebook" | "preset" | "theme";
         platform?: string;
-        tag?: string[];
+        q?: string;
         facet?: string[];
+        /** @description The reader's presentation preference. Browse page URLs keep this preference out of their own query string. */
+        nsfw?: "hidden" | "blurred" | "shown";
         limit?: number;
         /** @description The made date of the last asset on the previous page. Send it with beforeId or not at all. */
         before?: string;

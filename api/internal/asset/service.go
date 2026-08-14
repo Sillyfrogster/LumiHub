@@ -331,6 +331,21 @@ func (s *Service) List(ctx context.Context, f ListFilter) ([]Asset, error) {
 	return listAssets(ctx, s.pool, f)
 }
 
+// Browse returns card-safe catalog results and the reader's effective count.
+func (s *Service) Browse(
+	ctx context.Context,
+	f ListFilter,
+	visibility ContentVisibility,
+) (BrowsePage, error) {
+	if f.Limit <= 0 || f.Limit > 24 {
+		f.Limit = 24
+	}
+	if visibility != ContentHidden && visibility != ContentShown {
+		visibility = ContentBlurred
+	}
+	return browseAssets(ctx, s.pool, s.reg, f, visibility)
+}
+
 // OpenSource opens the stored upload exactly as it arrived.
 func (s *Service) OpenSource(ctx context.Context, assetID uuid.UUID) (io.ReadCloser, error) {
 	blobID, _, err := currentRevisionLocation(ctx, s.pool, assetID)
