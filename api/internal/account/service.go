@@ -226,20 +226,14 @@ func (s *Service) NSFWVisibility(ctx context.Context, token string) (NSFWVisibil
 	if !ok {
 		return NSFWBlurred, nil
 	}
-	var visibility NSFWVisibility
-	err := s.pool.QueryRow(ctx, `
-		select u.nsfw_visibility
-		  from sessions session
-		  join users u on u.id = session.user_id
-		 where session.token_hash = $1 and session.expires_at > now()
-	`, hash).Scan(&visibility)
+	visibility, err := db.New(s.pool).NSFWVisibilityBySessionHash(ctx, hash)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return NSFWBlurred, nil
 	}
 	if err != nil {
 		return "", fmt.Errorf("read content preference: %w", err)
 	}
-	return visibility, nil
+	return NSFWVisibility(visibility), nil
 }
 
 func (s *Service) SetNSFWVisibility(
@@ -254,17 +248,17 @@ func (s *Service) SetNSFWVisibility(
 	if !ok {
 		return ErrUnauthorized
 	}
-	command, err := s.pool.Exec(ctx, `
-		update users u
-		   set nsfw_visibility = $1, updated_at = now()
-		  from sessions session
-		 where session.user_id = u.id and session.token_hash = $2
-		   and session.expires_at > now()
-	`, visibility, hash)
+	changed, err := db.New(s.pool).SetNSFWVisibilityBySessionHash(
+		ctx,
+		db.SetNSFWVisibilityBySessionHashParams{
+			NsfwVisibility: string(visibility),
+			TokenHash:      hash,
+		},
+	)
 	if err != nil {
 		return fmt.Errorf("save content preference: %w", err)
 	}
-	if command.RowsAffected() == 0 {
+	if changed == 0 {
 		return ErrUnauthorized
 	}
 	return nil

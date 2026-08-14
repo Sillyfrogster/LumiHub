@@ -121,7 +121,7 @@ export function BrowseResults({
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    navigate({ ...filters, q: queryText.trim() || undefined });
+    navigate({ ...filters, q: queryText || undefined });
   }
 
   function toggleFacet(key: string, value: string, selected: boolean) {
@@ -281,7 +281,7 @@ export function BrowseResults({
                   <input
                     type="checkbox"
                     checked={option.selected}
-                    disabled={option.count === 0}
+                    disabled={option.count === 0 && !option.selected}
                     onChange={() =>
                       toggleFacet(facet.key, option.value, option.selected)
                     }
@@ -335,6 +335,21 @@ export function BrowseResults({
             </div>
           </header>
 
+          {overview?.visibility === "hidden" &&
+          overview.suppressed > 0 &&
+          overview.total > 0 ? (
+            <output className={styles.suppressionNotice}>
+              <p>
+                {overview.suppressed === 1
+                  ? "1 matching result is hidden by your adult-content preference."
+                  : `${overview.suppressed} matching results are hidden by your adult-content preference.`}
+              </p>
+              <button type="button" onClick={() => void setPreference("shown")}>
+                Show them
+              </button>
+            </output>
+          ) : null}
+
           {query.isPending ? <LoadingGrid /> : null}
           {query.isError ? (
             <div className={styles.message} role="alert">
@@ -356,7 +371,11 @@ export function BrowseResults({
           {assets.length ? (
             <ul className={styles.grid}>
               {assets.map((asset) => (
-                <BrowseCard key={asset.id} asset={asset} />
+                <BrowseCard
+                  key={asset.id}
+                  asset={asset}
+                  visibility={activeVisibility}
+                />
               ))}
             </ul>
           ) : null}

@@ -877,6 +877,20 @@ func (q *Queries) LockOAuthUser(ctx context.Context, userID pgtype.UUID) (int32,
 	return column_1, err
 }
 
+const nSFWVisibilityBySessionHash = `-- name: NSFWVisibilityBySessionHash :one
+select u.nsfw_visibility
+  from sessions session
+  join users u on u.id = session.user_id
+ where session.token_hash = $1 and session.expires_at > now()
+`
+
+func (q *Queries) NSFWVisibilityBySessionHash(ctx context.Context, tokenHash []byte) (string, error) {
+	row := q.db.QueryRow(ctx, nSFWVisibilityBySessionHash, tokenHash)
+	var nsfw_visibility string
+	err := row.Scan(&nsfw_visibility)
+	return nsfw_visibility, err
+}
+
 const profileByHandle = `-- name: ProfileByHandle :one
 select id, username from users where username = $1
 `
@@ -952,6 +966,27 @@ func (q *Queries) SetFirstPassword(ctx context.Context, arg SetFirstPasswordPara
 		&i.EmailVerifiedAt,
 	)
 	return i, err
+}
+
+const setNSFWVisibilityBySessionHash = `-- name: SetNSFWVisibilityBySessionHash :execrows
+update users u
+   set nsfw_visibility = $1, updated_at = now()
+  from sessions session
+ where session.user_id = u.id and session.token_hash = $2
+   and session.expires_at > now()
+`
+
+type SetNSFWVisibilityBySessionHashParams struct {
+	NsfwVisibility string
+	TokenHash      []byte
+}
+
+func (q *Queries) SetNSFWVisibilityBySessionHash(ctx context.Context, arg SetNSFWVisibilityBySessionHashParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setNSFWVisibilityBySessionHash, arg.NsfwVisibility, arg.TokenHash)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const takeOAuthState = `-- name: TakeOAuthState :one

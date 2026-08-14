@@ -37,7 +37,7 @@
   font-size: clamp(2.8rem, 5vw, 4.8rem);
   font-weight: 500;
   line-height: 0.98;
-  letter-spacing: -0.045em;
+  letter-spacing: -0.04em;
 }
 
 .intro p {

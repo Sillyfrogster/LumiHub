@@ -24,7 +24,7 @@ function readFilters(
   const kind = KINDS.has(requestedKind as BrowseKind)
     ? (requestedKind as BrowseKind)
     : undefined;
-  const q = first(values.q)?.trim() || undefined;
+  const q = first(values.q) || undefined;
   const platform = first(values.platform)?.trim() || undefined;
   const facets = Array.isArray(values.facet)
     ? values.facet

@@ -375,11 +375,12 @@ func countedFacets(
 	result := make([]BrowseFacet, 0, len(definitions))
 	for _, definition := range definitions {
 		group := BrowseFacet{Key: definition.Key, Label: definition.Label}
-		withoutKey := slices.DeleteFunc(slices.Clone(selected), func(facet format.Facet) bool {
-			return facet.Key == definition.Key
-		})
 		for _, option := range definition.Options {
-			candidate := append(slices.Clone(withoutKey), format.Facet{Key: definition.Key, Value: option.Value})
+			facet := format.Facet{Key: definition.Key, Value: option.Value}
+			candidate := slices.Clone(selected)
+			if !slices.Contains(selected, facet) {
+				candidate = append(candidate, facet)
+			}
 			keys, values := facetPairs(candidate)
 			params := base
 			params.FacetKeys, params.FacetValues = keys, values
@@ -389,7 +390,7 @@ func countedFacets(
 			}
 			group.Options = append(group.Options, BrowseOption{
 				Value: option.Value, Label: option.Label, Count: int(count),
-				Selected: slices.Contains(selected, format.Facet{Key: definition.Key, Value: option.Value}),
+				Selected: slices.Contains(selected, facet),
 			})
 		}
 		result = append(result, group)

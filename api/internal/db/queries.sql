@@ -260,6 +260,19 @@ select u.id, u.username, u.email, u.email_verified_at,
   join users u on u.id = s.user_id
  where s.token_hash = $1 and s.expires_at > now();
 
+-- name: NSFWVisibilityBySessionHash :one
+select u.nsfw_visibility
+  from sessions session
+  join users u on u.id = session.user_id
+ where session.token_hash = $1 and session.expires_at > now();
+
+-- name: SetNSFWVisibilityBySessionHash :execrows
+update users u
+   set nsfw_visibility = $1, updated_at = now()
+  from sessions session
+ where session.user_id = u.id and session.token_hash = $2
+   and session.expires_at > now();
+
 -- name: VerificationByHash :one
 select user_id, email
   from email_verification_tokens

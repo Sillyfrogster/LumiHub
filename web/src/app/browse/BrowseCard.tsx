@@ -1,10 +1,11 @@
 "use client";
 
-import { EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import type { BrowseAsset } from "@/lib/api/query";
+import type { BrowseAsset, NsfwVisibility } from "@/lib/api/query";
+import { assetHref } from "@/lib/asset-url";
 import styles from "./BrowseCard.module.css";
 
 const KIND_LABELS: Record<BrowseAsset["kind"], string> = {
@@ -21,27 +22,20 @@ const DEFAULT_COVERS: Record<BrowseAsset["kind"], string> = {
   theme: "/covers/cover-default-theme.webp",
 };
 
-function slugify(value: string) {
-  return (
-    value
-      .normalize("NFKD")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "") || "asset"
-  );
-}
-
-export function BrowseCard({ asset }: { asset: BrowseAsset }) {
+export function BrowseCard({
+  asset,
+  visibility,
+}: {
+  asset: BrowseAsset;
+  visibility: NsfwVisibility;
+}) {
   const [failed, setFailed] = useState(false);
   const fallback = DEFAULT_COVERS[asset.kind];
   const src = failed || !asset.cover ? fallback : asset.cover.url;
 
   return (
     <li className={styles.item}>
-      <Link
-        href={`/a/${asset.id}/${slugify(asset.name)}`}
-        className={styles.card}
-      >
+      <Link href={assetHref(asset.id, asset.name)} className={styles.card}>
         <div className={styles.cover}>
           <Image
             src={src}
@@ -55,13 +49,17 @@ export function BrowseCard({ asset }: { asset: BrowseAsset }) {
           <span className={styles.kind}>{KIND_LABELS[asset.kind]}</span>
           {asset.isNsfw ? (
             <span className={styles.nsfw}>
-              <EyeOff size={12} aria-hidden="true" />
-              Adult
+              {visibility === "blurred" ? (
+                <EyeOff size={12} aria-hidden="true" />
+              ) : (
+                <Eye size={12} aria-hidden="true" />
+              )}
+              {visibility === "blurred" ? "Adult · blurred" : "Adult"}
             </span>
           ) : null}
         </div>
         <div className={styles.identity}>
-          <h2>{asset.name}</h2>
+          <h3>{asset.name}</h3>
           <p>@{asset.creator}</p>
         </div>
       </Link>

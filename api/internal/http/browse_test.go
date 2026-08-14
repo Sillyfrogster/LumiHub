@@ -23,10 +23,14 @@ func (browseModule) Claim(file probe.Inspection) (format.Claim, bool) {
 	}
 	return format.CompatibilityClaim(file.Payloads[0]), true
 }
-func (browseModule) Parse(context.Context, probe.Inspection, format.Claim) (format.Parsed, error) {
+func (browseModule) Parse(_ context.Context, file probe.Inspection, _ format.Claim) (format.Parsed, error) {
+	tone := "gentle"
+	if declared, ok := file.Payloads[0].String("tone"); ok {
+		tone = declared
+	}
 	return format.Parsed{
 		Kind: "character", Format: "browse_card",
-		Facets: []format.Facet{{Key: "tone", Value: "gentle"}, {Key: "client_feature", Value: "lorebook"}},
+		Facets: []format.Facet{{Key: "tone", Value: tone}, {Key: "client_feature", Value: "lorebook"}},
 	}, nil
 }
 func (browseModule) BrowseDefinition() format.BrowseDefinition {
@@ -167,6 +171,9 @@ func TestBrowseFacetsComeFromModulesAndAppearOnlyInTheirScope(t *testing.T) {
 	metadata := exampleMetadata("Aster")
 	metadata["filename"] = "aster.json"
 	uploadAndFinish(t, router, session, assets, metadata, []byte(`{"card":true}`))
+	metadata = exampleMetadata("Storm")
+	metadata["filename"] = "storm.json"
+	uploadAndFinish(t, router, session, assets, metadata, []byte(`{"tone":"dramatic"}`))
 
 	type option struct {
 		Value    string `json:"value"`
@@ -207,12 +214,16 @@ func TestBrowseFacetsComeFromModulesAndAppearOnlyInTheirScope(t *testing.T) {
 	if len(facets) != 1 || facets[0].Key != "tone" || len(facets[0].Options) != 2 {
 		t.Fatalf("character facets = %#v, want only the two-option tone vocabulary", facets)
 	}
-	if facets[0].Options[0].Count != 1 || facets[0].Options[1].Count != 0 {
-		t.Errorf("tone counts = %#v, want one gentle and zero dramatic", facets[0].Options)
+	if facets[0].Options[0].Count != 1 || facets[0].Options[1].Count != 1 {
+		t.Errorf("tone counts = %#v, want one gentle and one dramatic", facets[0].Options)
 	}
 	_, facets, names := read("/v1/assets?kind=character&platform=sillytavern&facet=tone=gentle")
 	if len(facets) != 2 || !facets[0].Options[0].Selected || !slices.Equal(names, []string{"Aster"}) {
 		t.Fatalf("scoped facets = %#v, names = %v", facets, names)
+	}
+	if facets[0].Options[1].Count != 0 {
+		t.Fatalf("dramatic count after selecting gentle = %d, want 0 for conjunctive selection",
+			facets[0].Options[1].Count)
 	}
 	_, _, names = read("/v1/assets?kind=character&platform=lumiverse")
 	if len(names) != 0 {
