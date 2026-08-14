@@ -16,10 +16,10 @@ const KIND_LABELS: Record<BrowseAsset["kind"], string> = {
 };
 
 const DEFAULT_COVERS: Record<BrowseAsset["kind"], string> = {
-  character: "/covers/cover-default-character.webp",
-  lorebook: "/covers/cover-default-lorebook.webp",
-  preset: "/covers/cover-default-preset.webp",
-  theme: "/covers/cover-default-theme.webp",
+  character: "/covers/cover-default-character-lumi.webp",
+  lorebook: "/covers/cover-default-lorebook-lumi.webp",
+  preset: "/covers/cover-default-preset-lumi.webp",
+  theme: "/covers/cover-default-theme-lumi.webp",
 };
 
 export function BrowseCard({
@@ -44,7 +44,7 @@ export function BrowseCard({
             sizes="(max-width: 560px) 86vw, (max-width: 900px) 42vw, (max-width: 1240px) 27vw, 260px"
             className={asset.cover && !failed ? styles.art : styles.defaultArt}
             onError={() => setFailed(true)}
-            unoptimized
+            unoptimized={Boolean(asset.cover && !failed)}
           />
           <span className={styles.kind}>{KIND_LABELS[asset.kind]}</span>
           {asset.isNsfw ? (

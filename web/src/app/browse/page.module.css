@@ -4,108 +4,96 @@
 
 .masthead {
   position: relative;
-  min-height: 300px;
+  min-height: 280px;
   overflow: hidden;
   border-bottom: 1px solid rgba(199, 212, 232, 0.72);
   background:
     radial-gradient(
-      circle at 70% 30%,
-      rgba(218, 233, 247, 0.68),
-      transparent 32%
+      circle at 78% 44%,
+      rgba(218, 233, 247, 0.74),
+      transparent 38%
     ),
     linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(239, 245, 251, 0.76));
 }
 
 .mastheadInner {
   position: relative;
-  min-height: 300px;
+  z-index: 2;
+  min-height: 280px;
   display: flex;
   align-items: center;
 }
 
 .intro {
-  position: relative;
-  z-index: 2;
-  width: min(600px, 54%);
-  padding-block: 72px 76px;
+  width: min(500px, 50%);
+  padding-block: 38px 42px;
   animation: lhRise 0.7s var(--ease) both;
 }
 
 .intro h1 {
-  max-width: 560px;
+  max-width: 500px;
   font-family: var(--font-display);
-  font-size: clamp(2.8rem, 5vw, 4.8rem);
+  font-size: clamp(2.65rem, 4.2vw, 3.9rem);
   font-weight: 500;
   line-height: 0.98;
-  letter-spacing: -0.04em;
+  letter-spacing: -0.035em;
 }
 
 .intro p {
-  max-width: 520px;
-  margin-top: 24px;
+  max-width: 440px;
+  margin-top: 18px;
   color: var(--body);
   font-family: var(--font-display);
-  font-size: clamp(1.05rem, 1.6vw, 1.3rem);
+  font-size: clamp(1rem, 1.35vw, 1.12rem);
   font-style: italic;
-  line-height: 1.65;
+  line-height: 1.55;
 }
 
-.city {
+.lumiArt {
   position: absolute;
   z-index: 1;
-  right: -30px;
-  bottom: -105px;
-  width: min(47vw, 600px);
-  height: auto;
-  opacity: 0.86;
-  filter: saturate(0.84);
+  inset-block: 0;
+  right: 0;
+  width: clamp(580px, 58vw, 1060px);
   animation: lhArt 1s var(--ease) 0.08s both;
 }
 
-.sprig {
-  position: absolute;
-  z-index: 0;
-  right: 39%;
-  bottom: -84px;
-  width: 210px;
-  height: auto;
-  opacity: 0.36;
-  transform: rotate(-22deg);
+.lumiArt img {
+  object-fit: cover;
+  object-position: 71% 20%;
+  filter: saturate(0.88);
+  mask-image: linear-gradient(90deg, transparent 0, #000 34%, #000 100%);
 }
 
 @media (max-width: 760px) {
   .masthead,
   .mastheadInner {
-    min-height: 330px;
-  }
-
-  .mastheadInner {
-    align-items: flex-start;
+    min-height: 286px;
   }
 
   .intro {
-    width: 76%;
-    padding-block: 56px 120px;
+    width: min(78%, 430px);
+    padding-block: 42px 48px;
   }
 
   .intro h1 {
-    font-size: clamp(2.5rem, 12vw, 3.8rem);
+    font-size: clamp(2.45rem, 11vw, 3.5rem);
   }
 
   .intro p {
-    margin-top: 18px;
+    max-width: 350px;
+    margin-top: 16px;
     font-size: 1rem;
     line-height: 1.5;
   }
 
-  .city {
-    right: -90px;
-    bottom: -72px;
-    width: 78vw;
-    opacity: 0.56;
+  .lumiArt {
+    width: 100%;
+    opacity: 0.24;
   }
 
-  .sprig {
-    display: none;
+  .lumiArt img {
+    object-position: 73% 43%;
+    mask-image: linear-gradient(90deg, transparent 4%, #000 58%, #000 100%);
   }
 }

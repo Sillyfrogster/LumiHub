@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, Search, Upload } from "lucide-react";
+import { ChevronDown, Upload } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -56,12 +56,6 @@ export function SiteHeader() {
         </nav>
 
         <div className={styles.spacer} />
-
-        <button type="button" className={styles.search}>
-          <Search size={14} strokeWidth={1.3} />
-          <span className={styles.searchLabel}>Search LumiHub</span>
-          <kbd className={styles.kbd}>⌘K</kbd>
-        </button>
 
         {account?.emailVerified ? (
           <Link href="/upload" className={styles.upload}>

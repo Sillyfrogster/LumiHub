@@ -66,6 +66,9 @@ export function BrowseResults({
   const queryClient = useQueryClient();
   const { account } = useAuth();
   const [queryText, setQueryText] = useState(filters.q ?? "");
+  const [filtersOpen, setFiltersOpen] = useState(
+    Boolean(filters.kind || filters.platform || filters.facet?.length),
+  );
   const [visibilityOverride, setVisibilityOverride] =
     useState<NsfwVisibility>();
   const [preferenceError, setPreferenceError] = useState("");
@@ -124,6 +127,11 @@ export function BrowseResults({
     navigate({ ...filters, q: queryText || undefined });
   }
 
+  function clearSearch() {
+    setQueryText("");
+    if (filters.q) navigate({ ...filters, q: undefined });
+  }
+
   function toggleFacet(key: string, value: string, selected: boolean) {
     const encoded = `${key}=${value}`;
     const facets = (filters.facet ?? []).filter((facet) => facet !== encoded);
@@ -152,40 +160,74 @@ export function BrowseResults({
 
   return (
     <Shell className={styles.shell}>
-      <search>
-        <form className={styles.searchForm} onSubmit={submitSearch}>
-          <Search size={18} strokeWidth={1.5} aria-hidden="true" />
-          <label htmlFor="browse-search" className="sr-only">
-            Search the collection
-          </label>
-          <input
-            id="browse-search"
-            value={queryText}
-            onChange={(event) => setQueryText(event.target.value)}
-            placeholder="Search names, creators, and blurbs"
-          />
-          {queryText ? (
-            <button
-              type="button"
-              className={styles.clearSearch}
-              onClick={() => setQueryText("")}
-              aria-label="Clear search"
-            >
-              <X size={16} aria-hidden="true" />
-            </button>
-          ) : null}
-          <button type="submit" className={styles.searchButton}>
-            Search
-          </button>
-        </form>
-      </search>
-      <p className={styles.searchHint}>
-        Narrow further with <code>tag:fantasy</code> or{" "}
-        <code>author:handle</code>.
-      </p>
+      <header className={styles.resultsHeader}>
+        <div className={styles.resultsHeaderContent}>
+          <div>
+            <h2 id="browse-heading">Newest additions</h2>
+            {overview ? (
+              <p aria-live="polite">
+                {overview.total === 1
+                  ? "1 result"
+                  : `${overview.total} results`}
+              </p>
+            ) : null}
+          </div>
+          <div className={styles.searchRegion}>
+            <search>
+              <form className={styles.searchForm} onSubmit={submitSearch}>
+                <Search size={18} strokeWidth={1.5} aria-hidden="true" />
+                <label htmlFor="browse-search" className="sr-only">
+                  Search the collection
+                </label>
+                <input
+                  id="browse-search"
+                  value={queryText}
+                  onChange={(event) => setQueryText(event.target.value)}
+                  placeholder="Search names, creators, and blurbs"
+                />
+                {queryText ? (
+                  <button
+                    type="button"
+                    className={styles.clearSearch}
+                    onClick={clearSearch}
+                    aria-label="Clear search"
+                  >
+                    <X size={16} aria-hidden="true" />
+                  </button>
+                ) : null}
+                <button type="submit" className={styles.searchButton}>
+                  Search
+                </button>
+              </form>
+            </search>
+            <p className={styles.searchHint}>
+              Narrow further with <code>tag:fantasy</code> or{" "}
+              <code>author:handle</code>.
+            </p>
+          </div>
+        </div>
+      </header>
 
       <div className={styles.layout}>
-        <aside className={styles.filters} aria-label="Browse filters">
+        <button
+          type="button"
+          className={styles.filterToggle}
+          aria-expanded={filtersOpen}
+          aria-controls="browse-filters"
+          onClick={() => setFiltersOpen((open) => !open)}
+        >
+          <span>
+            <SlidersHorizontal size={16} aria-hidden="true" />
+            {filtersOpen ? "Hide filters" : "Refine results"}
+          </span>
+          {hasFilters ? <small>Filters active</small> : null}
+        </button>
+        <aside
+          id="browse-filters"
+          className={styles.filters}
+          aria-label="Browse filters"
+          data-mobile-hidden={!filtersOpen || undefined}
+        >
           <div className={styles.filterHeading}>
             <span>
               <SlidersHorizontal size={15} aria-hidden="true" />
@@ -321,20 +363,11 @@ export function BrowseResults({
           </fieldset>
         </aside>
 
-        <section className={styles.results} aria-busy={isNavigating}>
-          <header className={styles.resultsHeader}>
-            <div>
-              <h2>Newest additions</h2>
-              {overview ? (
-                <p aria-live="polite">
-                  {overview.total === 1
-                    ? "1 result"
-                    : `${overview.total} results`}
-                </p>
-              ) : null}
-            </div>
-          </header>
-
+        <section
+          className={styles.results}
+          aria-labelledby="browse-heading"
+          aria-busy={isNavigating}
+        >
           {overview?.visibility === "hidden" &&
           overview.suppressed > 0 &&
           overview.total > 0 ? (

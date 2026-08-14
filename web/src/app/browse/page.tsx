@@ -1,7 +1,6 @@
 import { cookies } from "next/headers";
 import Image from "next/image";
-import city from "@/assets/art/city.webp";
-import sprig from "@/assets/art/sprig.webp";
+import heroLumi from "@/assets/art/full/hero-lumi.webp";
 import { Shell } from "@/components/layout/Shell";
 import {
   type BrowseFilters,
@@ -48,6 +47,15 @@ export default async function BrowsePage({
   return (
     <div className={styles.page}>
       <section className={styles.masthead}>
+        <div className={styles.lumiArt}>
+          <Image
+            src={heroLumi}
+            alt=""
+            fill
+            priority
+            sizes="(max-width: 760px) 100vw, 58vw"
+          />
+        </div>
         <Shell className={styles.mastheadInner}>
           <div className={styles.intro}>
             <h1>Browse the collection</h1>
@@ -56,20 +64,6 @@ export default async function BrowsePage({
               still unfolding.
             </p>
           </div>
-          <Image
-            src={city}
-            alt=""
-            className={styles.city}
-            priority
-            sizes="(max-width: 720px) 72vw, 520px"
-          />
-          <Image
-            src={sprig}
-            alt=""
-            className={styles.sprig}
-            sizes="220px"
-            priority
-          />
         </Shell>
       </section>
       <BrowseResults filters={filters} initialPage={initialPage} />
