@@ -699,6 +699,31 @@ func (h *Handlers) GetAsset(c *gin.Context, id types.UUID, params GetAssetParams
 	c.JSON(http.StatusOK, toAPIDetail(found, visibility))
 }
 
+func (h *Handlers) SetAssetDiscovery(c *gin.Context, id types.UUID) {
+	owner, ok := h.uploadOwner(c)
+	if !ok {
+		return
+	}
+	var request AssetDiscoveryRequest
+	if err := decodeOneJSON(c.Request.Body, &request); err != nil || !request.Discovery.Valid() {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Choose listed or unlisted."})
+		return
+	}
+	err := h.assets.SetDiscovery(
+		c.Request.Context(), owner.ID, uuid.UUID(id), asset.Discovery(request.Discovery),
+	)
+	switch {
+	case errors.Is(err, asset.ErrNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": "no such asset"})
+	case errors.Is(err, asset.ErrAssetFrozen):
+		c.JSON(http.StatusConflict, gin.H{"error": "A withheld asset cannot be changed."})
+	case err != nil:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not save discovery."})
+	default:
+		c.Status(http.StatusNoContent)
+	}
+}
+
 func toAPIDetail(found asset.Detail, visibility asset.ContentVisibility) AssetDetail {
 	tags := make([]AssetTag, 0, len(found.Tags))
 	for _, tag := range found.Tags {

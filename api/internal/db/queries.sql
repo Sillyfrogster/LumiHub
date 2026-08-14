@@ -248,6 +248,17 @@ select a.id, a.kind, revision.passthrough_platform, revision.format,
   join asset_revisions revision on revision.id = a.current_revision_id
  where a.id = $1;
 
+-- name: SetAssetDiscovery :execrows
+update assets
+   set discovery = $3, updated_at = now()
+ where id = $1 and owner_id = $2
+   and withheld_at is null and deleted_at is null;
+
+-- name: AssetWithheldAtForOwner :one
+select withheld_at
+  from assets
+ where id = $1 and owner_id = $2 and deleted_at is null;
+
 -- name: UpsertBlob :one
 insert into blobs (id, sha256, byte_size, storage_key)
 values ($1, $2, $3, $4)

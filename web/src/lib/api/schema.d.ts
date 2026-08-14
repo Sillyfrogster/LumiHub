@@ -277,6 +277,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/assets/{id}/discovery": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations["setAssetDiscovery"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/download/{id}": {
     parameters: {
       query?: never;
@@ -435,6 +451,10 @@ export interface components {
       preview: string | null;
       /** @enum {string} */
       visibility: "hidden" | "blurred" | "shown";
+    };
+    AssetDiscoveryRequest: {
+      /** @enum {string} */
+      discovery: "listed" | "unlisted";
     };
     AssetTag: {
       /** @description The creator's own text, shown as written. */
@@ -1197,6 +1217,65 @@ export interface operations {
       };
       /** @description No asset a visitor may see */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  setAssetDiscovery: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AssetDiscoveryRequest"];
+      };
+    };
+    responses: {
+      /** @description The asset discovery state is saved */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The discovery value is invalid */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The signed-in account has not verified its email */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The asset does not belong to the creator */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The asset is withheld and cannot be changed */
+      409: {
         headers: {
           [name: string]: unknown;
         };

@@ -121,6 +121,24 @@ func (e AssetDetailVisibility) Valid() bool {
 	}
 }
 
+// Defines values for AssetDiscoveryRequestDiscovery.
+const (
+	AssetDiscoveryRequestDiscoveryListed   AssetDiscoveryRequestDiscovery = "listed"
+	AssetDiscoveryRequestDiscoveryUnlisted AssetDiscoveryRequestDiscovery = "unlisted"
+)
+
+// Valid indicates whether the value is a known member of the AssetDiscoveryRequestDiscovery enum.
+func (e AssetDiscoveryRequestDiscovery) Valid() bool {
+	switch e {
+	case AssetDiscoveryRequestDiscoveryListed:
+		return true
+	case AssetDiscoveryRequestDiscoveryUnlisted:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AssetImageRole.
 const (
 	AssetImageRoleAvatar           AssetImageRole = "avatar"
@@ -591,6 +609,14 @@ type AssetDetailKind string
 // AssetDetailVisibility defines model for AssetDetail.Visibility.
 type AssetDetailVisibility string
 
+// AssetDiscoveryRequest defines model for AssetDiscoveryRequest.
+type AssetDiscoveryRequest struct {
+	Discovery AssetDiscoveryRequestDiscovery `json:"discovery"`
+}
+
+// AssetDiscoveryRequestDiscovery defines model for AssetDiscoveryRequest.Discovery.
+type AssetDiscoveryRequestDiscovery string
+
 // AssetImage defines model for AssetImage.
 type AssetImage struct {
 	DetailUrl string             `json:"detailUrl"`
@@ -896,6 +922,9 @@ type SetPasswordJSONRequestBody = PasswordRequest
 // CreateAssetMultipartRequestBody defines body for CreateAsset for multipart/form-data ContentType.
 type CreateAssetMultipartRequestBody CreateAssetMultipartBody
 
+// SetAssetDiscoveryJSONRequestBody defines body for SetAssetDiscovery for application/json ContentType.
+type SetAssetDiscoveryJSONRequestBody = AssetDiscoveryRequest
+
 // AddMediaMultipartRequestBody defines body for AddMedia for multipart/form-data ContentType.
 type AddMediaMultipartRequestBody AddMediaMultipartBody
 
@@ -949,6 +978,9 @@ type ServerInterface interface {
 
 	// (GET /v1/assets/{id})
 	GetAsset(c *gin.Context, id openapi_types.UUID, params GetAssetParams)
+
+	// (PUT /v1/assets/{id}/discovery)
+	SetAssetDiscovery(c *gin.Context, id openapi_types.UUID)
 
 	// (GET /v1/assets/{id}/media)
 	ListMedia(c *gin.Context, id openapi_types.UUID)
@@ -1273,6 +1305,31 @@ func (siw *ServerInterfaceWrapper) GetAsset(c *gin.Context) {
 	}
 
 	siw.Handler.GetAsset(c, id, params)
+}
+
+// SetAssetDiscovery operation middleware
+func (siw *ServerInterfaceWrapper) SetAssetDiscovery(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.SetAssetDiscovery(c, id)
 }
 
 // ListMedia operation middleware
@@ -1606,6 +1663,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/v1/assets", wrapper.ListAssets)
 	router.POST(options.BaseURL+"/v1/assets", wrapper.CreateAsset)
 	router.GET(options.BaseURL+"/v1/assets/:id", wrapper.GetAsset)
+	router.PUT(options.BaseURL+"/v1/assets/:id/discovery", wrapper.SetAssetDiscovery)
 	router.GET(options.BaseURL+"/download/:id", wrapper.DownloadSource)
 	router.GET(options.BaseURL+"/v1/assets/:id/media", wrapper.ListMedia)
 	router.POST(options.BaseURL+"/v1/assets/:id/media", wrapper.AddMedia)

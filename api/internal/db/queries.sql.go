@@ -145,6 +145,24 @@ func (q *Queries) AssetPageMedia(ctx context.Context, id pgtype.UUID) ([]AssetPa
 	return items, nil
 }
 
+const assetWithheldAtForOwner = `-- name: AssetWithheldAtForOwner :one
+select withheld_at
+  from assets
+ where id = $1 and owner_id = $2 and deleted_at is null
+`
+
+type AssetWithheldAtForOwnerParams struct {
+	ID      pgtype.UUID
+	OwnerID pgtype.UUID
+}
+
+func (q *Queries) AssetWithheldAtForOwner(ctx context.Context, arg AssetWithheldAtForOwnerParams) (pgtype.Timestamptz, error) {
+	row := q.db.QueryRow(ctx, assetWithheldAtForOwner, arg.ID, arg.OwnerID)
+	var withheld_at pgtype.Timestamptz
+	err := row.Scan(&withheld_at)
+	return withheld_at, err
+}
+
 const blobLocation = `-- name: BlobLocation :one
 select storage_key, byte_size from blobs where id = $1
 `
@@ -1057,6 +1075,27 @@ type ReplacePasswordParams struct {
 func (q *Queries) ReplacePassword(ctx context.Context, arg ReplacePasswordParams) error {
 	_, err := q.db.Exec(ctx, replacePassword, arg.ID, arg.PasswordHash)
 	return err
+}
+
+const setAssetDiscovery = `-- name: SetAssetDiscovery :execrows
+update assets
+   set discovery = $3, updated_at = now()
+ where id = $1 and owner_id = $2
+   and withheld_at is null and deleted_at is null
+`
+
+type SetAssetDiscoveryParams struct {
+	ID        pgtype.UUID
+	OwnerID   pgtype.UUID
+	Discovery string
+}
+
+func (q *Queries) SetAssetDiscovery(ctx context.Context, arg SetAssetDiscoveryParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setAssetDiscovery, arg.ID, arg.OwnerID, arg.Discovery)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const setCurrentRevision = `-- name: SetCurrentRevision :exec

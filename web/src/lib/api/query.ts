@@ -85,3 +85,14 @@ export async function saveNsfwVisibility(visibility: NsfwVisibility) {
   });
   if (error) throw new Error("Could not save the content preference");
 }
+
+export async function saveAssetDiscovery(
+  id: string,
+  discovery: AssetDetail["discovery"],
+) {
+  const { error } = await api.PUT("/v1/assets/{id}/discovery", {
+    params: { path: { id } },
+    body: { discovery },
+  });
+  if (error) throw new Error("Could not save discovery");
+}

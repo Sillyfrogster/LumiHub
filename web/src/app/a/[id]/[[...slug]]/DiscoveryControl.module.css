@@ -1,0 +1,73 @@
+.control {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  max-width: 56ch;
+  margin-top: 34px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+
+.icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.copy h2 {
+  color: var(--ink-strong);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.copy p {
+  margin-top: 4px;
+  color: var(--body);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.control button {
+  min-height: 44px;
+  padding-inline: 15px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-strong);
+  font-size: 0.76rem;
+  font-weight: 900;
+  white-space: nowrap;
+  transition:
+    border-color 180ms var(--ease),
+    background 180ms var(--ease);
+}
+
+.control button:hover:not(:disabled) {
+  border-color: var(--faint);
+  background: var(--surface-frame);
+}
+
+.control button:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.copy .error {
+  color: #813f3f;
+}
+
+@media (max-width: 560px) {
+  .control {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .control button {
+    grid-column: 2;
+    justify-self: start;
+  }
+}

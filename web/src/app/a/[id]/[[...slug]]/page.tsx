@@ -13,6 +13,7 @@ import { assetMetadata } from "@/lib/asset-metadata";
 import { assetRedirect } from "@/lib/asset-url";
 import { KIND_LABELS } from "@/lib/kinds";
 import { AssetMedia } from "./AssetMedia";
+import { DiscoveryControl } from "./DiscoveryControl";
 import styles from "./page.module.css";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -113,6 +114,12 @@ export default async function AssetPage({
               <Download size={16} aria-hidden="true" />
               Download the file
             </a>
+
+            <DiscoveryControl
+              assetId={asset.id}
+              creator={asset.creator}
+              initialDiscovery={asset.discovery}
+            />
           </div>
         </div>
       </Shell>

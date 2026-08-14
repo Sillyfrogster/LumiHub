@@ -302,6 +302,24 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/AssetDetail" }
         "404": { description: No asset a visitor may see }
+  /v1/assets/{id}/discovery:
+    put:
+      operationId: setAssetDiscovery
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AssetDiscoveryRequest" }
+      responses:
+        "204": { description: The asset discovery state is saved }
+        "400": { description: The discovery value is invalid }
+        "401": { description: No account is signed in }
+        "403": { description: The signed-in account has not verified its email }
+        "404": { description: The asset does not belong to the creator }
+        "409": { description: The asset is withheld and cannot be changed }
   /download/{id}:
     get:
       operationId: downloadSource
@@ -564,6 +582,12 @@ components:
             - { type: string }
             - { type: "null" }
         visibility: { type: string, enum: [hidden, blurred, shown] }
+    AssetDiscoveryRequest:
+      type: object
+      additionalProperties: false
+      required: [discovery]
+      properties:
+        discovery: { type: string, enum: [listed, unlisted] }
     AssetTag:
       type: object
       required: [label, value]

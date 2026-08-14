@@ -14,6 +14,10 @@ const (
 	DiscoveryUnlisted Discovery = "unlisted"
 )
 
+func (d Discovery) Valid() bool {
+	return d == DiscoveryListed || d == DiscoveryUnlisted
+}
+
 // Asset is a catalog entry. Format specific content lives in the stored
 // revision, not here.
 type Asset struct {

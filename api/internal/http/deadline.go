@@ -53,6 +53,7 @@ func Register(r *gin.Engine, h *Handlers, d Deadlines) error {
 		routeKey(http.MethodGet, "/v1/assets"):                        d.JSON,
 		routeKey(http.MethodPost, "/v1/assets"):                       d.Upload,
 		routeKey(http.MethodGet, "/v1/assets/:id"):                    d.JSON,
+		routeKey(http.MethodPut, "/v1/assets/:id/discovery"):          d.JSON,
 		routeKey(http.MethodPost, "/v1/assets/:id/media"):             d.Upload,
 		routeKey(http.MethodGet, "/v1/assets/:id/media"):              d.JSON,
 		routeKey(http.MethodGet, "/v1/ingests/:id"):                   d.JSON,

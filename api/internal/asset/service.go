@@ -19,8 +19,10 @@ import (
 )
 
 var (
-	ErrNotFound       = errors.New("asset not found")
-	ErrIngestNotFound = errors.New("ingest operation not found")
+	ErrNotFound         = errors.New("asset not found")
+	ErrIngestNotFound   = errors.New("ingest operation not found")
+	ErrInvalidDiscovery = errors.New("invalid discovery state")
+	ErrAssetFrozen      = errors.New("asset is frozen")
 )
 
 // Service runs the catalog. It knows the module interfaces, never a concrete
