@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Sillyfrogster/LumiHub/api/internal/asset"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	"github.com/google/uuid"
 )
@@ -13,24 +14,15 @@ import (
 func TestUploadAcceptsDiscoveryAndDefaultsToListed(t *testing.T) {
 	for _, test := range []struct {
 		name      string
-		discovery any
+		discovery asset.Discovery
 		want      string
 	}{
 		{name: "omitted", want: "listed"},
-		{name: "explicit unlisted", discovery: "unlisted", want: "unlisted"},
+		{name: "explicit unlisted", discovery: asset.DiscoveryUnlisted, want: "unlisted"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			router, session, assets := newVerifiedIngestRouter(t, format.NewRegistry())
-			metadata := exampleMetadata("A quiet draft")
-			metadata["filename"] = "quiet-draft.lumitheme"
-			if test.discovery == nil {
-				delete(metadata, "discovery")
-			} else {
-				metadata["discovery"] = test.discovery
-			}
-			assetID := assetIDFromIngest(
-				t, uploadAndFinish(t, router, session, assets, metadata, []byte("theme")),
-			)
+			assetID := uploadDiscoveryTestAsset(t, router, session, assets, test.discovery)
 
 			page := fetchAssetPage(t, router, "/v1/assets/"+assetID)
 			if page.Discovery != test.want {
@@ -42,11 +34,7 @@ func TestUploadAcceptsDiscoveryAndDefaultsToListed(t *testing.T) {
 
 func TestCreatorChangesAssetDiscovery(t *testing.T) {
 	router, session, assets := newVerifiedIngestRouter(t, format.NewRegistry())
-	metadata := exampleMetadata("A quiet draft")
-	metadata["filename"] = "quiet-draft.lumitheme"
-	assetID := assetIDFromIngest(
-		t, uploadAndFinish(t, router, session, assets, metadata, []byte("theme")),
-	)
+	assetID := uploadDiscoveryTestAsset(t, router, session, assets, asset.DiscoveryListed)
 
 	changed := send(t, router, authorizedJSONRequest(
 		t,
@@ -67,11 +55,7 @@ func TestCreatorChangesAssetDiscovery(t *testing.T) {
 
 func TestChangingDiscoveryRequiresTheCreator(t *testing.T) {
 	router, session, assets := newVerifiedIngestRouter(t, format.NewRegistry())
-	metadata := exampleMetadata("A quiet draft")
-	metadata["filename"] = "quiet-draft.lumitheme"
-	assetID := assetIDFromIngest(
-		t, uploadAndFinish(t, router, session, assets, metadata, []byte("theme")),
-	)
+	assetID := uploadDiscoveryTestAsset(t, router, session, assets, asset.DiscoveryListed)
 
 	changed := send(t, router, httptest.NewRequest(
 		http.MethodPut,
@@ -85,11 +69,7 @@ func TestChangingDiscoveryRequiresTheCreator(t *testing.T) {
 
 func TestWithheldAssetDiscoveryIsFrozen(t *testing.T) {
 	router, session, assets, pool := newVerifiedIngestRouterWithPool(t, format.NewRegistry())
-	metadata := exampleMetadata("A quiet draft")
-	metadata["filename"] = "quiet-draft.lumitheme"
-	assetID := assetIDFromIngest(
-		t, uploadAndFinish(t, router, session, assets, metadata, []byte("theme")),
-	)
+	assetID := uploadDiscoveryTestAsset(t, router, session, assets, asset.DiscoveryListed)
 	var ownerID uuid.UUID
 	if err := pool.QueryRow(context.Background(),
 		`select id from users where username = 'verified.creator'`,
@@ -114,4 +94,24 @@ func TestWithheldAssetDiscoveryIsFrozen(t *testing.T) {
 	if changed.Code != http.StatusConflict {
 		t.Fatalf("change discovery status = %d, want 409: %s", changed.Code, changed.Body.String())
 	}
+}
+
+func uploadDiscoveryTestAsset(
+	t *testing.T,
+	router http.Handler,
+	session *http.Cookie,
+	assets *asset.Service,
+	discovery asset.Discovery,
+) string {
+	t.Helper()
+	metadata := exampleMetadata("A quiet draft")
+	metadata["filename"] = "quiet-draft.lumitheme"
+	if discovery == "" {
+		delete(metadata, "discovery")
+	} else {
+		metadata["discovery"] = discovery
+	}
+	return assetIDFromIngest(
+		t, uploadAndFinish(t, router, session, assets, metadata, []byte("theme")),
+	)
 }

@@ -21,24 +21,22 @@ export async function buildSitemap(
     { url: new URL("/", siteUrl).href },
     { url: new URL("/browse", siteUrl).href },
   ];
-  let before: string | undefined;
-  let beforeId: string | undefined;
+  let cursor: BrowsePage["nextCursor"];
 
   do {
     const page = await listAssets({
       limit: 24,
       nsfw: "shown",
-      before,
-      beforeId,
+      before: cursor?.before,
+      beforeId: cursor?.beforeId,
     });
     for (const asset of page.items) {
       entries.push({
         url: new URL(assetHref(asset.id, asset.name), siteUrl).href,
       });
     }
-    before = page.nextCursor?.before;
-    beforeId = page.nextCursor?.beforeId;
-  } while (before && beforeId);
+    cursor = page.nextCursor;
+  } while (cursor);
 
   return entries;
 }
