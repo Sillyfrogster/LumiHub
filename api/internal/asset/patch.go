@@ -14,6 +14,13 @@ import (
 
 var ErrPatchUnsupported = errors.New("asset format does not support file patches")
 
+type patchProvenance string
+
+const (
+	creatorPatch        patchProvenance = "creator"
+	reconciliationPatch patchProvenance = "reconciliation"
+)
+
 // FilePatchInput replaces one creator's current patch for an asset.
 type FilePatchInput struct {
 	OwnerID uuid.UUID
@@ -56,7 +63,7 @@ func (s *Service) SetFilePatch(ctx context.Context, input FilePatchInput) error 
 	); err != nil {
 		return fmt.Errorf("clear creator file patch: %w", err)
 	}
-	if err := insertFilePatch(ctx, tx, input.AssetID, nil, "creator", input.Patch); err != nil {
+	if err := insertFilePatch(ctx, tx, input.AssetID, nil, creatorPatch, input.Patch); err != nil {
 		return err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -94,7 +101,7 @@ func (s *Service) setReconciliationPatch(
 	); err != nil {
 		return fmt.Errorf("clear reconciliation patch: %w", err)
 	}
-	if err := insertFilePatch(ctx, tx, assetID, &revisionID, "reconciliation", patch); err != nil {
+	if err := insertFilePatch(ctx, tx, assetID, &revisionID, reconciliationPatch, patch); err != nil {
 		return err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -120,7 +127,7 @@ func insertFilePatch(
 	tx pgx.Tx,
 	assetID uuid.UUID,
 	revisionID *uuid.UUID,
-	provenance string,
+	provenance patchProvenance,
 	patch format.Patch,
 ) error {
 	fields := make([]string, 0, len(patch))

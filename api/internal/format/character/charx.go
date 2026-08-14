@@ -3,6 +3,7 @@ package character
 import (
 	"context"
 	"encoding/json"
+	"slices"
 	"strings"
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
@@ -23,7 +24,16 @@ func (CharXModule) ID() string { return CharX }
 
 func (CharXModule) OwnedSpecs() []string { return []string{V3} }
 
-func (CharXModule) BrowseDefinition() format.BrowseDefinition { return browseDefinition() }
+func (m CharXModule) BrowseDefinition() format.BrowseDefinition {
+	return browseDefinition(m.ExportTargets())
+}
+
+func (CharXModule) ExportTargets() []format.BrowseOption {
+	return slices.Concat(exportTargets(), []format.BrowseOption{
+		{Value: targetCCv3JSON, Label: "CCv3 JSON"},
+		{Value: targetCCv2PNG, Label: "CCv2 PNG"},
+	})
+}
 
 func (CharXModule) ValidatePatch(patch format.Patch) error { return validatePatch(patch) }
 
@@ -49,6 +59,7 @@ type cardAsset struct {
 	Type string `json:"type"`
 	URI  string `json:"uri"`
 	Name string `json:"name"`
+	Ext  string `json:"ext"`
 }
 
 // archivedImages gives a role to each picture the card names in the archive.

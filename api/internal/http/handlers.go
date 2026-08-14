@@ -1262,24 +1262,42 @@ func (h *Handlers) refuse(c *gin.Context, err error) {
 	c.JSON(http.StatusBadRequest, gin.H{"error": "could not create the asset"})
 }
 
-func (h *Handlers) DownloadSource(c *gin.Context, id types.UUID, params DownloadSourceParams) {
+func (h *Handlers) DownloadSource(c *gin.Context, id types.UUID) {
 	viewerID, ok := h.viewerID(c)
 	if !ok {
 		return
 	}
-	target := format.RawTarget
-	if params.Target != nil {
-		target = *params.Target
+	download, err := h.assets.DownloadSource(c.Request.Context(), id, viewerID)
+	if err != nil {
+		h.downloadError(c, err)
+		return
+	}
+	handOffDownload(c, download)
+}
+
+func (h *Handlers) DownloadExport(c *gin.Context, id types.UUID, target string) {
+	viewerID, ok := h.viewerID(c)
+	if !ok {
+		return
 	}
 	download, err := h.assets.DownloadExport(c.Request.Context(), id, viewerID, target)
 	if err != nil {
-		if errors.Is(err, asset.ErrNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "no such asset"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not read the file"})
+		h.downloadError(c, err)
 		return
 	}
+	c.Header("X-LumiHub-Export-Target", download.Target)
+	handOffDownload(c, download.SourceDownload)
+}
+
+func (h *Handlers) downloadError(c *gin.Context, err error) {
+	if errors.Is(err, asset.ErrNotFound) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "no such asset"})
+		return
+	}
+	c.JSON(http.StatusInternalServerError, gin.H{"error": "could not read the file"})
+}
+
+func handOffDownload(c *gin.Context, download asset.SourceDownload) {
 	disposition := "attachment"
 	mediaType := "application/octet-stream"
 	if download.Inline {
@@ -1289,7 +1307,6 @@ func (h *Handlers) DownloadSource(c *gin.Context, id types.UUID, params Download
 	c.Header("Content-Disposition", disposition)
 	c.Header("Content-Type", mediaType)
 	c.Header("X-Content-Type-Options", "nosniff")
-	c.Header("X-LumiHub-Export-Target", download.Target)
 	c.Header("X-Accel-Redirect", download.InternalRedirect)
 	c.Status(http.StatusOK)
 }

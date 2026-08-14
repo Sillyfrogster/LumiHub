@@ -84,6 +84,12 @@ type BrowseDeclarer interface {
 	BrowseDefinition() BrowseDefinition
 }
 
+// ExportTargetDeclarer names every non-raw artifact a module can produce.
+// Browse may expose a smaller, platform-oriented subset of these targets.
+type ExportTargetDeclarer interface {
+	ExportTargets() []BrowseOption
+}
+
 // Media is one image a module found in a source file and gave a role. It names
 // an image the probe located rather than carrying bytes, so a module never
 // holds a file in memory and never writes one.

@@ -65,11 +65,11 @@ func (r *Registry) ResolveExporter(id, target string) (Exporter, string, bool) {
 	if target == "" || target == RawTarget {
 		return exporter, RawTarget, true
 	}
-	declarer, ok := module.(BrowseDeclarer)
+	declarer, ok := module.(ExportTargetDeclarer)
 	if !ok {
 		return exporter, RawTarget, true
 	}
-	for _, declared := range declarer.BrowseDefinition().ExportTargets {
+	for _, declared := range declarer.ExportTargets() {
 		if declared.Value == target {
 			return exporter, target, true
 		}

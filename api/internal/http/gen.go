@@ -934,12 +934,6 @@ type WithholdAssetRequest struct {
 	Reason string `json:"reason"`
 }
 
-// DownloadSourceParams defines parameters for DownloadSource.
-type DownloadSourceParams struct {
-	// Target A declared export target. Unsupported values fall back to raw.
-	Target *string `form:"target,omitempty" json:"target,omitempty"`
-}
-
 // GetMediaVariantParamsVariant defines parameters for GetMediaVariant.
 type GetMediaVariantParamsVariant string
 
@@ -1065,7 +1059,10 @@ type CompleteIngestJSONRequestBody = CompleteIngestRequest
 type ServerInterface interface {
 
 	// (GET /download/{id})
-	DownloadSource(c *gin.Context, id openapi_types.UUID, params DownloadSourceParams)
+	DownloadSource(c *gin.Context, id openapi_types.UUID)
+
+	// (GET /download/{id}/{target})
+	DownloadExport(c *gin.Context, id openapi_types.UUID, target string)
 
 	// (GET /media/{media_id}/{variant}/{derivative_version})
 	GetMediaVariant(c *gin.Context, mediaId openapi_types.UUID, variant GetMediaVariantParamsVariant, derivativeVersion int)
@@ -1185,12 +1182,35 @@ func (siw *ServerInterfaceWrapper) DownloadSource(c *gin.Context) {
 		return
 	}
 
-	// Parameter object where we will unmarshal all parameters from the context
-	var params DownloadSourceParams
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
 
-	// ------------- Optional query parameter "target" -------------
+	siw.Handler.DownloadSource(c, id)
+}
 
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "target", c.Request.URL.Query(), &params.Target, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+// DownloadExport operation middleware
+func (siw *ServerInterfaceWrapper) DownloadExport(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "target" -------------
+	var target string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "target", c.Param("target"), &target, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
 	if err != nil {
 		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter target: %w", err), http.StatusBadRequest)
 		return
@@ -1203,7 +1223,7 @@ func (siw *ServerInterfaceWrapper) DownloadSource(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.DownloadSource(c, id, params)
+	siw.Handler.DownloadExport(c, id, target)
 }
 
 // GetMediaVariant operation middleware
@@ -1994,6 +2014,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.DELETE(options.BaseURL+"/v1/assets/:id/withhold", wrapper.ClearAssetWithhold)
 	router.PUT(options.BaseURL+"/v1/assets/:id/withhold", wrapper.WithholdAsset)
 	router.GET(options.BaseURL+"/download/:id", wrapper.DownloadSource)
+	router.GET(options.BaseURL+"/download/:id/:target", wrapper.DownloadExport)
 	router.GET(options.BaseURL+"/v1/assets/:id/media", wrapper.ListMedia)
 	router.POST(options.BaseURL+"/v1/assets/:id/media", wrapper.AddMedia)
 	router.GET(options.BaseURL+"/media/:media_id/:variant/:derivative_version", wrapper.GetMediaVariant)

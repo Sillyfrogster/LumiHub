@@ -391,6 +391,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/download/{id}/{target}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["downloadExport"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/assets/{id}/media": {
     parameters: {
       query?: never;
@@ -1754,13 +1770,47 @@ export interface operations {
   };
   downloadSource: {
     parameters: {
-      query?: {
-        /** @description A declared export target. Unsupported values fall back to raw. */
-        target?: string;
-      };
+      query?: never;
       header?: never;
       path: {
         id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The current uploaded source file, byte for byte */
+      200: {
+        headers: {
+          "Content-Disposition": "attachment" | "inline";
+          "X-Content-Type-Options": "nosniff";
+          [name: string]: unknown;
+        };
+        content: {
+          "application/octet-stream": string;
+          "image/png": string;
+          "image/jpeg": string;
+          "image/webp": string;
+          "image/gif": string;
+        };
+      };
+      /** @description No such asset */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  downloadExport: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+        /** @description A declared export target. Unsupported values fall back to raw. */
+        target: string;
       };
       cookie?: never;
     };
@@ -1779,9 +1829,6 @@ export interface operations {
           "application/json": string;
           "application/zip": string;
           "image/png": string;
-          "image/jpeg": string;
-          "image/webp": string;
-          "image/gif": string;
         };
       };
       /** @description No such asset */

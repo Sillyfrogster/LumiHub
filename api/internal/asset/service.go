@@ -370,14 +370,41 @@ func (s *Service) OpenSource(ctx context.Context, assetID uuid.UUID) (io.ReadClo
 	return rc, nil
 }
 
-type ExportDownload struct {
+type SourceDownload struct {
 	InternalRedirect string
 	MediaType        string
 	Inline           bool
-	Target           string
 }
 
-// DownloadExport prepares one artifact for an nginx handoff.
+type ExportDownload struct {
+	SourceDownload
+	Target string
+}
+
+// DownloadSource resolves the exact current source for an nginx handoff.
+func (s *Service) DownloadSource(
+	ctx context.Context,
+	assetID uuid.UUID,
+	viewerID *uuid.UUID,
+) (SourceDownload, error) {
+	blobID, mediaType, err := currentRevisionLocation(ctx, s.pool, assetID, viewerID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return SourceDownload{}, ErrNotFound
+		}
+		return SourceDownload{}, fmt.Errorf("find current revision: %w", err)
+	}
+	redirect, err := s.store.InternalRedirect(ctx, blobID)
+	if err != nil {
+		return SourceDownload{}, fmt.Errorf("resolve stored file: %w", err)
+	}
+	return SourceDownload{
+		InternalRedirect: redirect, MediaType: mediaType,
+		Inline: probe.IsInlineMediaType(mediaType),
+	}, nil
+}
+
+// DownloadExport prepares one generated artifact for an nginx handoff.
 func (s *Service) DownloadExport(
 	ctx context.Context,
 	assetID uuid.UUID,
@@ -388,7 +415,24 @@ func (s *Service) DownloadExport(
 	if err != nil {
 		return ExportDownload{}, err
 	}
-	stored, putErr := s.store.Put(ctx, exported.Artifact)
+	if exported.sourceBlobID != uuid.Nil {
+		closeErr := exported.Artifact.Close()
+		if closeErr != nil {
+			return ExportDownload{}, fmt.Errorf("close source export: %w", closeErr)
+		}
+		redirect, err := s.store.InternalRedirect(ctx, exported.sourceBlobID)
+		if err != nil {
+			return ExportDownload{}, fmt.Errorf("resolve source export: %w", err)
+		}
+		return ExportDownload{
+			SourceDownload: SourceDownload{
+				InternalRedirect: redirect, MediaType: exported.MediaType,
+				Inline: probe.IsInlineMediaType(exported.MediaType),
+			},
+			Target: exported.Target,
+		}, nil
+	}
+	putErr := s.store.PutDerivative(ctx, exported.derivativeID, exported.Artifact)
 	closeErr := exported.Artifact.Close()
 	if putErr != nil {
 		return ExportDownload{}, fmt.Errorf("store generated export: %w", putErr)
@@ -396,14 +440,15 @@ func (s *Service) DownloadExport(
 	if closeErr != nil {
 		return ExportDownload{}, fmt.Errorf("close generated export: %w", closeErr)
 	}
-	redirect, err := s.store.InternalRedirect(ctx, stored.ID)
+	redirect, err := s.store.InternalDerivativeRedirect(ctx, exported.derivativeID)
 	if err != nil {
 		return ExportDownload{}, fmt.Errorf("resolve generated export: %w", err)
 	}
 	return ExportDownload{
-		InternalRedirect: redirect,
-		MediaType:        exported.MediaType,
-		Inline:           probe.IsInlineMediaType(exported.MediaType),
-		Target:           exported.Target,
+		SourceDownload: SourceDownload{
+			InternalRedirect: redirect, MediaType: exported.MediaType,
+			Inline: probe.IsInlineMediaType(exported.MediaType),
+		},
+		Target: exported.Target,
 	}, nil
 }

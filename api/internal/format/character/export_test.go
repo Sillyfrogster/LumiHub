@@ -179,12 +179,13 @@ func TestCharXExportKeepsEmbededPathsAndMergesCreatorMedia(t *testing.T) {
 		"platform.json":               []byte(`{"keep": true}`),
 	})
 	managed := testPNG(t)
+	managedID := "11111111-2222-3333-4444-555555555555"
 	exported, err := CharXModule{}.Export(context.Background(), format.ExportRequest{
 		Source: bytes.NewReader(source),
 		Target: "lumiverse",
 		Patch:  format.Patch{format.FieldDescription: "After"},
 		Media: []format.ExportMedia{{
-			ID: "managed-expression", Role: "expression", MediaType: "image/png", Data: managed,
+			ID: managedID, Role: "expression", MediaType: "image/png", Data: managed,
 		}},
 	})
 	if err != nil {
@@ -224,6 +225,54 @@ func TestCharXExportKeepsEmbededPathsAndMergesCreatorMedia(t *testing.T) {
 	if len(exported.UnembeddedMedia) != 0 {
 		t.Fatalf("CHARX left %d media files outside the archive", len(exported.UnembeddedMedia))
 	}
+	if bytes.Contains(written, []byte(managedID)) {
+		t.Fatal("a server media identifier leaked into the creator file")
+	}
+}
+
+func TestCharXConvertsToCCv3JSONAndCCv2PNG(t *testing.T) {
+	picture := testPNG(t)
+	card := `{
+		"spec":"chara_card_v3","spec_version":"3.0",
+		"data":{"description":"Before","assets":[
+			{"type":"icon","uri":"embeded://assets/icon/images/main.png","name":"main","ext":"png"}
+		]}
+	}`
+	source := charXBytes(t, card, map[string][]byte{"assets/icon/images/main.png": picture})
+
+	jsonExport, err := CharXModule{}.Export(context.Background(), format.ExportRequest{
+		Source: bytes.NewReader(source), Target: targetCCv3JSON,
+		Patch: format.Patch{format.FieldDescription: "JSON target"},
+	})
+	if err != nil {
+		t.Fatalf("CCv3 JSON export: %v", err)
+	}
+	jsonBytes, _ := io.ReadAll(jsonExport.Artifact)
+	data := rawField(t, jsonBytes, "data")
+	if got := stringField(t, decodeObject(t, data), "description"); got != "JSON target" {
+		t.Fatalf("JSON description = %q", got)
+	}
+	if !bytes.Contains(rawField(t, data, "assets"), []byte(`"data:image/png;base64,`)) {
+		t.Fatal("CCv3 JSON did not inline archive media")
+	}
+
+	pngExport, err := CharXModule{}.Export(context.Background(), format.ExportRequest{
+		Source: bytes.NewReader(source), Target: targetCCv2PNG,
+		Patch: format.Patch{format.FieldDescription: "PNG target"},
+	})
+	if err != nil {
+		t.Fatalf("CCv2 PNG export: %v", err)
+	}
+	pngBytes, _ := io.ReadAll(pngExport.Artifact)
+	file := inspect(t, pngBytes, "converted.png")
+	claim := claimFor(t, CCv2Module{}, file)
+	fields, ok := Fields(file, claim)
+	if !ok || stringField(t, fields, "description") != "PNG target" {
+		t.Fatal("CCv2 PNG did not contain the converted patched card")
+	}
+	if !bytes.Contains(fields["assets"], []byte(`"data:image/png;base64,`)) {
+		t.Fatal("CCv2 PNG card did not carry the archive media")
+	}
 }
 
 func TestEveryCharacterModuleProducesEveryTargetItDeclares(t *testing.T) {
@@ -242,8 +291,8 @@ func TestEveryCharacterModuleProducesEveryTargetItDeclares(t *testing.T) {
 			if !ok {
 				t.Fatalf("module %q has no export interface", test.module.ID())
 			}
-			definition := test.module.(format.BrowseDeclarer).BrowseDefinition()
-			for _, target := range definition.ExportTargets {
+			declarer := test.module.(format.ExportTargetDeclarer)
+			for _, target := range declarer.ExportTargets() {
 				exported, err := exporter.Export(context.Background(), format.ExportRequest{
 					Source: bytes.NewReader(test.source), Target: target.Value,
 					Patch: format.Patch{format.FieldDescription: target.Value},

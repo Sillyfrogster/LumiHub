@@ -67,6 +67,7 @@ func Register(r *gin.Engine, h *Handlers, d Deadlines) error {
 		routeKey(http.MethodPatch, "/v1/ingests/:id"):                 d.JSON,
 		// :id is gin's way of writing "any id here".
 		routeKey(http.MethodGet, "/download/:id"):                                 d.Download,
+		routeKey(http.MethodGet, "/download/:id/:target"):                         d.Download,
 		routeKey(http.MethodGet, "/media/:media_id/:variant/:derivative_version"): d.Download,
 	}
 

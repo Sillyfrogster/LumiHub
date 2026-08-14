@@ -9,6 +9,8 @@ import (
 	"errors"
 	"fmt"
 	"hash/crc32"
+	"image"
+	"image/png"
 	"io"
 	"path"
 	"slices"
@@ -22,6 +24,11 @@ import (
 
 var errInvalidJSON = errors.New("invalid JSON object")
 
+const (
+	targetCCv3JSON = "chara_card_v3"
+	targetCCv2PNG  = "chara_card_v2_png"
+)
+
 type valueSpan struct {
 	start int
 	end   int
@@ -33,37 +40,10 @@ type byteEdit struct {
 	replacement []byte
 }
 
-func exportJSON(request format.ExportRequest) (format.ExportedArtifact, error) {
-	if err := validatePatch(request.Patch); err != nil {
-		return format.ExportedArtifact{}, err
-	}
-	if !declaresTarget(request.Target) {
-		return format.ExportedArtifact{}, fmt.Errorf("export target %q is not declared", request.Target)
-	}
-	source, err := io.ReadAll(request.Source)
-	if err != nil {
-		return format.ExportedArtifact{}, fmt.Errorf("read source: %w", err)
-	}
-	written, err := patchCardJSON(source, request.Patch)
-	if err != nil {
-		return format.ExportedArtifact{}, err
-	}
-	return format.ExportedArtifact{
-		Artifact: bytes.NewReader(written), MediaType: "application/json", Extension: ".json",
-		UnembeddedMedia: request.Media,
-	}, nil
-}
-
 func exportCard(request format.ExportRequest, formatID, chunkName string) (format.ExportedArtifact, error) {
-	if err := validatePatch(request.Patch); err != nil {
-		return format.ExportedArtifact{}, err
-	}
-	if !declaresTarget(request.Target) {
-		return format.ExportedArtifact{}, fmt.Errorf("export target %q is not declared", request.Target)
-	}
-	source, err := io.ReadAll(request.Source)
+	source, err := readExportRequest(request, exportTargets())
 	if err != nil {
-		return format.ExportedArtifact{}, fmt.Errorf("read source: %w", err)
+		return format.ExportedArtifact{}, err
 	}
 	if bytes.HasPrefix(source, []byte("\x89PNG\r\n\x1a\n")) {
 		written, err := exportPNG(source, formatID, chunkName, request.Patch)
@@ -75,9 +55,14 @@ func exportCard(request format.ExportRequest, formatID, chunkName string) (forma
 			UnembeddedMedia: request.Media,
 		}, nil
 	}
-	return exportJSON(format.ExportRequest{
-		Source: bytes.NewReader(source), Target: request.Target, Patch: request.Patch, Media: request.Media,
-	})
+	written, err := patchCardJSON(source, request.Patch)
+	if err != nil {
+		return format.ExportedArtifact{}, err
+	}
+	return format.ExportedArtifact{
+		Artifact: bytes.NewReader(written), MediaType: "application/json", Extension: ".json",
+		UnembeddedMedia: request.Media,
+	}, nil
 }
 
 func exportPNG(source []byte, formatID, chunkName string, patch format.Patch) ([]byte, error) {
@@ -155,50 +140,67 @@ func makePNGChunk(kind string, data []byte) []byte {
 }
 
 func exportCharX(request format.ExportRequest) (format.ExportedArtifact, error) {
-	if err := validatePatch(request.Patch); err != nil {
-		return format.ExportedArtifact{}, err
-	}
-	if !declaresTarget(request.Target) {
-		return format.ExportedArtifact{}, fmt.Errorf("export target %q is not declared", request.Target)
-	}
-	source, err := io.ReadAll(request.Source)
+	source, err := readExportRequest(request, CharXModule{}.ExportTargets())
 	if err != nil {
-		return format.ExportedArtifact{}, fmt.Errorf("read source: %w", err)
+		return format.ExportedArtifact{}, err
 	}
 	archive, err := zip.NewReader(bytes.NewReader(source), int64(len(source)))
 	if err != nil {
 		return format.ExportedArtifact{}, fmt.Errorf("open CHARX: %w", err)
 	}
-	entries := make(map[string]bool, len(archive.File)+len(request.Media))
+	entries := make(map[string]*zip.File, len(archive.File))
+	var card []byte
 	for _, entry := range archive.File {
-		if unsafeExportPath(entry.Name) || entries[entry.Name] {
+		if unsafeExportPath(entry.Name) || entries[entry.Name] != nil {
 			return format.ExportedArtifact{}, fmt.Errorf("unsafe or duplicate CHARX entry %q", entry.Name)
 		}
-		entries[entry.Name] = true
+		entries[entry.Name] = entry
+		if entry.Name == "card.json" {
+			card, err = readZipEntry(entry)
+			if err != nil {
+				return format.ExportedArtifact{}, err
+			}
+		}
 	}
-	mediaEntries, assets, err := charXMedia(request.Media, entries)
+	if card == nil {
+		return format.ExportedArtifact{}, errors.New("CHARX has no card.json")
+	}
+	card, err = patchCardJSON(card, request.Patch)
+	if err != nil {
+		return format.ExportedArtifact{}, err
+	}
+	switch request.Target {
+	case targetCCv3JSON:
+		return exportCharXJSON(card, entries, request.Media)
+	case targetCCv2PNG:
+		return exportCharXPNG(card, entries, request.Media)
+	default:
+		return exportCharXArchive(archive, card, request.Media)
+	}
+}
+
+func exportCharXArchive(
+	archive *zip.Reader,
+	card []byte,
+	available []format.ExportMedia,
+) (format.ExportedArtifact, error) {
+	occupied := make(map[string]bool, len(archive.File)+len(available))
+	for _, entry := range archive.File {
+		occupied[entry.Name] = true
+	}
+	mediaEntries, assets, err := charXMedia(available, occupied)
+	if err != nil {
+		return format.ExportedArtifact{}, err
+	}
+	card, err = appendCardAssets(card, assets)
 	if err != nil {
 		return format.ExportedArtifact{}, err
 	}
 
 	var output bytes.Buffer
 	written := zip.NewWriter(&output)
-	foundCard := false
 	for _, entry := range archive.File {
 		if entry.Name == "card.json" {
-			foundCard = true
-			card, err := readZipEntry(entry)
-			if err != nil {
-				return format.ExportedArtifact{}, err
-			}
-			card, err = patchCardJSON(card, request.Patch)
-			if err != nil {
-				return format.ExportedArtifact{}, err
-			}
-			card, err = appendCardAssets(card, assets)
-			if err != nil {
-				return format.ExportedArtifact{}, err
-			}
 			destination, err := written.CreateHeader(&entry.FileHeader)
 			if err != nil {
 				return format.ExportedArtifact{}, fmt.Errorf("create card.json: %w", err)
@@ -220,9 +222,6 @@ func exportCharX(request format.ExportRequest) (format.ExportedArtifact, error) 
 			return format.ExportedArtifact{}, fmt.Errorf("copy CHARX entry %q: %w", entry.Name, err)
 		}
 	}
-	if !foundCard {
-		return format.ExportedArtifact{}, errors.New("CHARX has no card.json")
-	}
 	for _, entry := range mediaEntries {
 		destination, err := written.Create(entry.path)
 		if err != nil {
@@ -240,6 +239,220 @@ func exportCharX(request format.ExportRequest) (format.ExportedArtifact, error) 
 	}, nil
 }
 
+func exportCharXJSON(
+	card []byte,
+	entries map[string]*zip.File,
+	available []format.ExportMedia,
+) (format.ExportedArtifact, error) {
+	written, err := inlineCharXAssets(card, entries, available)
+	if err != nil {
+		return format.ExportedArtifact{}, err
+	}
+	return format.ExportedArtifact{
+		Artifact: bytes.NewReader(written), MediaType: "application/json", Extension: ".json",
+	}, nil
+}
+
+func exportCharXPNG(
+	card []byte,
+	entries map[string]*zip.File,
+	available []format.ExportMedia,
+) (format.ExportedArtifact, error) {
+	picture, _, err := charXAvatarPNG(card, entries, available)
+	if err != nil {
+		return format.ExportedArtifact{}, err
+	}
+	card, err = inlineCharXAssets(card, entries, available)
+	if err != nil {
+		return format.ExportedArtifact{}, err
+	}
+	card, err = setJSONObjectRaw(card, "spec", []byte(`"chara_card_v2"`))
+	if err != nil {
+		return format.ExportedArtifact{}, fmt.Errorf("write CCv2 spec: %w", err)
+	}
+	card, err = setJSONObjectRaw(card, "spec_version", []byte(`"2.0"`))
+	if err != nil {
+		return format.ExportedArtifact{}, fmt.Errorf("write CCv2 version: %w", err)
+	}
+	written, err := embedCardInPNG(picture, card, "chara")
+	if err != nil {
+		return format.ExportedArtifact{}, err
+	}
+	return format.ExportedArtifact{
+		Artifact: bytes.NewReader(written), MediaType: "image/png", Extension: ".png",
+	}, nil
+}
+
+func inlineCharXAssets(
+	card []byte,
+	entries map[string]*zip.File,
+	available []format.ExportMedia,
+) ([]byte, error) {
+	root, _, err := objectSpans(card)
+	if err != nil {
+		return nil, fmt.Errorf("read CHARX card: %w", err)
+	}
+	dataSpan, ok := root["data"]
+	if !ok {
+		return nil, errors.New("CHARX card has no data object")
+	}
+	data := card[dataSpan.start:dataSpan.end]
+	fields, _, err := objectSpans(data)
+	if err != nil {
+		return nil, fmt.Errorf("read CHARX card data: %w", err)
+	}
+	var assets []json.RawMessage
+	if span, ok := fields["assets"]; ok {
+		if err := json.Unmarshal(data[span.start:span.end], &assets); err != nil {
+			return nil, fmt.Errorf("read CHARX assets: %w", err)
+		}
+	}
+	for i, asset := range assets {
+		var record cardAsset
+		if json.Unmarshal(asset, &record) != nil {
+			continue
+		}
+		entryPath, embedded := strings.CutPrefix(record.URI, embeddedPrefix)
+		entry := entries[entryPath]
+		if !embedded || entry == nil {
+			continue
+		}
+		contents, err := readZipEntry(entry)
+		if err != nil {
+			return nil, err
+		}
+		uri, _ := json.Marshal(dataURI(mediaTypeForExtension(record.Ext, entryPath), contents))
+		assets[i], err = setJSONObjectRaw(asset, "uri", uri)
+		if err != nil {
+			return nil, fmt.Errorf("inline CHARX asset %q: %w", entryPath, err)
+		}
+	}
+	for i, item := range available {
+		assetType, name := charXMediaRole(item.Role, i+1)
+		asset, err := json.Marshal(struct {
+			Type string `json:"type"`
+			URI  string `json:"uri"`
+			Name string `json:"name"`
+			Ext  string `json:"ext"`
+		}{assetType, dataURI(item.MediaType, item.Data), name, mediaExtension(item.MediaType)})
+		if err != nil {
+			return nil, fmt.Errorf("write CCv3 media record: %w", err)
+		}
+		assets = append(assets, asset)
+	}
+	encoded, err := json.Marshal(assets)
+	if err != nil {
+		return nil, fmt.Errorf("write CCv3 assets: %w", err)
+	}
+	data, err = setJSONObjectRaw(data, "assets", encoded)
+	if err != nil {
+		return nil, err
+	}
+	return slices.Concat(card[:dataSpan.start], data, card[dataSpan.end:]), nil
+}
+
+func dataURI(mediaType string, data []byte) string {
+	if mediaType == "" {
+		mediaType = "application/octet-stream"
+	}
+	return "data:" + mediaType + ";base64," + base64.StdEncoding.EncodeToString(data)
+}
+
+func mediaTypeForExtension(extension, entryPath string) string {
+	extension = strings.ToLower(strings.TrimPrefix(extension, "."))
+	if extension == "" {
+		extension = strings.TrimPrefix(strings.ToLower(path.Ext(entryPath)), ".")
+	}
+	switch extension {
+	case "png":
+		return "image/png"
+	case "jpg", "jpeg":
+		return "image/jpeg"
+	case "webp":
+		return "image/webp"
+	case "gif":
+		return "image/gif"
+	default:
+		return "application/octet-stream"
+	}
+}
+
+func charXAvatarPNG(
+	card []byte,
+	entries map[string]*zip.File,
+	available []format.ExportMedia,
+) ([]byte, int, error) {
+	for i, item := range available {
+		if item.Role == media.Avatar && item.MediaType == "image/png" && bytes.HasPrefix(item.Data, []byte("\x89PNG\r\n\x1a\n")) {
+			return item.Data, i, nil
+		}
+	}
+	root := make(map[string]json.RawMessage)
+	if err := json.Unmarshal(card, &root); err != nil {
+		return nil, -1, errInvalidJSON
+	}
+	var data map[string]json.RawMessage
+	if err := json.Unmarshal(root["data"], &data); err == nil {
+		var assets []cardAsset
+		_ = json.Unmarshal(data["assets"], &assets)
+		for _, asset := range assets {
+			entryPath, embedded := strings.CutPrefix(asset.URI, embeddedPrefix)
+			entry := entries[entryPath]
+			if !embedded || entry == nil || asset.Type != "icon" || asset.Name != "main" {
+				continue
+			}
+			picture, err := readZipEntry(entry)
+			if err != nil {
+				return nil, -1, err
+			}
+			if bytes.HasPrefix(picture, []byte("\x89PNG\r\n\x1a\n")) {
+				return picture, -1, nil
+			}
+		}
+	}
+	var fallback bytes.Buffer
+	if err := png.Encode(&fallback, image.NewNRGBA(image.Rect(0, 0, 1, 1))); err != nil {
+		return nil, -1, fmt.Errorf("create fallback PNG: %w", err)
+	}
+	return fallback.Bytes(), -1, nil
+}
+
+func embedCardInPNG(source, card []byte, chunkName string) ([]byte, error) {
+	if !bytes.HasPrefix(source, []byte("\x89PNG\r\n\x1a\n")) {
+		return nil, errors.New("avatar is not a PNG")
+	}
+	var output bytes.Buffer
+	output.Write(source[:8])
+	inserted := false
+	for offset := 8; offset < len(source); {
+		if offset+12 > len(source) {
+			return nil, fmt.Errorf("PNG chunk at byte %d is truncated", offset)
+		}
+		length := int(binary.BigEndian.Uint32(source[offset : offset+4]))
+		end := offset + 12 + length
+		if length < 0 || end < offset || end > len(source) {
+			return nil, fmt.Errorf("PNG chunk at byte %d exceeds the file", offset)
+		}
+		kind := string(source[offset+4 : offset+8])
+		data := source[offset+8 : offset+8+length]
+		keyword, _, hasText := bytes.Cut(data, []byte{0})
+		isCard := kind == "tEXt" && hasText && (string(keyword) == "chara" || string(keyword) == "ccv3")
+		if kind == "IEND" && !inserted {
+			encoded := base64.StdEncoding.EncodeToString(card)
+			output.Write(makePNGChunk("tEXt", slices.Concat([]byte(chunkName), []byte{0}, []byte(encoded))))
+			inserted = true
+		}
+		if !isCard {
+			output.Write(source[offset:end])
+		}
+		offset = end
+	}
+	if !inserted {
+		return nil, errors.New("PNG has no IEND chunk")
+	}
+	return output.Bytes(), nil
+}
+
 type charXMediaEntry struct {
 	path string
 	data []byte
@@ -248,12 +461,14 @@ type charXMediaEntry struct {
 func charXMedia(available []format.ExportMedia, entries map[string]bool) ([]charXMediaEntry, []json.RawMessage, error) {
 	written := make([]charXMediaEntry, 0, len(available))
 	assets := make([]json.RawMessage, 0, len(available))
-	for _, item := range available {
-		assetType, name := charXMediaRole(item.Role, item.ID)
+	for i, item := range available {
+		ordinal := i + 1
+		assetType, name := charXMediaRole(item.Role, ordinal)
 		extension := mediaExtension(item.MediaType)
-		entryPath := path.Join("assets", assetType, "images", safeMediaName(item.ID)+"."+extension)
-		if entries[entryPath] {
-			return nil, nil, fmt.Errorf("CHARX media path %q already exists", entryPath)
+		entryPath := path.Join("assets", assetType, "images", fmt.Sprintf("media-%d.%s", ordinal, extension))
+		for entries[entryPath] {
+			ordinal++
+			entryPath = path.Join("assets", assetType, "images", fmt.Sprintf("media-%d.%s", ordinal, extension))
 		}
 		entries[entryPath] = true
 		asset, err := json.Marshal(struct {
@@ -271,18 +486,19 @@ func charXMedia(available []format.ExportMedia, entries map[string]bool) ([]char
 	return written, assets, nil
 }
 
-func charXMediaRole(role media.Role, id string) (string, string) {
+func charXMediaRole(role media.Role, ordinal int) (string, string) {
+	name := fmt.Sprintf("media-%d", ordinal)
 	switch role {
 	case media.Avatar:
 		return "icon", "main"
 	case media.AvatarAlt:
-		return "icon", id
+		return "icon", name
 	case media.Expression:
-		return "emotion", id
+		return "emotion", name
 	case media.PerspectiveLayer:
-		return "x_perspective_layer", id
+		return "x_perspective_layer", name
 	default:
-		return "x_gallery", id
+		return "x_gallery", name
 	}
 }
 
@@ -299,22 +515,6 @@ func mediaExtension(mediaType string) string {
 	default:
 		return "bin"
 	}
-}
-
-func safeMediaName(id string) string {
-	var name strings.Builder
-	for _, value := range id {
-		if value >= 'a' && value <= 'z' || value >= 'A' && value <= 'Z' ||
-			value >= '0' && value <= '9' || value == '-' || value == '_' {
-			name.WriteRune(value)
-		} else {
-			name.WriteByte('-')
-		}
-	}
-	if name.Len() == 0 {
-		return "media"
-	}
-	return name.String()
 }
 
 func appendCardAssets(card []byte, additions []json.RawMessage) ([]byte, error) {
@@ -416,11 +616,25 @@ func unsafeExportPath(name string) bool {
 	return cleaned == "." || strings.HasPrefix(cleaned, "../") || strings.HasPrefix(cleaned, "/")
 }
 
-func declaresTarget(target string) bool {
+func readExportRequest(request format.ExportRequest, targets []format.BrowseOption) ([]byte, error) {
+	if err := validatePatch(request.Patch); err != nil {
+		return nil, err
+	}
+	if !declaresTarget(request.Target, targets) {
+		return nil, fmt.Errorf("export target %q is not declared", request.Target)
+	}
+	source, err := io.ReadAll(request.Source)
+	if err != nil {
+		return nil, fmt.Errorf("read source: %w", err)
+	}
+	return source, nil
+}
+
+func declaresTarget(target string, targets []format.BrowseOption) bool {
 	if target == format.RawTarget {
 		return true
 	}
-	for _, option := range exportTargets() {
+	for _, option := range targets {
 		if option.Value == target {
 			return true
 		}

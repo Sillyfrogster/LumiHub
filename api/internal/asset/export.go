@@ -2,22 +2,30 @@ package asset
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
+	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
 // ExportFile is one resolved primary export artifact.
 type ExportFile struct {
-	Artifact  io.ReadCloser
-	MediaType string
-	Extension string
-	Target    string
+	Artifact        io.ReadCloser
+	MediaType       string
+	Extension       string
+	Target          string
+	UnembeddedMedia []format.ExportMedia
+	sourceBlobID    uuid.UUID
+	derivativeID    storage.DerivativeID
 }
 
 type exportSource struct {
@@ -25,6 +33,7 @@ type exportSource struct {
 	blobID     uuid.UUID
 	formatID   string
 	mediaType  string
+	digest     [sha256.Size]byte
 }
 
 // OpenExport applies additions to the current source for a resolved target.
@@ -46,6 +55,7 @@ func (s *Service) OpenExport(
 		}
 		return ExportFile{
 			Artifact: artifact, MediaType: source.mediaType, Target: format.RawTarget,
+			sourceBlobID: source.blobID,
 		}, nil
 	}
 	patch, err := s.filePatch(ctx, assetID, source.revisionID)
@@ -63,6 +73,7 @@ func (s *Service) OpenExport(
 		}
 		return ExportFile{
 			Artifact: artifact, MediaType: source.mediaType, Target: format.RawTarget,
+			sourceBlobID: source.blobID,
 		}, nil
 	}
 	stored, err := s.store.Open(ctx, source.blobID)
@@ -82,25 +93,71 @@ func (s *Service) OpenExport(
 	return ExportFile{
 		Artifact: io.NopCloser(written.Artifact), MediaType: written.MediaType,
 		Extension: written.Extension, Target: resolvedTarget,
+		UnembeddedMedia: written.UnembeddedMedia,
+		derivativeID:    exportDerivativeID(source.digest, resolvedTarget, patch, media),
 	}, nil
 }
 
 func (s *Service) exportSource(ctx context.Context, assetID uuid.UUID, viewerID *uuid.UUID) (exportSource, error) {
 	var source exportSource
+	var digest []byte
 	err := s.pool.QueryRow(ctx, `
-		select revision.id, revision.blob_id, revision.format, revision.media_type
+		select revision.id, revision.blob_id, revision.format, revision.media_type, blob.sha256
 		  from assets asset
 		  join asset_revisions revision on revision.id = asset.current_revision_id
+		  join blobs blob on blob.id = revision.blob_id
 		 where asset.id = $1 and asset.deleted_at is null
 		   and (asset.withheld_at is null or asset.owner_id = $2)
-	`, assetID, viewerID).Scan(&source.revisionID, &source.blobID, &source.formatID, &source.mediaType)
+	`, assetID, viewerID).Scan(
+		&source.revisionID, &source.blobID, &source.formatID, &source.mediaType, &digest,
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return exportSource{}, ErrNotFound
 	}
 	if err != nil {
 		return exportSource{}, fmt.Errorf("find export source: %w", err)
 	}
+	if len(digest) != sha256.Size {
+		return exportSource{}, fmt.Errorf("find export source: invalid blob digest length %d", len(digest))
+	}
+	copy(source.digest[:], digest)
 	return source, nil
+}
+
+func exportDerivativeID(
+	source [sha256.Size]byte,
+	target string,
+	patch format.Patch,
+	media []format.ExportMedia,
+) storage.DerivativeID {
+	hash := sha256.New()
+	writeFingerprintPart(hash, []byte(target))
+	fields := make([]string, 0, len(patch))
+	for field := range patch {
+		fields = append(fields, string(field))
+	}
+	sort.Strings(fields)
+	for _, field := range fields {
+		writeFingerprintPart(hash, []byte(field))
+		writeFingerprintPart(hash, []byte(patch[format.Field(field)]))
+	}
+	for _, item := range media {
+		writeFingerprintPart(hash, []byte(item.Role))
+		writeFingerprintPart(hash, []byte(item.MediaType))
+		writeFingerprintPart(hash, item.Data)
+	}
+	return storage.DerivativeID{
+		SourceDigest: source,
+		Variant:      "export/" + target + "/" + hex.EncodeToString(hash.Sum(nil)),
+		Version:      1,
+	}
+}
+
+func writeFingerprintPart(destination io.Writer, value []byte) {
+	var length [8]byte
+	binary.BigEndian.PutUint64(length[:], uint64(len(value)))
+	_, _ = destination.Write(length[:])
+	_, _ = destination.Write(value)
 }
 
 func (s *Service) filePatch(ctx context.Context, assetID, revisionID uuid.UUID) (format.Patch, error) {

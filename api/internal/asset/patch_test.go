@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"image/color"
 	"io"
 	"testing"
 
@@ -91,6 +92,37 @@ func TestUnsupportedExportTargetFallsBackToRaw(t *testing.T) {
 	}
 	if exported.Target != format.RawTarget || !bytes.Equal(written, source) {
 		t.Fatalf("fallback = target %q bytes %v, want raw %v", exported.Target, written, source)
+	}
+}
+
+func TestOpenExportCarriesMediaTheTargetCannotEmbed(t *testing.T) {
+	registry := format.NewRegistry()
+	for _, module := range character.Modules() {
+		if err := registry.Register(module); err != nil {
+			t.Fatalf("register %q: %v", module.ID(), err)
+		}
+	}
+	svc, _ := newTestServiceWithRegistry(t, registry)
+	ownerID := revisionOwner(t, svc, "export.media.owner")
+	created := ingestOne(t, svc, ownerID, "card.json", []byte(`{
+		"spec":"chara_card_v3","spec_version":"3.0","data":{"description":"Source"}
+	}`))
+	picture := testPNG(t, 2, 2, color.White)
+	if _, err := svc.AddMedia(context.Background(), AddMediaInput{
+		OwnerID: ownerID, AssetID: created.ID, Role: MediaGallery, File: bytes.NewReader(picture),
+	}); err != nil {
+		t.Fatalf("AddMedia: %v", err)
+	}
+
+	exported, err := svc.OpenExport(context.Background(), created.ID, nil, "risu")
+	if err != nil {
+		t.Fatalf("OpenExport: %v", err)
+	}
+	defer exported.Artifact.Close()
+	if len(exported.UnembeddedMedia) != 1 ||
+		exported.UnembeddedMedia[0].Role != MediaGallery ||
+		!bytes.Equal(exported.UnembeddedMedia[0].Data, picture) {
+		t.Fatalf("unembedded media = %+v, want the creator gallery image", exported.UnembeddedMedia)
 	}
 }
 

@@ -13,7 +13,11 @@ type CCv3Module struct{}
 
 func (CCv3Module) ID() string { return V3 }
 
-func (CCv3Module) BrowseDefinition() format.BrowseDefinition { return browseDefinition() }
+func (m CCv3Module) BrowseDefinition() format.BrowseDefinition {
+	return browseDefinition(m.ExportTargets())
+}
+
+func (CCv3Module) ExportTargets() []format.BrowseOption { return exportTargets() }
 
 func (CCv3Module) ValidatePatch(patch format.Patch) error { return validatePatch(patch) }
 

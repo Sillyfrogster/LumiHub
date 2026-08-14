@@ -86,10 +86,10 @@ func browseFacets() []format.BrowseFacet {
 	}
 }
 
-func browseDefinition() format.BrowseDefinition {
+func browseDefinition(targets []format.BrowseOption) format.BrowseDefinition {
 	return format.BrowseDefinition{
 		Kind:          Kind,
-		ExportTargets: exportTargets(),
+		ExportTargets: targets,
 		Facets:        browseFacets(),
 	}
 }

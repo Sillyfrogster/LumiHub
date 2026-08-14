@@ -14,7 +14,11 @@ type CCv2Module struct{}
 
 func (CCv2Module) ID() string { return V2 }
 
-func (CCv2Module) BrowseDefinition() format.BrowseDefinition { return browseDefinition() }
+func (m CCv2Module) BrowseDefinition() format.BrowseDefinition {
+	return browseDefinition(m.ExportTargets())
+}
+
+func (CCv2Module) ExportTargets() []format.BrowseOption { return exportTargets() }
 
 func (CCv2Module) ValidatePatch(patch format.Patch) error { return validatePatch(patch) }
 
