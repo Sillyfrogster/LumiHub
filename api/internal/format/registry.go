@@ -135,7 +135,7 @@ func validateClaim(file probe.Inspection, module Module, claim Claim) error {
 	if _, ok := claim.Payload(file); !ok {
 		return fmt.Errorf("payload %d does not exist: %w", claim.payloadID, ErrInvalidClaim)
 	}
-	if claim.strength == authoritative && claim.formatID != module.ID() {
+	if claim.strength == authoritative && !ownsSpec(module, claim.formatID) {
 		return fmt.Errorf("payload names format %q, module is %q: %w", claim.formatID, module.ID(), ErrInvalidClaim)
 	}
 	if claim.strength == compatibility && claim.formatID != "" {

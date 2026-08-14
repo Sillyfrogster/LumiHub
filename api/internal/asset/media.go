@@ -10,6 +10,7 @@ import (
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	mediaproc "github.com/Sillyfrogster/LumiHub/api/internal/media"
+	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
 	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -198,6 +199,7 @@ func (s *Service) prepareMedia(ctx context.Context, stored storage.StoredBlob) (
 
 func (s *Service) prepareExtractedMedia(
 	ctx context.Context,
+	file probe.Inspection,
 	extracted []format.Media,
 ) ([]preparedMedia, error) {
 	prepared := make([]preparedMedia, 0, len(extracted))
@@ -206,7 +208,12 @@ func (s *Service) prepareExtractedMedia(
 		if !role.Valid() {
 			return nil, fmt.Errorf("format returned media role %q: %w", item.Role, ErrInvalidMediaRole)
 		}
-		stored, err := s.store.Put(ctx, bytes.NewReader(item.Bytes))
+		source, err := file.OpenImage(ctx, item.ImageID)
+		if err != nil {
+			return nil, fmt.Errorf("open extracted media: %w", err)
+		}
+		stored, err := s.store.Put(ctx, source)
+		source.Close()
 		if err != nil {
 			return nil, fmt.Errorf("store extracted media: %w", err)
 		}

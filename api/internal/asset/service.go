@@ -263,7 +263,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Asset, error) {
 	if a.Tags == nil {
 		a.Tags = []string{}
 	}
-	extractedMedia, err := s.prepareExtractedMedia(ctx, parsed.Media)
+	extractedMedia, err := s.prepareExtractedMedia(ctx, inspected, parsed.Media)
 	if err != nil {
 		return Asset{}, fmt.Errorf("prepare extracted media: %w", err)
 	}

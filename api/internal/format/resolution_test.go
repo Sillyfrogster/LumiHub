@@ -155,3 +155,40 @@ func probedPayload(spec, locator string) probe.Inspection {
 		}},
 	}
 }
+
+// containerModule stands for CharX: its payload names a standard rather than
+// the module, because the standard has no discriminator of its own.
+type containerModule struct{ claimingModule }
+
+func (containerModule) OwnedSpecs() []string { return []string{"chara_card_v3"} }
+
+func TestResolveAcceptsAuthorityForASpecTheModuleOwns(t *testing.T) {
+	registry := NewRegistry()
+	if err := registry.Register(containerModule{claimingModule{
+		id: "charx", spec: "chara_card_v3", authoritative: true,
+	}}); err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+
+	got, ok, err := registry.Resolve(probedPayload("chara_card_v3", "card.json"))
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if !ok || got.Module.ID() != "charx" {
+		t.Fatalf("resolved module = %v, %v; want charx, true", got.Module, ok)
+	}
+}
+
+func TestResolveStillRejectsAuthorityForASpecNobodyOwns(t *testing.T) {
+	registry := NewRegistry()
+	if err := registry.Register(containerModule{claimingModule{
+		id: "charx", spec: "chara_card_v2", authoritative: true,
+	}}); err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+
+	_, _, err := registry.Resolve(probedPayload("chara_card_v2", "card.json"))
+	if !errors.Is(err, ErrInvalidClaim) {
+		t.Fatalf("Resolve error = %v, want ErrInvalidClaim", err)
+	}
+}

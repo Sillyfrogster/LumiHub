@@ -21,20 +21,11 @@ func (s corpusStore) ReadRange(_ context.Context, _ uuid.UUID, offset, length in
 	return io.NopCloser(bytes.NewReader(s.data[offset : offset+length])), nil
 }
 
-type corpusModule struct{ id string }
-
-func (m corpusModule) ID() string { return m.id }
-func (m corpusModule) Claim(file probe.Inspection) (format.Claim, bool) {
-	if m.id == character.V2 {
-		return character.CCv2(file)
-	}
-	return character.CCv3(file)
-}
-func (m corpusModule) Parse(context.Context, probe.Inspection, format.Claim) (format.Parsed, error) {
-	return format.Parsed{Format: m.id}, nil
-}
-
-func TestLocalCorpusHasNoConflictingAuthoritativeClaims(t *testing.T) {
+// TestLocalCorpusRunsThroughEveryModule puts every fixture through the registry
+// the server builds. Two modules claiming one payload authoritatively is a bug
+// in the modules, so it is caught here rather than by a creator whose upload
+// fails.
+func TestLocalCorpusRunsThroughEveryModule(t *testing.T) {
 	root := filepath.Clean("../../../.ai/probe-corpus")
 	if _, err := os.Stat(root); os.IsNotExist(err) {
 		t.Skip("local probe corpus is not present")
@@ -43,13 +34,13 @@ func TestLocalCorpusHasNoConflictingAuthoritativeClaims(t *testing.T) {
 	}
 
 	registry := format.NewRegistry()
-	for _, id := range []string{character.V2, character.V3} {
-		if err := registry.Register(corpusModule{id: id}); err != nil {
-			t.Fatal("register corpus module")
+	for _, module := range character.Modules() {
+		if err := registry.Register(module); err != nil {
+			t.Fatalf("register %q: %v", module.ID(), err)
 		}
 	}
 
-	checked := 0
+	checked, claimed := 0, 0
 	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -61,20 +52,37 @@ func TestLocalCorpusHasNoConflictingAuthoritativeClaims(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		file, err := probe.Inspect(context.Background(), corpusStore{data: data}, uuid.New(), int64(len(data)), "fixture.bin")
+		file, err := probe.Inspect(
+			context.Background(), corpusStore{data: data}, uuid.New(), int64(len(data)), "fixture.bin",
+		)
 		if err != nil {
 			return err
 		}
-		if _, _, err := registry.Resolve(file); err != nil {
+		resolution, resolved, err := registry.Resolve(file)
+		if err != nil {
 			return err
 		}
 		checked++
+		if !resolved {
+			return nil
+		}
+		claimed++
+		parsed, err := resolution.Module.Parse(context.Background(), file, resolution.Claim)
+		if err != nil {
+			return err
+		}
+		if parsed.Kind != character.Kind || parsed.Format != resolution.Module.ID() {
+			t.Errorf("%s parsed as kind %q format %q", entry.Name(), parsed.Kind, parsed.Format)
+		}
 		return nil
 	})
 	if err != nil {
-		t.Fatal("local probe corpus failed")
+		t.Fatalf("local probe corpus failed: %v", err)
 	}
 	if checked == 0 {
 		t.Fatal("local probe corpus is empty")
+	}
+	if claimed == 0 {
+		t.Fatal("no fixture in the local probe corpus resolved to a module")
 	}
 }

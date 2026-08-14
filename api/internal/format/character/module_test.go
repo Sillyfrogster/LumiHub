@@ -1,0 +1,296 @@
+package character
+
+import (
+	"archive/zip"
+	"bytes"
+	"context"
+	"errors"
+	"io"
+	"slices"
+	"testing"
+
+	"github.com/Sillyfrogster/LumiHub/api/internal/format"
+	"github.com/Sillyfrogster/LumiHub/api/internal/media"
+	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
+	"github.com/google/uuid"
+)
+
+func TestEveryModuleDeclaresTheCharacterKindAndItsExportTargets(t *testing.T) {
+	for _, module := range Modules() {
+		declarer, ok := module.(format.BrowseDeclarer)
+		if !ok {
+			t.Fatalf("module %q declares no browse definition", module.ID())
+		}
+		definition := declarer.BrowseDefinition()
+		if definition.Kind != Kind {
+			t.Errorf("module %q kind = %q, want %q", module.ID(), definition.Kind, Kind)
+		}
+		if len(definition.ExportTargets) == 0 {
+			t.Errorf("module %q declares no export target", module.ID())
+		}
+	}
+}
+
+func TestKindComesFromTheModuleForEveryCharacterFormat(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		file   probe.Inspection
+		format string
+	}{
+		{name: "CCv2 json", file: jsonCard(t, `{"spec":"chara_card_v2","spec_version":"2.0","data":{"name":"Ana"}}`), format: V2},
+		{name: "CCv2 png", file: pngCard(t, "chara", `{"spec":"chara_card_v2","spec_version":"2.0","data":{"name":"Ana"}}`), format: V2},
+		{name: "CCv3 json", file: jsonCard(t, `{"spec":"chara_card_v3","spec_version":"3.0","data":{"name":"Ana"}}`), format: V3},
+		{name: "CCv3 png", file: pngCard(t, "ccv3", `{"spec":"chara_card_v3","spec_version":"3.0","data":{"name":"Ana"}}`), format: V3},
+		{name: "CharX", file: charxCard(t, `{"spec":"chara_card_v3","spec_version":"3.0","data":{"name":"Ana"}}`, nil), format: CharX},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			parsed := resolveAndParse(t, test.file)
+			if parsed.Format != test.format {
+				t.Errorf("format = %q, want %q", parsed.Format, test.format)
+			}
+			if parsed.Kind != Kind {
+				t.Errorf("kind = %q, want %q", parsed.Kind, Kind)
+			}
+			if parsed.Name != "Ana" {
+				t.Errorf("name = %q, want Ana", parsed.Name)
+			}
+		})
+	}
+}
+
+func TestAnEmbeddedLorebookIsAFacetAndNotASecondAsset(t *testing.T) {
+	withBook := jsonCard(t, `{
+		"spec":"chara_card_v3","spec_version":"3.0",
+		"data":{"name":"Ana","character_book":{"name":"Ana's world","entries":[]}}
+	}`)
+	if got := facetValue(t, resolveAndParse(t, withBook), "has_lorebook"); got != "true" {
+		t.Errorf("has_lorebook = %q, want true", got)
+	}
+
+	without := jsonCard(t, `{"spec":"chara_card_v3","spec_version":"3.0","data":{"name":"Ana"}}`)
+	if got := facetValue(t, resolveAndParse(t, without), "has_lorebook"); got != "false" {
+		t.Errorf("has_lorebook = %q, want false", got)
+	}
+}
+
+func TestEachExtensionNamespaceBecomesItsOwnFacet(t *testing.T) {
+	file := jsonCard(t, `{
+		"spec":"chara_card_v3","spec_version":"3.0",
+		"data":{"name":"Ana","extensions":{
+			"depth_prompt":{"depth":4,"prompt":"stay in character"},
+			"lumiverse_modules":{"version":1},
+			"talkativeness":"0.5"
+		}}
+	}`)
+
+	var namespaces []string
+	for _, facet := range resolveAndParse(t, file).Facets {
+		if facet.Key == "extension" {
+			namespaces = append(namespaces, facet.Value)
+		}
+	}
+	want := []string{"depth_prompt", "lumiverse_modules", "talkativeness"}
+	if !slices.Equal(namespaces, want) {
+		t.Errorf("extension facets = %v, want %v", namespaces, want)
+	}
+}
+
+func TestACardsDescriptionNeverBecomesTheBlurb(t *testing.T) {
+	file := jsonCard(t, `{
+		"spec":"chara_card_v2","spec_version":"2.0",
+		"data":{
+			"name":"Ana",
+			"description":"You are Ana. Never break character.",
+			"creator_notes":"A quiet archivist. Works best with a slow scene."
+		}
+	}`)
+
+	parsed := resolveAndParse(t, file)
+	if parsed.Blurb != "A quiet archivist. Works best with a slow scene." {
+		t.Errorf("blurb = %q, want the creator's notes", parsed.Blurb)
+	}
+}
+
+func TestAPictureCarryingACardIsExtractedAsTheAvatar(t *testing.T) {
+	file := pngCard(t, "chara", `{"spec":"chara_card_v2","spec_version":"2.0","data":{"name":"Ana"}}`)
+
+	parsed := resolveAndParse(t, file)
+	if len(parsed.Media) != 1 {
+		t.Fatalf("media count = %d, want the picture itself", len(parsed.Media))
+	}
+	if parsed.Media[0].Role != media.Avatar {
+		t.Errorf("media role = %q, want avatar", parsed.Media[0].Role)
+	}
+}
+
+func TestCharXNamesEachArchivedPictureByWhatTheCardCallsIt(t *testing.T) {
+	file := charxCard(t, `{
+		"spec":"chara_card_v3","spec_version":"3.0",
+		"data":{"name":"Ana","assets":[
+			{"type":"icon","uri":"embeded://assets/icon/main.png","name":"main","ext":"png"},
+			{"type":"icon","uri":"embeded://assets/icon/spare.png","name":"spare","ext":"png"},
+			{"type":"emotion","uri":"embeded://assets/emotion/happy.png","name":"happy","ext":"png"},
+			{"type":"user_icon","uri":"embeded://assets/user/you.png","name":"you","ext":"png"},
+			{"type":"icon","uri":"https://example.invalid/remote.png","name":"remote","ext":"png"}
+		]}
+	}`, []string{
+		"assets/icon/main.png",
+		"assets/icon/spare.png",
+		"assets/emotion/happy.png",
+		"assets/user/you.png",
+	})
+
+	parsed := resolveAndParse(t, file)
+	want := []media.Role{media.Avatar, media.AvatarAlt, media.Expression}
+	if len(parsed.Media) != len(want) {
+		t.Fatalf("media = %+v, want %d pictures", parsed.Media, len(want))
+	}
+	for i, role := range want {
+		if parsed.Media[i].Role != role {
+			t.Errorf("media %d role = %q, want %q", i, parsed.Media[i].Role, role)
+		}
+	}
+}
+
+func TestAVersionPastTheOneWeImplementIsRefusedRatherThanGuessedAt(t *testing.T) {
+	later := jsonCard(t, `{"spec":"chara_card_v3","spec_version":"4.0","data":{"name":"Ana"}}`)
+	_, err := CCv3Module{}.Parse(context.Background(), later, claimFor(t, CCv3Module{}, later))
+	reason, classified := format.FailureOf(err)
+	if !classified || reason != format.FailureUnsupportedVersion {
+		t.Fatalf("parse error = %v, want an unsupported version", err)
+	}
+
+	additive := jsonCard(t, `{
+		"spec":"chara_card_v3","spec_version":"3.7",
+		"data":{"name":"Ana","something_new":{"added":true}}
+	}`)
+	parsed := resolveAndParse(t, additive)
+	if parsed.Name != "Ana" {
+		t.Errorf("an additive later minor version was refused: %+v", parsed)
+	}
+}
+
+func TestAChunkNameNeverOverridesWhatTheCardSaysItIs(t *testing.T) {
+	file := pngCard(t, "ccv3", `{"spec":"chara_card_v2","spec_version":"2.0","data":{"name":"Ana"}}`)
+	if parsed := resolveAndParse(t, file); parsed.Format != V2 {
+		t.Errorf("format = %q, want %q from the card's own spec", parsed.Format, V2)
+	}
+}
+
+func TestAV3CardInAnArchiveIsCharXAndNotCCv3(t *testing.T) {
+	file := charxCard(t, `{"spec":"chara_card_v3","spec_version":"3.0","data":{"name":"Ana"}}`, nil)
+	if _, ok := (CCv3Module{}).Claim(file); ok {
+		t.Error("CCv3 claimed a card inside an archive")
+	}
+	if _, ok := (CharXModule{}).Claim(file); !ok {
+		t.Error("CharX did not claim its own archive")
+	}
+}
+
+// resolveAndParse runs a file through the registry the server builds, so a test
+// exercises module selection rather than naming the module itself.
+func resolveAndParse(t *testing.T, file probe.Inspection) format.Parsed {
+	t.Helper()
+	registry := format.NewRegistry()
+	for _, module := range Modules() {
+		if err := registry.Register(module); err != nil {
+			t.Fatalf("register %q: %v", module.ID(), err)
+		}
+	}
+	resolution, claimed, err := registry.Resolve(file)
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if !claimed {
+		t.Fatal("no module claimed the card")
+	}
+	parsed, err := resolution.Module.Parse(context.Background(), file, resolution.Claim)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	return parsed
+}
+
+func claimFor(t *testing.T, module format.Module, file probe.Inspection) format.Claim {
+	t.Helper()
+	claim, ok := module.Claim(file)
+	if !ok {
+		t.Fatalf("module %q did not claim the card", module.ID())
+	}
+	return claim
+}
+
+func facetValue(t *testing.T, parsed format.Parsed, key string) string {
+	t.Helper()
+	for _, facet := range parsed.Facets {
+		if facet.Key == key {
+			return facet.Value
+		}
+	}
+	t.Fatalf("no %s facet in %+v", key, parsed.Facets)
+	return ""
+}
+
+// The helpers below build real containers and inspect them, so the tests read
+// what the probe actually produces rather than a hand-made structure.
+
+func jsonCard(t *testing.T, body string) probe.Inspection {
+	t.Helper()
+	return inspect(t, []byte(body), "card.json")
+}
+
+func pngCard(t *testing.T, chunk, body string) probe.Inspection {
+	t.Helper()
+	file := testPNG(t)
+	// The card sits in a text chunk before IEND, where a real card does.
+	end := len(file) - 12
+	withCard := slices.Concat(
+		file[:end],
+		pngChunk("tEXt", slices.Concat([]byte(chunk), []byte{0}, []byte(body))),
+		file[end:],
+	)
+	return inspect(t, withCard, "card.png")
+}
+
+func charxCard(t *testing.T, body string, pictures []string) probe.Inspection {
+	t.Helper()
+	var file bytes.Buffer
+	archive := zip.NewWriter(&file)
+	write := func(name string, content []byte) {
+		entry, err := archive.Create(name)
+		if err != nil {
+			t.Fatalf("create archive entry %q: %v", name, err)
+		}
+		if _, err := entry.Write(content); err != nil {
+			t.Fatalf("write archive entry %q: %v", name, err)
+		}
+	}
+	write("card.json", []byte(body))
+	for _, name := range pictures {
+		write(name, testPNG(t))
+	}
+	if err := archive.Close(); err != nil {
+		t.Fatalf("close archive: %v", err)
+	}
+	return inspect(t, file.Bytes(), "card.charx")
+}
+
+type memoryStore struct{ data []byte }
+
+func (s memoryStore) ReadRange(_ context.Context, _ uuid.UUID, offset, length int64) (io.ReadCloser, error) {
+	if offset < 0 || offset+length > int64(len(s.data)) {
+		return nil, errors.New("range outside the blob")
+	}
+	return io.NopCloser(bytes.NewReader(s.data[offset : offset+length])), nil
+}
+
+func inspect(t *testing.T, data []byte, filename string) probe.Inspection {
+	t.Helper()
+	file, err := probe.Inspect(
+		context.Background(), memoryStore{data: data}, uuid.New(), int64(len(data)), filename,
+	)
+	if err != nil {
+		t.Fatalf("inspect %s: %v", filename, err)
+	}
+	return file
+}

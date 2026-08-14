@@ -142,7 +142,7 @@ func (s *Service) ProcessNextIngest(ctx context.Context) (bool, error) {
 	if prepared.MediaType == "" {
 		prepared.MediaType = "application/octet-stream"
 	}
-	prepared.Media, err = s.prepareExtractedMedia(ctx, parsed.Media)
+	prepared.Media, err = s.prepareExtractedMedia(ctx, inspected, parsed.Media)
 	if err != nil {
 		return true, s.finishIngestFailure(ctx, job, mediaIngestFailure(err))
 	}

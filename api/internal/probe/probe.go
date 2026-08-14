@@ -65,8 +65,75 @@ type RangeStore interface {
 type Inspection struct {
 	Container  Container
 	Payloads   []Payload
+	Images     []Image
 	PNGChunks  []PNGChunk
 	ZIPEntries []ZIPEntry
+
+	// source is where the file lives, so an image can be read back later
+	// without a caller having to remember the blob.
+	source blobSource
+}
+
+type blobSource struct {
+	store RangeStore
+	id    uuid.UUID
+	size  int64
+}
+
+// Image is one picture the probe found. A format module labels images by ID;
+// only the layer that stores media ever reads the bytes.
+type Image struct {
+	ID      uint32
+	Locator Locator
+}
+
+var errNoSuchImage = errors.New("the probe located no such image")
+
+// OpenImage streams one located image through the same bounded range reads the
+// inspection itself used.
+func (i Inspection) OpenImage(ctx context.Context, id uint32) (io.ReadCloser, error) {
+	var found Image
+	var ok bool
+	for _, image := range i.Images {
+		if image.ID == id {
+			found, ok = image, true
+			break
+		}
+	}
+	if !ok {
+		return nil, fmt.Errorf("image %d: %w", id, errNoSuchImage)
+	}
+	reader := &rangeReaderAt{ctx: ctx, store: i.source.store, id: i.source.id, size: i.source.size}
+	if found.Locator.Container != ZIP {
+		return io.NopCloser(io.NewSectionReader(reader, 0, i.source.size)), nil
+	}
+	archive, err := zip.NewReader(reader, i.source.size)
+	if err != nil {
+		return nil, fmt.Errorf("reopen archive for image %d: %w", id, err)
+	}
+	for _, entry := range archive.File {
+		if entry.Name != found.Locator.Name {
+			continue
+		}
+		opened, err := entry.Open()
+		if err != nil {
+			return nil, fmt.Errorf("open archive entry %q: %w", entry.Name, err)
+		}
+		return opened, nil
+	}
+	return nil, fmt.Errorf("archive entry %q: %w", found.Locator.Name, errNoSuchImage)
+}
+
+// imageExtensions name the raster formats the media layer can decode. An
+// archived entry is worth offering as an image when its name ends in one of
+// them. The name only says where to look; the decoder decides what it is.
+var imageExtensions = map[string]bool{
+	".png":  true,
+	".apng": true,
+	".jpg":  true,
+	".jpeg": true,
+	".webp": true,
+	".gif":  true,
 }
 
 var inlineMediaTypes = map[Container]string{
@@ -144,7 +211,10 @@ func InspectWithLimits(
 	filename string,
 	limits Limits,
 ) (Inspection, error) {
-	result := Inspection{Container: Unknown}
+	result := Inspection{
+		Container: Unknown,
+		source:    blobSource{store: store, id: id, size: size},
+	}
 	if size == 0 {
 		return result, nil
 	}
@@ -192,6 +262,9 @@ func InspectWithLimits(
 			return Inspection{}, classifyContainerError(fmt.Errorf("inspect JSON: %w", err))
 		}
 		result.addPayload(Locator{Container: JSON, Name: "root"}, root)
+	}
+	if _, raster := inlineMediaTypes[result.Container]; raster {
+		result.addImage(Locator{Container: result.Container})
 	}
 	return result, nil
 }
@@ -336,7 +409,13 @@ func inspectZIP(reader *rangeReaderAt, result *Inspection, limits Limits) error 
 			Mode:               uint32(entry.Mode()),
 			GeneralPurposeBits: entry.Flags,
 		})
-		if entry.FileInfo().IsDir() || !strings.EqualFold(entry.Name, "card.json") {
+		if entry.FileInfo().IsDir() {
+			continue
+		}
+		if imageExtensions[strings.ToLower(path.Ext(entry.Name))] {
+			result.addImage(Locator{Container: ZIP, Name: entry.Name, Offset: offset})
+		}
+		if !strings.EqualFold(entry.Name, "card.json") {
 			continue
 		}
 		opened, err := entry.Open()
@@ -366,6 +445,10 @@ func unsafeArchivePath(name string) bool {
 	}
 	cleaned := path.Clean(portable)
 	return cleaned == ".." || strings.HasPrefix(cleaned, "../")
+}
+
+func (i *Inspection) addImage(locator Locator) {
+	i.Images = append(i.Images, Image{ID: uint32(len(i.Images)), Locator: locator})
 }
 
 func (i *Inspection) addPayload(locator Locator, root map[string]json.RawMessage) {

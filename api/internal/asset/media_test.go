@@ -1,6 +1,7 @@
 package asset
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -191,10 +192,10 @@ func TestCreatorCannotAddMediaToSomebodyElsesAsset(t *testing.T) {
 }
 
 func TestIngestStoresExtractedMediaAtRevisionScope(t *testing.T) {
-	extracted := testPNG(t, 90, 45, color.White)
+	archive := archiveWithImage(t, testPNG(t, 90, 45, color.White))
 	registry := registryWithModule(t, recognizedModule{parsed: format.Parsed{
 		Kind: "character", Format: "recognized",
-		Media: []format.Media{{Role: "expression", Bytes: extracted}},
+		Media: []format.Media{{Role: "expression", ImageID: 0}},
 	}})
 	svc, pool := newTestServiceWithRegistry(t, registry)
 	ownerID := uuid.New()
@@ -203,7 +204,7 @@ func TestIngestStoresExtractedMediaAtRevisionScope(t *testing.T) {
 		t.Fatalf("insert owner: %v", err)
 	}
 	operation, err := svc.AcceptIngest(context.Background(), IngestInput{
-		OwnerID: ownerID, Filename: "card.json", File: bytes.NewReader([]byte("{}")),
+		OwnerID: ownerID, Filename: "card.charx", File: bytes.NewReader(archive),
 	})
 	if err != nil {
 		t.Fatalf("AcceptIngest: %v", err)
@@ -342,4 +343,28 @@ func testPNG(t *testing.T, width, height int, fill color.Color) []byte {
 		t.Fatalf("encode PNG: %v", err)
 	}
 	return encoded.Bytes()
+}
+
+// archiveWithImage builds the shape a module extracts media from: a card
+// payload the registry can claim beside a picture the probe can locate.
+func archiveWithImage(t *testing.T, picture []byte) []byte {
+	t.Helper()
+	var file bytes.Buffer
+	archive := zip.NewWriter(&file)
+	for _, entry := range []struct{ name, body string }{
+		{name: "card.json", body: `{"spec":"chara_card_v3"}`},
+		{name: "assets/icon/main.png", body: string(picture)},
+	} {
+		writer, err := archive.Create(entry.name)
+		if err != nil {
+			t.Fatalf("create archive entry: %v", err)
+		}
+		if _, err := io.WriteString(writer, entry.body); err != nil {
+			t.Fatalf("write archive entry: %v", err)
+		}
+	}
+	if err := archive.Close(); err != nil {
+		t.Fatalf("close archive: %v", err)
+	}
+	return file.Bytes()
 }

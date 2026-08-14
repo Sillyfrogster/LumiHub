@@ -298,3 +298,84 @@ func zipEntries(t *testing.T, entries ...zipEntry) []byte {
 	}
 	return file.Bytes()
 }
+
+func TestInspectOffersARasterFileAsItsOwnImage(t *testing.T) {
+	file := pngFile(
+		pngChunk("IHDR", make([]byte, 13)),
+		pngChunk("tEXt", append([]byte("chara\x00"), []byte(`{"spec":"chara_card_v2"}`)...)),
+		pngChunk("IEND", nil),
+	)
+	store := &recordingStore{data: file}
+
+	got, err := Inspect(context.Background(), store, uuid.New(), int64(len(file)), "card.png")
+	if err != nil {
+		t.Fatalf("Inspect: %v", err)
+	}
+	if len(got.Images) != 1 {
+		t.Fatalf("image count = %d, want the file itself", len(got.Images))
+	}
+	if got.Images[0].Locator.Container != PNG || got.Images[0].Locator.Name != "" {
+		t.Fatalf("image locator = %+v, want the whole PNG", got.Images[0].Locator)
+	}
+
+	opened, err := got.OpenImage(context.Background(), got.Images[0].ID)
+	if err != nil {
+		t.Fatalf("OpenImage: %v", err)
+	}
+	defer opened.Close()
+	read, err := io.ReadAll(opened)
+	if err != nil {
+		t.Fatalf("read image: %v", err)
+	}
+	if !bytes.Equal(read, file) {
+		t.Fatal("the extracted image is not the source bytes")
+	}
+}
+
+func TestInspectListsArchivedImagesAndLeavesOtherEntriesAlone(t *testing.T) {
+	picture := pngFile(pngChunk("IHDR", make([]byte, 13)), pngChunk("IEND", nil))
+	file := zipEntries(t,
+		zipEntry{name: "card.json", body: `{"spec":"chara_card_v3"}`, method: zip.Store},
+		zipEntry{name: "assets/icon/main.png", body: string(picture), method: zip.Store},
+		zipEntry{name: "assets/notes.txt", body: "not a picture", method: zip.Store},
+	)
+	store := &recordingStore{data: file}
+
+	got, err := Inspect(context.Background(), store, uuid.New(), int64(len(file)), "card.charx")
+	if err != nil {
+		t.Fatalf("Inspect: %v", err)
+	}
+	if len(got.Images) != 1 {
+		t.Fatalf("image count = %d, want only the PNG entry", len(got.Images))
+	}
+	if got.Images[0].Locator.Name != "assets/icon/main.png" {
+		t.Fatalf("image locator = %+v, want the icon entry", got.Images[0].Locator)
+	}
+
+	opened, err := got.OpenImage(context.Background(), got.Images[0].ID)
+	if err != nil {
+		t.Fatalf("OpenImage: %v", err)
+	}
+	defer opened.Close()
+	read, err := io.ReadAll(opened)
+	if err != nil {
+		t.Fatalf("read image: %v", err)
+	}
+	if !bytes.Equal(read, picture) {
+		t.Fatal("the extracted archive entry is not the stored picture")
+	}
+}
+
+func TestOpenImageRefusesAnIDTheProbeNeverIssued(t *testing.T) {
+	file := []byte(`{"spec":"chara_card_v3"}`)
+	got, err := Inspect(context.Background(), &recordingStore{data: file}, uuid.New(), int64(len(file)), "card.json")
+	if err != nil {
+		t.Fatalf("Inspect: %v", err)
+	}
+	if len(got.Images) != 0 {
+		t.Fatalf("image count = %d, want none in a bare JSON card", len(got.Images))
+	}
+	if _, err := got.OpenImage(context.Background(), 0); err == nil {
+		t.Fatal("OpenImage accepted an image the probe never located")
+	}
+}

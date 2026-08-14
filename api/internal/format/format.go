@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"time"
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/media"
@@ -81,10 +82,12 @@ type BrowseDeclarer interface {
 	BrowseDefinition() BrowseDefinition
 }
 
-// Media is one image extracted from a source file.
+// Media is one image a module found in a source file and gave a role. It names
+// an image the probe located rather than carrying bytes, so a module never
+// holds a file in memory and never writes one.
 type Media struct {
-	Role  media.Role
-	Bytes []byte
+	Role    media.Role
+	ImageID uint32
 }
 
 /** What a module reads out of an uploaded file */
@@ -107,6 +110,25 @@ type Module interface {
 	ID() string
 	Claim(probe.Inspection) (Claim, bool)
 	Parse(ctx context.Context, file probe.Inspection, claim Claim) (Parsed, error)
+}
+
+/**
+ * Implemented only by a module whose payloads name a standard rather than the
+ * module itself. CharX is the one: a `.charx` archive holds a card declaring
+ * `chara_card_v3`, because CharX is a container for a CCv3 card and has no
+ * discriminator of its own.
+ */
+type SpecOwner interface {
+	OwnedSpecs() []string
+}
+
+// ownsSpec reports whether an authoritative claim naming spec belongs to m.
+func ownsSpec(m Module, spec string) bool {
+	if spec == m.ID() {
+		return true
+	}
+	owner, ok := m.(SpecOwner)
+	return ok && slices.Contains(owner.OwnedSpecs(), spec)
 }
 
 type claimStrength uint8
