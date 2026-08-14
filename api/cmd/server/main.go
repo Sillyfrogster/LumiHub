@@ -40,6 +40,9 @@ func main() {
 	go svc.RunIngestWorkers(context.Background(), cfg.IngestWorkers, func(err error) {
 		log.Printf("ingest worker: %v", err)
 	})
+	go svc.RunSweeper(context.Background(), func(err error) {
+		log.Printf("blob sweeper: %v", err)
+	})
 	var verificationSender account.EmailSender = account.NewLogVerificationSender(log.Default())
 	if cfg.SMTP.Address != "" {
 		verificationSender, err = account.NewSMTPSender(account.SMTPSettings{

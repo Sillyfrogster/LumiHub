@@ -3,7 +3,11 @@ package asset
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -12,6 +16,128 @@ import (
 	"github.com/Sillyfrogster/LumiHub/api/internal/testdb"
 	"github.com/google/uuid"
 )
+
+func TestSweepRecordsACanonicalFileLeftBeforeItsBlobTransactionCommitted(t *testing.T) {
+	ctx := context.Background()
+	pool := testdb.Connect(t)
+	root := t.TempDir()
+	store, err := storage.NewStore(pool, root)
+	if err != nil {
+		t.Fatalf("storage: %v", err)
+	}
+	content := []byte("installed before a crashed transaction")
+	digest := sha256.Sum256(content)
+	encoded := hex.EncodeToString(digest[:])
+	path := filepath.Join(root, "blobs", encoded[:2], encoded)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("create orphan directory: %v", err)
+	}
+	if err := os.WriteFile(path, content, 0o644); err != nil {
+		t.Fatalf("write canonical orphan: %v", err)
+	}
+	service := NewService(pool, format.NewRegistry(), store)
+
+	result, err := service.Sweep(ctx)
+	if err != nil {
+		t.Fatalf("sweep: %v", err)
+	}
+	if result.Marked != 1 {
+		t.Fatalf("sweep = %+v, want the recovered orphan marked", result)
+	}
+	var recorded bool
+	if err := pool.QueryRow(ctx,
+		`select exists (select 1 from blobs where sha256 = $1)`, digest[:],
+	).Scan(&recorded); err != nil {
+		t.Fatalf("find recovered orphan: %v", err)
+	}
+	if !recorded {
+		t.Fatal("canonical orphan was not recorded for sweeping")
+	}
+}
+
+func TestSweeperRunsWithoutAnExternalCaller(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	pool := testdb.Connect(t)
+	store, err := storage.NewStore(pool, t.TempDir())
+	if err != nil {
+		t.Fatalf("storage: %v", err)
+	}
+	service := NewService(pool, format.NewRegistry(), store)
+	stored, err := store.Put(ctx, bytes.NewReader([]byte("background orphan")))
+	if err != nil {
+		t.Fatalf("put orphan: %v", err)
+	}
+	done := make(chan struct{})
+	go func() {
+		service.runSweeper(ctx, time.Millisecond, nil)
+		close(done)
+	}()
+
+	deadline := time.Now().Add(time.Second)
+	for {
+		var marked bool
+		if err := pool.QueryRow(ctx,
+			`select exists (select 1 from blob_sweep_marks where blob_id = $1)`, stored.ID,
+		).Scan(&marked); err != nil {
+			t.Fatalf("read sweep mark: %v", err)
+		}
+		if marked {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("background sweeper did not run")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	cancel()
+	<-done
+}
+
+func TestSweepCommitsExpiredReferenceRemovalBeforeDeletingBytes(t *testing.T) {
+	ctx := context.Background()
+	pool := testdb.Connect(t)
+	store, err := storage.NewStore(pool, t.TempDir())
+	if err != nil {
+		t.Fatalf("storage: %v", err)
+	}
+	service := NewService(pool, format.NewRegistry(), store)
+	now := time.Date(2026, 8, 14, 12, 0, 0, 0, time.UTC)
+	service.now = func() time.Time { return now }
+	ownerID := uuid.New()
+	if _, err := pool.Exec(ctx, `insert into users (id, username) values ($1, 'sweep.durable')`, ownerID); err != nil {
+		t.Fatalf("insert owner: %v", err)
+	}
+	created, err := service.Create(ctx, CreateInput{
+		OwnerID: ownerID, Kind: "theme", Filename: "expired.lumitheme",
+		File: bytes.NewReader([]byte("expired but durable")), Name: "Expired",
+	})
+	if err != nil {
+		t.Fatalf("create asset: %v", err)
+	}
+	if err := service.Delete(ctx, ownerID, created.ID); err != nil {
+		t.Fatalf("delete asset: %v", err)
+	}
+	now = now.Add(recoveryWindow + time.Second)
+	if _, err := service.Sweep(ctx); err != nil {
+		t.Fatalf("mark expired asset: %v", err)
+	}
+
+	service.store = failingDeleteStore{Store: store}
+	now = now.Add(sweepDelay + time.Second)
+	if _, err := service.Sweep(ctx); err == nil {
+		t.Fatal("sweep succeeded despite the storage failure")
+	}
+	var references int
+	if err := pool.QueryRow(ctx,
+		`select count(*) from asset_revisions where asset_id = $1 and blob_id is not null`, created.ID,
+	).Scan(&references); err != nil {
+		t.Fatalf("count expired references: %v", err)
+	}
+	if references != 0 {
+		t.Fatalf("sweep failure left %d expired references", references)
+	}
+}
 
 func TestSweepMarksThenDeletesOnlyBlobsWithoutLiveOrRecoverableReferences(t *testing.T) {
 	ctx := context.Background()

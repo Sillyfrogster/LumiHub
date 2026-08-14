@@ -33,6 +33,7 @@ type DerivativeID struct {
 // Store keeps canonical bytes and records their content address.
 type Store interface {
 	Put(ctx context.Context, r io.Reader) (StoredBlob, error)
+	RecordOrphans(ctx context.Context) (int, error)
 	Open(ctx context.Context, id uuid.UUID) (io.ReadCloser, error)
 	ReadRange(ctx context.Context, id uuid.UUID, offset, length int64) (io.ReadCloser, error)
 	InternalRedirect(ctx context.Context, id uuid.UUID) (string, error)

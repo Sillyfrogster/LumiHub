@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -107,6 +108,95 @@ func (s *contentStore) Put(ctx context.Context, r io.Reader) (StoredBlob, error)
 		return StoredBlob{}, fmt.Errorf("commit blob write: %w", err)
 	}
 	return stored, nil
+}
+
+func (s *contentStore) RecordOrphans(ctx context.Context) (int, error) {
+	root := filepath.Join(s.root, "blobs")
+	rows, err := s.pool.Query(ctx, `select encode(sha256, 'hex') from blobs`)
+	if err != nil {
+		return 0, fmt.Errorf("list recorded blobs: %w", err)
+	}
+	recordedDigests := make(map[string]struct{})
+	for rows.Next() {
+		var digest string
+		if err := rows.Scan(&digest); err != nil {
+			rows.Close()
+			return 0, fmt.Errorf("read recorded blob digest: %w", err)
+		}
+		recordedDigests[digest] = struct{}{}
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return 0, fmt.Errorf("list recorded blobs: %w", err)
+	}
+	rows.Close()
+
+	recorded := 0
+	err = filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		encoded := entry.Name()
+		digestBytes, err := hex.DecodeString(encoded)
+		if err != nil || len(digestBytes) != sha256.Size || filepath.Base(filepath.Dir(path)) != encoded[:2] {
+			return nil
+		}
+		if _, exists := recordedDigests[encoded]; exists {
+			return nil
+		}
+		file, err := os.Open(path)
+		if err != nil {
+			return fmt.Errorf("open orphan candidate: %w", err)
+		}
+		hash := sha256.New()
+		byteSize, copyErr := io.Copy(hash, file)
+		closeErr := file.Close()
+		if copyErr != nil {
+			return fmt.Errorf("hash orphan candidate: %w", copyErr)
+		}
+		if closeErr != nil {
+			return fmt.Errorf("close orphan candidate: %w", closeErr)
+		}
+		if !bytes.Equal(hash.Sum(nil), digestBytes) {
+			return fmt.Errorf("orphan candidate %q does not match its content address", path)
+		}
+
+		tx, err := s.pool.Begin(ctx)
+		if err != nil {
+			return fmt.Errorf("begin orphan recovery: %w", err)
+		}
+		defer tx.Rollback(ctx)
+		var locked int
+		if err := tx.QueryRow(ctx, `
+			select 1 from pg_advisory_xact_lock(
+			    hashtextextended('lumihub-blob:' || encode($1::bytea, 'hex'), 0)
+			)
+		`, digestBytes).Scan(&locked); err != nil {
+			return fmt.Errorf("lock orphan digest: %w", err)
+		}
+		result, err := tx.Exec(ctx, `
+			insert into blobs (id, sha256, byte_size, storage_key)
+			values ($1, $2, $3, $4)
+			on conflict (sha256) do nothing
+		`, uuid.New(), digestBytes, byteSize, filepath.ToSlash(filepath.Join("blobs", encoded[:2], encoded)))
+		if err != nil {
+			return fmt.Errorf("record orphan blob: %w", err)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return fmt.Errorf("commit orphan recovery: %w", err)
+		}
+		if result.RowsAffected() == 1 {
+			recorded++
+		}
+		return nil
+	})
+	if err != nil {
+		return recorded, fmt.Errorf("scan canonical blobs: %w", err)
+	}
+	return recorded, nil
 }
 
 func (s *contentStore) Open(ctx context.Context, id uuid.UUID) (io.ReadCloser, error) {

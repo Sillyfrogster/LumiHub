@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Shell } from "@/components/layout/Shell";
 import type { DeletedAsset } from "@/lib/api/query";
 import { restoreAsset } from "@/lib/api/query";
+import { remainingDeletionWindow } from "@/lib/deletion-window";
 import { KIND_LABELS } from "@/lib/kinds";
 import styles from "./DeletedAssets.module.css";
 
@@ -76,7 +77,15 @@ export function DeletedAssets({
                   <span>{KIND_LABELS[item.kind]}</span>
                   <h3>{item.name}</h3>
                 </div>
-                <p>Restorable until {restoreDeadline(item.recoverableUntil)}</p>
+                <p>
+                  <span suppressHydrationWarning>
+                    {remainingDeletionWindow(item.recoverableUntil)}
+                  </span>{" "}
+                  · Restorable until{" "}
+                  <time dateTime={item.recoverableUntil}>
+                    {restoreDeadline(item.recoverableUntil)}
+                  </time>
+                </p>
                 <button
                   type="button"
                   onClick={() => restore(item)}

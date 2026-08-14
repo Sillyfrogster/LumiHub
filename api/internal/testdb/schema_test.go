@@ -98,6 +98,29 @@ func TestSchemaHasNoMutableReferenceCount(t *testing.T) {
 	}
 }
 
+func TestIngestFailureReasonsStayAtTheClosedFive(t *testing.T) {
+	pool := Connect(t)
+	var definition string
+	if err := pool.QueryRow(context.Background(), `
+		select pg_get_constraintdef(oid)
+		  from pg_constraint
+		 where conname = 'ingest_operations_failure_reason_check'
+	`).Scan(&definition); err != nil {
+		t.Fatalf("read ingest failure reason constraint: %v", err)
+	}
+	for _, reason := range []string{
+		"malformed_input", "unsupported_format", "unsupported_version",
+		"safety_violation", "internal_failure",
+	} {
+		if !strings.Contains(definition, reason) {
+			t.Errorf("ingest failure constraint is missing %q: %s", reason, definition)
+		}
+	}
+	if strings.Contains(definition, "purged_content") {
+		t.Errorf("ingest failure constraint added a public purge reason: %s", definition)
+	}
+}
+
 func TestDurableRecordsReferenceBlobs(t *testing.T) {
 	pool := Connect(t)
 

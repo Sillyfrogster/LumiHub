@@ -14,6 +14,70 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type failingDeleteStore struct {
+	storage.Store
+}
+
+func (failingDeleteStore) Delete(context.Context, uuid.UUID) error {
+	return errors.New("storage unavailable")
+}
+
+func TestPurgeCommitsTheTombstoneAndBrokenReferencesBeforeDeletingBytes(t *testing.T) {
+	ctx := context.Background()
+	pool := testdb.Connect(t)
+	store, err := storage.NewStore(pool, t.TempDir())
+	if err != nil {
+		t.Fatalf("storage: %v", err)
+	}
+	service := NewService(pool, format.NewRegistry(), failingDeleteStore{Store: store})
+	ownerID := uuid.New()
+	actorID := uuid.New()
+	if _, err := pool.Exec(ctx, `
+		insert into users (id, username) values ($1, 'durable.owner'), ($2, 'durable.actor')
+	`, ownerID, actorID); err != nil {
+		t.Fatalf("insert accounts: %v", err)
+	}
+	created, err := service.Create(ctx, CreateInput{
+		OwnerID: ownerID, Kind: "theme", Filename: "durable.lumitheme",
+		File: bytes.NewReader([]byte("durably purged bytes")), Name: "Durable purge",
+	})
+	if err != nil {
+		t.Fatalf("create asset: %v", err)
+	}
+	var digestBytes []byte
+	if err := pool.QueryRow(ctx, `
+		select blob.sha256 from asset_revisions revision
+		join blobs blob on blob.id = revision.blob_id
+		where revision.asset_id = $1
+	`, created.ID).Scan(&digestBytes); err != nil {
+		t.Fatalf("read digest: %v", err)
+	}
+	var digest [32]byte
+	copy(digest[:], digestBytes)
+
+	if err := service.Purge(ctx, digest, "legal_order", actorID); err == nil {
+		t.Fatal("purge succeeded despite the storage failure")
+	}
+	var tombstoned bool
+	if err := pool.QueryRow(ctx,
+		`select exists (select 1 from blob_tombstones where sha256 = $1)`, digest[:],
+	).Scan(&tombstoned); err != nil {
+		t.Fatalf("read tombstone: %v", err)
+	}
+	if !tombstoned {
+		t.Fatal("purge failure rolled back the tombstone")
+	}
+	var references int
+	if err := pool.QueryRow(ctx,
+		`select count(*) from asset_revisions where asset_id = $1 and blob_id is not null`, created.ID,
+	).Scan(&references); err != nil {
+		t.Fatalf("count references: %v", err)
+	}
+	if references != 0 {
+		t.Fatalf("purge failure left %d live references", references)
+	}
+}
+
 func TestPurgeAndIngestFinalizationSerializeOnTheDigest(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()

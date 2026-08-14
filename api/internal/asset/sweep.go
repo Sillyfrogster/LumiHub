@@ -13,6 +13,7 @@ import (
 )
 
 const sweepDelay = 24 * time.Hour
+const sweepInterval = time.Hour
 
 type SweepResult struct {
 	Marked  int64
@@ -21,6 +22,9 @@ type SweepResult struct {
 
 func (s *Service) Sweep(ctx context.Context) (SweepResult, error) {
 	now := s.now()
+	if _, err := s.store.RecordOrphans(ctx); err != nil {
+		return SweepResult{}, fmt.Errorf("record filesystem orphans: %w", err)
+	}
 	if _, err := s.pool.Exec(ctx, `
 		delete from ingest_operations
 		 where status = 'needs_kind' and expires_at <= $1
@@ -101,7 +105,31 @@ func (s *Service) Sweep(ctx context.Context) (SweepResult, error) {
 	return result, nil
 }
 
+func (s *Service) RunSweeper(ctx context.Context, report func(error)) {
+	s.runSweeper(ctx, sweepInterval, report)
+}
+
+func (s *Service) runSweeper(ctx context.Context, interval time.Duration, report func(error)) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		if _, err := s.Sweep(ctx); err != nil && !errors.Is(err, context.Canceled) && report != nil {
+			report(err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
 func (s *Service) deleteMarkedBlob(ctx context.Context, id uuid.UUID, now time.Time) (bool, error) {
+	ready, err := s.prepareMarkedBlob(ctx, id, now)
+	if err != nil || !ready {
+		return false, err
+	}
+
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return false, fmt.Errorf("begin blob sweep: %w", err)
@@ -140,15 +168,15 @@ func (s *Service) deleteMarkedBlob(ctx context.Context, id uuid.UUID, now time.T
 		return false, nil
 	}
 
-	if err := releaseExpiredReferences(ctx, tx, id, now); err != nil {
-		return false, err
-	}
 	var digestBytes []byte
 	if err := tx.QueryRow(ctx, `select sha256 from blobs where id = $1`, id).Scan(&digestBytes); err != nil {
 		return false, fmt.Errorf("read swept blob digest: %w", err)
 	}
 	var digest [32]byte
 	copy(digest[:], digestBytes)
+	if err := lockPhysicalBlobDeletion(ctx, tx); err != nil {
+		return false, err
+	}
 	if err := s.store.DeleteDerivatives(ctx, digest); err != nil {
 		return false, fmt.Errorf("delete swept blob derivatives: %w", err)
 	}
@@ -162,6 +190,63 @@ func (s *Service) deleteMarkedBlob(ctx context.Context, id uuid.UUID, now time.T
 		return false, fmt.Errorf("commit blob sweep: %w", err)
 	}
 	return true, nil
+}
+
+func (s *Service) prepareMarkedBlob(ctx context.Context, id uuid.UUID, now time.Time) (bool, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return false, fmt.Errorf("begin blob sweep preparation: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	if err := lockBlobDigest(ctx, tx, id); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+	var marked pgtype.Timestamptz
+	if err := tx.QueryRow(ctx,
+		`select marked_at from blob_sweep_marks where blob_id = $1 for update`, id,
+	).Scan(&marked); errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	} else if err != nil {
+		return false, fmt.Errorf("lock marked blob for preparation: %w", err)
+	}
+	if !marked.Valid || marked.Time.After(now.Add(-sweepDelay)) {
+		return false, nil
+	}
+	referenced, err := blobHasLiveReference(ctx, tx, id, now)
+	if err != nil {
+		return false, err
+	}
+	if referenced {
+		if _, err := tx.Exec(ctx, `delete from blob_sweep_marks where blob_id = $1`, id); err != nil {
+			return false, fmt.Errorf("clear blob sweep mark: %w", err)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return false, fmt.Errorf("commit cancelled blob sweep: %w", err)
+		}
+		return false, nil
+	}
+	if err := releaseExpiredReferences(ctx, tx, id, now); err != nil {
+		return false, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return false, fmt.Errorf("commit blob sweep preparation: %w", err)
+	}
+	return true, nil
+}
+
+func lockPhysicalBlobDeletion(ctx context.Context, tx pgx.Tx) error {
+	var locked int
+	if err := tx.QueryRow(ctx, `
+		select 1 from pg_advisory_xact_lock_shared(
+		    hashtextextended('lumihub-backup:blob-deletion', 0)
+		)
+	`).Scan(&locked); err != nil {
+		return fmt.Errorf("lock physical blob deletion against backup: %w", err)
+	}
+	return nil
 }
 
 func lockBlobDigest(ctx context.Context, tx pgx.Tx, id uuid.UUID) error {
