@@ -1,0 +1,121 @@
+.item {
+  min-width: 0;
+  list-style: none;
+}
+
+.card {
+  display: block;
+  color: var(--ink);
+}
+
+.cover {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border: 1px solid rgba(21, 42, 77, 0.1);
+  border-radius: 4px 18px 4px 4px;
+  background: #edf3f9;
+  box-shadow: 0 12px 34px rgba(8, 29, 58, 0.09);
+  transition:
+    transform 0.38s var(--ease),
+    box-shadow 0.38s var(--ease);
+}
+
+.cover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow:
+    inset 7px 0 12px rgba(8, 29, 58, 0.055),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.38);
+}
+
+.card:hover {
+  color: var(--ink);
+}
+
+.card:hover .cover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 42px rgba(8, 29, 58, 0.16);
+}
+
+.art,
+.defaultArt {
+  object-fit: cover;
+  transition: transform 0.55s var(--ease);
+}
+
+.defaultArt {
+  object-position: center;
+}
+
+.card:hover .art,
+.card:hover .defaultArt {
+  transform: scale(1.018);
+}
+
+.kind,
+.nsfw {
+  position: absolute;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  min-height: 27px;
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  background: rgba(8, 29, 58, 0.86);
+  color: white;
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  backdrop-filter: blur(8px);
+}
+
+.kind {
+  top: 13px;
+  left: 13px;
+  padding: 5px 9px;
+  border-radius: 2px 8px 2px 2px;
+}
+
+.nsfw {
+  right: 13px;
+  bottom: 13px;
+  gap: 5px;
+  padding: 5px 8px;
+  border-radius: 8px 2px 2px 2px;
+  background: rgba(110, 55, 67, 0.88);
+  letter-spacing: 0.06em;
+}
+
+.identity {
+  padding: 17px 4px 4px;
+}
+
+.identity h2 {
+  overflow: hidden;
+  color: var(--ink-strong);
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.identity p {
+  margin-top: 5px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .identity h2 {
+    font-size: 1.05rem;
+  }
+}
