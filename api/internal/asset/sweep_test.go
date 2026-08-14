@@ -55,6 +55,48 @@ func TestSweepRecordsACanonicalFileLeftBeforeItsBlobTransactionCommitted(t *test
 	}
 }
 
+func TestSweepRemovesATombstonedCanonicalOrphanInsteadOfRecordingIt(t *testing.T) {
+	ctx := context.Background()
+	pool := testdb.Connect(t)
+	root := t.TempDir()
+	store, err := storage.NewStore(pool, root)
+	if err != nil {
+		t.Fatalf("storage: %v", err)
+	}
+	stored, err := store.Put(ctx, bytes.NewReader([]byte("tombstoned orphan")))
+	if err != nil {
+		t.Fatalf("put blob: %v", err)
+	}
+	actorID := uuid.New()
+	if _, err := pool.Exec(ctx,
+		`insert into users (id, username) values ($1, 'orphan.actor')`, actorID,
+	); err != nil {
+		t.Fatalf("insert purge actor: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		insert into blob_tombstones (sha256, reason_code, purged_at, actor_id)
+		values ($1, 'legal_order', now(), $2)
+	`, stored.Digest[:], actorID); err != nil {
+		t.Fatalf("insert tombstone: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `delete from blobs where id = $1`, stored.ID); err != nil {
+		t.Fatalf("leave canonical orphan: %v", err)
+	}
+	service := NewService(pool, format.NewRegistry(), store)
+
+	result, err := service.Sweep(ctx)
+	if err != nil {
+		t.Fatalf("sweep: %v", err)
+	}
+	if result.Marked != 0 {
+		t.Fatalf("sweep = %+v, want no tombstoned orphan recorded", result)
+	}
+	encoded := hex.EncodeToString(stored.Digest[:])
+	if _, err := os.Stat(filepath.Join(root, "blobs", encoded[:2], encoded)); !os.IsNotExist(err) {
+		t.Fatalf("tombstoned orphan stat error = %v, want not found", err)
+	}
+}
+
 func TestSweeperRunsWithoutAnExternalCaller(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

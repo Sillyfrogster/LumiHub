@@ -11,6 +11,7 @@ import (
 	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
 	"github.com/Sillyfrogster/LumiHub/api/internal/testdb"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -75,6 +76,17 @@ func TestPurgeCommitsTheTombstoneAndBrokenReferencesBeforeDeletingBytes(t *testi
 	}
 	if references != 0 {
 		t.Fatalf("purge failure left %d live references", references)
+	}
+
+	service.store = store
+	if _, err := service.Sweep(ctx); err != nil {
+		t.Fatalf("resume purge from the sweeper: %v", err)
+	}
+	var blobID uuid.UUID
+	if err := pool.QueryRow(ctx,
+		`select id from blobs where sha256 = $1`, digest[:],
+	).Scan(&blobID); !errors.Is(err, pgx.ErrNoRows) {
+		t.Fatalf("interrupted purge blob lookup = %v, want no row", err)
 	}
 }
 

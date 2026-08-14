@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/db"
+	"github.com/Sillyfrogster/LumiHub/api/internal/postgres"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -59,12 +60,7 @@ func (s *contentStore) Put(ctx context.Context, r io.Reader) (StoredBlob, error)
 		return StoredBlob{}, fmt.Errorf("begin blob write: %w", err)
 	}
 	defer tx.Rollback(ctx)
-	var locked int
-	if err := tx.QueryRow(ctx, `
-		select 1 from pg_advisory_xact_lock(
-		    hashtextextended('lumihub-blob:' || encode($1::bytea, 'hex'), 0)
-		)
-	`, digest[:]).Scan(&locked); err != nil {
+	if err := postgres.LockBlobDigest(ctx, tx, digest[:]); err != nil {
 		return StoredBlob{}, fmt.Errorf("lock blob digest: %w", err)
 	}
 	var tombstoned bool
@@ -169,13 +165,26 @@ func (s *contentStore) RecordOrphans(ctx context.Context) (int, error) {
 			return fmt.Errorf("begin orphan recovery: %w", err)
 		}
 		defer tx.Rollback(ctx)
-		var locked int
-		if err := tx.QueryRow(ctx, `
-			select 1 from pg_advisory_xact_lock(
-			    hashtextextended('lumihub-blob:' || encode($1::bytea, 'hex'), 0)
-			)
-		`, digestBytes).Scan(&locked); err != nil {
+		if err := postgres.LockBlobDigest(ctx, tx, digestBytes); err != nil {
 			return fmt.Errorf("lock orphan digest: %w", err)
+		}
+		var tombstoned bool
+		if err := tx.QueryRow(ctx,
+			`select exists (select 1 from blob_tombstones where sha256 = $1)`, digestBytes,
+		).Scan(&tombstoned); err != nil {
+			return fmt.Errorf("check orphan tombstone: %w", err)
+		}
+		if tombstoned {
+			if err := postgres.LockBlobDeletionAgainstBackup(ctx, tx); err != nil {
+				return fmt.Errorf("lock orphan deletion against backup: %w", err)
+			}
+			if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+				return fmt.Errorf("delete tombstoned orphan: %w", err)
+			}
+			if err := tx.Commit(ctx); err != nil {
+				return fmt.Errorf("commit tombstoned orphan deletion: %w", err)
+			}
+			return nil
 		}
 		result, err := tx.Exec(ctx, `
 			insert into blobs (id, sha256, byte_size, storage_key)

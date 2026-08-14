@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Sillyfrogster/LumiHub/api/internal/postgres"
 	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -42,12 +43,7 @@ func (s *Service) preparePurge(
 		return uuid.Nil, fmt.Errorf("begin purge: %w", err)
 	}
 	defer tx.Rollback(ctx)
-	var locked int
-	if err := tx.QueryRow(ctx, `
-		select 1 from pg_advisory_xact_lock(
-		    hashtextextended('lumihub-blob:' || encode($1::bytea, 'hex'), 0)
-		)
-	`, digest[:]).Scan(&locked); err != nil {
+	if err := postgres.LockBlobDigest(ctx, tx, digest[:]); err != nil {
 		return uuid.Nil, fmt.Errorf("lock purge digest: %w", err)
 	}
 
@@ -99,12 +95,7 @@ func (s *Service) deletePurgedBlob(
 		return fmt.Errorf("begin purged blob deletion: %w", err)
 	}
 	defer tx.Rollback(ctx)
-	var locked int
-	if err := tx.QueryRow(ctx, `
-		select 1 from pg_advisory_xact_lock(
-		    hashtextextended('lumihub-blob:' || encode($1::bytea, 'hex'), 0)
-		)
-	`, digest[:]).Scan(&locked); err != nil {
+	if err := postgres.LockBlobDigest(ctx, tx, digest[:]); err != nil {
 		return fmt.Errorf("lock purged digest deletion: %w", err)
 	}
 	var recordedID uuid.UUID
@@ -118,8 +109,8 @@ func (s *Service) deletePurgedBlob(
 	if recordedID != blobID {
 		return fmt.Errorf("purged blob identity changed")
 	}
-	if err := lockPhysicalBlobDeletion(ctx, tx); err != nil {
-		return err
+	if err := postgres.LockBlobDeletionAgainstBackup(ctx, tx); err != nil {
+		return fmt.Errorf("lock physical blob deletion against backup: %w", err)
 	}
 	if err := s.store.DeleteDerivatives(ctx, digest); err != nil {
 		return fmt.Errorf("delete purged derivatives: %w", err)

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Sillyfrogster/LumiHub/api/internal/postgres"
 	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -24,6 +25,9 @@ func (s *Service) Sweep(ctx context.Context) (SweepResult, error) {
 	now := s.now()
 	if _, err := s.store.RecordOrphans(ctx); err != nil {
 		return SweepResult{}, fmt.Errorf("record filesystem orphans: %w", err)
+	}
+	if err := s.resumePurges(ctx); err != nil {
+		return SweepResult{}, err
 	}
 	if _, err := s.pool.Exec(ctx, `
 		delete from ingest_operations
@@ -105,6 +109,44 @@ func (s *Service) Sweep(ctx context.Context) (SweepResult, error) {
 	return result, nil
 }
 
+func (s *Service) resumePurges(ctx context.Context) error {
+	rows, err := s.pool.Query(ctx, `
+		select blob.id, blob.sha256
+		  from blobs blob
+		  join blob_tombstones tombstone on tombstone.sha256 = blob.sha256
+		 order by tombstone.purged_at, blob.id
+	`)
+	if err != nil {
+		return fmt.Errorf("list interrupted purges: %w", err)
+	}
+	type interruptedPurge struct {
+		blobID uuid.UUID
+		digest [32]byte
+	}
+	var interrupted []interruptedPurge
+	for rows.Next() {
+		var purge interruptedPurge
+		var digestBytes []byte
+		if err := rows.Scan(&purge.blobID, &digestBytes); err != nil {
+			rows.Close()
+			return fmt.Errorf("read interrupted purge: %w", err)
+		}
+		copy(purge.digest[:], digestBytes)
+		interrupted = append(interrupted, purge)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return fmt.Errorf("list interrupted purges: %w", err)
+	}
+	rows.Close()
+	for _, purge := range interrupted {
+		if err := s.deletePurgedBlob(ctx, purge.blobID, purge.digest); err != nil {
+			return fmt.Errorf("resume interrupted purge: %w", err)
+		}
+	}
+	return nil
+}
+
 func (s *Service) RunSweeper(ctx context.Context, report func(error)) {
 	s.runSweeper(ctx, sweepInterval, report)
 }
@@ -174,8 +216,8 @@ func (s *Service) deleteMarkedBlob(ctx context.Context, id uuid.UUID, now time.T
 	}
 	var digest [32]byte
 	copy(digest[:], digestBytes)
-	if err := lockPhysicalBlobDeletion(ctx, tx); err != nil {
-		return false, err
+	if err := postgres.LockBlobDeletionAgainstBackup(ctx, tx); err != nil {
+		return false, fmt.Errorf("lock physical blob deletion against backup: %w", err)
 	}
 	if err := s.store.DeleteDerivatives(ctx, digest); err != nil {
 		return false, fmt.Errorf("delete swept blob derivatives: %w", err)
@@ -237,28 +279,12 @@ func (s *Service) prepareMarkedBlob(ctx context.Context, id uuid.UUID, now time.
 	return true, nil
 }
 
-func lockPhysicalBlobDeletion(ctx context.Context, tx pgx.Tx) error {
-	var locked int
-	if err := tx.QueryRow(ctx, `
-		select 1 from pg_advisory_xact_lock_shared(
-		    hashtextextended('lumihub-backup:blob-deletion', 0)
-		)
-	`).Scan(&locked); err != nil {
-		return fmt.Errorf("lock physical blob deletion against backup: %w", err)
-	}
-	return nil
-}
-
 func lockBlobDigest(ctx context.Context, tx pgx.Tx, id uuid.UUID) error {
-	var locked int
-	return tx.QueryRow(ctx, `
-		select 1
-		  from blobs blob,
-		       pg_advisory_xact_lock(
-		           hashtextextended('lumihub-blob:' || encode(blob.sha256, 'hex'), 0)
-		       )
-		 where blob.id = $1
-	`, id).Scan(&locked)
+	var digest []byte
+	if err := tx.QueryRow(ctx, `select sha256 from blobs where id = $1`, id).Scan(&digest); err != nil {
+		return err
+	}
+	return postgres.LockBlobDigest(ctx, tx, digest)
 }
 
 func blobHasLiveReference(ctx context.Context, tx pgx.Tx, id uuid.UUID, now time.Time) (bool, error) {
