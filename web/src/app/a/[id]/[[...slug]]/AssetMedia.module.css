@@ -7,14 +7,8 @@
   position: relative;
 }
 
-.frame:has(> div) {
-  aspect-ratio: 3 / 4;
-  border: 1px solid var(--line-hair);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-soft);
-}
-
-.cover {
+.cover,
+.defaultCover {
   position: relative;
   z-index: 1;
   width: 100%;
@@ -26,6 +20,10 @@
 .cover {
   border: 1px solid var(--line-soft);
   background: var(--surface-frame);
+}
+
+.defaultCover {
+  background: #dce8f5;
 }
 
 .flag {

@@ -2,29 +2,27 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { EmptyArtwork } from "@/components/media/EmptyArtwork";
 import type { BrowseAsset } from "@/lib/api/query";
+import { DEFAULT_COVERS } from "@/lib/kinds";
 import styles from "./FeaturedShelf.module.css";
 
 export function ShelfPreview({ asset }: { asset: BrowseAsset }) {
   const [failed, setFailed] = useState(false);
-  const src = failed ? undefined : asset.cover?.url;
+  const creatorCover = failed ? null : asset.cover;
+  const usesDefault = !creatorCover;
+  const src = creatorCover?.url ?? DEFAULT_COVERS[asset.kind];
 
   return (
     <div className={styles.preview}>
-      {src ? (
-        <Image
-          src={src}
-          alt=""
-          fill
-          sizes="76px"
-          className={styles.previewImage}
-          onError={() => setFailed(true)}
-          unoptimized
-        />
-      ) : (
-        <EmptyArtwork kind={asset.kind} compact />
-      )}
+      <Image
+        src={src}
+        alt=""
+        fill
+        sizes="76px"
+        className={styles.previewImage}
+        onError={usesDefault ? undefined : () => setFailed(true)}
+        unoptimized={!usesDefault}
+      />
     </div>
   );
 }

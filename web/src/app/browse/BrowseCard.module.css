@@ -41,12 +41,18 @@
   box-shadow: 0 20px 42px rgba(8, 29, 58, 0.16);
 }
 
-.art {
+.art,
+.defaultArt {
   object-fit: cover;
   transition: transform 0.55s var(--ease);
 }
 
-.card:hover .art {
+.defaultArt {
+  object-position: center;
+}
+
+.card:hover .art,
+.card:hover .defaultArt {
   transform: scale(1.018);
 }
 

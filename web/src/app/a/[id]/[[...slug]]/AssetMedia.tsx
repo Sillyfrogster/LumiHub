@@ -3,9 +3,9 @@
 import { Eye, EyeOff } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { EmptyArtwork } from "@/components/media/EmptyArtwork";
 import type { AssetImage, BrowseKind, NsfwVisibility } from "@/lib/api/query";
 import { useAuth } from "@/lib/auth";
+import { DEFAULT_COVERS } from "@/lib/kinds";
 import {
   readAssetReveal,
   readSessionVisibility,
@@ -65,7 +65,14 @@ export function AssetMedia({
     <div className={styles.media}>
       <div className={styles.frame}>
         {useFallback ? (
-          <EmptyArtwork kind={kind} name={name} />
+          <Image
+            className={styles.defaultCover}
+            src={DEFAULT_COVERS[kind]}
+            alt=""
+            width={1086}
+            height={1448}
+            priority
+          />
         ) : (
           <Image
             className={styles.cover}
