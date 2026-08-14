@@ -61,7 +61,8 @@ select a.id, a.name, coalesce(owner.username, 'unknown') as creator,
         from asset_media media
        where (media.asset_id = a.id or media.revision_id = a.current_revision_id)
          and media.width is not null and media.height is not null
-       order by case media.role
+       order by (media.id = a.preview_media_id) desc,
+                case media.role
                   when 'avatar' then 1
                   when 'avatar_alt' then 2
                   when 'gallery' then 3
@@ -229,7 +230,8 @@ select media.id, media.role, media.width, media.height
    and media.width is not null
    and media.height is not null
    and media.blob_id is not null
- order by case media.role
+ order by (media.id = a.preview_media_id) desc,
+          case media.role
             when 'avatar' then 1
             when 'avatar_alt' then 2
             when 'gallery' then 3

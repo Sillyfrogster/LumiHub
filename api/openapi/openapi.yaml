@@ -314,6 +314,39 @@ paths:
         "403": { description: The signed-in account has not verified its email }
         "404": { description: The asset does not belong to the creator }
         "409": { description: The asset is withheld and cannot be deleted }
+  /v1/assets/{id}/revisions:
+    post:
+      operationId: addAssetRevision
+      description: >-
+        Replace an asset's source bytes. A revision is the file only: name,
+        blurb, tags and the NSFW flag stay as the creator left them. A file that
+        reads as a different kind is refused and the asset is left untouched.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "202":
+          description: The durable ingest operation for the accepted revision
+          headers:
+            Location:
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IngestOperation" }
+        "401": { description: No account is signed in }
+        "403": { description: The signed-in account has not verified its email }
+        "404": { description: The asset does not belong to the creator }
+        "409": { description: The asset is withheld and cannot be changed }
+        "422": { description: The uploaded bytes have been purged and cannot return }
   /v1/assets/{id}/restore:
     post:
       operationId: restoreAsset
@@ -853,5 +886,13 @@ components:
       properties:
         reason:
           type: string
-          enum: [malformed_input, unsupported_format, unsupported_version, safety_violation, internal_failure]
+          enum:
+            [
+              malformed_input,
+              unsupported_format,
+              unsupported_version,
+              safety_violation,
+              wrong_kind,
+              internal_failure,
+            ]
         message: { type: string }

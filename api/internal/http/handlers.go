@@ -699,6 +699,54 @@ func (h *Handlers) CreateAsset(c *gin.Context) {
 	c.JSON(http.StatusAccepted, toAPIIngest(operation))
 }
 
+func (h *Handlers) AddAssetRevision(c *gin.Context, id types.UUID) {
+	owner, ok := h.uploadOwner(c)
+	if !ok {
+		return
+	}
+
+	parts, err := c.Request.MultipartReader()
+	if err != nil {
+		h.refuse(c, refusal{
+			reason: "send the revision as form data, with a file part",
+			cause:  err,
+		})
+		return
+	}
+	file, err := nextPart(parts, filePart)
+	if err != nil {
+		h.refuse(c, err)
+		return
+	}
+	limitedFile := http.MaxBytesReader(c.Writer, file, h.maxUploadBytes)
+	defer limitedFile.Close()
+
+	operation, err := h.assets.AcceptRevision(c.Request.Context(), asset.RevisionInput{
+		OwnerID:  owner.ID,
+		AssetID:  uuid.UUID(id),
+		Filename: file.FileName(),
+		File:     limitedFile,
+	})
+	switch {
+	case errors.Is(err, asset.ErrNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": "no such asset"})
+		return
+	case errors.Is(err, asset.ErrAssetFrozen):
+		c.JSON(http.StatusConflict, gin.H{"error": "A withheld asset cannot be changed."})
+		return
+	case errors.Is(err, storage.ErrTombstoned):
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "This file cannot be accepted."})
+		return
+	case err != nil:
+		h.refuse(c, err)
+		return
+	}
+
+	location := "/v1/ingests/" + operation.ID.String()
+	c.Header("Location", location)
+	c.JSON(http.StatusAccepted, toAPIIngest(operation))
+}
+
 func (h *Handlers) DeleteAsset(c *gin.Context, id types.UUID) {
 	owner, ok := h.uploadOwner(c)
 	if !ok {

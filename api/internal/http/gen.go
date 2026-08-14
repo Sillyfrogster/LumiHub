@@ -347,6 +347,7 @@ const (
 	SafetyViolation    IngestFailureReason = "safety_violation"
 	UnsupportedFormat  IngestFailureReason = "unsupported_format"
 	UnsupportedVersion IngestFailureReason = "unsupported_version"
+	WrongKind          IngestFailureReason = "wrong_kind"
 )
 
 // Valid indicates whether the value is a known member of the IngestFailureReason enum.
@@ -361,6 +362,8 @@ func (e IngestFailureReason) Valid() bool {
 	case UnsupportedFormat:
 		return true
 	case UnsupportedVersion:
+		return true
+	case WrongKind:
 		return true
 	default:
 		return false
@@ -972,6 +975,11 @@ type AddMediaMultipartBody struct {
 	Metadata AddMediaRequest    `json:"metadata"`
 }
 
+// AddAssetRevisionMultipartBody defines parameters for AddAssetRevision.
+type AddAssetRevisionMultipartBody struct {
+	File openapi_types.File `json:"file"`
+}
+
 // BeginDiscordParams defines parameters for BeginDiscord.
 type BeginDiscordParams struct {
 	Intent *BeginDiscordParamsIntent `form:"intent,omitempty" json:"intent,omitempty"`
@@ -1007,6 +1015,9 @@ type SetAssetDiscoveryJSONRequestBody = AssetDiscoveryRequest
 
 // AddMediaMultipartRequestBody defines body for AddMedia for multipart/form-data ContentType.
 type AddMediaMultipartRequestBody AddMediaMultipartBody
+
+// AddAssetRevisionMultipartRequestBody defines body for AddAssetRevision for multipart/form-data ContentType.
+type AddAssetRevisionMultipartRequestBody AddAssetRevisionMultipartBody
 
 // WithholdAssetJSONRequestBody defines body for WithholdAsset for application/json ContentType.
 type WithholdAssetJSONRequestBody = WithholdAssetRequest
@@ -1076,6 +1087,9 @@ type ServerInterface interface {
 
 	// (POST /v1/assets/{id}/restore)
 	RestoreAsset(c *gin.Context, id openapi_types.UUID)
+
+	// (POST /v1/assets/{id}/revisions)
+	AddAssetRevision(c *gin.Context, id openapi_types.UUID)
 
 	// (DELETE /v1/assets/{id}/withhold)
 	ClearAssetWithhold(c *gin.Context, id openapi_types.UUID)
@@ -1530,6 +1544,31 @@ func (siw *ServerInterfaceWrapper) RestoreAsset(c *gin.Context) {
 	siw.Handler.RestoreAsset(c, id)
 }
 
+// AddAssetRevision operation middleware
+func (siw *ServerInterfaceWrapper) AddAssetRevision(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.AddAssetRevision(c, id)
+}
+
 // ClearAssetWithhold operation middleware
 func (siw *ServerInterfaceWrapper) ClearAssetWithhold(c *gin.Context) {
 
@@ -1887,6 +1926,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/v1/assets", wrapper.CreateAsset)
 	router.DELETE(options.BaseURL+"/v1/assets/:id", wrapper.DeleteAsset)
 	router.GET(options.BaseURL+"/v1/assets/:id", wrapper.GetAsset)
+	router.POST(options.BaseURL+"/v1/assets/:id/revisions", wrapper.AddAssetRevision)
 	router.POST(options.BaseURL+"/v1/assets/:id/restore", wrapper.RestoreAsset)
 	router.PUT(options.BaseURL+"/v1/assets/:id/discovery", wrapper.SetAssetDiscovery)
 	router.GET(options.BaseURL+"/v1/profiles/:handle/deleted", wrapper.ListDeletedAssets)

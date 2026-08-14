@@ -104,6 +104,7 @@ type IngestOperation struct {
 	ExpiresAt      pgtype.Timestamptz
 	CreatedAt      pgtype.Timestamptz
 	UpdatedAt      pgtype.Timestamptz
+	TargetAssetID  pgtype.UUID
 }
 
 type OauthIdentity struct {

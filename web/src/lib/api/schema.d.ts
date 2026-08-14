@@ -277,6 +277,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/assets/{id}/revisions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Replace an asset's source bytes. A revision is the file only: name, blurb, tags and the NSFW flag stay as the creator left them. A file that reads as a different kind is refused and the asset is left untouched. */
+    post: operations["addAssetRevision"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/assets/{id}/restore": {
     parameters: {
       query?: never;
@@ -667,6 +684,7 @@ export interface components {
         | "unsupported_format"
         | "unsupported_version"
         | "safety_violation"
+        | "wrong_kind"
         | "internal_failure";
       message: string;
     };
@@ -1347,6 +1365,71 @@ export interface operations {
       };
       /** @description The asset is withheld and cannot be deleted */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  addAssetRevision: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "multipart/form-data": {
+          /** Format: binary */
+          file: string;
+        };
+      };
+    };
+    responses: {
+      /** @description The durable ingest operation for the accepted revision */
+      202: {
+        headers: {
+          Location?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["IngestOperation"];
+        };
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The signed-in account has not verified its email */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The asset does not belong to the creator */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The asset is withheld and cannot be changed */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The uploaded bytes have been purged and cannot return */
+      422: {
         headers: {
           [name: string]: unknown;
         };

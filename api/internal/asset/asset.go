@@ -65,6 +65,15 @@ type IngestInput struct {
 	Discovery Discovery
 }
 
+// RevisionInput is a new set of source bytes for an asset that already exists.
+// Nothing in the catalog entry comes from it; a revision is the file only.
+type RevisionInput struct {
+	OwnerID  uuid.UUID
+	AssetID  uuid.UUID
+	Filename string
+	File     io.Reader
+}
+
 type IngestStatus string
 
 const (

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -825,4 +826,106 @@ func TestIngestContinuesAfterTheUploadConnectionCloses(t *testing.T) {
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
+}
+
+func revisionRequest(t *testing.T, assetID, filename string, file []byte) *http.Request {
+	t.Helper()
+	body := &bytes.Buffer{}
+	form := multipart.NewWriter(body)
+	writeFilePartNamed(t, form, filename, file)
+	if err := form.Close(); err != nil {
+		t.Fatalf("close form: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/v1/assets/"+assetID+"/revisions", body)
+	req.Header.Set("Content-Type", form.FormDataContentType())
+	return req
+}
+
+func TestARevisionUploadReplacesTheBytesAndKeepsTheCatalogEntry(t *testing.T) {
+	r, session, assets := newVerifiedIngestRouter(t, format.NewRegistry())
+	metadata := exampleMetadata("Evening Theme")
+	metadata["filename"] = "evening.lumitheme"
+	upload := send(t, r, authorized(uploadRequest(t, metadata, []byte("first bytes")), session))
+	if _, err := assets.ProcessNextIngest(context.Background()); err != nil {
+		t.Fatalf("process ingest: %v", err)
+	}
+	created := pollIngestAsset(t, r, session, upload.Header().Get("Location"))
+	firstFile := servedSourcePath(t, r, created.ID)
+
+	revision := send(t, r, authorized(
+		revisionRequest(t, created.ID, "evening.lumitheme", []byte("second bytes")), session,
+	))
+	if revision.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want 202. body: %s", revision.Code, revision.Body.String())
+	}
+	if _, err := assets.ProcessNextIngest(context.Background()); err != nil {
+		t.Fatalf("process revision: %v", err)
+	}
+	updated := pollIngestAsset(t, r, session, revision.Header().Get("Location"))
+	if updated.ID != created.ID {
+		t.Fatalf("revision made asset %s, want %s", updated.ID, created.ID)
+	}
+	if updated.Name != created.Name {
+		t.Fatalf("name = %q, want the creator's own %q", updated.Name, created.Name)
+	}
+
+	if servedSourcePath(t, r, created.ID) == firstFile {
+		t.Fatal("the download still points at the first revision's file")
+	}
+}
+
+// servedSourcePath is the file nginx is told to send, which is how a caller
+// can see that a download changed without Go reading the bytes.
+func servedSourcePath(t *testing.T, r *gin.Engine, assetID string) string {
+	t.Helper()
+	rec := send(t, r, httptest.NewRequest(http.MethodGet, "/download/"+assetID, nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("download status = %d, want 200", rec.Code)
+	}
+	path := rec.Header().Get("X-Accel-Redirect")
+	if path == "" {
+		t.Fatal("X-Accel-Redirect is missing")
+	}
+	return path
+}
+
+func TestARevisionForSomebodyElsesAssetIsNotFound(t *testing.T) {
+	r, session, assets := newVerifiedIngestRouter(t, format.NewRegistry())
+	metadata := exampleMetadata("Evening Theme")
+	metadata["filename"] = "evening.lumitheme"
+	upload := send(t, r, authorized(uploadRequest(t, metadata, []byte("first bytes")), session))
+	if _, err := assets.ProcessNextIngest(context.Background()); err != nil {
+		t.Fatalf("process ingest: %v", err)
+	}
+	created := pollIngestAsset(t, r, session, upload.Header().Get("Location"))
+
+	stranger := send(t, r, revisionRequest(t, created.ID, "evening.lumitheme", []byte("second")))
+	if stranger.Code != http.StatusUnauthorized {
+		t.Fatalf("signed-out status = %d, want 401", stranger.Code)
+	}
+}
+
+func pollIngestAsset(t *testing.T, r *gin.Engine, session *http.Cookie, location string) struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+} {
+	t.Helper()
+	rec := send(t, r, authorized(httptest.NewRequest(http.MethodGet, location, nil), session))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("poll status = %d, want 200. body: %s", rec.Code, rec.Body.String())
+	}
+	var operation struct {
+		Status string `json:"status"`
+		Asset  *struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"asset"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &operation); err != nil {
+		t.Fatalf("decode operation: %v", err)
+	}
+	if operation.Status != "success" || operation.Asset == nil {
+		t.Fatalf("operation = %#v, want a successful asset", operation)
+	}
+	return *operation.Asset
 }

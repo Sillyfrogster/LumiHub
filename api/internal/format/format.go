@@ -19,6 +19,7 @@ const (
 	FailureUnsupportedFormat  FailureReason = "unsupported_format"
 	FailureUnsupportedVersion FailureReason = "unsupported_version"
 	FailureSafetyViolation    FailureReason = "safety_violation"
+	FailureWrongKind          FailureReason = "wrong_kind"
 	FailureInternal           FailureReason = "internal_failure"
 )
 

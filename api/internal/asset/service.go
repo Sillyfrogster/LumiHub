@@ -189,6 +189,8 @@ func ingestFailureMessage(reason string) string {
 		return "The file uses a version LumiHub cannot read safely."
 	case "safety_violation":
 		return "The file breaks an archive safety rule."
+	case "wrong_kind":
+		return "This file is a different kind of thing than the asset it would update."
 	default:
 		return "LumiHub could not finish this upload. Please try again."
 	}

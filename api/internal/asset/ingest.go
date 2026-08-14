@@ -16,7 +16,13 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-var errIngestLeaseLost = errors.New("ingest lease lost")
+var (
+	errIngestLeaseLost = errors.New("ingest lease lost")
+	// errWrongKind marks a revision that reads as a different kind of thing
+	// than the asset it would replace. Kind is immutable, so the asset and
+	// its current revision are left exactly as they were.
+	errWrongKind = errors.New("revision resolves to a different kind")
+)
 
 // RunIngestWorkers processes operations until ctx is cancelled.
 func (s *Service) RunIngestWorkers(ctx context.Context, count int, report func(error)) {
@@ -69,6 +75,14 @@ type ingestJob struct {
 	Discovery  Discovery
 	ByteSize   int64
 	Attempts   int
+	// Target is the asset this file becomes a revision of. Nil means the
+	// ingest is creating one.
+	Target *revisionTarget
+}
+
+type revisionTarget struct {
+	AssetID uuid.UUID
+	Kind    string
 }
 
 type preparedIngest struct {
@@ -132,6 +146,9 @@ func (s *Service) ProcessNextIngest(ctx context.Context) (bool, error) {
 	}
 
 	prepared, needsKind, err := prepareIngest(job, parsed, claimed)
+	if errors.Is(err, errWrongKind) {
+		return true, s.finishIngestFailure(ctx, job, format.FailureWrongKind)
+	}
 	if err != nil {
 		return true, s.finishIngestFailure(ctx, job, format.FailureInternal)
 	}
@@ -182,15 +199,19 @@ func (s *Service) leaseNextIngest(ctx context.Context) (ingestJob, bool, error) 
 		          operation.filename, operation.kind, operation.name, operation.blurb,
 		          operation.tags, operation.is_nsfw, operation.discovery,
 		          operation.attempts,
-		          (select byte_size from blobs where id = operation.blob_id)
+		          (select byte_size from blobs where id = operation.blob_id),
+		          operation.target_asset_id,
+		          (select kind from assets where id = operation.target_asset_id)
 	`, now, leaseToken, leaseExpires)
 
 	var job ingestJob
-	var kind, name, blurb pgtype.Text
+	var kind, name, blurb, targetKind pgtype.Text
 	var isNSFW pgtype.Bool
+	var targetAssetID pgtype.UUID
 	err := row.Scan(
 		&job.ID, &job.OwnerID, &job.BlobID, &job.Filename, &kind, &name, &blurb,
 		&job.Tags, &isNSFW, &job.Discovery, &job.Attempts, &job.ByteSize,
+		&targetAssetID, &targetKind,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ingestJob{}, false, nil
@@ -199,6 +220,14 @@ func (s *Service) leaseNextIngest(ctx context.Context) (ingestJob, bool, error) 
 		return ingestJob{}, false, fmt.Errorf("lease ingest: %w", err)
 	}
 	job.LeaseToken = leaseToken
+	if targetAssetID.Valid {
+		if !targetKind.Valid {
+			return ingestJob{}, false, fmt.Errorf("ingest %s targets a missing asset", job.ID)
+		}
+		job.Target = &revisionTarget{
+			AssetID: uuidFromPgtype(targetAssetID), Kind: targetKind.String,
+		}
+	}
 	job.Kind = textToPointer(kind)
 	job.Name = textToPointer(name)
 	job.Blurb = textToPointer(blurb)
@@ -211,24 +240,32 @@ func (s *Service) leaseNextIngest(ctx context.Context) (ingestJob, bool, error) 
 func prepareIngest(job ingestJob, parsed format.Parsed, claimed bool) (preparedIngest, bool, error) {
 	kind := parsed.Kind
 	platform := (*string)(nil)
-	if !claimed {
-		if job.Kind != nil {
-			kind = *job.Kind
-		} else {
-			hint, ok := passthroughHint(job.Filename)
-			if !ok {
-				return preparedIngest{}, true, nil
-			}
-			kind = hint.kind
-			platform = &hint.platform
-		}
-	} else {
+	if claimed {
 		if kind == "" {
 			return preparedIngest{}, false, errors.New("claimed format did not declare a kind")
 		}
 		if parsed.PassthroughPlatform != nil {
 			return preparedIngest{}, false, errors.New("claimed format returned a passthrough platform")
 		}
+		if job.Target != nil && kind != job.Target.Kind {
+			return preparedIngest{}, false, errWrongKind
+		}
+	} else if job.Target != nil {
+		// A revision LumiHub cannot read is still a revision of this asset,
+		// so it takes the kind the asset already has.
+		kind = job.Target.Kind
+		if hint, ok := passthroughHint(job.Filename); ok {
+			platform = &hint.platform
+		}
+	} else if job.Kind != nil {
+		kind = *job.Kind
+	} else {
+		hint, ok := passthroughHint(job.Filename)
+		if !ok {
+			return preparedIngest{}, true, nil
+		}
+		kind = hint.kind
+		platform = &hint.platform
 	}
 
 	name := parsed.Name
@@ -403,32 +440,8 @@ func (s *Service) finalizeIngest(ctx context.Context, job ingestJob, prepared pr
 		return errIngestLeaseLost
 	}
 
-	assetID := uuid.New()
-	revisionID := uuid.New()
-	a := Asset{
-		ID: assetID, Kind: prepared.Kind, Format: prepared.Format,
-		PassthroughPlatform: prepared.PassthroughPlatform,
-		Name:                prepared.Name, Blurb: prepared.Blurb, Tags: prepared.Tags,
-		IsNSFW: prepared.IsNSFW, Discovery: prepared.Discovery,
-	}
-	made, err := insertAsset(ctx, tx, a, job.OwnerID, prepared.CreatedAt)
+	assetID, err := writeIngestResult(ctx, tx, job, prepared)
 	if err != nil {
-		return err
-	}
-	a.CreatedAt = made
-	if err := insertRevision(ctx, tx, revisionID, assetID, revisionRow{
-		Revision: 1, BlobID: job.BlobID, MediaType: prepared.MediaType,
-		Format: prepared.Format, PassthroughPlatform: prepared.PassthroughPlatform,
-	}); err != nil {
-		return err
-	}
-	if err := insertFacets(ctx, tx, revisionID, prepared.Facets); err != nil {
-		return err
-	}
-	if err := insertRevisionMedia(ctx, tx, revisionID, prepared.Media); err != nil {
-		return err
-	}
-	if err := setCurrentRevision(ctx, tx, assetID, revisionID); err != nil {
 		return err
 	}
 	result, err := tx.Exec(ctx, `
@@ -447,4 +460,87 @@ func (s *Service) finalizeIngest(ctx context.Context, job ingestJob, prepared pr
 		return fmt.Errorf("commit ingest finalization: %w", err)
 	}
 	return nil
+}
+
+// writeIngestResult turns a finished parse into rows. Either it publishes a new
+// catalog entry or it adds a revision to one that already exists, and both end
+// with the asset pointing at the revision just written.
+func writeIngestResult(
+	ctx context.Context,
+	tx pgx.Tx,
+	job ingestJob,
+	prepared preparedIngest,
+) (uuid.UUID, error) {
+	if job.Target != nil {
+		return job.Target.AssetID, appendRevision(ctx, tx, job, prepared)
+	}
+	assetID := uuid.New()
+	a := Asset{
+		ID: assetID, Kind: prepared.Kind, Format: prepared.Format,
+		PassthroughPlatform: prepared.PassthroughPlatform,
+		Name:                prepared.Name, Blurb: prepared.Blurb, Tags: prepared.Tags,
+		IsNSFW: prepared.IsNSFW, Discovery: prepared.Discovery,
+	}
+	if _, err := insertAsset(ctx, tx, a, job.OwnerID, prepared.CreatedAt); err != nil {
+		return uuid.Nil, err
+	}
+	return assetID, writeRevision(ctx, tx, assetID, 1, job, prepared)
+}
+
+// appendRevision adds a set of source bytes to an asset that already exists.
+// Catalog metadata is never re-seeded here: it was the creator's from the
+// moment the asset was made.
+func appendRevision(
+	ctx context.Context,
+	tx pgx.Tx,
+	job ingestJob,
+	prepared preparedIngest,
+) error {
+	var withheldAt pgtype.Timestamptz
+	err := tx.QueryRow(ctx, `
+		select withheld_at
+		  from assets
+		 where id = $1 and owner_id = $2 and deleted_at is null
+		 for update
+	`, job.Target.AssetID, job.OwnerID).Scan(&withheldAt)
+	if err != nil {
+		return fmt.Errorf("lock revision target: %w", err)
+	}
+	if withheldAt.Valid {
+		return fmt.Errorf("asset %s is frozen", job.Target.AssetID)
+	}
+	var next int
+	if err := tx.QueryRow(ctx, `
+		select coalesce(max(revision), 0) + 1 from asset_revisions where asset_id = $1
+	`, job.Target.AssetID).Scan(&next); err != nil {
+		return fmt.Errorf("number the new revision: %w", err)
+	}
+	return writeRevision(ctx, tx, job.Target.AssetID, next, job, prepared)
+}
+
+func writeRevision(
+	ctx context.Context,
+	tx pgx.Tx,
+	assetID uuid.UUID,
+	number int,
+	job ingestJob,
+	prepared preparedIngest,
+) error {
+	revisionID := uuid.New()
+	if err := insertRevision(ctx, tx, revisionID, assetID, revisionRow{
+		Revision: number, BlobID: job.BlobID, MediaType: prepared.MediaType,
+		Format: prepared.Format, PassthroughPlatform: prepared.PassthroughPlatform,
+	}); err != nil {
+		return err
+	}
+	if err := insertFacets(ctx, tx, revisionID, prepared.Facets); err != nil {
+		return err
+	}
+	if err := insertRevisionMedia(ctx, tx, revisionID, prepared.Media); err != nil {
+		return err
+	}
+	if err := setCurrentRevision(ctx, tx, assetID, revisionID); err != nil {
+		return err
+	}
+	return setPreviewMedia(ctx, tx, assetID, avatarMedia(prepared.Media))
 }
