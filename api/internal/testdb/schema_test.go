@@ -18,6 +18,7 @@ func TestCoreTablesExist(t *testing.T) {
 		"asset_revisions",
 		"asset_facets",
 		"asset_media",
+		"file_field_patches",
 		"blobs",
 		"blob_sweep_marks",
 		"blob_tombstones",
@@ -40,6 +41,40 @@ func TestCoreTablesExist(t *testing.T) {
 		if !exists {
 			t.Errorf("table %s is missing", table)
 		}
+	}
+}
+
+func TestFileFieldPatchesKeepAClosedVocabularyAndProvenance(t *testing.T) {
+	pool := Connect(t)
+	assetID, revisionID, _ := insertAssetRevision(t, pool)
+	ctx := context.Background()
+
+	if _, err := pool.Exec(ctx, `
+		insert into file_field_patches (asset_id, field, value, provenance)
+		values ($1, 'description', 'Creator text', 'creator')
+	`, assetID); err != nil {
+		t.Fatalf("insert creator patch: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		insert into file_field_patches (asset_id, revision_id, field, value, provenance)
+		values ($1, $2, 'creator_notes', 'Reconciled text', 'reconciliation')
+	`, assetID, revisionID); err != nil {
+		t.Fatalf("insert reconciliation patch: %v", err)
+	}
+
+	for name, statement := range map[string]string{
+		"arbitrary path": `insert into file_field_patches (asset_id, field, value, provenance)
+			values ($1, 'extensions.depth_prompt', $2::uuid::text, 'creator')`,
+		"creator revision": `insert into file_field_patches (asset_id, revision_id, field, value, provenance)
+			values ($1, $2, 'scenario', 'wrong scope', 'creator')`,
+		"unscoped reconciliation": `insert into file_field_patches (asset_id, field, value, provenance)
+			values ($1, 'scenario', $2::uuid::text, 'reconciliation')`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := pool.Exec(ctx, statement, assetID, revisionID); err == nil {
+				t.Fatal("invalid patch row was accepted")
+			}
+		})
 	}
 }
 

@@ -2,6 +2,7 @@ package http
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"image"
@@ -9,6 +10,7 @@ import (
 	"image/gif"
 	"image/jpeg"
 	"image/png"
+	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +18,8 @@ import (
 	"testing"
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
+	"github.com/Sillyfrogster/LumiHub/api/internal/format/character"
+	"github.com/google/uuid"
 )
 
 func rasterSources(t *testing.T) map[string][]byte {
@@ -86,6 +90,71 @@ func TestDownloadUnknownAssetIs404(t *testing.T) {
 
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404", rec.Code)
+	}
+}
+
+func TestOwnerCanPatchAFileFieldAndDownloadADeclaredTarget(t *testing.T) {
+	registry := format.NewRegistry()
+	for _, module := range character.Modules() {
+		if err := registry.Register(module); err != nil {
+			t.Fatalf("register %q: %v", module.ID(), err)
+		}
+	}
+	r, session, assets := newVerifiedIngestRouter(t, registry)
+	metadata := exampleMetadata("Ana")
+	metadata["filename"] = "ana.json"
+	created := uploadAndFinish(t, r, session, assets, metadata, []byte(`{
+		"spec":"chara_card_v3","spec_version":"3.0",
+		"data":{"name":"Ana","description":"Before","extensions":{"third_party":{"keep":true}}}
+	}`))
+	var operation struct {
+		Asset *struct {
+			ID string `json:"id"`
+		} `json:"asset"`
+	}
+	if err := json.Unmarshal(created.Body.Bytes(), &operation); err != nil || operation.Asset == nil {
+		t.Fatalf("decode completed ingest: %v, %+v", err, operation)
+	}
+
+	patched := send(t, r, authorizedJSONRequest(t, http.MethodPut,
+		"/v1/assets/"+operation.Asset.ID+"/file-patch",
+		`{"description":"After"}`, session,
+	))
+	if patched.Code != http.StatusNoContent {
+		t.Fatalf("patch status = %d, want 204: %s", patched.Code, patched.Body.String())
+	}
+	invalid := send(t, r, authorizedJSONRequest(t, http.MethodPut,
+		"/v1/assets/"+operation.Asset.ID+"/file-patch",
+		`{"extensions.depth_prompt":"lost"}`, session,
+	))
+	if invalid.Code != http.StatusBadRequest {
+		t.Fatalf("arbitrary path status = %d, want 400", invalid.Code)
+	}
+
+	assetID := uuid.MustParse(operation.Asset.ID)
+	exported, err := assets.OpenExport(context.Background(), assetID, nil, "sillytavern")
+	if err != nil {
+		t.Fatalf("OpenExport: %v", err)
+	}
+	written, readErr := io.ReadAll(exported.Artifact)
+	closeErr := exported.Artifact.Close()
+	if readErr != nil || closeErr != nil {
+		t.Fatalf("read export: %v, close: %v", readErr, closeErr)
+	}
+	var card struct {
+		Data struct {
+			Description string `json:"description"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(written, &card); err != nil || card.Data.Description != "After" {
+		t.Fatalf("exported card = %+v, decode: %v", card, err)
+	}
+
+	download := send(t, r, httptest.NewRequest(http.MethodGet,
+		"/download/"+operation.Asset.ID+"?target=sillytavern", nil,
+	))
+	if download.Code != http.StatusOK || download.Header().Get("X-Accel-Redirect") == "" {
+		t.Fatalf("download = %d, redirect %q", download.Code, download.Header().Get("X-Accel-Redirect"))
 	}
 }
 

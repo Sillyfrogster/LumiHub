@@ -925,6 +925,50 @@ func (h *Handlers) SetAssetDiscovery(c *gin.Context, id types.UUID) {
 	}
 }
 
+func (h *Handlers) SetFilePatch(c *gin.Context, id types.UUID) {
+	owner, ok := h.uploadOwner(c)
+	if !ok {
+		return
+	}
+	var request FileFieldPatch
+	if err := decodeOneJSON(c.Request.Body, &request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Send supported file fields as JSON."})
+		return
+	}
+	patch := make(format.Patch)
+	for field, value := range map[format.Field]*string{
+		format.FieldDescription:             request.Description,
+		format.FieldPersonality:             request.Personality,
+		format.FieldScenario:                request.Scenario,
+		format.FieldFirstMessage:            request.FirstMes,
+		format.FieldSystemPrompt:            request.SystemPrompt,
+		format.FieldPostHistoryInstructions: request.PostHistoryInstructions,
+		format.FieldCreatorNotes:            request.CreatorNotes,
+		format.FieldCharacterVersion:        request.CharacterVersion,
+	} {
+		if value != nil {
+			patch[field] = *value
+		}
+	}
+	err := h.assets.SetFilePatch(c.Request.Context(), asset.FilePatchInput{
+		OwnerID: owner.ID, AssetID: uuid.UUID(id), Patch: patch,
+	})
+	switch {
+	case errors.Is(err, asset.ErrNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": "no such asset"})
+	case errors.Is(err, asset.ErrAssetFrozen):
+		c.JSON(http.StatusConflict, gin.H{"error": "A withheld asset cannot be changed."})
+	case errors.Is(err, asset.ErrPatchUnsupported):
+		c.JSON(http.StatusConflict, gin.H{"error": "This file format cannot be patched."})
+	case errors.Is(err, format.ErrInvalidPatch):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "The file patch is not valid."})
+	case err != nil:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not save the file patch."})
+	default:
+		c.Status(http.StatusNoContent)
+	}
+}
+
 func toAPIDetail(found asset.Detail, visibility asset.ContentVisibility) AssetDetail {
 	tags := make([]AssetTag, 0, len(found.Tags))
 	for _, tag := range found.Tags {
@@ -1218,12 +1262,16 @@ func (h *Handlers) refuse(c *gin.Context, err error) {
 	c.JSON(http.StatusBadRequest, gin.H{"error": "could not create the asset"})
 }
 
-func (h *Handlers) DownloadSource(c *gin.Context, id types.UUID) {
+func (h *Handlers) DownloadSource(c *gin.Context, id types.UUID, params DownloadSourceParams) {
 	viewerID, ok := h.viewerID(c)
 	if !ok {
 		return
 	}
-	download, err := h.assets.DownloadSource(c.Request.Context(), id, viewerID)
+	target := format.RawTarget
+	if params.Target != nil {
+		target = *params.Target
+	}
+	download, err := h.assets.DownloadExport(c.Request.Context(), id, viewerID, target)
 	if err != nil {
 		if errors.Is(err, asset.ErrNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "no such asset"})
@@ -1241,6 +1289,7 @@ func (h *Handlers) DownloadSource(c *gin.Context, id types.UUID) {
 	c.Header("Content-Disposition", disposition)
 	c.Header("Content-Type", mediaType)
 	c.Header("X-Content-Type-Options", "nosniff")
+	c.Header("X-LumiHub-Export-Target", download.Target)
 	c.Header("X-Accel-Redirect", download.InternalRedirect)
 	c.Status(http.StatusOK)
 }

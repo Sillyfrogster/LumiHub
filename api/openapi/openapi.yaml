@@ -347,6 +347,28 @@ paths:
         "404": { description: The asset does not belong to the creator }
         "409": { description: The asset is withheld and cannot be changed }
         "422": { description: The uploaded bytes have been purged and cannot return }
+  /v1/assets/{id}/file-patch:
+    put:
+      operationId: setFilePatch
+      description: >-
+        Replace the creator's semantic changes to the file. Omitted fields are
+        removed from the patch. Catalog metadata is a separate concern and is
+        never written into the artifact.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FileFieldPatch" }
+      responses:
+        "204": { description: The creator's file patch is saved }
+        "400": { description: The body is not a supported semantic patch }
+        "401": { description: No account is signed in }
+        "403": { description: The signed-in account has not verified its email }
+        "404": { description: The asset does not belong to the creator }
+        "409": { description: The asset is withheld or its format cannot be patched }
   /v1/assets/{id}/restore:
     post:
       operationId: restoreAsset
@@ -422,9 +444,14 @@ paths:
       operationId: downloadSource
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        -
+          name: target
+          in: query
+          description: A declared export target. Unsupported values fall back to raw.
+          schema: { type: string, default: raw }
       responses:
         "200":
-          description: The current uploaded source file, byte for byte
+          description: The current revision exported to the resolved target
           headers:
             Content-Disposition:
               required: true
@@ -432,8 +459,15 @@ paths:
             X-Content-Type-Options:
               required: true
               schema: { type: string, enum: [nosniff] }
+            X-LumiHub-Export-Target:
+              required: true
+              schema: { type: string }
           content:
             application/octet-stream:
+              schema: { type: string, format: binary }
+            application/json:
+              schema: { type: string, format: binary }
+            application/zip:
               schema: { type: string, format: binary }
             image/png:
               schema: { type: string, format: binary }
@@ -689,6 +723,18 @@ components:
       required: [discovery]
       properties:
         discovery: { type: string, enum: [listed, unlisted] }
+    FileFieldPatch:
+      type: object
+      additionalProperties: false
+      properties:
+        description: { type: string }
+        personality: { type: string }
+        scenario: { type: string }
+        first_mes: { type: string }
+        system_prompt: { type: string }
+        post_history_instructions: { type: string }
+        creator_notes: { type: string }
+        character_version: { type: string }
     DeletedAssetList:
       type: object
       required: [items]

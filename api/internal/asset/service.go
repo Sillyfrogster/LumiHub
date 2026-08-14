@@ -370,28 +370,40 @@ func (s *Service) OpenSource(ctx context.Context, assetID uuid.UUID) (io.ReadClo
 	return rc, nil
 }
 
-type SourceDownload struct {
+type ExportDownload struct {
 	InternalRedirect string
 	MediaType        string
 	Inline           bool
+	Target           string
 }
 
-// DownloadSource resolves the current source file for an nginx handoff.
-func (s *Service) DownloadSource(ctx context.Context, assetID uuid.UUID, viewerID *uuid.UUID) (SourceDownload, error) {
-	blobID, mediaType, err := currentRevisionLocation(ctx, s.pool, assetID, viewerID)
+// DownloadExport prepares one artifact for an nginx handoff.
+func (s *Service) DownloadExport(
+	ctx context.Context,
+	assetID uuid.UUID,
+	viewerID *uuid.UUID,
+	target string,
+) (ExportDownload, error) {
+	exported, err := s.OpenExport(ctx, assetID, viewerID, target)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return SourceDownload{}, ErrNotFound
-		}
-		return SourceDownload{}, fmt.Errorf("find current revision: %w", err)
+		return ExportDownload{}, err
 	}
-	redirect, err := s.store.InternalRedirect(ctx, blobID)
+	stored, putErr := s.store.Put(ctx, exported.Artifact)
+	closeErr := exported.Artifact.Close()
+	if putErr != nil {
+		return ExportDownload{}, fmt.Errorf("store generated export: %w", putErr)
+	}
+	if closeErr != nil {
+		return ExportDownload{}, fmt.Errorf("close generated export: %w", closeErr)
+	}
+	redirect, err := s.store.InternalRedirect(ctx, stored.ID)
 	if err != nil {
-		return SourceDownload{}, fmt.Errorf("resolve stored file: %w", err)
+		return ExportDownload{}, fmt.Errorf("resolve generated export: %w", err)
 	}
-	return SourceDownload{
+	return ExportDownload{
 		InternalRedirect: redirect,
-		MediaType:        mediaType,
-		Inline:           probe.IsInlineMediaType(mediaType),
+		MediaType:        exported.MediaType,
+		Inline:           probe.IsInlineMediaType(exported.MediaType),
+		Target:           exported.Target,
 	}, nil
 }

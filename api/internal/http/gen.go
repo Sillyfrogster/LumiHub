@@ -815,6 +815,18 @@ type DeletedAssetList struct {
 	Items []DeletedAsset `json:"items"`
 }
 
+// FileFieldPatch defines model for FileFieldPatch.
+type FileFieldPatch struct {
+	CharacterVersion        *string `json:"character_version,omitempty"`
+	CreatorNotes            *string `json:"creator_notes,omitempty"`
+	Description             *string `json:"description,omitempty"`
+	FirstMes                *string `json:"first_mes,omitempty"`
+	Personality             *string `json:"personality,omitempty"`
+	PostHistoryInstructions *string `json:"post_history_instructions,omitempty"`
+	Scenario                *string `json:"scenario,omitempty"`
+	SystemPrompt            *string `json:"system_prompt,omitempty"`
+}
+
 // IngestFailure defines model for IngestFailure.
 type IngestFailure struct {
 	Message string              `json:"message"`
@@ -922,6 +934,12 @@ type WithholdAssetRequest struct {
 	Reason string `json:"reason"`
 }
 
+// DownloadSourceParams defines parameters for DownloadSource.
+type DownloadSourceParams struct {
+	// Target A declared export target. Unsupported values fall back to raw.
+	Target *string `form:"target,omitempty" json:"target,omitempty"`
+}
+
 // GetMediaVariantParamsVariant defines parameters for GetMediaVariant.
 type GetMediaVariantParamsVariant string
 
@@ -1013,6 +1031,9 @@ type CreateAssetMultipartRequestBody CreateAssetMultipartBody
 // SetAssetDiscoveryJSONRequestBody defines body for SetAssetDiscovery for application/json ContentType.
 type SetAssetDiscoveryJSONRequestBody = AssetDiscoveryRequest
 
+// SetFilePatchJSONRequestBody defines body for SetFilePatch for application/json ContentType.
+type SetFilePatchJSONRequestBody = FileFieldPatch
+
 // AddMediaMultipartRequestBody defines body for AddMedia for multipart/form-data ContentType.
 type AddMediaMultipartRequestBody AddMediaMultipartBody
 
@@ -1044,7 +1065,7 @@ type CompleteIngestJSONRequestBody = CompleteIngestRequest
 type ServerInterface interface {
 
 	// (GET /download/{id})
-	DownloadSource(c *gin.Context, id openapi_types.UUID)
+	DownloadSource(c *gin.Context, id openapi_types.UUID, params DownloadSourceParams)
 
 	// (GET /media/{media_id}/{variant}/{derivative_version})
 	GetMediaVariant(c *gin.Context, mediaId openapi_types.UUID, variant GetMediaVariantParamsVariant, derivativeVersion int)
@@ -1078,6 +1099,9 @@ type ServerInterface interface {
 
 	// (PUT /v1/assets/{id}/discovery)
 	SetAssetDiscovery(c *gin.Context, id openapi_types.UUID)
+
+	// (PUT /v1/assets/{id}/file-patch)
+	SetFilePatch(c *gin.Context, id openapi_types.UUID)
 
 	// (GET /v1/assets/{id}/media)
 	ListMedia(c *gin.Context, id openapi_types.UUID)
@@ -1161,6 +1185,17 @@ func (siw *ServerInterfaceWrapper) DownloadSource(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DownloadSourceParams
+
+	// ------------- Optional query parameter "target" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "target", c.Request.URL.Query(), &params.Target, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter target: %w", err), http.StatusBadRequest)
+		return
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -1168,7 +1203,7 @@ func (siw *ServerInterfaceWrapper) DownloadSource(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.DownloadSource(c, id)
+	siw.Handler.DownloadSource(c, id, params)
 }
 
 // GetMediaVariant operation middleware
@@ -1467,6 +1502,31 @@ func (siw *ServerInterfaceWrapper) SetAssetDiscovery(c *gin.Context) {
 	}
 
 	siw.Handler.SetAssetDiscovery(c, id)
+}
+
+// SetFilePatch operation middleware
+func (siw *ServerInterfaceWrapper) SetFilePatch(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.SetFilePatch(c, id)
 }
 
 // ListMedia operation middleware
@@ -1927,6 +1987,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.DELETE(options.BaseURL+"/v1/assets/:id", wrapper.DeleteAsset)
 	router.GET(options.BaseURL+"/v1/assets/:id", wrapper.GetAsset)
 	router.POST(options.BaseURL+"/v1/assets/:id/revisions", wrapper.AddAssetRevision)
+	router.PUT(options.BaseURL+"/v1/assets/:id/file-patch", wrapper.SetFilePatch)
 	router.POST(options.BaseURL+"/v1/assets/:id/restore", wrapper.RestoreAsset)
 	router.PUT(options.BaseURL+"/v1/assets/:id/discovery", wrapper.SetAssetDiscovery)
 	router.GET(options.BaseURL+"/v1/profiles/:handle/deleted", wrapper.ListDeletedAssets)

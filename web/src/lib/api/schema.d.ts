@@ -294,6 +294,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/assets/{id}/file-patch": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Replace the creator's semantic changes to the file. Omitted fields are removed from the patch. Catalog metadata is a separate concern and is never written into the artifact. */
+    put: operations["setFilePatch"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/assets/{id}/restore": {
     parameters: {
       query?: never;
@@ -523,6 +540,16 @@ export interface components {
     AssetDiscoveryRequest: {
       /** @enum {string} */
       discovery: "listed" | "unlisted";
+    };
+    FileFieldPatch: {
+      description?: string;
+      personality?: string;
+      scenario?: string;
+      first_mes?: string;
+      system_prompt?: string;
+      post_history_instructions?: string;
+      creator_notes?: string;
+      character_version?: string;
     };
     DeletedAssetList: {
       items: components["schemas"]["DeletedAsset"][];
@@ -1437,6 +1464,65 @@ export interface operations {
       };
     };
   };
+  setFilePatch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["FileFieldPatch"];
+      };
+    };
+    responses: {
+      /** @description The creator's file patch is saved */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The body is not a supported semantic patch */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The signed-in account has not verified its email */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The asset does not belong to the creator */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The asset is withheld or its format cannot be patched */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   restoreAsset: {
     parameters: {
       query?: never;
@@ -1668,7 +1754,10 @@ export interface operations {
   };
   downloadSource: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description A declared export target. Unsupported values fall back to raw. */
+        target?: string;
+      };
       header?: never;
       path: {
         id: string;
@@ -1677,15 +1766,18 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description The current uploaded source file, byte for byte */
+      /** @description The current revision exported to the resolved target */
       200: {
         headers: {
           "Content-Disposition": "attachment" | "inline";
           "X-Content-Type-Options": "nosniff";
+          "X-LumiHub-Export-Target": string;
           [name: string]: unknown;
         };
         content: {
           "application/octet-stream": string;
+          "application/json": string;
+          "application/zip": string;
           "image/png": string;
           "image/jpeg": string;
           "image/webp": string;

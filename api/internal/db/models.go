@@ -83,6 +83,14 @@ type EmailVerificationToken struct {
 	ExpiresAt pgtype.Timestamptz
 }
 
+type FileFieldPatch struct {
+	AssetID    pgtype.UUID
+	RevisionID pgtype.UUID
+	Field      string
+	Value      string
+	Provenance string
+}
+
 type IngestOperation struct {
 	ID             pgtype.UUID
 	OwnerID        pgtype.UUID
