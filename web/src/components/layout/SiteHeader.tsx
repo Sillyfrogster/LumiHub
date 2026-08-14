@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, Upload } from "lucide-react";
+import { Menu, Upload, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -9,17 +9,13 @@ import { useAuth } from "@/lib/auth";
 import { Shell } from "./Shell";
 import styles from "./SiteHeader.module.css";
 
-const NAV = [
-  { label: "Discover", href: "/browse" },
-  { label: "Characters", href: "/browse?kind=character" },
-  { label: "Lorebooks", href: "/browse?kind=lorebook" },
-  { label: "Presets", href: "/browse?kind=preset" },
-];
+const NAV = [{ label: "Browse", href: "/browse" }];
 
 export function SiteHeader() {
   const pathname = usePathname();
   const { account, signOut } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -49,10 +45,6 @@ export function SiteHeader() {
               {item.label}
             </Link>
           ))}
-          <button type="button" className={styles.navLink}>
-            Resources
-            <ChevronDown size={12} strokeWidth={1.3} />
-          </button>
         </nav>
 
         <div className={styles.spacer} />
@@ -103,7 +95,46 @@ export function SiteHeader() {
             </>
           )}
         </div>
+
+        <button
+          type="button"
+          className={styles.menuToggle}
+          aria-expanded={mobileOpen}
+          aria-controls="mobile-navigation"
+          onClick={() => setMobileOpen((open) => !open)}
+        >
+          {mobileOpen ? (
+            <X size={20} aria-hidden="true" />
+          ) : (
+            <Menu size={20} aria-hidden="true" />
+          )}
+          <span className="sr-only">
+            {mobileOpen ? "Close navigation" : "Open navigation"}
+          </span>
+        </button>
       </Shell>
+
+      {mobileOpen ? (
+        <nav id="mobile-navigation" className={styles.mobileNav}>
+          <Shell className={styles.mobileNavInner}>
+            {NAV.map((item) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                onClick={() => setMobileOpen(false)}
+              >
+                {item.label}
+              </Link>
+            ))}
+            <Link
+              href={account?.emailVerified ? "/upload" : "/sign-up"}
+              onClick={() => setMobileOpen(false)}
+            >
+              {account?.emailVerified ? "Publish an asset" : "Create account"}
+            </Link>
+          </Shell>
+        </nav>
+      ) : null}
     </header>
   );
 }

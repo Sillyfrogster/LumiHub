@@ -1,0 +1,90 @@
+.empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  overflow: hidden;
+  padding: 24px;
+  background:
+    linear-gradient(rgba(89, 117, 157, 0.1) 1px, transparent 1px) 0 0 / 100%
+    34px,
+    linear-gradient(135deg, #edf4fb 0%, #dce8f5 100%);
+  color: #536b8e;
+  text-align: center;
+}
+
+.empty::before {
+  content: "";
+  position: absolute;
+  inset: 16px;
+  border: 1px solid rgba(74, 105, 148, 0.2);
+  border-radius: 2px 14px 2px 2px;
+}
+
+.empty svg,
+.empty strong,
+.empty span,
+.empty small {
+  position: relative;
+  z-index: 1;
+}
+
+.empty svg {
+  width: 32px;
+  height: 32px;
+  stroke-width: 1.35;
+}
+
+.empty span {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.empty strong {
+  display: -webkit-box;
+  max-width: 18ch;
+  overflow: hidden;
+  color: #263f64;
+  font-family: var(--font-display);
+  font-size: clamp(1.05rem, 1.6vw, 1.35rem);
+  font-weight: 600;
+  line-height: 1.25;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.empty small {
+  color: #7184a0;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.empty[data-compact] {
+  gap: 4px;
+  padding: 8px;
+  background: linear-gradient(135deg, #edf4fb 0%, #dce8f5 100%);
+}
+
+.empty[data-compact]::before {
+  inset: 6px;
+  border-radius: 1px 7px 1px 1px;
+}
+
+.empty[data-compact] svg {
+  width: 22px;
+  height: 22px;
+}
+
+.empty[data-compact] span {
+  font-size: 0.55rem;
+}
+
+.empty[data-compact] strong,
+.empty[data-compact] small {
+  display: none;
+}

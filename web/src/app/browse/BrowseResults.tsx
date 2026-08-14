@@ -203,7 +203,7 @@ export function BrowseResults({
                   placeholder={
                     creator
                       ? `Search @${creator}'s creations`
-                      : "Search names, creators, and blurbs"
+                      : "Search the collection"
                   }
                 />
                 {queryText ? (
@@ -296,7 +296,7 @@ export function BrowseResults({
 
           {overview?.platforms.length ? (
             <fieldset className={styles.filterGroup}>
-              <legend>Platform</legend>
+              <legend>Export to</legend>
               <label className={styles.option}>
                 <input
                   type="radio"

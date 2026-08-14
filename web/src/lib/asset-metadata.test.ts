@@ -43,7 +43,7 @@ test("points the preview at the canonical address", () => {
   );
 });
 
-test("uses the composed social preview, and LumiHub's cover without one", () => {
+test("uses the composed social preview, and does not invent one without it", () => {
   expect(assetMetadata(asset()).openGraph?.images).toEqual([
     {
       url: "/media/aaaa/og/1",
@@ -52,14 +52,9 @@ test("uses the composed social preview, and LumiHub's cover without one", () => 
       height: 630,
     },
   ]);
-  expect(assetMetadata(asset({ preview: null })).openGraph?.images).toEqual([
-    {
-      url: "/covers/cover-default-character-lumi.webp",
-      alt: "Christine Novak",
-      width: 1200,
-      height: 630,
-    },
-  ]);
+  expect(
+    assetMetadata(asset({ preview: null })).openGraph?.images,
+  ).toBeUndefined();
 });
 
 test("stands in a description when the creator wrote no blurb", () => {

@@ -3,11 +3,9 @@
 import { Eye, EyeOff } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import cornerBottom from "@/assets/art/corner-br.webp";
-import cornerTop from "@/assets/art/corner-tl.webp";
+import { EmptyArtwork } from "@/components/media/EmptyArtwork";
 import type { AssetImage, BrowseKind, NsfwVisibility } from "@/lib/api/query";
 import { useAuth } from "@/lib/auth";
-import { DEFAULT_COVERS } from "@/lib/kinds";
 import {
   readAssetReveal,
   readSessionVisibility,
@@ -66,29 +64,8 @@ export function AssetMedia({
   return (
     <div className={styles.media}>
       <div className={styles.frame}>
-        <Image
-          className={styles.ornamentTop}
-          src={cornerTop}
-          alt=""
-          aria-hidden="true"
-          sizes="260px"
-        />
-        <Image
-          className={styles.ornamentBottom}
-          src={cornerBottom}
-          alt=""
-          aria-hidden="true"
-          sizes="250px"
-        />
         {useFallback ? (
-          <Image
-            className={styles.defaultCover}
-            src={DEFAULT_COVERS[kind]}
-            alt=""
-            width={1024}
-            height={1024}
-            priority
-          />
+          <EmptyArtwork kind={kind} name={name} />
         ) : (
           <Image
             className={styles.cover}

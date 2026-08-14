@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { AssetDetail } from "./api/query";
 import { assetHref } from "./asset-url";
-import { DEFAULT_COVERS, KIND_LABELS } from "./kinds";
+import { KIND_LABELS } from "./kinds";
 
 /**
  * The tags a chat window reads when somebody pastes an asset's address. An
@@ -11,8 +11,10 @@ import { DEFAULT_COVERS, KIND_LABELS } from "./kinds";
 export function assetMetadata(asset: AssetDetail): Metadata {
   const title = `${asset.name} · ${KIND_LABELS[asset.kind]}`;
   const description = asset.blurb || `A ${asset.kind} by ${asset.creator}.`;
-  const image = asset.preview ?? DEFAULT_COVERS[asset.kind];
   const url = assetHref(asset.id, asset.name);
+  const images = asset.preview
+    ? [{ url: asset.preview, alt: asset.name, width: 1200, height: 630 }]
+    : undefined;
 
   return {
     title,
@@ -25,13 +27,13 @@ export function assetMetadata(asset: AssetDetail): Metadata {
       title,
       description,
       url,
-      images: [{ url: image, alt: asset.name, width: 1200, height: 630 }],
+      images,
     },
     twitter: {
-      card: "summary_large_image",
+      card: asset.preview ? "summary_large_image" : "summary",
       title,
       description,
-      images: [image],
+      images: asset.preview ? [asset.preview] : undefined,
     },
   };
 }

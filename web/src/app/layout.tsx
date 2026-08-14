@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: "LumiHub",
   description:
-    "Share characters, lorebooks and presets across any roleplay or storytelling frontend.",
+    "Discover characters, lorebooks, presets, and themes while keeping every creator's source file intact.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

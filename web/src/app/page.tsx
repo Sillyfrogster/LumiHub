@@ -1,19 +1,24 @@
+import { cookies } from "next/headers";
 import { CreatorSection } from "@/components/landing/CreatorSection";
 import { FeaturedShelf } from "@/components/landing/FeaturedShelf";
 import { Hero } from "@/components/landing/Hero";
-import { Newsletter } from "@/components/landing/Newsletter";
-import { StatsBand } from "@/components/landing/StatsBand";
 import { TypeShowcase } from "@/components/landing/TypeShowcase";
+import { fetchAssets } from "@/lib/api/query";
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const cookie = (await cookies()).toString();
+  const latest = await fetchAssets({ limit: 4 }, cookie).catch(() => null);
+
   return (
     <>
       <Hero />
-      <FeaturedShelf />
+      <FeaturedShelf
+        assets={latest?.items ?? []}
+        visibility={latest?.visibility ?? "blurred"}
+        unavailable={!latest}
+      />
       <TypeShowcase />
-      <StatsBand />
       <CreatorSection />
-      <Newsletter />
     </>
   );
 }

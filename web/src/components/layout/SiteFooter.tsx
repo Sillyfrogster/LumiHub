@@ -5,12 +5,9 @@ import { Shell } from "./Shell";
 import styles from "./SiteFooter.module.css";
 
 const LINKS = [
-  { label: "About", href: "/about" },
-  { label: "Creator Guide", href: "/guide" },
-  { label: "API", href: "/docs" },
-  { label: "Guidelines", href: "/guidelines" },
-  { label: "Privacy", href: "/legal/privacy" },
-  { label: "Terms", href: "/legal/terms" },
+  { label: "Browse", href: "/browse" },
+  { label: "Sign in", href: "/sign-in" },
+  { label: "Create account", href: "/sign-up" },
 ];
 
 export function SiteFooter() {
@@ -18,9 +15,7 @@ export function SiteFooter() {
     <footer className={styles.footer}>
       <Shell className={styles.inner}>
         <Art name="divider-star" width={340} className={styles.rule} />
-        <p className={styles.tagline}>
-          Made for creators. Inspired by stories. Built for every frontend.
-        </p>
+        <p className={styles.tagline}>A quiet home for work made carefully.</p>
 
         <div className={styles.meta}>
           <div className={styles.brand}>
@@ -36,7 +31,7 @@ export function SiteFooter() {
             ))}
           </nav>
 
-          <span className={styles.copyright}>© 2025 LumiHub</span>
+          <span className={styles.copyright}>© 2026 LumiHub</span>
         </div>
       </Shell>
     </footer>

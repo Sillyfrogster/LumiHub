@@ -16,8 +16,8 @@ type ArtProps = {
 };
 
 /**
- * Hand-drawn artwork from the design set. Without an alt it is treated as
- * decoration and hidden from assistive technology.
+ * LumiHub artwork. Without alt text it is decorative and hidden from
+ * assistive technology.
  */
 export function Art({
   name,

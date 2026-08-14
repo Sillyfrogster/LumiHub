@@ -5,8 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
-import sprig from "@/assets/art/sprig.webp";
-import wash from "@/assets/art/wash.webp";
+import detailBinding from "@/assets/art/full/detail-binding.webp";
 import { Shell } from "@/components/layout/Shell";
 import { type AssetDetail, fetchAsset } from "@/lib/api/query";
 import { assetMetadata } from "@/lib/asset-metadata";
@@ -63,10 +62,14 @@ export default async function AssetPage({
   return (
     <div className={styles.page}>
       <div className={styles.band}>
-        <div className={styles.wash}>
-          <Image src={wash} alt="" fill priority sizes="100vw" />
-        </div>
-        <Image className={styles.sprig} src={sprig} alt="" sizes="178px" />
+        <Image
+          className={styles.detailArt}
+          src={detailBinding}
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+        />
       </div>
 
       <Shell as="article" className={styles.body}>
@@ -89,7 +92,10 @@ export default async function AssetPage({
             <p className={styles.kind}>{kind}</p>
             <h1>{asset.name}</h1>
             <p className={styles.byline}>
-              by <strong>{asset.creator}</strong>
+              by
+              <Link className={styles.creator} href={`/@${asset.creator}`}>
+                {asset.creator}
+              </Link>
               <span className={styles.dot} aria-hidden="true" />
               <span className={styles.made}>{made}</span>
             </p>
@@ -97,6 +103,11 @@ export default async function AssetPage({
             {asset.withhold ? (
               <WithholdNotice withhold={asset.withhold} />
             ) : null}
+
+            <a className={styles.download} href={`/download/${asset.id}`}>
+              <Download size={16} aria-hidden="true" />
+              Download the source file
+            </a>
 
             {asset.blurb ? (
               <p className={styles.blurb}>{asset.blurb}</p>
@@ -116,11 +127,6 @@ export default async function AssetPage({
                 ))}
               </ul>
             ) : null}
-
-            <a className={styles.download} href={`/download/${asset.id}`}>
-              <Download size={16} aria-hidden="true" />
-              Download the file
-            </a>
 
             <DiscoveryControl
               assetId={asset.id}

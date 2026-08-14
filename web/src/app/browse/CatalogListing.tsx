@@ -1,5 +1,5 @@
 import Image from "next/image";
-import heroLumi from "@/assets/art/full/hero-lumi.webp";
+import browseCatalogLumi from "@/assets/art/full/browse-catalog-lumi.webp";
 import { Shell } from "@/components/layout/Shell";
 import type { BrowseFilters, BrowsePage } from "@/lib/api/query";
 import { BrowseResults } from "./BrowseResults";
@@ -21,11 +21,11 @@ export function CatalogListing({
       <section className={styles.masthead}>
         <div className={styles.lumiArt}>
           <Image
-            src={heroLumi}
+            src={browseCatalogLumi}
             alt=""
             fill
             priority
-            sizes="(max-width: 760px) 100vw, 58vw"
+            sizes="(max-width: 760px) 100vw, 66vw"
           />
         </div>
         <Shell className={styles.mastheadInner}>

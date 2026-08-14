@@ -1,58 +1,47 @@
-import { Sparkles, Upload, Users } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
-import { Art } from "@/components/art/Art";
 import { Shell } from "@/components/layout/Shell";
-import { Eyebrow } from "@/components/ui/SectionHead";
-import { CREATOR_BENEFITS, SPOTLIGHT } from "@/data/site";
 import styles from "./CreatorSection.module.css";
 
-const ICONS = {
-  upload: Upload,
-  audience: Users,
-  reward: Sparkles,
-} as const;
+const PROMISES = [
+  {
+    title: "The original stays original",
+    body: "LumiHub stores the file you uploaded and keeps catalog writing beside it, not inside it.",
+  },
+  {
+    title: "One work, one lasting link",
+    body: "New revisions keep the same asset address, so a shared find does not disappear after an update.",
+  },
+  {
+    title: "More than one destination",
+    body: "Readers can take the plain file or use an export target the format supports.",
+  },
+] as const;
 
 export function CreatorSection() {
   return (
     <Shell as="section" className={styles.section}>
       <div className={styles.grid}>
-        <div>
-          <Eyebrow>Built for creators</Eyebrow>
-
-          <ul className={styles.benefits}>
-            {CREATOR_BENEFITS.map((benefit) => {
-              const Icon = ICONS[benefit.icon];
-
-              return (
-                <li key={benefit.title}>
-                  <span className={styles.icon}>
-                    <Icon size={24} strokeWidth={1.2} />
-                  </span>
-                  <h3 className={styles.benefitTitle}>{benefit.title}</h3>
-                  <p className={styles.benefitBody}>{benefit.body}</p>
-                </li>
-              );
-            })}
-          </ul>
-
-          <Link href="/guide" className={styles.link}>
-            Learn more about creator benefits →
+        <div className={styles.copy}>
+          <h2>Your work stays your work.</h2>
+          <p>
+            Publish the catalog entry without letting the catalog rewrite the
+            artifact. LumiHub keeps the creator's file at the center.
+          </p>
+          <Link href="/upload" className={styles.link}>
+            Publish an asset
+            <ArrowRight size={15} aria-hidden="true" />
           </Link>
         </div>
 
-        <figure className={styles.spotlight}>
-          <Art name="corner-tl" width={280} className={styles.corner} />
-          <Eyebrow>Community spotlight</Eyebrow>
-          <blockquote className={styles.quote}>“{SPOTLIGHT.quote}”</blockquote>
-
-          <figcaption className={styles.person}>
-            <span className={styles.avatar} />
-            <span>
-              <span className={styles.name}>{SPOTLIGHT.name}</span>
-              <span className={styles.role}>{SPOTLIGHT.role}</span>
-            </span>
-          </figcaption>
-        </figure>
+        <ol className={styles.promises}>
+          {PROMISES.map((promise) => (
+            <li key={promise.title}>
+              <h3>{promise.title}</h3>
+              <p>{promise.body}</p>
+            </li>
+          ))}
+        </ol>
       </div>
     </Shell>
   );
