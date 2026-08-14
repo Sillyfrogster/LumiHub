@@ -1139,8 +1139,8 @@ func (h *Handlers) signedInAccount(c *gin.Context, action string) (account.Accou
 	return *current, true
 }
 
-// verifiedAccount is signedInAccount for the work an unverified account may not
-// do.
+// verifiedAccount answers the signed-in account only once its email is
+// verified, and otherwise writes the refusal and returns false.
 func (h *Handlers) verifiedAccount(c *gin.Context, action string) (account.Account, bool) {
 	current, ok := h.signedInAccount(c, action)
 	if !ok {

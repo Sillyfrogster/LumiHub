@@ -32,6 +32,7 @@ export function LinkApproval() {
   const { account } = useAuth();
   const suppliedCode = search.get("code") ?? "";
   const [stage, setStage] = useState<Stage>({ kind: "entry" });
+  const [typed, setTyped] = useState(suppliedCode);
   const [notice, setNotice] = useState("");
   const looked = useRef("");
 
@@ -153,7 +154,7 @@ export function LinkApproval() {
           }
         }}
         onCancel={() => {
-          looked.current = "";
+          setTyped("");
           setStage({ kind: "entry" });
         }}
       />
@@ -165,9 +166,6 @@ export function LinkApproval() {
       className={styles.panel}
       onSubmit={(event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        const typed = String(
-          new FormData(event.currentTarget).get("code") ?? "",
-        );
         looked.current = typed;
         void look(typed);
       }}
@@ -188,7 +186,8 @@ export function LinkApproval() {
         id="link-code"
         name="code"
         className={styles.code}
-        defaultValue={suppliedCode}
+        value={typed}
+        onChange={(event) => setTyped(event.target.value)}
         placeholder="XXXX-XXXX"
         autoComplete="off"
         autoCapitalize="characters"
