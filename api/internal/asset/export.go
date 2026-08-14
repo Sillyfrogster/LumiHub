@@ -226,7 +226,7 @@ func (s *Service) exportMedia(ctx context.Context, assetID uuid.UUID) ([]format.
 			return nil, fmt.Errorf("close export media %s: %w", item.id, closeErr)
 		}
 		media = append(media, format.ExportMedia{
-			ID: item.id.String(), Role: item.role, MediaType: http.DetectContentType(data), Data: data,
+			Role: item.role, MediaType: http.DetectContentType(data), Data: data,
 		})
 	}
 	return media, nil

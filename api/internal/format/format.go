@@ -171,7 +171,6 @@ type Patcher interface {
 
 // ExportMedia is creator-managed media available while writing an artifact.
 type ExportMedia struct {
-	ID        string
 	Role      media.Role
 	MediaType string
 	Data      []byte

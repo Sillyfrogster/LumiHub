@@ -179,13 +179,12 @@ func TestCharXExportKeepsEmbededPathsAndMergesCreatorMedia(t *testing.T) {
 		"platform.json":               []byte(`{"keep": true}`),
 	})
 	managed := testPNG(t)
-	managedID := "11111111-2222-3333-4444-555555555555"
 	exported, err := CharXModule{}.Export(context.Background(), format.ExportRequest{
 		Source: bytes.NewReader(source),
 		Target: "lumiverse",
 		Patch:  format.Patch{format.FieldDescription: "After"},
 		Media: []format.ExportMedia{{
-			ID: managedID, Role: "expression", MediaType: "image/png", Data: managed,
+			Role: "expression", MediaType: "image/png", Data: managed,
 		}},
 	})
 	if err != nil {
@@ -225,8 +224,8 @@ func TestCharXExportKeepsEmbededPathsAndMergesCreatorMedia(t *testing.T) {
 	if len(exported.UnembeddedMedia) != 0 {
 		t.Fatalf("CHARX left %d media files outside the archive", len(exported.UnembeddedMedia))
 	}
-	if bytes.Contains(written, []byte(managedID)) {
-		t.Fatal("a server media identifier leaked into the creator file")
+	if assets[1].Name != "media-1" || !strings.HasSuffix(assets[1].URI, "/media-1.png") {
+		t.Fatalf("managed media did not get an artifact-local identity: %+v", assets[1])
 	}
 }
 
