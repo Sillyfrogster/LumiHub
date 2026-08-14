@@ -1,0 +1,123 @@
+.media {
+  position: relative;
+  animation: lhArt 0.9s var(--ease) both;
+}
+
+.frame {
+  position: relative;
+}
+
+/* The watercolour is the frame, so it sits behind and outside the picture. */
+.ornamentTop,
+.ornamentBottom {
+  position: absolute;
+  z-index: 0;
+  width: 240px;
+  height: auto;
+  mix-blend-mode: multiply;
+  opacity: 0.62;
+  pointer-events: none;
+}
+
+.ornamentTop {
+  top: -52px;
+  left: -62px;
+}
+
+.ornamentBottom {
+  right: -64px;
+  bottom: -46px;
+}
+
+.cover,
+.defaultCover {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-soft);
+}
+
+.cover {
+  border: 1px solid var(--line-soft);
+  background: var(--surface-frame);
+}
+
+.defaultCover {
+  border: 1px solid var(--line-hair);
+  background: var(--surface-quiet);
+}
+
+.flag {
+  position: absolute;
+  z-index: 2;
+  top: 14px;
+  left: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--ink-strong);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.strip {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  margin-top: 16px;
+  list-style: none;
+}
+
+.thumb,
+.pickedThumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-xs);
+  background: var(--surface-frame);
+  transition:
+    border-color 0.25s var(--ease),
+    transform 0.25s var(--ease);
+}
+
+.thumb:hover {
+  border-color: var(--faint);
+  transform: translateY(-2px);
+}
+
+.pickedThumb {
+  border-color: var(--accent);
+}
+
+.thumb img,
+.pickedThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+@media (max-width: 1180px) {
+  .ornamentTop,
+  .ornamentBottom {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .media {
+    max-width: 420px;
+  }
+}

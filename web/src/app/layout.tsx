@@ -19,7 +19,11 @@ const lato = Lato({
   style: ["normal", "italic"],
 });
 
+/** The public origin, so link previews carry absolute URLs. */
+const siteUrl = process.env.SITE_URL ?? "http://localhost:8000";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: "LumiHub",
   description:
     "Share characters, lorebooks and presets across any roleplay or storytelling frontend.",

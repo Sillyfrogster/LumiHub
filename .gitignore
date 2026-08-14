@@ -12,6 +12,9 @@ dist
 # Logs
 *.log
 
+# Browser automation output
+.playwright-mcp/
+
 # Editor and operating system files
 .vscode/*
 !.vscode/extensions.json

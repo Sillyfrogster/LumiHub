@@ -6,21 +6,8 @@ import Link from "next/link";
 import { useState } from "react";
 import type { BrowseAsset, NsfwVisibility } from "@/lib/api/query";
 import { assetHref } from "@/lib/asset-url";
+import { DEFAULT_COVERS, KIND_LABELS } from "@/lib/kinds";
 import styles from "./BrowseCard.module.css";
-
-const KIND_LABELS: Record<BrowseAsset["kind"], string> = {
-  character: "Character",
-  lorebook: "Lorebook",
-  preset: "Preset",
-  theme: "Theme",
-};
-
-const DEFAULT_COVERS: Record<BrowseAsset["kind"], string> = {
-  character: "/covers/cover-default-character-lumi.webp",
-  lorebook: "/covers/cover-default-lorebook-lumi.webp",
-  preset: "/covers/cover-default-preset-lumi.webp",
-  theme: "/covers/cover-default-theme-lumi.webp",
-};
 
 export function BrowseCard({
   asset,

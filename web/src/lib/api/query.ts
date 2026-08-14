@@ -2,6 +2,9 @@ import { QueryClient } from "@tanstack/react-query";
 import { api } from "./client";
 import type { components, paths } from "./schema";
 
+export type AssetDetail = components["schemas"]["AssetDetail"];
+export type AssetImage = components["schemas"]["AssetImage"];
+export type AssetTag = components["schemas"]["AssetTag"];
 export type BrowseAsset = components["schemas"]["BrowseAsset"];
 export type BrowsePage = components["schemas"]["AssetList"];
 export type BrowseCursor = components["schemas"]["BrowseCursor"];
@@ -45,6 +48,22 @@ export async function fetchAssets(
     headers: cookie ? { cookie } : undefined,
   });
   if (error) throw new Error("Could not load the collection");
+  return data;
+}
+
+/**
+ * One asset by id. A withheld, deleted or never-existed asset comes back null,
+ * because the API answers all three the same way.
+ */
+export async function fetchAsset(
+  id: string,
+  cookie?: string,
+): Promise<AssetDetail | null> {
+  const { data, error } = await api.GET("/v1/assets/{id}", {
+    params: { path: { id } },
+    headers: cookie ? { cookie } : undefined,
+  });
+  if (error || !data) return null;
   return data;
 }
 

@@ -47,12 +47,16 @@ proxy: ## Run the local nginx proxy on port 8000
 # Checking
 
 .PHONY: check
-check: fmt-check vet test lint ## Everything CI would run
+check: fmt-check vet test test-web lint ## Everything CI would run
 
 .PHONY: test
 test: need-test-db ## Run the Go tests
 # -p 1 because every package sharing the test database empties it on the way in.
 	cd api && go test -p 1 $(TEST)
+
+.PHONY: test-web
+test-web: ## Run the site tests
+	cd web && bun test
 
 .PHONY: cover
 cover: need-test-db ## Report Go test coverage per package
