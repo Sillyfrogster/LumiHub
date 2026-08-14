@@ -2,14 +2,21 @@
 
 import { Eye, EyeOff } from "lucide-react";
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import cornerBottom from "@/assets/art/corner-br.webp";
 import cornerTop from "@/assets/art/corner-tl.webp";
 import type { AssetImage, BrowseKind, NsfwVisibility } from "@/lib/api/query";
+import { useAuth } from "@/lib/auth";
 import { DEFAULT_COVERS } from "@/lib/kinds";
+import {
+  readAssetReveal,
+  readSessionVisibility,
+  writeAssetReveal,
+} from "@/lib/nsfw-visibility";
 import styles from "./AssetMedia.module.css";
 
 interface AssetMediaProps {
+  id: string;
   media: AssetImage[];
   kind: BrowseKind;
   name: string;
@@ -18,16 +25,43 @@ interface AssetMediaProps {
 }
 
 export function AssetMedia({
+  id,
   media,
   kind,
   name,
   isNsfw,
   visibility,
 }: AssetMediaProps) {
+  const { account } = useAuth();
   const [chosen, setChosen] = useState(0);
   const [failed, setFailed] = useState(false);
+  const [revealed, setRevealed] = useState(false);
+  const [signedOutVisibility, setSignedOutVisibility] =
+    useState<NsfwVisibility>();
   const shown = media[chosen];
   const useFallback = failed || !shown;
+  const showClear =
+    visibility === "shown" || signedOutVisibility === "shown" || revealed;
+  const canReveal = isNsfw && !showClear && !useFallback;
+
+  useEffect(() => {
+    if (account === undefined) return;
+    if (account) {
+      setSignedOutVisibility(undefined);
+      return;
+    }
+    setSignedOutVisibility(readSessionVisibility());
+  }, [account]);
+
+  useEffect(() => {
+    if (!canReveal) return;
+    setRevealed(readAssetReveal(id));
+  }, [canReveal, id]);
+
+  function reveal() {
+    setRevealed(true);
+    writeAssetReveal(id);
+  }
 
   return (
     <div className={styles.media}>
@@ -58,7 +92,7 @@ export function AssetMedia({
         ) : (
           <Image
             className={styles.cover}
-            src={shown.detailUrl}
+            src={showClear ? clearVariant(shown.detailUrl) : shown.detailUrl}
             alt={name}
             width={shown.width}
             height={shown.height}
@@ -70,13 +104,19 @@ export function AssetMedia({
         )}
         {isNsfw ? (
           <p className={styles.flag}>
-            {visibility === "shown" ? (
+            {showClear ? (
               <Eye size={13} aria-hidden="true" />
             ) : (
               <EyeOff size={13} aria-hidden="true" />
             )}
-            {visibility === "shown" ? "Adult" : "Adult · blurred"}
+            {showClear ? "Adult" : "Adult · blurred"}
           </p>
+        ) : null}
+        {canReveal && !revealed ? (
+          <button type="button" className={styles.reveal} onClick={reveal}>
+            <Eye size={16} aria-hidden="true" />
+            Show images
+          </button>
         ) : null}
       </div>
 
@@ -95,7 +135,9 @@ export function AssetMedia({
                 }}
               >
                 <Image
-                  src={image.thumbUrl}
+                  src={
+                    showClear ? clearVariant(image.thumbUrl) : image.thumbUrl
+                  }
                   alt=""
                   width={image.width}
                   height={image.height}
@@ -109,4 +151,8 @@ export function AssetMedia({
       ) : null}
     </div>
   );
+}
+
+function clearVariant(url: string) {
+  return url.replace("_blurred/", "/");
 }

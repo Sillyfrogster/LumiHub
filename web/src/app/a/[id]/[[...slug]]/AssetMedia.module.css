@@ -68,6 +68,34 @@
   text-transform: uppercase;
 }
 
+.reveal {
+  position: absolute;
+  z-index: 2;
+  right: 16px;
+  bottom: 16px;
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1px solid rgba(33, 59, 95, 0.22);
+  border-radius: var(--radius-sm);
+  background: rgba(250, 249, 245, 0.94);
+  box-shadow: 0 8px 24px rgba(17, 38, 67, 0.13);
+  color: var(--ink-strong);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  transition:
+    transform 0.2s var(--ease),
+    box-shadow 0.2s var(--ease);
+}
+
+.reveal:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 28px rgba(17, 38, 67, 0.17);
+}
+
 .strip {
   position: relative;
   z-index: 2;

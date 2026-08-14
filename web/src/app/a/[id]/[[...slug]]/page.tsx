@@ -73,6 +73,7 @@ export default async function AssetPage({
 
         <div className={styles.layout}>
           <AssetMedia
+            id={asset.id}
             media={asset.media}
             kind={asset.kind}
             name={asset.name}

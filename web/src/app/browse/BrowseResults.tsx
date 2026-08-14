@@ -22,6 +22,10 @@ import {
   saveNsfwVisibility,
 } from "@/lib/api/query";
 import { useAuth } from "@/lib/auth";
+import {
+  readSessionVisibility,
+  writeSessionVisibility,
+} from "@/lib/nsfw-visibility";
 import { BrowseCard } from "./BrowseCard";
 import styles from "./BrowseResults.module.css";
 
@@ -39,8 +43,6 @@ const VISIBILITY: Array<{ value: NsfwVisibility; label: string }> = [
   { value: "shown", label: "Show" },
 ];
 
-const STORED_VISIBILITY = "lumihub.nsfw-visibility";
-
 function buildBrowseHref(filters: BrowseFilters) {
   const params = new URLSearchParams();
   if (filters.kind) params.set("kind", filters.kind);
@@ -49,10 +51,6 @@ function buildBrowseHref(filters: BrowseFilters) {
   for (const facet of filters.facet ?? []) params.append("facet", facet);
   const query = params.toString();
   return query ? `/browse?${query}` : "/browse";
-}
-
-function isVisibility(value: string | null): value is NsfwVisibility {
-  return value === "hidden" || value === "blurred" || value === "shown";
 }
 
 export function BrowseResults({
@@ -73,6 +71,7 @@ export function BrowseResults({
     useState<NsfwVisibility>();
   const [preferenceError, setPreferenceError] = useState("");
   const [savingPreference, setSavingPreference] = useState(false);
+  const [dismissedSuppression, setDismissedSuppression] = useState<string>();
   const [isNavigating, startNavigation] = useTransition();
 
   useEffect(() => setQueryText(filters.q ?? ""), [filters.q]);
@@ -82,8 +81,7 @@ export function BrowseResults({
       setVisibilityOverride(undefined);
       return;
     }
-    const stored = window.sessionStorage.getItem(STORED_VISIBILITY);
-    setVisibilityOverride(isVisibility(stored) ? stored : undefined);
+    setVisibilityOverride(readSessionVisibility());
   }, [account]);
 
   const query = useInfiniteQuery({
@@ -115,6 +113,16 @@ export function BrowseResults({
   const hasFilters = Boolean(
     filters.kind || filters.platform || filters.q || filters.facet?.length,
   );
+  const suppressionKey =
+    overview?.visibility === "hidden" && overview.suppressed > 0
+      ? JSON.stringify([
+          filters.kind ?? "",
+          filters.platform ?? "",
+          filters.q ?? "",
+          filters.facet ?? [],
+          overview.suppressed,
+        ])
+      : undefined;
 
   function navigate(next: BrowseFilters) {
     startNavigation(() =>
@@ -139,6 +147,15 @@ export function BrowseResults({
     navigate({ ...filters, facet: facets.length ? facets : undefined });
   }
 
+  function showContentSettings() {
+    setFiltersOpen(true);
+    requestAnimationFrame(() => {
+      const settings = document.getElementById("adult-content-settings");
+      settings?.scrollIntoView({ block: "center" });
+      settings?.focus({ preventScroll: true });
+    });
+  }
+
   async function setPreference(next: NsfwVisibility) {
     if (account === undefined || savingPreference) return;
     setPreferenceError("");
@@ -148,7 +165,7 @@ export function BrowseResults({
         await saveNsfwVisibility(next);
         await queryClient.invalidateQueries({ queryKey: assetKeys.all });
       } else {
-        window.sessionStorage.setItem(STORED_VISIBILITY, next);
+        writeSessionVisibility(next);
         setVisibilityOverride(next);
       }
     } catch {
@@ -335,7 +352,11 @@ export function BrowseResults({
             </fieldset>
           ))}
 
-          <fieldset className={styles.filterGroup}>
+          <fieldset
+            id="adult-content-settings"
+            className={styles.filterGroup}
+            tabIndex={-1}
+          >
             <legend>Adult content</legend>
             <div className={styles.visibilityOptions}>
               {VISIBILITY.map((option) => (
@@ -368,17 +389,32 @@ export function BrowseResults({
           aria-labelledby="browse-heading"
           aria-busy={isNavigating}
         >
-          {overview?.visibility === "hidden" &&
-          overview.suppressed > 0 &&
-          overview.total > 0 ? (
-            <output className={styles.suppressionNotice}>
-              <p>
-                {overview.suppressed === 1
-                  ? "1 matching result is hidden by your adult-content preference."
-                  : `${overview.suppressed} matching results are hidden by your adult-content preference.`}
-              </p>
-              <button type="button" onClick={() => void setPreference("shown")}>
-                Show them
+          {suppressionKey && suppressionKey !== dismissedSuppression ? (
+            <output
+              className={styles.suppressionNotice}
+              aria-label="Hidden results"
+            >
+              <span className={styles.suppressionNoticeContent}>
+                <span className={styles.suppressionText}>
+                  {overview.suppressed === 1
+                    ? "1 matching result is hidden by your adult-content preference."
+                    : `${overview.suppressed} matching results are hidden by your adult-content preference.`}
+                </span>
+                <button
+                  type="button"
+                  className={styles.settingLink}
+                  onClick={showContentSettings}
+                >
+                  Review content setting
+                </button>
+              </span>
+              <button
+                type="button"
+                className={styles.dismissSuppression}
+                aria-label="Dismiss hidden-results notice"
+                onClick={() => setDismissedSuppression(suppressionKey)}
+              >
+                <X size={16} aria-hidden="true" />
               </button>
             </output>
           ) : null}
