@@ -1,0 +1,244 @@
+.panel {
+  display: grid;
+  justify-items: start;
+  padding: 34px 34px 36px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: var(--shadow-panel);
+}
+
+.mark,
+.done {
+  display: grid;
+  width: 50px;
+  height: 50px;
+  margin-bottom: 18px;
+  place-items: center;
+  border: 1px solid var(--line-soft);
+  border-radius: 50%;
+  background: var(--surface-quiet);
+  color: var(--accent);
+}
+
+.done {
+  border-color: rgba(76, 122, 92, 0.3);
+  background: var(--pass-bg);
+  color: var(--pass);
+}
+
+.title,
+.name {
+  font-family: var(--font-display);
+  font-size: 1.9rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.body,
+.carried,
+.caution {
+  max-width: 46ch;
+  margin-top: 12px;
+  color: var(--body);
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+
+.asking {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.name {
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+
+.code,
+.codeShown {
+  font-family: var(--font-mono);
+  font-size: 1.15rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+}
+
+.codeShown {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.code {
+  width: 100%;
+  min-height: 58px;
+  margin-top: 22px;
+  padding-inline: 18px;
+  border: 1px solid var(--line-check);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-strong);
+  text-align: center;
+}
+
+.code:hover {
+  border-color: var(--faint);
+}
+
+.code:focus-visible {
+  border-color: var(--accent);
+}
+
+.scopes {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  margin-top: 26px;
+  border-top: 1px solid var(--line-hair);
+  border-bottom: 1px solid var(--line-hair);
+  list-style: none;
+}
+
+.scopes li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 12px;
+  padding-block: 18px;
+}
+
+.scopes li + li {
+  border-top: 1px solid var(--line-hair);
+}
+
+.scopes svg {
+  margin-top: 2px;
+  color: var(--pass);
+}
+
+.scopes strong {
+  display: block;
+  color: var(--ink-strong);
+  font-size: 0.92rem;
+  font-weight: 900;
+}
+
+.scopes span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.caution {
+  padding: 12px 14px;
+  border: 1px solid rgba(169, 124, 53, 0.25);
+  border-radius: var(--radius-sm);
+  background: rgba(242, 197, 97, 0.1);
+  font-size: 0.82rem;
+}
+
+.carried strong {
+  font-family: var(--font-mono);
+  letter-spacing: 0.16em;
+}
+
+.notice {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  padding: 11px 13px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface-quiet);
+  color: var(--body);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.waiting {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.decision {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 24px;
+}
+
+.primary,
+.secondary {
+  display: inline-flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 22px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 900;
+  white-space: nowrap;
+  transition:
+    border-color 180ms var(--ease),
+    box-shadow 180ms var(--ease),
+    transform 180ms var(--ease);
+}
+
+.primary {
+  margin-top: 24px;
+  background: var(--action);
+  color: #fff;
+  box-shadow: var(--shadow-button);
+}
+
+.decision .primary {
+  margin-top: 0;
+}
+
+.primary:hover:not(:disabled) {
+  color: #fff;
+  box-shadow: var(--shadow-button-hover);
+  transform: translateY(-1px);
+}
+
+.primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.secondary {
+  border: 1px solid var(--line-soft);
+  background: var(--surface);
+  color: var(--ink-strong);
+}
+
+.secondary:hover {
+  border-color: var(--faint);
+  color: var(--ink-strong);
+}
+
+@media (max-width: 620px) {
+  .panel {
+    padding: 26px 22px 28px;
+  }
+
+  .title,
+  .name {
+    font-size: 1.6rem;
+  }
+
+  .decision {
+    display: grid;
+    width: 100%;
+  }
+
+  .primary,
+  .secondary {
+    width: 100%;
+  }
+}

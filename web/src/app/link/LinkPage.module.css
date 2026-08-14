@@ -1,0 +1,153 @@
+.page {
+  position: relative;
+  min-height: calc(100svh - var(--header-height));
+  overflow: hidden;
+  border-bottom: 1px solid var(--line);
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.5), transparent 52%),
+    var(--ground);
+}
+
+.layout {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.66fr);
+  gap: clamp(64px, 9vw, 140px);
+  align-items: center;
+  min-height: calc(100svh - var(--header-height));
+  padding-block: clamp(72px, 10vw, 124px);
+}
+
+.introduction {
+  max-width: 560px;
+  animation: lhRise 0.8s var(--ease) both;
+}
+
+.eyebrow {
+  color: var(--accent);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.title {
+  max-width: 12ch;
+  margin-top: 18px;
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 5.4vw, 5.1rem);
+  font-weight: 500;
+  letter-spacing: -0.045em;
+  line-height: 0.99;
+  text-wrap: balance;
+}
+
+.title em {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.lede {
+  max-width: 48ch;
+  margin-top: 26px;
+  color: var(--body);
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
+.rule {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: min(100%, 380px);
+  margin-top: 34px;
+  opacity: 0.72;
+}
+
+.rule span {
+  height: 1px;
+  background: var(--line-soft);
+  flex: 1;
+}
+
+.note {
+  max-width: 44ch;
+  margin-top: 22px;
+  color: var(--body);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-style: italic;
+  line-height: 1.65;
+}
+
+.panelArea {
+  animation: lhRise 0.8s 0.12s var(--ease) both;
+}
+
+.opening {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.wash {
+  position: absolute;
+  top: -180px;
+  left: -240px;
+  opacity: 0.4;
+  mix-blend-mode: multiply;
+  mask-image: radial-gradient(ellipse, #000 35%, transparent 72%);
+}
+
+/* The far side of the link, somewhere else, dissolving into the page. */
+.city {
+  position: absolute;
+  bottom: -40px;
+  left: -90px;
+  opacity: 0.24;
+  mix-blend-mode: multiply;
+  mask-image: linear-gradient(0deg, transparent 4%, #000 58%, transparent 96%);
+  animation: lhBreathe 26s ease-in-out infinite;
+}
+
+.sprig {
+  position: absolute;
+  right: -80px;
+  bottom: -45px;
+  opacity: 0.46;
+  transform: rotate(-8deg);
+  transform-origin: bottom right;
+  animation: lhSway 20s ease-in-out infinite;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+    gap: 48px;
+    align-items: start;
+    padding-block: 68px 92px;
+  }
+
+  .title {
+    font-size: clamp(2.9rem, 12vw, 4.6rem);
+  }
+
+  .panelArea {
+    width: min(100%, 560px);
+  }
+
+  .city {
+    left: -160px;
+    opacity: 0.16;
+  }
+}
+
+@media (max-width: 560px) {
+  .layout {
+    padding-block: 48px 72px;
+  }
+
+  .city {
+    display: none;
+  }
+}

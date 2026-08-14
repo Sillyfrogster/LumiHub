@@ -1,6 +1,7 @@
 import { Art } from "@/components/art/Art";
 import { AccountSettings } from "@/components/auth/AccountSettings";
 import { Shell } from "@/components/layout/Shell";
+import { LinkedInstances } from "@/components/linking/LinkedInstances";
 import styles from "./SettingsPage.module.css";
 
 const DISCORD_NOTICES: Record<string, string> = {
@@ -37,6 +38,7 @@ export default async function SettingsPage({
         <AccountSettings
           discordNotice={discord ? DISCORD_NOTICES[discord] : undefined}
         />
+        <LinkedInstances />
       </Shell>
     </section>
   );
