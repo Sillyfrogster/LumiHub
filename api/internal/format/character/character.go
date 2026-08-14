@@ -61,6 +61,21 @@ var browsableExtensions = []format.BrowseOption{
 	{Value: "chub", Label: "Chub metadata"},
 }
 
+var patchableFields = []format.Field{
+	format.FieldDescription,
+	format.FieldPersonality,
+	format.FieldScenario,
+	format.FieldFirstMessage,
+	format.FieldSystemPrompt,
+	format.FieldPostHistoryInstructions,
+	format.FieldCreatorNotes,
+	format.FieldCharacterVersion,
+}
+
+func validatePatch(patch format.Patch) error {
+	return format.ValidatePatchFields(patch, patchableFields...)
+}
+
 func browseFacets() []format.BrowseFacet {
 	return []format.BrowseFacet{
 		{Key: "has_lorebook", Label: "Lorebook", Options: []format.BrowseOption{

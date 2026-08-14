@@ -2,7 +2,6 @@ package format
 
 import (
 	"context"
-	"io"
 	"testing"
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
@@ -20,9 +19,7 @@ func (s stubModule) Parse(context.Context, probe.Inspection, Claim) (Parsed, err
 
 type editableModule struct{ stubModule }
 
-func (editableModule) Edit(context.Context, io.Reader, []byte) (io.Reader, error) {
-	return nil, nil
-}
+func (editableModule) ValidatePatch(Patch) error { return nil }
 
 func TestRegisterRejectsDuplicateIDs(t *testing.T) {
 	r := NewRegistry()

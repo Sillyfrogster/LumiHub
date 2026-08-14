@@ -16,6 +16,12 @@ func (CCv2Module) ID() string { return V2 }
 
 func (CCv2Module) BrowseDefinition() format.BrowseDefinition { return browseDefinition() }
 
+func (CCv2Module) ValidatePatch(patch format.Patch) error { return validatePatch(patch) }
+
+func (CCv2Module) Export(_ context.Context, request format.ExportRequest) (format.ExportedArtifact, error) {
+	return exportCard(request, V2, "chara")
+}
+
 func (CCv2Module) Claim(file probe.Inspection) (format.Claim, bool) { return CCv2(file) }
 
 func (m CCv2Module) Parse(

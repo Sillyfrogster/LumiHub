@@ -25,6 +25,12 @@ func (CharXModule) OwnedSpecs() []string { return []string{V3} }
 
 func (CharXModule) BrowseDefinition() format.BrowseDefinition { return browseDefinition() }
 
+func (CharXModule) ValidatePatch(patch format.Patch) error { return validatePatch(patch) }
+
+func (CharXModule) Export(_ context.Context, request format.ExportRequest) (format.ExportedArtifact, error) {
+	return exportCharX(request)
+}
+
 func (CharXModule) Claim(file probe.Inspection) (format.Claim, bool) { return CharXClaim(file) }
 
 func (m CharXModule) Parse(

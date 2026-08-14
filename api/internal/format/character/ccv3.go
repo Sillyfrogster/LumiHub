@@ -15,6 +15,12 @@ func (CCv3Module) ID() string { return V3 }
 
 func (CCv3Module) BrowseDefinition() format.BrowseDefinition { return browseDefinition() }
 
+func (CCv3Module) ValidatePatch(patch format.Patch) error { return validatePatch(patch) }
+
+func (CCv3Module) Export(_ context.Context, request format.ExportRequest) (format.ExportedArtifact, error) {
+	return exportCard(request, V3, "ccv3")
+}
+
 func (CCv3Module) Claim(file probe.Inspection) (format.Claim, bool) { return CCv3(file) }
 
 func (m CCv3Module) Parse(

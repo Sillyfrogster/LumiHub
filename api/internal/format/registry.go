@@ -48,8 +48,33 @@ func (r *Registry) CanEdit(id string) bool {
 	if !ok {
 		return false
 	}
-	_, editable := m.(Editor)
+	_, editable := m.(Patcher)
 	return editable
+}
+
+// ResolveExporter selects a declared target or falls back to raw.
+func (r *Registry) ResolveExporter(id, target string) (Exporter, string, bool) {
+	module, ok := r.modules[id]
+	if !ok {
+		return nil, RawTarget, false
+	}
+	exporter, ok := module.(Exporter)
+	if !ok {
+		return nil, RawTarget, false
+	}
+	if target == "" || target == RawTarget {
+		return exporter, RawTarget, true
+	}
+	declarer, ok := module.(BrowseDeclarer)
+	if !ok {
+		return exporter, RawTarget, true
+	}
+	for _, declared := range declarer.BrowseDefinition().ExportTargets {
+		if declared.Value == target {
+			return exporter, target, true
+		}
+	}
+	return exporter, RawTarget, true
 }
 
 type RegisteredBrowseDefinition struct {

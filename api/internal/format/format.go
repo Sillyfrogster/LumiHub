@@ -7,6 +7,7 @@ import (
 	"io"
 	"slices"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/media"
 	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
@@ -123,6 +124,69 @@ type SpecOwner interface {
 	OwnedSpecs() []string
 }
 
+// Field names one semantic part of a creator file that a module may patch.
+type Field string
+
+const (
+	FieldDescription             Field = "description"
+	FieldPersonality             Field = "personality"
+	FieldScenario                Field = "scenario"
+	FieldFirstMessage            Field = "first_mes"
+	FieldSystemPrompt            Field = "system_prompt"
+	FieldPostHistoryInstructions Field = "post_history_instructions"
+	FieldCreatorNotes            Field = "creator_notes"
+	FieldCharacterVersion        Field = "character_version"
+)
+
+// Patch is a creator's named changes to their file.
+type Patch map[Field]string
+
+var ErrInvalidPatch = errors.New("invalid file patch")
+
+const RawTarget = "raw"
+
+// ValidatePatchFields checks a patch against the fields one module owns.
+func ValidatePatchFields(patch Patch, fields ...Field) error {
+	for field, value := range patch {
+		if !slices.Contains(fields, field) {
+			return fmt.Errorf("field %q is not patchable: %w", field, ErrInvalidPatch)
+		}
+		if !utf8.ValidString(value) {
+			return fmt.Errorf("field %q is not UTF-8: %w", field, ErrInvalidPatch)
+		}
+	}
+	return nil
+}
+
+// Patcher is implemented by modules that map semantic fields into their files.
+type Patcher interface {
+	ValidatePatch(Patch) error
+}
+
+// ExportMedia is creator-managed media available while writing an artifact.
+type ExportMedia struct {
+	ID        string
+	Role      media.Role
+	MediaType string
+	Data      []byte
+}
+
+// ExportRequest is everything a format module may merge into one artifact.
+type ExportRequest struct {
+	Source io.Reader
+	Target string
+	Patch  Patch
+	Media  []ExportMedia
+}
+
+// ExportedArtifact is one primary file and any media it could not embed.
+type ExportedArtifact struct {
+	Artifact        io.Reader
+	MediaType       string
+	Extension       string
+	UnembeddedMedia []ExportMedia
+}
+
 // ownsSpec reports whether an authoritative claim naming spec belongs to m.
 func ownsSpec(m Module, spec string) bool {
 	if spec == m.ID() {
@@ -166,14 +230,9 @@ func (c Claim) Payload(file probe.Inspection) (probe.Payload, bool) {
 	return probe.Payload{}, false
 }
 
-/** Implemented only by modules that can change a file without losing data */
-type Editor interface {
-	Edit(ctx context.Context, src io.Reader, patch []byte) (io.Reader, error)
-}
-
 /** Implemented only by modules that can write a file out in another format */
 type Exporter interface {
-	Export(ctx context.Context, src io.Reader, target string) (io.Reader, error)
+	Export(context.Context, ExportRequest) (ExportedArtifact, error)
 }
 
 /** A labelled block of plain text, for quality scoring and moderation */
