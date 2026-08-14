@@ -48,7 +48,7 @@ type IngestSettings struct {
 type MediaProcessor interface {
 	Prepare(context.Context, io.Reader) (mediaproc.Prepared, error)
 	Render(context.Context, io.Reader, string) (mediaproc.Derivative, error)
-	ComposeSocialPreview(context.Context, io.Reader) (mediaproc.Derivative, error)
+	ComposeSocialPreview(context.Context, io.Reader, string) (mediaproc.Derivative, error)
 	DerivativeType() string
 }
 

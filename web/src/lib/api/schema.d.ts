@@ -260,6 +260,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/assets/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description One asset by id. Unlisted assets answer normally, because unlisted is discovery rather than authorization. Withheld, deleted and never-existed all answer 404. */
+    get: operations["getAsset"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/download/{id}": {
     parameters: {
       query?: never;
@@ -396,6 +413,49 @@ export interface components {
       discovery: "listed" | "unlisted";
       /** Format: date-time */
       createdAt: string;
+    };
+    AssetDetail: {
+      /** Format: uuid */
+      id: string;
+      /** @enum {string} */
+      kind: "character" | "lorebook" | "preset" | "theme";
+      name: string;
+      /** @description The catalog blurb the creator wrote for a person. Never the file's own description, which is a prompt written for a model. */
+      blurb: string;
+      tags: components["schemas"]["AssetTag"][];
+      creator: string;
+      isNsfw: boolean;
+      /** @enum {string} */
+      discovery: "listed" | "unlisted";
+      /** Format: date-time */
+      createdAt: string;
+      /** @description The asset's images, cover first. Variant URLs already reflect the reader's preference, so a blurred reader is never handed a clear one. */
+      media: components["schemas"]["AssetImage"][];
+      /** @description The composed social preview for link unfurling. */
+      preview: string | null;
+      /** @enum {string} */
+      visibility: "hidden" | "blurred" | "shown";
+    };
+    AssetTag: {
+      /** @description The creator's own text, shown as written. */
+      label: string;
+      /** @description The normalized form browse matches on. */
+      value: string;
+    };
+    AssetImage: {
+      /** Format: uuid */
+      id: string;
+      /** @enum {string} */
+      role:
+        | "avatar"
+        | "expression"
+        | "gallery"
+        | "avatar_alt"
+        | "perspective_layer";
+      detailUrl: string;
+      thumbUrl: string;
+      width: number;
+      height: number;
     };
     AssetList: {
       items: components["schemas"]["BrowseAsset"][];
@@ -1104,6 +1164,38 @@ export interface operations {
       };
     };
   };
+  getAsset: {
+    parameters: {
+      query?: {
+        /** @description The reader's presentation preference. Asset page URLs keep this preference out of their own query string. */
+        nsfw?: "hidden" | "blurred" | "shown";
+      };
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The asset as a visitor may see it */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AssetDetail"];
+        };
+      };
+      /** @description No asset a visitor may see */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   downloadSource: {
     parameters: {
       query?: never;
@@ -1240,7 +1332,8 @@ export interface operations {
           | "detail_blurred"
           | "thumb"
           | "thumb_blurred"
-          | "og";
+          | "og"
+          | "og_blurred";
         derivative_version: number;
       };
       cookie?: never;

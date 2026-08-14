@@ -241,7 +241,8 @@ func (s *Service) MediaVariant(
 	version uint32,
 ) (MediaDownload, error) {
 	_, ordinary := mediaproc.VariantByName(variant)
-	if (!ordinary && variant != "og") || version != mediaproc.DerivativeVersion {
+	_, composed := mediaproc.SocialPreviewByName(variant)
+	if (!ordinary && !composed) || version != mediaproc.DerivativeVersion {
 		return MediaDownload{}, ErrMediaNotFound
 	}
 	var blobID uuid.UUID
@@ -305,8 +306,8 @@ func (s *Service) regenerateMediaVariant(
 	}
 	var derivative mediaproc.Derivative
 	var renderErr error
-	if id.Variant == "og" {
-		derivative, renderErr = s.media.ComposeSocialPreview(ctx, source)
+	if _, composed := mediaproc.SocialPreviewByName(id.Variant); composed {
+		derivative, renderErr = s.media.ComposeSocialPreview(ctx, source, id.Variant)
 	} else {
 		derivative, renderErr = s.media.Render(ctx, source, id.Variant)
 	}

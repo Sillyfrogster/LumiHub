@@ -24,6 +24,7 @@ import (
 	"github.com/Sillyfrogster/LumiHub/api/internal/testdb"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type parseFailureModule struct{}
@@ -125,6 +126,19 @@ func newVerifiedIngestRouter(
 	registry *format.Registry,
 ) (*gin.Engine, *http.Cookie, *asset.Service) {
 	t.Helper()
+	router, session, assets, _ := newVerifiedIngestRouterWithSettings(
+		t, registry, asset.DefaultIngestSettings(),
+	)
+	return router, session, assets
+}
+
+// newVerifiedIngestRouterWithPool also returns the pool, for a test that needs
+// a row in a state no route can reach.
+func newVerifiedIngestRouterWithPool(
+	t *testing.T,
+	registry *format.Registry,
+) (*gin.Engine, *http.Cookie, *asset.Service, *pgxpool.Pool) {
+	t.Helper()
 	return newVerifiedIngestRouterWithSettings(t, registry, asset.DefaultIngestSettings())
 }
 
@@ -132,7 +146,7 @@ func newVerifiedIngestRouterWithSettings(
 	t *testing.T,
 	registry *format.Registry,
 	settings asset.IngestSettings,
-) (*gin.Engine, *http.Cookie, *asset.Service) {
+) (*gin.Engine, *http.Cookie, *asset.Service, *pgxpool.Pool) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	pool := testdb.Connect(t)
@@ -155,7 +169,7 @@ func newVerifiedIngestRouterWithSettings(
 	if verified.Code != http.StatusOK {
 		t.Fatalf("verify test account: %d %s", verified.Code, verified.Body.String())
 	}
-	return registerTestRouter(t, handlers, DefaultDeadlines()), session, assets
+	return registerTestRouter(t, handlers, DefaultDeadlines()), session, assets, pool
 }
 
 func TestCreatorCanPollTheirPendingIngest(t *testing.T) {
@@ -549,7 +563,7 @@ func TestOnlyInternalFailuresRetry(t *testing.T) {
 	if err := registry.Register(module); err != nil {
 		t.Fatalf("register module: %v", err)
 	}
-	r, session, assets := newVerifiedIngestRouterWithSettings(t, registry, settings)
+	r, session, assets, _ := newVerifiedIngestRouterWithSettings(t, registry, settings)
 	metadata := exampleMetadata("Recovered card")
 	metadata["filename"] = "recovered.json"
 	upload := send(t, r, authorized(
@@ -597,7 +611,7 @@ func TestExhaustedInternalFailureIsReported(t *testing.T) {
 	if err := registry.Register(&internalFailureModule{failuresLeft: 3}); err != nil {
 		t.Fatalf("register module: %v", err)
 	}
-	r, session, assets := newVerifiedIngestRouterWithSettings(t, registry, settings)
+	r, session, assets, _ := newVerifiedIngestRouterWithSettings(t, registry, settings)
 	metadata := exampleMetadata("Still broken")
 	metadata["filename"] = "broken.json"
 	upload := send(t, r, authorized(
@@ -632,7 +646,7 @@ func TestFinalizationFailuresUseBoundedInternalRetries(t *testing.T) {
 	if err := registry.Register(invalidFinalizationModule{}); err != nil {
 		t.Fatalf("register module: %v", err)
 	}
-	r, session, assets := newVerifiedIngestRouterWithSettings(t, registry, settings)
+	r, session, assets, _ := newVerifiedIngestRouterWithSettings(t, registry, settings)
 	metadata := exampleMetadata("Invalid finalization")
 	metadata["filename"] = "invalid.json"
 	upload := send(t, r, authorized(

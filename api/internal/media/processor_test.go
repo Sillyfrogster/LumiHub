@@ -133,7 +133,7 @@ func TestOGIsASeparateComposedPreview(t *testing.T) {
 	}
 	processor := NewProcessor(DefaultLimits())
 	preview, err := processor.ComposeSocialPreview(
-		context.Background(), bytes.NewReader(encodePNG(t, source)),
+		context.Background(), bytes.NewReader(encodePNG(t, source)), "og",
 	)
 	if err != nil {
 		t.Fatalf("ComposeSocialPreview: %v", err)
@@ -209,4 +209,52 @@ func writePNGChunk(out *bytes.Buffer, kind string, data []byte) {
 	_, _ = checksum.Write([]byte(kind))
 	_, _ = checksum.Write(data)
 	_ = binary.Write(out, binary.BigEndian, checksum.Sum32())
+}
+
+func TestSocialPreviewOfFlaggedWorkIsBlurred(t *testing.T) {
+	source := image.NewRGBA(image.Rect(0, 0, 400, 400))
+	for y := range 400 {
+		for x := range 400 {
+			if x < 200 {
+				source.Set(x, y, color.Black)
+			} else {
+				source.Set(x, y, color.White)
+			}
+		}
+	}
+	encoded := encodePNG(t, source)
+	processor := NewProcessor(DefaultLimits())
+
+	clear, err := processor.ComposeSocialPreview(
+		context.Background(), bytes.NewReader(encoded), "og",
+	)
+	if err != nil {
+		t.Fatalf("compose og: %v", err)
+	}
+	blurred, err := processor.ComposeSocialPreview(
+		context.Background(), bytes.NewReader(encoded), "og_blurred",
+	)
+	if err != nil {
+		t.Fatalf("compose og_blurred: %v", err)
+	}
+
+	if blurred.Variant != "og_blurred" {
+		t.Fatalf("preview variant = %q, want og_blurred", blurred.Variant)
+	}
+	if bytes.Equal(clear.Bytes, blurred.Bytes) {
+		t.Fatal("the blurred social preview is byte-identical to the clear one")
+	}
+	decoded, err := png.Decode(bytes.NewReader(blurred.Bytes))
+	if err != nil {
+		t.Fatalf("decode preview: %v", err)
+	}
+	if got := decoded.Bounds().Size(); got.X != 1200 || got.Y != 630 {
+		t.Fatalf("preview dimensions = %dx%d, want 1200x630", got.X, got.Y)
+	}
+	if _, ordinary := VariantByName("og_blurred"); ordinary {
+		t.Fatal("the blurred composed preview entered the ordinary variant set")
+	}
+	if _, ok := SocialPreviewByName("grid"); ok {
+		t.Fatal("an ordinary variant was accepted as a social preview")
+	}
 }

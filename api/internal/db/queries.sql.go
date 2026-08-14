@@ -53,6 +53,99 @@ func (q *Queries) AssetByID(ctx context.Context, id pgtype.UUID) (AssetByIDRow, 
 	return i, err
 }
 
+const assetPage = `-- name: AssetPage :one
+select a.id, a.kind, a.name, a.blurb, a.tags, a.is_nsfw, a.discovery, a.created_at,
+       coalesce(owner.username, 'unknown') as creator
+  from assets a
+  left join users owner on owner.id = a.owner_id
+ where a.id = $1
+   and a.withheld_at is null
+   and a.deleted_at is null
+`
+
+type AssetPageRow struct {
+	ID        pgtype.UUID
+	Kind      string
+	Name      string
+	Blurb     string
+	Tags      []string
+	IsNsfw    bool
+	Discovery string
+	CreatedAt pgtype.Timestamptz
+	Creator   string
+}
+
+// Unlisted is discovery rather than authorization, so it is absent here on
+// purpose: a stranger holding the link gets a normal answer.
+func (q *Queries) AssetPage(ctx context.Context, id pgtype.UUID) (AssetPageRow, error) {
+	row := q.db.QueryRow(ctx, assetPage, id)
+	var i AssetPageRow
+	err := row.Scan(
+		&i.ID,
+		&i.Kind,
+		&i.Name,
+		&i.Blurb,
+		&i.Tags,
+		&i.IsNsfw,
+		&i.Discovery,
+		&i.CreatedAt,
+		&i.Creator,
+	)
+	return i, err
+}
+
+const assetPageMedia = `-- name: AssetPageMedia :many
+select media.id, media.role, media.width, media.height
+  from assets a
+  join asset_media media
+    on media.asset_id = a.id or media.revision_id = a.current_revision_id
+ where a.id = $1
+   and media.width is not null
+   and media.height is not null
+ order by case media.role
+            when 'avatar' then 1
+            when 'avatar_alt' then 2
+            when 'gallery' then 3
+            when 'expression' then 4
+            else 5
+          end,
+          media.created_at desc, media.id desc
+`
+
+type AssetPageMediaRow struct {
+	ID     pgtype.UUID
+	Role   string
+	Width  pgtype.Int4
+	Height pgtype.Int4
+}
+
+// The role order matches BrowseAssets, so the first image here is the same one
+// the reader already saw on the card.
+func (q *Queries) AssetPageMedia(ctx context.Context, id pgtype.UUID) ([]AssetPageMediaRow, error) {
+	rows, err := q.db.Query(ctx, assetPageMedia, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AssetPageMediaRow
+	for rows.Next() {
+		var i AssetPageMediaRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Role,
+			&i.Width,
+			&i.Height,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const blobLocation = `-- name: BlobLocation :one
 select storage_key, byte_size from blobs where id = $1
 `

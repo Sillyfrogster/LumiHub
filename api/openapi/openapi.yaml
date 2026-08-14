@@ -267,6 +267,29 @@ paths:
               schema: { $ref: "#/components/schemas/IngestOperation" }
         "401": { description: No account is signed in }
         "403": { description: The signed-in account has not verified its email }
+  /v1/assets/{id}:
+    get:
+      operationId: getAsset
+      description: >-
+        One asset by id. Unlisted assets answer normally, because unlisted is
+        discovery rather than authorization. Withheld, deleted and never-existed
+        all answer 404.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        -
+          name: nsfw
+          in: query
+          description: >-
+            The reader's presentation preference. Asset page URLs keep this
+            preference out of their own query string.
+          schema: { type: string, enum: [hidden, blurred, shown] }
+      responses:
+        "200":
+          description: The asset as a visitor may see it
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssetDetail" }
+        "404": { description: No asset a visitor may see }
   /download/{id}:
     get:
       operationId: downloadSource
@@ -344,7 +367,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [grid, grid_blurred, detail, detail_blurred, thumb, thumb_blurred, og]
+            enum: [grid, grid_blurred, detail, detail_blurred, thumb, thumb_blurred, og, og_blurred]
         - { name: derivative_version, in: path, required: true, schema: { type: integer, minimum: 1 } }
       responses:
         "200":
@@ -496,6 +519,61 @@ components:
         isNsfw: { type: boolean }
         discovery: { type: string, enum: [listed, unlisted] }
         createdAt: { type: string, format: date-time }
+    AssetDetail:
+      type: object
+      required:
+        [id, kind, name, blurb, tags, creator, isNsfw, discovery, createdAt,
+         media, preview, visibility]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [character, lorebook, preset, theme] }
+        name: { type: string }
+        blurb:
+          type: string
+          description: >-
+            The catalog blurb the creator wrote for a person. Never the file's
+            own description, which is a prompt written for a model.
+        tags:
+          type: array
+          items: { $ref: "#/components/schemas/AssetTag" }
+        creator: { type: string }
+        isNsfw: { type: boolean }
+        discovery: { type: string, enum: [listed, unlisted] }
+        createdAt: { type: string, format: date-time }
+        media:
+          type: array
+          description: >-
+            The asset's images, cover first. Variant URLs already reflect the
+            reader's preference, so a blurred reader is never handed a clear one.
+          items: { $ref: "#/components/schemas/AssetImage" }
+        preview:
+          description: The composed social preview for link unfurling.
+          anyOf:
+            - { type: string }
+            - { type: "null" }
+        visibility: { type: string, enum: [hidden, blurred, shown] }
+    AssetTag:
+      type: object
+      required: [label, value]
+      properties:
+        label:
+          type: string
+          description: The creator's own text, shown as written.
+        value:
+          type: string
+          description: The normalized form browse matches on.
+    AssetImage:
+      type: object
+      required: [id, role, detailUrl, thumbUrl, width, height]
+      properties:
+        id: { type: string, format: uuid }
+        role:
+          type: string
+          enum: [avatar, expression, gallery, avatar_alt, perspective_layer]
+        detailUrl: { type: string }
+        thumbUrl: { type: string }
+        width: { type: integer, minimum: 1 }
+        height: { type: integer, minimum: 1 }
     AssetList:
       type: object
       required: [items, total, suppressed, visibility, platforms, facets, emptyState]

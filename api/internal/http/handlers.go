@@ -477,17 +477,14 @@ func (h *Handlers) ListAssets(c *gin.Context, params ListAssetsParams) {
 	}
 	f.Before = before
 
-	visibility := asset.ContentBlurred
+	var requested *string
 	if params.Nsfw != nil {
-		visibility = asset.ContentVisibility(*params.Nsfw)
-	} else {
-		token, _ := c.Cookie(sessionCookieName)
-		preference, err := h.accounts.NSFWVisibility(c.Request.Context(), token)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "could not read the content preference"})
-			return
-		}
-		visibility = asset.ContentVisibility(preference)
+		value := string(*params.Nsfw)
+		requested = &value
+	}
+	visibility, ok := h.readerVisibility(c, requested)
+	if !ok {
+		return
 	}
 	found, err := h.assets.Browse(c.Request.Context(), f, visibility)
 	if err != nil {
@@ -625,6 +622,82 @@ func (h *Handlers) AddMedia(c *gin.Context, id types.UUID) {
 		return
 	}
 	c.JSON(http.StatusCreated, toAPIMedia(added))
+}
+
+// readerVisibility is the reader's own preference for adult content: whatever
+// the request states, and otherwise whatever their account holds.
+func (h *Handlers) readerVisibility(
+	c *gin.Context,
+	requested *string,
+) (asset.ContentVisibility, bool) {
+	if requested != nil {
+		return asset.ContentVisibility(*requested), true
+	}
+	token, _ := c.Cookie(sessionCookieName)
+	preference, err := h.accounts.NSFWVisibility(c.Request.Context(), token)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "could not read the content preference",
+		})
+		return "", false
+	}
+	return asset.ContentVisibility(preference), true
+}
+
+// GetAsset answers an asset's own page. Withheld, deleted and never-existed all
+// leave through the same 404, so no response says which.
+func (h *Handlers) GetAsset(c *gin.Context, id types.UUID, params GetAssetParams) {
+	var requested *string
+	if params.Nsfw != nil {
+		value := string(*params.Nsfw)
+		requested = &value
+	}
+	visibility, ok := h.readerVisibility(c, requested)
+	if !ok {
+		return
+	}
+	found, err := h.assets.Detail(c.Request.Context(), uuid.UUID(id), visibility)
+	if errors.Is(err, asset.ErrNotFound) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "no such asset"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not read the asset"})
+		return
+	}
+	c.JSON(http.StatusOK, toAPIDetail(found, visibility))
+}
+
+func toAPIDetail(found asset.Detail, visibility asset.ContentVisibility) AssetDetail {
+	tags := make([]AssetTag, 0, len(found.Tags))
+	for _, tag := range found.Tags {
+		tags = append(tags, AssetTag{Label: tag.Label, Value: tag.Value})
+	}
+	media := make([]AssetImage, 0, len(found.Media))
+	for _, image := range found.Media {
+		media = append(media, AssetImage{
+			Id:        types.UUID(image.ID),
+			Role:      AssetImageRole(image.Role),
+			DetailUrl: image.DetailURL,
+			ThumbUrl:  image.ThumbURL,
+			Width:     image.Width,
+			Height:    image.Height,
+		})
+	}
+	return AssetDetail{
+		Id:         types.UUID(found.ID),
+		Kind:       AssetDetailKind(found.Kind),
+		Name:       found.Name,
+		Blurb:      found.Blurb,
+		Tags:       tags,
+		Creator:    found.Creator,
+		IsNsfw:     found.IsNSFW,
+		Discovery:  AssetDetailDiscovery(found.Discovery),
+		CreatedAt:  found.CreatedAt,
+		Media:      media,
+		Preview:    found.Preview,
+		Visibility: AssetDetailVisibility(visibility),
+	}
 }
 
 func (h *Handlers) ListMedia(c *gin.Context, id types.UUID) {

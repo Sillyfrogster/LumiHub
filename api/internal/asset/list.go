@@ -9,7 +9,6 @@ import (
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/db"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
-	mediaproc "github.com/Sillyfrogster/LumiHub/api/internal/media"
 	"github.com/google/uuid"
 )
 
@@ -163,14 +162,10 @@ func browseAssets(
 			Kind: row.Kind, IsNSFW: row.IsNsfw,
 		}
 		if row.CoverID.Valid && row.CoverWidth.Valid && row.CoverHeight.Valid {
-			variant := "grid"
-			if visibility == ContentBlurred && row.IsNsfw {
-				variant = "grid_blurred"
-			}
 			item.Cover = &BrowseCover{
-				URL: fmt.Sprintf(
-					"/media/%s/%s/%d",
-					uuidFromPgtype(row.CoverID), variant, mediaproc.DerivativeVersion,
+				URL: variantURL(
+					uuidFromPgtype(row.CoverID), "grid",
+					visibility == ContentBlurred && row.IsNsfw,
 				),
 				Width: int(row.CoverWidth.Int32), Height: int(row.CoverHeight.Int32),
 			}

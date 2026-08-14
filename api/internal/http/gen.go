@@ -58,6 +58,96 @@ func (e AssetDiscovery) Valid() bool {
 	}
 }
 
+// Defines values for AssetDetailDiscovery.
+const (
+	AssetDetailDiscoveryListed   AssetDetailDiscovery = "listed"
+	AssetDetailDiscoveryUnlisted AssetDetailDiscovery = "unlisted"
+)
+
+// Valid indicates whether the value is a known member of the AssetDetailDiscovery enum.
+func (e AssetDetailDiscovery) Valid() bool {
+	switch e {
+	case AssetDetailDiscoveryListed:
+		return true
+	case AssetDetailDiscoveryUnlisted:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AssetDetailKind.
+const (
+	AssetDetailKindCharacter AssetDetailKind = "character"
+	AssetDetailKindLorebook  AssetDetailKind = "lorebook"
+	AssetDetailKindPreset    AssetDetailKind = "preset"
+	AssetDetailKindTheme     AssetDetailKind = "theme"
+)
+
+// Valid indicates whether the value is a known member of the AssetDetailKind enum.
+func (e AssetDetailKind) Valid() bool {
+	switch e {
+	case AssetDetailKindCharacter:
+		return true
+	case AssetDetailKindLorebook:
+		return true
+	case AssetDetailKindPreset:
+		return true
+	case AssetDetailKindTheme:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AssetDetailVisibility.
+const (
+	AssetDetailVisibilityBlurred AssetDetailVisibility = "blurred"
+	AssetDetailVisibilityHidden  AssetDetailVisibility = "hidden"
+	AssetDetailVisibilityShown   AssetDetailVisibility = "shown"
+)
+
+// Valid indicates whether the value is a known member of the AssetDetailVisibility enum.
+func (e AssetDetailVisibility) Valid() bool {
+	switch e {
+	case AssetDetailVisibilityBlurred:
+		return true
+	case AssetDetailVisibilityHidden:
+		return true
+	case AssetDetailVisibilityShown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AssetImageRole.
+const (
+	AssetImageRoleAvatar           AssetImageRole = "avatar"
+	AssetImageRoleAvatarAlt        AssetImageRole = "avatar_alt"
+	AssetImageRoleExpression       AssetImageRole = "expression"
+	AssetImageRoleGallery          AssetImageRole = "gallery"
+	AssetImageRolePerspectiveLayer AssetImageRole = "perspective_layer"
+)
+
+// Valid indicates whether the value is a known member of the AssetImageRole enum.
+func (e AssetImageRole) Valid() bool {
+	switch e {
+	case AssetImageRoleAvatar:
+		return true
+	case AssetImageRoleAvatarAlt:
+		return true
+	case AssetImageRoleExpression:
+		return true
+	case AssetImageRoleGallery:
+		return true
+	case AssetImageRolePerspectiveLayer:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AssetListEmptyState.
 const (
 	AssetListEmptyStateCatalog     AssetListEmptyState = "catalog"
@@ -305,6 +395,7 @@ const (
 	Grid          GetMediaVariantParamsVariant = "grid"
 	GridBlurred   GetMediaVariantParamsVariant = "grid_blurred"
 	Og            GetMediaVariantParamsVariant = "og"
+	OgBlurred     GetMediaVariantParamsVariant = "og_blurred"
 	Thumb         GetMediaVariantParamsVariant = "thumb"
 	ThumbBlurred  GetMediaVariantParamsVariant = "thumb_blurred"
 )
@@ -321,6 +412,8 @@ func (e GetMediaVariantParamsVariant) Valid() bool {
 	case GridBlurred:
 		return true
 	case Og:
+		return true
+	case OgBlurred:
 		return true
 	case Thumb:
 		return true
@@ -370,6 +463,27 @@ func (e ListAssetsParamsNsfw) Valid() bool {
 	case ListAssetsParamsNsfwHidden:
 		return true
 	case ListAssetsParamsNsfwShown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetAssetParamsNsfw.
+const (
+	GetAssetParamsNsfwBlurred GetAssetParamsNsfw = "blurred"
+	GetAssetParamsNsfwHidden  GetAssetParamsNsfw = "hidden"
+	GetAssetParamsNsfwShown   GetAssetParamsNsfw = "shown"
+)
+
+// Valid indicates whether the value is a known member of the GetAssetParamsNsfw enum.
+func (e GetAssetParamsNsfw) Valid() bool {
+	switch e {
+	case GetAssetParamsNsfwBlurred:
+		return true
+	case GetAssetParamsNsfwHidden:
+		return true
+	case GetAssetParamsNsfwShown:
 		return true
 	default:
 		return false
@@ -429,6 +543,49 @@ type Asset struct {
 // AssetDiscovery defines model for Asset.Discovery.
 type AssetDiscovery string
 
+// AssetDetail defines model for AssetDetail.
+type AssetDetail struct {
+	// Blurb The catalog blurb the creator wrote for a person. Never the file's own description, which is a prompt written for a model.
+	Blurb     string               `json:"blurb"`
+	CreatedAt time.Time            `json:"createdAt"`
+	Creator   string               `json:"creator"`
+	Discovery AssetDetailDiscovery `json:"discovery"`
+	Id        openapi_types.UUID   `json:"id"`
+	IsNsfw    bool                 `json:"isNsfw"`
+	Kind      AssetDetailKind      `json:"kind"`
+
+	// Media The asset's images, cover first. Variant URLs already reflect the reader's preference, so a blurred reader is never handed a clear one.
+	Media []AssetImage `json:"media"`
+	Name  string       `json:"name"`
+
+	// Preview The composed social preview for link unfurling.
+	Preview    *string               `json:"preview"`
+	Tags       []AssetTag            `json:"tags"`
+	Visibility AssetDetailVisibility `json:"visibility"`
+}
+
+// AssetDetailDiscovery defines model for AssetDetail.Discovery.
+type AssetDetailDiscovery string
+
+// AssetDetailKind defines model for AssetDetail.Kind.
+type AssetDetailKind string
+
+// AssetDetailVisibility defines model for AssetDetail.Visibility.
+type AssetDetailVisibility string
+
+// AssetImage defines model for AssetImage.
+type AssetImage struct {
+	DetailUrl string             `json:"detailUrl"`
+	Height    int                `json:"height"`
+	Id        openapi_types.UUID `json:"id"`
+	Role      AssetImageRole     `json:"role"`
+	ThumbUrl  string             `json:"thumbUrl"`
+	Width     int                `json:"width"`
+}
+
+// AssetImageRole defines model for AssetImage.Role.
+type AssetImageRole string
+
 // AssetList defines model for AssetList.
 type AssetList struct {
 	EmptyState *AssetListEmptyState `json:"emptyState"`
@@ -446,6 +603,15 @@ type AssetListEmptyState string
 
 // AssetListVisibility defines model for AssetList.Visibility.
 type AssetListVisibility string
+
+// AssetTag defines model for AssetTag.
+type AssetTag struct {
+	// Label The creator's own text, shown as written.
+	Label string `json:"label"`
+
+	// Value The normalized form browse matches on.
+	Value string `json:"value"`
+}
 
 // BrowseAsset defines model for BrowseAsset.
 type BrowseAsset struct {
@@ -656,6 +822,15 @@ type CreateAssetMultipartBody struct {
 	Metadata CreateAssetRequest `json:"metadata"`
 }
 
+// GetAssetParams defines parameters for GetAsset.
+type GetAssetParams struct {
+	// Nsfw The reader's presentation preference. Asset page URLs keep this preference out of their own query string.
+	Nsfw *GetAssetParamsNsfw `form:"nsfw,omitempty" json:"nsfw,omitempty"`
+}
+
+// GetAssetParamsNsfw defines parameters for GetAsset.
+type GetAssetParamsNsfw string
+
 // AddMediaMultipartBody defines parameters for AddMedia.
 type AddMediaMultipartBody struct {
 	File     openapi_types.File `json:"file"`
@@ -742,6 +917,9 @@ type ServerInterface interface {
 
 	// (POST /v1/assets)
 	CreateAsset(c *gin.Context)
+
+	// (GET /v1/assets/{id})
+	GetAsset(c *gin.Context, id openapi_types.UUID, params GetAssetParams)
 
 	// (GET /v1/assets/{id}/media)
 	ListMedia(c *gin.Context, id openapi_types.UUID)
@@ -1022,6 +1200,42 @@ func (siw *ServerInterfaceWrapper) CreateAsset(c *gin.Context) {
 	}
 
 	siw.Handler.CreateAsset(c)
+}
+
+// GetAsset operation middleware
+func (siw *ServerInterfaceWrapper) GetAsset(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAssetParams
+
+	// ------------- Optional query parameter "nsfw" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "nsfw", c.Request.URL.Query(), &params.Nsfw, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter nsfw: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetAsset(c, id, params)
 }
 
 // ListMedia operation middleware
@@ -1354,6 +1568,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/v1/profiles/:handle", wrapper.GetProfile)
 	router.GET(options.BaseURL+"/v1/assets", wrapper.ListAssets)
 	router.POST(options.BaseURL+"/v1/assets", wrapper.CreateAsset)
+	router.GET(options.BaseURL+"/v1/assets/:id", wrapper.GetAsset)
 	router.GET(options.BaseURL+"/download/:id", wrapper.DownloadSource)
 	router.GET(options.BaseURL+"/v1/assets/:id/media", wrapper.ListMedia)
 	router.POST(options.BaseURL+"/v1/assets/:id/media", wrapper.AddMedia)

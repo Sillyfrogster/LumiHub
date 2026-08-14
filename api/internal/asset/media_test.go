@@ -322,6 +322,7 @@ func (p *blockingMediaProcessor) Render(
 func (p *blockingMediaProcessor) ComposeSocialPreview(
 	context.Context,
 	io.Reader,
+	string,
 ) (mediaproc.Derivative, error) {
 	return mediaproc.Derivative{}, errors.New("unexpected social preview")
 }

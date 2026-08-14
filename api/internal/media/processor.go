@@ -53,6 +53,22 @@ var variants = []Variant{
 	{Name: "thumb_blurred", MaxWidth: 160, MaxHeight: 160, Blurred: true},
 }
 
+// socialPreviews are composed on a canvas, not resized, so they sit outside
+// the ordinary variant set.
+var socialPreviews = []Variant{
+	{Name: "og", MaxWidth: 1200, MaxHeight: 630},
+	{Name: "og_blurred", MaxWidth: 1200, MaxHeight: 630, Blurred: true},
+}
+
+func SocialPreviewByName(name string) (Variant, bool) {
+	for _, preview := range socialPreviews {
+		if preview.Name == name {
+			return preview, true
+		}
+	}
+	return Variant{}, false
+}
+
 func VariantNames() []string {
 	names := make([]string, 0, len(variants))
 	for _, variant := range variants {
@@ -149,7 +165,15 @@ func (p *Processor) Render(ctx context.Context, source io.Reader, name string) (
 	return p.render(decoded, variant)
 }
 
-func (p *Processor) ComposeSocialPreview(ctx context.Context, source io.Reader) (Derivative, error) {
+func (p *Processor) ComposeSocialPreview(
+	ctx context.Context,
+	source io.Reader,
+	name string,
+) (Derivative, error) {
+	preview, ok := SocialPreviewByName(name)
+	if !ok {
+		return Derivative{}, ErrUnknownVariant
+	}
 	decoded, _, _, err := p.decode(ctx, source)
 	if err != nil {
 		return Derivative{}, err
@@ -157,19 +181,22 @@ func (p *Processor) ComposeSocialPreview(ctx context.Context, source io.Reader) 
 	if err := ctx.Err(); err != nil {
 		return Derivative{}, err
 	}
-	canvas := image.NewRGBA(image.Rect(0, 0, 1200, 630))
+	canvas := image.NewRGBA(image.Rect(0, 0, preview.MaxWidth, preview.MaxHeight))
 	draw.Draw(canvas, canvas.Bounds(), &image.Uniform{
 		C: color.RGBA{R: 0xf6, G: 0xf8, B: 0xfb, A: 0xff},
 	}, image.Point{}, draw.Src)
+	if preview.Blurred {
+		decoded = obscure(decoded)
+	}
 	sourceSize := decoded.Bounds().Size()
-	width, height := boundedSize(sourceSize.X, sourceSize.Y, 1200, 630)
-	left := (1200 - width) / 2
-	top := (630 - height) / 2
+	width, height := boundedSize(sourceSize.X, sourceSize.Y, preview.MaxWidth, preview.MaxHeight)
+	left := (preview.MaxWidth - width) / 2
+	top := (preview.MaxHeight - height) / 2
 	draw.CatmullRom.Scale(
 		canvas, image.Rect(left, top, left+width, top+height),
 		decoded, decoded.Bounds(), draw.Over, nil,
 	)
-	return p.encode(canvas, "og")
+	return p.encode(canvas, preview.Name)
 }
 
 func (p *Processor) decode(ctx context.Context, source io.Reader) (image.Image, int, int, error) {
