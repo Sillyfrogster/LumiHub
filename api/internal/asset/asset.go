@@ -7,6 +7,15 @@ import (
 	"github.com/google/uuid"
 )
 
+// Lifecycle is an asset's own axis, separate from discovery state. A draft is
+// owner-only, and discovery applies to a published asset alone.
+type Lifecycle string
+
+const (
+	LifecycleDraft     Lifecycle = "draft"
+	LifecyclePublished Lifecycle = "published"
+)
+
 type Discovery string
 
 const (
@@ -28,9 +37,12 @@ type Asset struct {
 	Name                string
 	Blurb               string
 	Tags                []string
-	IsNSFW              bool
-	Discovery           Discovery
-	CurrentRevisionID   uuid.UUID
+	// IsNSFW is nil while a draft has not been asked the adult content
+	// question, so nothing answers it for the creator.
+	IsNSFW            *bool
+	Discovery         Discovery
+	Lifecycle         Lifecycle
+	CurrentRevisionID uuid.UUID
 	// CreatedAt is when the asset was made, not when we got it.
 	CreatedAt time.Time
 }

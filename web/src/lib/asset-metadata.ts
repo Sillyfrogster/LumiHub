@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { AssetDetail } from "./api/query";
+import { assetDisplayName } from "./asset-name";
 import { assetHref } from "./asset-url";
 import { KIND_LABELS } from "./kinds";
 
@@ -9,11 +10,12 @@ import { KIND_LABELS } from "./kinds";
  * boundary, so it still invites a crawler to follow its links.
  */
 export function assetMetadata(asset: AssetDetail): Metadata {
-  const title = `${asset.name} · ${KIND_LABELS[asset.kind]}`;
+  const name = assetDisplayName(asset.name);
+  const title = `${name} · ${KIND_LABELS[asset.kind]}`;
   const description = asset.blurb || `A ${asset.kind} by ${asset.creator}.`;
   const url = assetHref(asset.id, asset.name);
   const images = asset.preview
-    ? [{ url: asset.preview, alt: asset.name, width: 1200, height: 630 }]
+    ? [{ url: asset.preview, alt: name, width: 1200, height: 630 }]
     : undefined;
 
   return {

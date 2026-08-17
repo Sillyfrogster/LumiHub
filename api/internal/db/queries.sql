@@ -1,10 +1,21 @@
 -- name: InsertAsset :one
 -- indexed_at is left to its default so nothing a caller sends can reach it.
 insert into assets
-  (id, kind, owner_id, name, blurb, tags, is_nsfw, discovery, created_at)
-values ($1, $2, $3, $4, $5, $6, $7, $8,
+  (id, kind, owner_id, name, blurb, tags, is_nsfw, discovery, lifecycle, created_at)
+values ($1, $2, $3, $4, $5, $6, sqlc.narg('is_nsfw')::boolean, $7, $8,
         coalesce(sqlc.narg('created_at')::timestamptz, now()))
 returning created_at;
+
+-- name: InsertAssetBlock :exec
+insert into asset_blocks
+  (id, asset_id, definition, title, position, hidden, layout, width, elements)
+values ($1, $2, $3, sqlc.narg('title')::text, $4, $5, $6, $7, $8);
+
+-- name: AssetBlocks :many
+select id, definition, title, position, hidden, layout, width, elements
+  from asset_blocks
+ where asset_id = $1
+ order by position;
 
 -- name: InsertRevision :exec
 insert into asset_revisions
@@ -24,11 +35,15 @@ with facet_pairs as (
   select unnest($5::text[]) as k, unnest($6::text[]) as v
 )
 select a.id, a.kind, revision.passthrough_platform, revision.format,
-       a.name, a.blurb, a.tags, a.is_nsfw, a.discovery,
+       a.name, a.blurb, a.tags,
+       -- Only a draft leaves the question unanswered and no draft reaches a
+       -- listing. If one ever did, the safe reading is the one that blurs it.
+       coalesce(a.is_nsfw, true)::boolean as is_nsfw, a.discovery,
        a.current_revision_id, a.created_at
   from assets a
-  join asset_revisions revision on revision.id = a.current_revision_id
- where a.discovery = 'listed'
+  left join asset_revisions revision on revision.id = a.current_revision_id
+ where a.lifecycle = 'published'
+   and a.discovery = 'listed'
    and a.withheld_at is null
    and a.deleted_at is null
    and ($1 = '' or a.kind = $1)
@@ -49,11 +64,11 @@ select a.id, a.kind, revision.passthrough_platform, revision.format,
 
 -- name: BrowseAssets :many
 select a.id, a.name, coalesce(owner.username, 'unknown') as creator,
-       a.kind, a.is_nsfw, a.created_at,
+       a.kind, coalesce(a.is_nsfw, true)::boolean as is_nsfw, a.created_at,
        cover.id as cover_id, cover.width as cover_width, cover.height as cover_height,
        a.discovery, a.withheld_at, a.withheld_reason, actor.username as withheld_by
   from assets a
-  join asset_revisions revision on revision.id = a.current_revision_id
+  left join asset_revisions revision on revision.id = a.current_revision_id
   left join users owner on owner.id = a.owner_id
   left join users actor on actor.id = a.withheld_by
   left join asset_media cover
@@ -61,7 +76,8 @@ select a.id, a.name, coalesce(owner.username, 'unknown') as creator,
    and cover.is_current
    and cover.width is not null and cover.height is not null
    and cover.blob_id is not null
- where a.deleted_at is null
+ where a.lifecycle = 'published'
+   and a.deleted_at is null
    and (
        (sqlc.narg('creator_id')::uuid is null
         and a.discovery = 'listed' and a.withheld_at is null)
@@ -111,9 +127,10 @@ select a.id, a.name, coalesce(owner.username, 'unknown') as creator,
 -- name: CountBrowseAssets :one
 select count(*)
   from assets a
-  join asset_revisions revision on revision.id = a.current_revision_id
+  left join asset_revisions revision on revision.id = a.current_revision_id
   left join users owner on owner.id = a.owner_id
- where a.deleted_at is null
+ where a.lifecycle = 'published'
+   and a.deleted_at is null
    and (
        (sqlc.narg('creator_id')::uuid is null
         and a.discovery = 'listed' and a.withheld_at is null)
@@ -158,9 +175,10 @@ select count(*)
 -- name: CountSuppressedBrowseAssets :one
 select count(*)
   from assets a
-  join asset_revisions revision on revision.id = a.current_revision_id
+  left join asset_revisions revision on revision.id = a.current_revision_id
   left join users owner on owner.id = a.owner_id
- where a.discovery = 'listed'
+ where a.lifecycle = 'published'
+   and a.discovery = 'listed'
    and a.withheld_at is null
    and a.deleted_at is null
    and (sqlc.narg('creator_id')::uuid is null or a.owner_id = sqlc.narg('creator_id')::uuid)
@@ -199,14 +217,17 @@ select count(*)
 -- name: AssetPage :one
 -- Unlisted is missing from this predicate on purpose. A stranger holding the
 -- link gets a normal answer.
-select a.id, a.kind, a.name, a.blurb, a.tags, a.is_nsfw, a.discovery, a.created_at,
+select a.id, a.kind, a.name, a.blurb, a.tags, a.is_nsfw, a.discovery,
+       a.lifecycle, a.created_at,
        coalesce(owner.username, 'unknown') as creator,
+       coalesce(a.owner_id = sqlc.narg('viewer_id')::uuid, false)::boolean as is_owner,
        a.withheld_reason, a.withheld_at, actor.username as withheld_by
   from assets a
   left join users owner on owner.id = a.owner_id
   left join users actor on actor.id = a.withheld_by
  where a.id = $1
    and a.deleted_at is null
+   and (a.lifecycle = 'published' or a.owner_id = sqlc.narg('viewer_id')::uuid)
    and (a.withheld_at is null or a.owner_id = sqlc.narg('viewer_id')::uuid);
 
 -- name: AssetPageMedia :many
@@ -241,7 +262,10 @@ select a.id as asset_id, r.id as revision_id, r.blob_id, r.media_type, a.owner_i
 
 -- name: AssetByID :one
 select a.id, a.kind, revision.passthrough_platform, revision.format,
-       a.name, a.blurb, a.tags, a.is_nsfw, a.discovery,
+       a.name, a.blurb, a.tags,
+       -- An upload always carries an answer. Only a draft built from nothing
+       -- leaves the question open, and no draft reaches this query.
+       coalesce(a.is_nsfw, true)::boolean as is_nsfw, a.discovery,
        a.current_revision_id, a.created_at
   from assets a
   join asset_revisions revision on revision.id = a.current_revision_id

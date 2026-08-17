@@ -9,8 +9,10 @@ import detailBinding from "@/assets/art/full/detail-binding.webp";
 import { Shell } from "@/components/layout/Shell";
 import { type AssetDetail, fetchAsset } from "@/lib/api/query";
 import { assetMetadata } from "@/lib/asset-metadata";
+import { assetDisplayName } from "@/lib/asset-name";
 import { assetRedirect } from "@/lib/asset-url";
 import { KIND_LABELS } from "@/lib/kinds";
+import { AssetBlocks } from "./AssetBlocks";
 import { AssetMedia } from "./AssetMedia";
 import { DeleteControl } from "./DeleteControl";
 import { DiscoveryControl } from "./DiscoveryControl";
@@ -29,6 +31,15 @@ const loadAsset = cache(async (id: string): Promise<AssetDetail | null> => {
   const cookie = (await cookies()).toString();
   return fetchAsset(id, cookie);
 });
+
+/**
+ * The adult content answer as the header states it. A draft that has not been
+ * asked keeps a third state, so nothing reads as a no by default.
+ */
+function ratingLabel(isNsfw: boolean | null): string {
+  if (isNsfw === null) return "Rating not set";
+  return isNsfw ? "Adult content" : "No adult content";
+}
 
 function browseTagHref(value: string): string {
   const quoted = value.includes(" ") ? `"${value}"` : value;
@@ -53,6 +64,7 @@ export default async function AssetPage({
   if (canonical) redirect(canonical);
 
   const kind = KIND_LABELS[asset.kind];
+  const isDraft = asset.lifecycle === "draft";
   const made = new Date(asset.createdAt).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "long",
@@ -89,8 +101,13 @@ export default async function AssetPage({
           />
 
           <div className={styles.identity}>
-            <p className={styles.kind}>{kind}</p>
-            <h1>{asset.name}</h1>
+            <p className={styles.eyebrow}>
+              <span className={styles.kind}>{kind}</span>
+              <span className={styles.rating}>{ratingLabel(asset.isNsfw)}</span>
+            </p>
+            <h1 className={asset.name ? undefined : styles.unnamed}>
+              {assetDisplayName(asset.name)}
+            </h1>
             <p className={styles.byline}>
               by
               <Link className={styles.creator} href={`/@${asset.creator}`}>
@@ -100,14 +117,24 @@ export default async function AssetPage({
               <span className={styles.made}>{made}</span>
             </p>
 
+            {isDraft ? (
+              <p className={styles.draft}>
+                Draft. Only you can open this page, and it is in no browse or
+                search result.
+              </p>
+            ) : null}
+
             {asset.withhold ? (
               <WithholdNotice withhold={asset.withhold} />
             ) : null}
 
-            <a className={styles.download} href={`/download/${asset.id}`}>
-              <Download size={16} aria-hidden="true" />
-              Download the source file
-            </a>
+            {/* A draft has nothing to hand out, so there is nothing to offer. */}
+            {isDraft ? null : (
+              <a className={styles.download} href={`/download/${asset.id}`}>
+                <Download size={16} aria-hidden="true" />
+                Download the source file
+              </a>
+            )}
 
             {asset.blurb ? (
               <p className={styles.blurb}>{asset.blurb}</p>
@@ -128,13 +155,18 @@ export default async function AssetPage({
               </ul>
             ) : null}
 
-            <DiscoveryControl
-              assetId={asset.id}
-              creator={asset.creator}
-              initialDiscovery={asset.discovery}
-              frozen={Boolean(asset.withhold)}
-            />
-            {!asset.withhold ? <WithholdControl assetId={asset.id} /> : null}
+            {/* Discovery applies to a published asset only. */}
+            {isDraft ? null : (
+              <DiscoveryControl
+                assetId={asset.id}
+                creator={asset.creator}
+                initialDiscovery={asset.discovery}
+                frozen={Boolean(asset.withhold)}
+              />
+            )}
+            {!isDraft && !asset.withhold ? (
+              <WithholdControl assetId={asset.id} />
+            ) : null}
             <DeleteControl
               assetId={asset.id}
               creator={asset.creator}
@@ -142,6 +174,8 @@ export default async function AssetPage({
             />
           </div>
         </div>
+
+        <AssetBlocks blocks={asset.blocks} isOwner={asset.isOwner} />
       </Shell>
     </div>
   );

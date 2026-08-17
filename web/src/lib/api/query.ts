@@ -4,6 +4,8 @@ import type { components, paths } from "./schema";
 
 export type AssetDetail = components["schemas"]["AssetDetail"];
 export type AssetImage = components["schemas"]["AssetImage"];
+export type AssetBlock = components["schemas"]["AssetBlock"];
+export type AssetElement = components["schemas"]["AssetElement"];
 export type AssetTag = components["schemas"]["AssetTag"];
 export type Profile = components["schemas"]["Profile"];
 export type BrowseAsset = components["schemas"]["BrowseAsset"];
@@ -89,6 +91,22 @@ export async function fetchAsset(
     headers: cookie ? { cookie } : undefined,
   });
   if (error || !data) return null;
+  return data;
+}
+
+/**
+ * Starts an asset from nothing. The kind is asked for once, here, so the page
+ * that comes back is already the right shape.
+ */
+export async function startAsset(kind: string): Promise<AssetDetail> {
+  const { data, error } = await api.POST("/v1/assets", {
+    body: { kind },
+  });
+  // The same route also accepts an upload, which answers with an ingest
+  // operation, so the answer is narrowed to the page a start comes back with.
+  if (error || !data || !("blocks" in data)) {
+    throw new Error("Could not start the asset");
+  }
   return data;
 }
 

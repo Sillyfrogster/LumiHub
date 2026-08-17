@@ -18,6 +18,7 @@ func TestCoreTablesExist(t *testing.T) {
 		"asset_revisions",
 		"asset_facets",
 		"asset_media",
+		"asset_blocks",
 		"file_field_patches",
 		"blobs",
 		"blob_sweep_marks",
@@ -203,13 +204,76 @@ func rowsToStrings(rows stringRows) ([]string, error) {
 	return values, rows.Err()
 }
 
+func TestBlockRowsCarryOnlyWhatTheCreatorDid(t *testing.T) {
+	pool := Connect(t)
+	rows, err := pool.Query(context.Background(),
+		`select column_name
+		   from information_schema.columns
+		  where table_schema = 'public' and table_name = 'asset_blocks'
+		  order by ordinal_position`)
+	if err != nil {
+		t.Fatalf("read block columns: %v", err)
+	}
+	columns, err := rowsToStrings(rows)
+	if err != nil {
+		t.Fatalf("scan block columns: %v", err)
+	}
+
+	want := []string{
+		"id", "asset_id", "definition", "title", "position", "hidden",
+		"layout", "width", "elements",
+	}
+	if !slices.Equal(columns, want) {
+		t.Errorf("block columns = %v, want %v", columns, want)
+	}
+
+	var elementTables int
+	if err := pool.QueryRow(context.Background(), `
+		select count(*)
+		  from information_schema.tables
+		 where table_schema = 'public' and table_name like '%element%'
+	`).Scan(&elementTables); err != nil {
+		t.Fatalf("look for element tables: %v", err)
+	}
+	if elementTables != 0 {
+		t.Errorf("elements have %d tables of their own; the block is the unit of persistence",
+			elementTables)
+	}
+}
+
+func TestTwoBlocksOnOneAssetCannotShareAPosition(t *testing.T) {
+	pool := Connect(t)
+	ctx := context.Background()
+	assetID := uuid.New()
+	if _, err := pool.Exec(ctx,
+		`insert into assets (id, kind, name, lifecycle)
+		 values ($1, 'character', 'Ordered', 'draft')`, assetID); err != nil {
+		t.Fatalf("insert asset: %v", err)
+	}
+
+	insert := func(definition string) error {
+		_, err := pool.Exec(ctx,
+			`insert into asset_blocks (id, asset_id, definition, position, layout, width)
+			 values (gen_random_uuid(), $1, $2, 0, 'single', 'full')`,
+			assetID, definition)
+		return err
+	}
+	if err := insert("character_core"); err != nil {
+		t.Fatalf("insert first block: %v", err)
+	}
+	if err := insert("messages"); err == nil {
+		t.Fatal("two blocks on one asset took the same position")
+	}
+}
+
 func TestAssetKindIsClosedToFourValues(t *testing.T) {
 	pool := Connect(t)
 	ctx := context.Background()
 
 	for _, kind := range []string{"character", "lorebook", "preset", "theme"} {
 		_, err := pool.Exec(ctx,
-			`insert into assets (id, kind, name) values (gen_random_uuid(), $1, $2)`,
+			`insert into assets (id, kind, name, lifecycle)
+			 values (gen_random_uuid(), $1, $2, 'published')`,
 			kind, kind)
 		if err != nil {
 			t.Errorf("insert kind %q: %v", kind, err)
@@ -217,7 +281,8 @@ func TestAssetKindIsClosedToFourValues(t *testing.T) {
 	}
 
 	_, err := pool.Exec(ctx,
-		`insert into assets (id, kind, name) values (gen_random_uuid(), 'pack', 'Pack')`)
+		`insert into assets (id, kind, name, lifecycle)
+		 values (gen_random_uuid(), 'pack', 'Pack', 'published')`)
 	if err == nil {
 		t.Fatal("kind outside the catalog vocabulary was accepted")
 	}
@@ -229,8 +294,8 @@ func TestDiscoveryDefaultsToListedAndRejectsUnknownValues(t *testing.T) {
 
 	var discovery string
 	err := pool.QueryRow(ctx,
-		`insert into assets (id, kind, name)
-		 values (gen_random_uuid(), 'character', 'Listed by default')
+		`insert into assets (id, kind, name, lifecycle)
+		 values (gen_random_uuid(), 'character', 'Listed by default', 'published')
 		 returning discovery`).Scan(&discovery)
 	if err != nil {
 		t.Fatalf("insert asset: %v", err)
@@ -240,15 +305,15 @@ func TestDiscoveryDefaultsToListedAndRejectsUnknownValues(t *testing.T) {
 	}
 
 	_, err = pool.Exec(ctx,
-		`insert into assets (id, kind, name, discovery)
-		 values (gen_random_uuid(), 'theme', 'Quiet', 'unlisted')`)
+		`insert into assets (id, kind, name, discovery, lifecycle)
+		 values (gen_random_uuid(), 'theme', 'Quiet', 'unlisted', 'published')`)
 	if err != nil {
 		t.Errorf("insert unlisted asset: %v", err)
 	}
 
 	_, err = pool.Exec(ctx,
-		`insert into assets (id, kind, name, discovery)
-		 values (gen_random_uuid(), 'theme', 'Unknown', 'private')`)
+		`insert into assets (id, kind, name, discovery, lifecycle)
+		 values (gen_random_uuid(), 'theme', 'Unknown', 'private', 'published')`)
 	if err == nil {
 		t.Fatal("discovery outside listed and unlisted was accepted")
 	}
@@ -266,7 +331,8 @@ func TestWithholdingFieldsPopulateTogether(t *testing.T) {
 		t.Fatalf("insert withhold actor: %v", err)
 	}
 	_, err = pool.Exec(ctx,
-		`insert into assets (id, kind, name) values ($1, 'character', 'Held')`, assetID)
+		`insert into assets (id, kind, name, lifecycle)
+		 values ($1, 'character', 'Held', 'published')`, assetID)
 	if err != nil {
 		t.Fatalf("insert asset: %v", err)
 	}
@@ -294,7 +360,8 @@ func TestWithholdingFieldsPopulateTogether(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			id := uuid.New()
 			_, err := pool.Exec(ctx,
-				`insert into assets (id, kind, name) values ($1, 'character', 'Partial')`, id)
+				`insert into assets (id, kind, name, lifecycle)
+				 values ($1, 'character', 'Partial', 'published')`, id)
 			if err != nil {
 				t.Fatalf("insert asset: %v", err)
 			}
@@ -641,7 +708,8 @@ func insertAssetRevision(t *testing.T, pool *pgxpool.Pool) (uuid.UUID, uuid.UUID
 		 values ($1, $2, 1, $3)`, blobID, digest, uuid.NewString())
 	if err == nil {
 		_, err = pool.Exec(ctx,
-			`insert into assets (id, kind, name) values ($1, 'character', 'Card')`, assetID)
+			`insert into assets (id, kind, name, lifecycle)
+			 values ($1, 'character', 'Card', 'published')`, assetID)
 	}
 	if err == nil {
 		_, err = pool.Exec(ctx,

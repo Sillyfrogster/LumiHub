@@ -8,6 +8,12 @@ export const KIND_LABELS: Record<BrowseKind, string> = {
 };
 
 /**
+ * The kinds Illarin can build from nothing. It mirrors the block catalogs in
+ * the API, which refuse any other kind, and grows as each kind's catalog lands.
+ */
+export const BUILDABLE_KINDS: BrowseKind[] = ["character"];
+
+/**
  * Category artwork for creations whose authors did not supply a preview.
  */
 export const DEFAULT_COVERS: Record<BrowseKind, string> = {

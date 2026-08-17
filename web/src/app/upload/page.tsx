@@ -1,5 +1,6 @@
 import { Art } from "@/components/art/Art";
 import { Shell } from "@/components/layout/Shell";
+import { StartFromNothing } from "./StartFromNothing";
 import { UploadFlow } from "./UploadFlow";
 import styles from "./UploadPage.module.css";
 
@@ -18,6 +19,7 @@ export default function UploadPage() {
           </p>
         </header>
         <UploadFlow />
+        <StartFromNothing />
       </Shell>
     </section>
   );

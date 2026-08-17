@@ -475,11 +475,13 @@ func writeIngestResult(
 		return job.Target.AssetID, appendRevision(ctx, tx, job, prepared)
 	}
 	assetID := uuid.New()
+	isNSFW := prepared.IsNSFW
 	a := Asset{
 		ID: assetID, Kind: prepared.Kind, Format: prepared.Format,
 		PassthroughPlatform: prepared.PassthroughPlatform,
 		Name:                prepared.Name, Blurb: prepared.Blurb, Tags: prepared.Tags,
-		IsNSFW: prepared.IsNSFW, Discovery: prepared.Discovery,
+		IsNSFW: &isNSFW, Discovery: prepared.Discovery,
+		Lifecycle: LifecyclePublished,
 	}
 	if _, err := insertAsset(ctx, tx, a, job.OwnerID, prepared.CreatedAt); err != nil {
 		return uuid.Nil, err

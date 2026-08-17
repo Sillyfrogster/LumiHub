@@ -376,6 +376,10 @@ paths:
     post:
       operationId: createAsset
       security: [{ sessionCookie: [] }]
+      description: >-
+        Two ways to make an asset. Send form data to bring a file in, or send
+        JSON naming a kind to start from nothing. The kind is asked for once,
+        before any blocks exist, and never changes afterwards.
       requestBody:
         required: true
         description: >-
@@ -390,7 +394,17 @@ paths:
                 metadata:
                   $ref: "#/components/schemas/CreateAssetRequest"
                 file: { type: string, format: binary }
+          application/json:
+            schema: { $ref: "#/components/schemas/StartAssetRequest" }
       responses:
+        "201":
+          description: The draft that was started, with the blocks its kind requires
+          headers:
+            Location:
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssetDetail" }
         "202":
           description: The durable ingest operation for the accepted upload
           headers:
@@ -912,6 +926,116 @@ components:
       required: [token]
       properties:
         token: { type: string }
+    StartAssetRequest:
+      type: object
+      additionalProperties: false
+      required: [kind]
+      description: >-
+        The kind an asset is built as. Only kinds Illarin can build are
+        accepted, so a creator is never handed an empty page.
+      properties:
+        kind: { type: string }
+    AssetBlock:
+      type: object
+      description: >-
+        A titled container. Required, hideable, the layouts it allows and its
+        default width are read from the kind catalog at render time, so this is
+        what the catalog says today rather than what was true when the block was
+        made.
+      required:
+        [id, definition, title, titleIsDefault, position, hidden, layout, width,
+         required, hideable, isEmpty, elements]
+      properties:
+        id: { type: string, format: uuid }
+        definition: { type: string }
+        title:
+          type: string
+          description: The creator's wording, or the definition's default where they wrote none.
+        titleIsDefault: { type: boolean }
+        position: { type: integer }
+        hidden: { type: boolean }
+        layout:
+          type: string
+          enum: [single, duo, main-aside, trio, stack-2, stack-3]
+        width: { type: string, enum: [full, two_thirds, half, third] }
+        required: { type: boolean }
+        hideable: { type: boolean }
+        isEmpty:
+          type: boolean
+          description: >-
+            Whether every element in the block carries nothing. Computed for
+            display and never stored.
+        elements:
+          type: array
+          items: { $ref: "#/components/schemas/AssetElement" }
+    AssetElement:
+      type: object
+      description: >-
+        One piece of content. Its role is what import and export read, and it
+        travels with the element wherever the creator moves it.
+      required: [id, type, slot, label, pinned, isEmpty, content]
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, enum: [prose, text_set, dialogue_sample, image_set] }
+        role:
+          type: string
+          description: Absent where the element has no import or export meaning.
+        slot: { type: string }
+        label: { type: string }
+        pinned:
+          type: boolean
+          description: A pinned element can be neither removed nor moved out of its block.
+        display: { type: string, enum: [rich, verbatim] }
+        isEmpty: { type: boolean }
+        content:
+          description: The element type's own body. A reader switches on type to read it.
+          x-go-type: json.RawMessage
+          oneOf:
+            - $ref: "#/components/schemas/ProseContent"
+            - $ref: "#/components/schemas/TextSetContent"
+            - $ref: "#/components/schemas/DialogueSampleContent"
+            - $ref: "#/components/schemas/ImageSetContent"
+    ProseContent:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string }
+    TextSetContent:
+      type: object
+      required: [texts]
+      properties:
+        texts:
+          type: array
+          items:
+            type: object
+            required: [text]
+            properties:
+              name: { type: string }
+              text: { type: string }
+    DialogueSampleContent:
+      type: object
+      required: [turns]
+      properties:
+        turns:
+          type: array
+          items:
+            type: object
+            required: [speaker, text]
+            properties:
+              speaker: { type: string }
+              text: { type: string }
+    ImageSetContent:
+      type: object
+      required: [images]
+      properties:
+        images:
+          type: array
+          items:
+            type: object
+            required: [mediaId]
+            properties:
+              mediaId: { type: string, format: uuid }
+              name: { type: string }
     Asset:
       type: object
       required: [id, kind, format, name, blurb, tags, isNsfw, discovery, createdAt]
@@ -923,14 +1047,14 @@ components:
         name: { type: string }
         blurb: { type: string }
         tags: { type: array, items: { type: string } }
-        isNsfw: { type: boolean }
+        isNsfw: { type: [boolean, "null"] }
         discovery: { type: string, enum: [listed, unlisted] }
         createdAt: { type: string, format: date-time }
     AssetDetail:
       type: object
       required:
-        [id, kind, name, blurb, tags, creator, isNsfw, discovery, createdAt,
-         media, preview, visibility]
+        [id, kind, name, blurb, tags, creator, isNsfw, discovery, lifecycle,
+         isOwner, createdAt, blocks, media, preview, visibility]
       properties:
         id: { type: string, format: uuid }
         kind: { type: string, enum: [character, lorebook, preset, theme] }
@@ -944,9 +1068,28 @@ components:
           type: array
           items: { $ref: "#/components/schemas/AssetTag" }
         creator: { type: string }
-        isNsfw: { type: boolean }
+        isNsfw:
+          description: >-
+            Null while a draft has not been asked the adult content question.
+            Nothing answers it on the creator's behalf.
+          type: [boolean, "null"]
         discovery: { type: string, enum: [listed, unlisted] }
+        lifecycle:
+          type: string
+          enum: [draft, published]
+          description: >-
+            A draft resolves for its owner alone. Discovery applies to a
+            published asset only.
+        isOwner:
+          type: boolean
+          description: >-
+            Whether the reader owns the asset. The owner's page is the reader's
+            page with its editing affordances, not a second visual state.
         createdAt: { type: string, format: date-time }
+        blocks:
+          type: array
+          description: The asset's blocks in page order.
+          items: { $ref: "#/components/schemas/AssetBlock" }
         media:
           type: array
           description: >-

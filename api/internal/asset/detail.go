@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Sillyfrogster/LumiHub/api/internal/block"
 	"github.com/Sillyfrogster/LumiHub/api/internal/db"
 	mediaproc "github.com/Sillyfrogster/LumiHub/api/internal/media"
 	"github.com/google/uuid"
@@ -33,15 +34,22 @@ type DetailImage struct {
 // Detail is everything an asset's own page shows. It holds no total of any
 // kind, because nothing on that page displays one.
 type Detail struct {
-	ID        uuid.UUID
-	Kind      string
-	Name      string
-	Blurb     string
-	Tags      []DetailTag
-	Creator   string
-	IsNSFW    bool
+	ID      uuid.UUID
+	Kind    string
+	Name    string
+	Blurb   string
+	Tags    []DetailTag
+	Creator string
+	// IsNSFW is nil while a draft has not been asked the question.
+	IsNSFW    *bool
 	Discovery Discovery
+	Lifecycle Lifecycle
+	// IsOwner says whether the reader owns the asset. The owner's page is the
+	// reader's page with more on it, never a second page.
+	IsOwner   bool
 	CreatedAt time.Time
+	// Blocks are the asset's content, in page order.
+	Blocks []block.Block
 	// Media puts the direct cover first, followed by the remaining roles.
 	Media []DetailImage
 	// Preview is the composed social preview a link unfurler fetches.
@@ -55,8 +63,9 @@ type Withhold struct {
 	At     time.Time
 }
 
-// Detail returns one asset by id. Unlisted assets answer normally. A withheld
-// asset answers only to its owner, and a deleted asset answers to nobody.
+// Detail returns one asset by id. Unlisted assets answer normally. A draft and
+// a withheld asset answer only to their owner, and a deleted asset answers to
+// nobody.
 func (s *Service) Detail(
 	ctx context.Context,
 	id uuid.UUID,
@@ -80,10 +89,16 @@ func (s *Service) Detail(
 		Blurb:     row.Blurb,
 		Tags:      detailTags(row.Tags),
 		Creator:   row.Creator,
-		IsNSFW:    row.IsNsfw,
+		IsNSFW:    boolFromPgtype(row.IsNsfw),
 		Discovery: Discovery(row.Discovery),
+		Lifecycle: Lifecycle(row.Lifecycle),
+		IsOwner:   row.IsOwner,
 		CreatedAt: timeFromPgtype(row.CreatedAt),
 		Media:     []DetailImage{},
+	}
+	found.Blocks, err = readBlocks(ctx, s.pool, id)
+	if err != nil {
+		return Detail{}, err
 	}
 	if row.WithheldAt.Valid {
 		found.Withhold = &Withhold{
@@ -97,7 +112,9 @@ func (s *Service) Detail(
 	if err != nil {
 		return Detail{}, fmt.Errorf("read asset page media: %w", err)
 	}
-	blurred := found.IsNSFW && visibility != ContentShown
+	// Only a draft is unanswered, and only its owner can be looking at it.
+	flagged := found.IsNSFW != nil && *found.IsNSFW
+	blurred := flagged && visibility != ContentShown
 	for _, image := range images {
 		mediaID := uuidFromPgtype(image.ID)
 		found.Media = append(found.Media, DetailImage{
@@ -113,7 +130,7 @@ func (s *Service) Detail(
 	for _, image := range found.Media {
 		if image.IsCover {
 			// A link unfurler has no reader to ask, so a flagged preview is blurred.
-			preview := variantURL(image.ID, "og", found.IsNSFW)
+			preview := variantURL(image.ID, "og", flagged)
 			found.Preview = &preview
 			break
 		}

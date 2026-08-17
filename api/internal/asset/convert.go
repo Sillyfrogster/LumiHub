@@ -40,6 +40,21 @@ func timeFromPgtype(p pgtype.Timestamptz) time.Time {
 	return p.Time
 }
 
+func boolToNullable(b *bool) pgtype.Bool {
+	if b == nil {
+		return pgtype.Bool{Valid: false}
+	}
+	return pgtype.Bool{Bool: *b, Valid: true}
+}
+
+func boolFromPgtype(b pgtype.Bool) *bool {
+	if !b.Valid {
+		return nil
+	}
+	value := b.Bool
+	return &value
+}
+
 func timeToNullable(t *time.Time) pgtype.Timestamptz {
 	if t == nil {
 		return pgtype.Timestamptz{Valid: false}

@@ -4,6 +4,7 @@
 package http
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -79,6 +80,60 @@ func (e AssetDiscovery) Valid() bool {
 	}
 }
 
+// Defines values for AssetBlockLayout.
+const (
+	Duo       AssetBlockLayout = "duo"
+	MainAside AssetBlockLayout = "main-aside"
+	Single    AssetBlockLayout = "single"
+	Stack2    AssetBlockLayout = "stack-2"
+	Stack3    AssetBlockLayout = "stack-3"
+	Trio      AssetBlockLayout = "trio"
+)
+
+// Valid indicates whether the value is a known member of the AssetBlockLayout enum.
+func (e AssetBlockLayout) Valid() bool {
+	switch e {
+	case Duo:
+		return true
+	case MainAside:
+		return true
+	case Single:
+		return true
+	case Stack2:
+		return true
+	case Stack3:
+		return true
+	case Trio:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AssetBlockWidth.
+const (
+	Full      AssetBlockWidth = "full"
+	Half      AssetBlockWidth = "half"
+	Third     AssetBlockWidth = "third"
+	TwoThirds AssetBlockWidth = "two_thirds"
+)
+
+// Valid indicates whether the value is a known member of the AssetBlockWidth enum.
+func (e AssetBlockWidth) Valid() bool {
+	switch e {
+	case Full:
+		return true
+	case Half:
+		return true
+	case Third:
+		return true
+	case TwoThirds:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AssetDetailDiscovery.
 const (
 	AssetDetailDiscoveryListed   AssetDetailDiscovery = "listed"
@@ -121,6 +176,24 @@ func (e AssetDetailKind) Valid() bool {
 	}
 }
 
+// Defines values for AssetDetailLifecycle.
+const (
+	Draft     AssetDetailLifecycle = "draft"
+	Published AssetDetailLifecycle = "published"
+)
+
+// Valid indicates whether the value is a known member of the AssetDetailLifecycle enum.
+func (e AssetDetailLifecycle) Valid() bool {
+	switch e {
+	case Draft:
+		return true
+	case Published:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AssetDetailVisibility.
 const (
 	AssetDetailVisibilityBlurred AssetDetailVisibility = "blurred"
@@ -154,6 +227,48 @@ func (e AssetDiscoveryRequestDiscovery) Valid() bool {
 	case AssetDiscoveryRequestDiscoveryListed:
 		return true
 	case AssetDiscoveryRequestDiscoveryUnlisted:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AssetElementDisplay.
+const (
+	Rich     AssetElementDisplay = "rich"
+	Verbatim AssetElementDisplay = "verbatim"
+)
+
+// Valid indicates whether the value is a known member of the AssetElementDisplay enum.
+func (e AssetElementDisplay) Valid() bool {
+	switch e {
+	case Rich:
+		return true
+	case Verbatim:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AssetElementType.
+const (
+	DialogueSample AssetElementType = "dialogue_sample"
+	ImageSet       AssetElementType = "image_set"
+	Prose          AssetElementType = "prose"
+	TextSet        AssetElementType = "text_set"
+)
+
+// Valid indicates whether the value is a known member of the AssetElementType enum.
+func (e AssetElementType) Valid() bool {
+	switch e {
+	case DialogueSample:
+		return true
+	case ImageSet:
+		return true
+	case Prose:
+		return true
+	case TextSet:
 		return true
 	default:
 		return false
@@ -657,7 +772,7 @@ type Asset struct {
 	Discovery           AssetDiscovery     `json:"discovery"`
 	Format              string             `json:"format"`
 	Id                  openapi_types.UUID `json:"id"`
-	IsNsfw              bool               `json:"isNsfw"`
+	IsNsfw              *bool              `json:"isNsfw"`
 	Kind                string             `json:"kind"`
 	Name                string             `json:"name"`
 	PassthroughPlatform *string            `json:"passthroughPlatform,omitempty"`
@@ -667,16 +782,53 @@ type Asset struct {
 // AssetDiscovery defines model for Asset.Discovery.
 type AssetDiscovery string
 
+// AssetBlock A titled container. Required, hideable, the layouts it allows and its default width are read from the kind catalog at render time, so this is what the catalog says today rather than what was true when the block was made.
+type AssetBlock struct {
+	Definition string             `json:"definition"`
+	Elements   []AssetElement     `json:"elements"`
+	Hidden     bool               `json:"hidden"`
+	Hideable   bool               `json:"hideable"`
+	Id         openapi_types.UUID `json:"id"`
+
+	// IsEmpty Whether every element in the block carries nothing. Computed for display and never stored.
+	IsEmpty  bool             `json:"isEmpty"`
+	Layout   AssetBlockLayout `json:"layout"`
+	Position int              `json:"position"`
+	Required bool             `json:"required"`
+
+	// Title The creator's wording, or the definition's default where they wrote none.
+	Title          string          `json:"title"`
+	TitleIsDefault bool            `json:"titleIsDefault"`
+	Width          AssetBlockWidth `json:"width"`
+}
+
+// AssetBlockLayout defines model for AssetBlock.Layout.
+type AssetBlockLayout string
+
+// AssetBlockWidth defines model for AssetBlock.Width.
+type AssetBlockWidth string
+
 // AssetDetail defines model for AssetDetail.
 type AssetDetail struct {
+	// Blocks The asset's blocks in page order.
+	Blocks []AssetBlock `json:"blocks"`
+
 	// Blurb The catalog blurb the creator wrote for a person. Never the file's own description, which is a prompt written for a model.
 	Blurb     string               `json:"blurb"`
 	CreatedAt time.Time            `json:"createdAt"`
 	Creator   string               `json:"creator"`
 	Discovery AssetDetailDiscovery `json:"discovery"`
 	Id        openapi_types.UUID   `json:"id"`
-	IsNsfw    bool                 `json:"isNsfw"`
-	Kind      AssetDetailKind      `json:"kind"`
+
+	// IsNsfw Null while a draft has not been asked the adult content question. Nothing answers it on the creator's behalf.
+	IsNsfw *bool `json:"isNsfw"`
+
+	// IsOwner Whether the reader owns the asset. The owner's page is the reader's page with its editing affordances, not a second visual state.
+	IsOwner bool            `json:"isOwner"`
+	Kind    AssetDetailKind `json:"kind"`
+
+	// Lifecycle A draft resolves for its owner alone. Discovery applies to a published asset only.
+	Lifecycle AssetDetailLifecycle `json:"lifecycle"`
 
 	// Media The asset's images, cover first. Variant URLs already reflect the reader's preference, so a blurred reader is never handed a clear one.
 	Media []AssetImage `json:"media"`
@@ -695,6 +847,9 @@ type AssetDetailDiscovery string
 // AssetDetailKind defines model for AssetDetail.Kind.
 type AssetDetailKind string
 
+// AssetDetailLifecycle A draft resolves for its owner alone. Discovery applies to a published asset only.
+type AssetDetailLifecycle string
+
 // AssetDetailVisibility defines model for AssetDetail.Visibility.
 type AssetDetailVisibility string
 
@@ -705,6 +860,30 @@ type AssetDiscoveryRequest struct {
 
 // AssetDiscoveryRequestDiscovery defines model for AssetDiscoveryRequest.Discovery.
 type AssetDiscoveryRequestDiscovery string
+
+// AssetElement One piece of content. Its role is what import and export read, and it travels with the element wherever the creator moves it.
+type AssetElement struct {
+	// Content The element type's own body. A reader switches on type to read it.
+	Content json.RawMessage      `json:"content"`
+	Display *AssetElementDisplay `json:"display,omitempty"`
+	Id      openapi_types.UUID   `json:"id"`
+	IsEmpty bool                 `json:"isEmpty"`
+	Label   string               `json:"label"`
+
+	// Pinned A pinned element can be neither removed nor moved out of its block.
+	Pinned bool `json:"pinned"`
+
+	// Role Absent where the element has no import or export meaning.
+	Role *string          `json:"role,omitempty"`
+	Slot string           `json:"slot"`
+	Type AssetElementType `json:"type"`
+}
+
+// AssetElementDisplay defines model for AssetElement.Display.
+type AssetElementDisplay string
+
+// AssetElementType defines model for AssetElement.Type.
+type AssetElementType string
 
 // AssetImage defines model for AssetImage.
 type AssetImage struct {
@@ -852,6 +1031,14 @@ type DeletedAssetList struct {
 	Items []DeletedAsset `json:"items"`
 }
 
+// DialogueSampleContent defines model for DialogueSampleContent.
+type DialogueSampleContent struct {
+	Turns []struct {
+		Speaker string `json:"speaker"`
+		Text    string `json:"text"`
+	} `json:"turns"`
+}
+
 // FileFieldPatch defines model for FileFieldPatch.
 type FileFieldPatch struct {
 	CharacterVersion        *string `json:"character_version,omitempty"`
@@ -862,6 +1049,14 @@ type FileFieldPatch struct {
 	PostHistoryInstructions *string `json:"post_history_instructions,omitempty"`
 	Scenario                *string `json:"scenario,omitempty"`
 	SystemPrompt            *string `json:"system_prompt,omitempty"`
+}
+
+// ImageSetContent defines model for ImageSetContent.
+type ImageSetContent struct {
+	Images []struct {
+		MediaId openapi_types.UUID `json:"mediaId"`
+		Name    *string            `json:"name,omitempty"`
+	} `json:"images"`
 }
 
 // IngestFailure defines model for IngestFailure.
@@ -998,6 +1193,11 @@ type Profile struct {
 	Id     openapi_types.UUID `json:"id"`
 }
 
+// ProseContent defines model for ProseContent.
+type ProseContent struct {
+	Text string `json:"text"`
+}
+
 // RenameHandleRequest defines model for RenameHandleRequest.
 type RenameHandleRequest struct {
 	Handle string `json:"handle"`
@@ -1024,11 +1224,24 @@ type SignUpRequest struct {
 	Password string              `json:"password"`
 }
 
+// StartAssetRequest The kind an asset is built as. Only kinds Illarin can build are accepted, so a creator is never handed an empty page.
+type StartAssetRequest struct {
+	Kind string `json:"kind"`
+}
+
 // StartLinkRequest defines model for StartLinkRequest.
 type StartLinkRequest struct {
 	// Name What the creator sees on the approval screen. Name the installation, not the product, so somebody with two of them can tell which is which.
 	Name   string  `json:"name"`
 	Scopes []Scope `json:"scopes"`
+}
+
+// TextSetContent defines model for TextSetContent.
+type TextSetContent struct {
+	Texts []struct {
+		Name *string `json:"name,omitempty"`
+		Text string  `json:"text"`
+	} `json:"texts"`
 }
 
 // VerifyEmailRequest defines model for VerifyEmailRequest.
@@ -1125,6 +1338,9 @@ type SetNsfwVisibilityJSONRequestBody = NsfwVisibilityRequest
 
 // SetPasswordJSONRequestBody defines body for SetPassword for application/json ContentType.
 type SetPasswordJSONRequestBody = PasswordRequest
+
+// CreateAssetJSONRequestBody defines body for CreateAsset for application/json ContentType.
+type CreateAssetJSONRequestBody = StartAssetRequest
 
 // CreateAssetMultipartRequestBody defines body for CreateAsset for multipart/form-data ContentType.
 type CreateAssetMultipartRequestBody CreateAssetMultipartBody

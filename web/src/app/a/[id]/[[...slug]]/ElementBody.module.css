@@ -1,0 +1,66 @@
+.element {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.label {
+  color: var(--muted);
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.element p {
+  color: var(--body);
+  font-size: 1rem;
+  line-height: 1.78;
+}
+
+.element p + p {
+  margin-top: 0.85em;
+}
+
+.blank {
+  color: var(--faint);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-style: italic;
+}
+
+.verbatim {
+  overflow-x: auto;
+  padding: 16px 18px;
+  border: 1px solid var(--line-hair);
+  border-radius: var(--radius-md);
+  background: var(--surface-code);
+  color: var(--body);
+  font-family: var(--font-mono);
+  font-size: 0.86rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.textSet,
+.dialogue {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  list-style: none;
+}
+
+.textSet > li,
+.dialogue > li {
+  padding-left: 16px;
+  border-left: 2px solid var(--line);
+}
+
+.itemName,
+.speaker {
+  margin-bottom: 4px;
+  color: var(--ink-strong);
+  font-size: 0.82rem;
+  font-weight: 800;
+}

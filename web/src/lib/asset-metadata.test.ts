@@ -14,13 +14,22 @@ function asset(over: Partial<AssetDetail> = {}): AssetDetail {
     creator: "nimhloth",
     isNsfw: false,
     discovery: "listed",
+    lifecycle: "published",
+    isOwner: false,
     createdAt: "2026-08-13T00:00:00Z",
+    blocks: [],
     media: [],
     preview: "/media/aaaa/og/1",
     visibility: "blurred",
     ...over,
   };
 }
+
+test("calls an asset with no name Untitled", () => {
+  const meta = assetMetadata(asset({ name: "", blurb: "" }));
+
+  expect(meta.title).toBe("Untitled · Character");
+});
 
 test("names the asset and its kind, and pitches it with the blurb", () => {
   const meta = assetMetadata(asset());

@@ -372,6 +372,7 @@ export interface paths {
     };
     get: operations["listAssets"];
     put?: never;
+    /** @description Two ways to make an asset. Send form data to bring a file in, or send JSON naming a kind to start from nothing. The kind is asked for once, before any blocks exist, and never changes afterwards. */
     post: operations["createAsset"];
     delete?: never;
     options?: never;
@@ -691,6 +692,74 @@ export interface components {
     VerifyEmailRequest: {
       token: string;
     };
+    /** @description The kind an asset is built as. Only kinds Illarin can build are accepted, so a creator is never handed an empty page. */
+    StartAssetRequest: {
+      kind: string;
+    };
+    /** @description A titled container. Required, hideable, the layouts it allows and its default width are read from the kind catalog at render time, so this is what the catalog says today rather than what was true when the block was made. */
+    AssetBlock: {
+      /** Format: uuid */
+      id: string;
+      definition: string;
+      /** @description The creator's wording, or the definition's default where they wrote none. */
+      title: string;
+      titleIsDefault: boolean;
+      position: number;
+      hidden: boolean;
+      /** @enum {string} */
+      layout: "single" | "duo" | "main-aside" | "trio" | "stack-2" | "stack-3";
+      /** @enum {string} */
+      width: "full" | "two_thirds" | "half" | "third";
+      required: boolean;
+      hideable: boolean;
+      /** @description Whether every element in the block carries nothing. Computed for display and never stored. */
+      isEmpty: boolean;
+      elements: components["schemas"]["AssetElement"][];
+    };
+    /** @description One piece of content. Its role is what import and export read, and it travels with the element wherever the creator moves it. */
+    AssetElement: {
+      /** Format: uuid */
+      id: string;
+      /** @enum {string} */
+      type: "prose" | "text_set" | "dialogue_sample" | "image_set";
+      /** @description Absent where the element has no import or export meaning. */
+      role?: string;
+      slot: string;
+      label: string;
+      /** @description A pinned element can be neither removed nor moved out of its block. */
+      pinned: boolean;
+      /** @enum {string} */
+      display?: "rich" | "verbatim";
+      isEmpty: boolean;
+      /** @description The element type's own body. A reader switches on type to read it. */
+      content:
+        | components["schemas"]["ProseContent"]
+        | components["schemas"]["TextSetContent"]
+        | components["schemas"]["DialogueSampleContent"]
+        | components["schemas"]["ImageSetContent"];
+    };
+    ProseContent: {
+      text: string;
+    };
+    TextSetContent: {
+      texts: {
+        name?: string;
+        text: string;
+      }[];
+    };
+    DialogueSampleContent: {
+      turns: {
+        speaker: string;
+        text: string;
+      }[];
+    };
+    ImageSetContent: {
+      images: {
+        /** Format: uuid */
+        mediaId: string;
+        name?: string;
+      }[];
+    };
     Asset: {
       /** Format: uuid */
       id: string;
@@ -700,7 +769,7 @@ export interface components {
       name: string;
       blurb: string;
       tags: string[];
-      isNsfw: boolean;
+      isNsfw: boolean | null;
       /** @enum {string} */
       discovery: "listed" | "unlisted";
       /** Format: date-time */
@@ -716,11 +785,21 @@ export interface components {
       blurb: string;
       tags: components["schemas"]["AssetTag"][];
       creator: string;
-      isNsfw: boolean;
+      /** @description Null while a draft has not been asked the adult content question. Nothing answers it on the creator's behalf. */
+      isNsfw: boolean | null;
       /** @enum {string} */
       discovery: "listed" | "unlisted";
+      /**
+       * @description A draft resolves for its owner alone. Discovery applies to a published asset only.
+       * @enum {string}
+       */
+      lifecycle: "draft" | "published";
+      /** @description Whether the reader owns the asset. The owner's page is the reader's page with its editing affordances, not a second visual state. */
+      isOwner: boolean;
       /** Format: date-time */
       createdAt: string;
+      /** @description The asset's blocks in page order. */
+      blocks: components["schemas"]["AssetBlock"][];
       /** @description The asset's images, cover first. Variant URLs already reflect the reader's preference, so a blurred reader is never handed a clear one. */
       media: components["schemas"]["AssetImage"][];
       /** @description The composed social preview for link unfurling. */
@@ -1732,9 +1811,20 @@ export interface operations {
           /** Format: binary */
           file: string;
         };
+        "application/json": components["schemas"]["StartAssetRequest"];
       };
     };
     responses: {
+      /** @description The draft that was started, with the blocks its kind requires */
+      201: {
+        headers: {
+          Location?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AssetDetail"];
+        };
+      };
       /** @description The durable ingest operation for the accepted upload */
       202: {
         headers: {

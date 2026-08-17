@@ -157,6 +157,7 @@ func TestAssetPageShowsNoTotals(t *testing.T) {
 	wantKeys := map[string]bool{
 		"id": true, "kind": true, "name": true, "blurb": true, "tags": true,
 		"creator": true, "isNsfw": true, "discovery": true, "createdAt": true,
+		"lifecycle": true, "isOwner": true, "blocks": true,
 		"media": true, "preview": true, "visibility": true,
 	}
 	for key := range body {

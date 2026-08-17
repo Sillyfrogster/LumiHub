@@ -7,6 +7,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/Sillyfrogster/LumiHub/api/internal/block"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	mediaproc "github.com/Sillyfrogster/LumiHub/api/internal/media"
 	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
@@ -23,6 +24,9 @@ var (
 	ErrIngestNotFound   = errors.New("ingest operation not found")
 	ErrInvalidDiscovery = errors.New("invalid discovery state")
 	ErrAssetFrozen      = errors.New("asset is frozen")
+	// ErrKindNotBuildable is a kind with no block catalog, which is refused
+	// rather than answered with a page that has nothing on it.
+	ErrKindNotBuildable = errors.New("that kind cannot be built yet")
 )
 
 // Service runs the catalog. It knows the module interfaces, never a concrete
@@ -196,6 +200,42 @@ func ingestFailureMessage(reason string) string {
 	}
 }
 
+// StartFromNothing makes a draft carrying the blocks its kind requires, present
+// and empty, so a creator can see what the kind is asking of them before they
+// have typed anything. The kind is asked for once, here, and never changes.
+func (s *Service) StartFromNothing(
+	ctx context.Context,
+	ownerID uuid.UUID,
+	kind string,
+) (uuid.UUID, error) {
+	blocks, err := block.Place(kind, nil)
+	if err != nil {
+		return uuid.Nil, ErrKindNotBuildable
+	}
+
+	a := Asset{
+		ID: uuid.New(), Kind: kind, Tags: []string{},
+		Discovery: DiscoveryListed, Lifecycle: LifecycleDraft,
+	}
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := insertAsset(ctx, tx, a, ownerID, nil); err != nil {
+		return uuid.Nil, err
+	}
+	if err := insertBlocks(ctx, tx, a.ID, blocks); err != nil {
+		return uuid.Nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return uuid.Nil, err
+	}
+	return a.ID, nil
+}
+
 // Create stores the upload, reads what it can from it, and publishes one
 // catalog entry. Nothing is committed unless every step succeeds.
 func (s *Service) Create(ctx context.Context, in CreateInput) (Asset, error) {
@@ -256,8 +296,9 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Asset, error) {
 		Name:                orElse(in.Name, parsed.Name),
 		Blurb:               orElse(in.Blurb, parsed.Blurb),
 		Tags:                in.Tags,
-		IsNSFW:              in.IsNSFW,
+		IsNSFW:              &in.IsNSFW,
 		Discovery:           discovery,
+		Lifecycle:           LifecyclePublished,
 	}
 	if len(a.Tags) == 0 {
 		a.Tags = parsed.Tags

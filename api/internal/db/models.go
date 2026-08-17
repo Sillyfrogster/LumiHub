@@ -17,7 +17,7 @@ type Asset struct {
 	Blurb             string
 	Tags              []string
 	CoverMediaID      pgtype.UUID
-	IsNsfw            bool
+	IsNsfw            pgtype.Bool
 	Discovery         string
 	CreatedAt         pgtype.Timestamptz
 	UpdatedAt         pgtype.Timestamptz
@@ -27,6 +27,19 @@ type Asset struct {
 	WithheldReason    pgtype.Text
 	DeletedAt         pgtype.Timestamptz
 	RecoverableUntil  pgtype.Timestamptz
+	Lifecycle         string
+}
+
+type AssetBlock struct {
+	ID         pgtype.UUID
+	AssetID    pgtype.UUID
+	Definition string
+	Title      pgtype.Text
+	Position   int32
+	Hidden     bool
+	Layout     string
+	Width      string
+	Elements   []byte
 }
 
 type AssetFacet struct {

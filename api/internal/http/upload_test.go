@@ -140,8 +140,8 @@ func TestFormDataThatCannotBeReadIsRefused(t *testing.T) {
 			name: "not form data at all",
 			request: func(t *testing.T) *http.Request {
 				req := httptest.NewRequest(http.MethodPost, "/v1/assets",
-					strings.NewReader(`{"kind":"character"}`))
-				req.Header.Set("Content-Type", "application/json")
+					strings.NewReader("kind=character"))
+				req.Header.Set("Content-Type", "text/plain")
 				return req
 			},
 			says: "form data",

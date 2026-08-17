@@ -113,14 +113,15 @@ func listAssets(ctx context.Context, q db.DBTX, f ListFilter) ([]Asset, error) {
 	out := make([]Asset, len(rows))
 	for i, row := range rows {
 		out[i] = Asset{
-			ID:                  uuidFromPgtype(row.ID),
-			Kind:                row.Kind,
-			Format:              row.Format,
+			ID:   uuidFromPgtype(row.ID),
+			Kind: row.Kind,
+			// An asset built from nothing has no file, so no origin format.
+			Format:              row.Format.String,
 			PassthroughPlatform: textToPointer(row.PassthroughPlatform),
 			Name:                row.Name,
 			Blurb:               row.Blurb,
 			Tags:                row.Tags,
-			IsNSFW:              row.IsNsfw,
+			IsNSFW:              &row.IsNsfw,
 			Discovery:           Discovery(row.Discovery),
 			CurrentRevisionID:   uuidFromPgtype(row.CurrentRevisionID),
 			CreatedAt:           timeFromPgtype(row.CreatedAt),
@@ -439,7 +440,7 @@ func assetByID(ctx context.Context, q db.DBTX, id uuid.UUID) (Asset, error) {
 		ID: uuidFromPgtype(row.ID), Kind: row.Kind, Format: row.Format,
 		PassthroughPlatform: textToPointer(row.PassthroughPlatform),
 		Name:                row.Name, Blurb: row.Blurb, Tags: row.Tags,
-		IsNSFW: row.IsNsfw, Discovery: Discovery(row.Discovery),
+		IsNSFW: &row.IsNsfw, Discovery: Discovery(row.Discovery),
 		CurrentRevisionID: uuidFromPgtype(row.CurrentRevisionID),
 		CreatedAt:         timeFromPgtype(row.CreatedAt),
 	}, nil

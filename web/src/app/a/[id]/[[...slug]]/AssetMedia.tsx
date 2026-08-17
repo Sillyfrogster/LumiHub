@@ -18,7 +18,8 @@ interface AssetMediaProps {
   media: AssetImage[];
   kind: BrowseKind;
   name: string;
-  isNsfw: boolean;
+  // Null while a draft has not been asked the adult content question.
+  isNsfw: boolean | null;
   visibility: NsfwVisibility;
 }
 
@@ -43,7 +44,7 @@ export function AssetMedia({
   const useFallback = failed || !shown;
   const showClear =
     visibility === "shown" || signedOutVisibility === "shown" || revealed;
-  const canReveal = isNsfw && !showClear && !useFallback;
+  const canReveal = isNsfw === true && !showClear && !useFallback;
 
   useEffect(() => {
     if (account === undefined) return;
@@ -89,7 +90,7 @@ export function AssetMedia({
             unoptimized
           />
         )}
-        {isNsfw ? (
+        {isNsfw === true ? (
           <p className={styles.flag}>
             {showClear ? (
               <Eye size={13} aria-hidden="true" />

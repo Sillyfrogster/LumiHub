@@ -662,9 +662,15 @@ func (h *Handlers) ListAssets(c *gin.Context, params ListAssetsParams) {
 	})
 }
 
+// CreateAsset brings a file in, or starts an asset from nothing when the body
+// is JSON naming a kind. Both paths land on the same page.
 func (h *Handlers) CreateAsset(c *gin.Context) {
 	owner, ok := h.uploadOwner(c)
 	if !ok {
+		return
+	}
+	if c.ContentType() == "application/json" {
+		h.startAssetFromNothing(c, owner)
 		return
 	}
 
@@ -709,6 +715,41 @@ func (h *Handlers) CreateAsset(c *gin.Context) {
 	location := "/v1/ingests/" + operation.ID.String()
 	c.Header("Location", location)
 	c.JSON(http.StatusAccepted, toAPIIngest(operation))
+}
+
+// startAssetFromNothing answers with the page a new draft's creator lands on.
+func (h *Handlers) startAssetFromNothing(c *gin.Context, owner account.Account) {
+	var request StartAssetRequest
+	if err := decodeOneJSON(c.Request.Body, &request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Send the kind to build as JSON."})
+		return
+	}
+	id, err := h.assets.StartFromNothing(c.Request.Context(), owner.ID, request.Kind)
+	if errors.Is(err, asset.ErrKindNotBuildable) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Illarin cannot build that kind yet. Choose another.",
+		})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not start the asset."})
+		return
+	}
+
+	found, err := h.assets.Detail(
+		c.Request.Context(), id, &owner.ID, asset.ContentShown,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not read the new asset."})
+		return
+	}
+	page, err := toAPIDetail(found, asset.ContentShown)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not read the new asset."})
+		return
+	}
+	c.Header("Location", "/v1/assets/"+id.String())
+	c.JSON(http.StatusCreated, page)
 }
 
 func (h *Handlers) AddAssetRevision(c *gin.Context, id types.UUID) {
@@ -909,7 +950,12 @@ func (h *Handlers) GetAsset(c *gin.Context, id types.UUID, params GetAssetParams
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not read the asset"})
 		return
 	}
-	c.JSON(http.StatusOK, toAPIDetail(found, visibility))
+	page, err := toAPIDetail(found, visibility)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not read the asset"})
+		return
+	}
+	c.JSON(http.StatusOK, page)
 }
 
 func (h *Handlers) SetAssetDiscovery(c *gin.Context, id types.UUID) {
@@ -981,7 +1027,7 @@ func (h *Handlers) SetFilePatch(c *gin.Context, id types.UUID) {
 	}
 }
 
-func toAPIDetail(found asset.Detail, visibility asset.ContentVisibility) AssetDetail {
+func toAPIDetail(found asset.Detail, visibility asset.ContentVisibility) (AssetDetail, error) {
 	tags := make([]AssetTag, 0, len(found.Tags))
 	for _, tag := range found.Tags {
 		tags = append(tags, AssetTag{Label: tag.Label, Value: tag.Value})
@@ -998,6 +1044,10 @@ func toAPIDetail(found asset.Detail, visibility asset.ContentVisibility) AssetDe
 			Height:    image.Height,
 		})
 	}
+	blocks, err := toAPIBlocks(found.Kind, found.Blocks)
+	if err != nil {
+		return AssetDetail{}, err
+	}
 	return AssetDetail{
 		Id:         types.UUID(found.ID),
 		Kind:       AssetDetailKind(found.Kind),
@@ -1007,12 +1057,15 @@ func toAPIDetail(found asset.Detail, visibility asset.ContentVisibility) AssetDe
 		Creator:    found.Creator,
 		IsNsfw:     found.IsNSFW,
 		Discovery:  AssetDetailDiscovery(found.Discovery),
+		Lifecycle:  AssetDetailLifecycle(found.Lifecycle),
+		IsOwner:    found.IsOwner,
 		CreatedAt:  found.CreatedAt,
+		Blocks:     blocks,
 		Media:      media,
 		Preview:    found.Preview,
 		Visibility: AssetDetailVisibility(visibility),
 		Withhold:   toAPIWithhold(found.Withhold),
-	}
+	}, nil
 }
 
 func toAPIWithhold(found *asset.Withhold) *AssetWithhold {

@@ -30,9 +30,59 @@ func (q *Queries) ApproveLinkRequest(ctx context.Context, arg ApproveLinkRequest
 	return result.RowsAffected(), nil
 }
 
+const assetBlocks = `-- name: AssetBlocks :many
+select id, definition, title, position, hidden, layout, width, elements
+  from asset_blocks
+ where asset_id = $1
+ order by position
+`
+
+type AssetBlocksRow struct {
+	ID         pgtype.UUID
+	Definition string
+	Title      pgtype.Text
+	Position   int32
+	Hidden     bool
+	Layout     string
+	Width      string
+	Elements   []byte
+}
+
+func (q *Queries) AssetBlocks(ctx context.Context, assetID pgtype.UUID) ([]AssetBlocksRow, error) {
+	rows, err := q.db.Query(ctx, assetBlocks, assetID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AssetBlocksRow
+	for rows.Next() {
+		var i AssetBlocksRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Definition,
+			&i.Title,
+			&i.Position,
+			&i.Hidden,
+			&i.Layout,
+			&i.Width,
+			&i.Elements,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const assetByID = `-- name: AssetByID :one
 select a.id, a.kind, revision.passthrough_platform, revision.format,
-       a.name, a.blurb, a.tags, a.is_nsfw, a.discovery,
+       a.name, a.blurb, a.tags,
+       -- An upload always carries an answer. Only a draft built from nothing
+       -- leaves the question open, and no draft reaches this query.
+       coalesce(a.is_nsfw, true)::boolean as is_nsfw, a.discovery,
        a.current_revision_id, a.created_at
   from assets a
   join asset_revisions revision on revision.id = a.current_revision_id
@@ -96,14 +146,17 @@ func (q *Queries) AssetDeletionState(ctx context.Context, arg AssetDeletionState
 }
 
 const assetPage = `-- name: AssetPage :one
-select a.id, a.kind, a.name, a.blurb, a.tags, a.is_nsfw, a.discovery, a.created_at,
+select a.id, a.kind, a.name, a.blurb, a.tags, a.is_nsfw, a.discovery,
+       a.lifecycle, a.created_at,
        coalesce(owner.username, 'unknown') as creator,
+       coalesce(a.owner_id = $2::uuid, false)::boolean as is_owner,
        a.withheld_reason, a.withheld_at, actor.username as withheld_by
   from assets a
   left join users owner on owner.id = a.owner_id
   left join users actor on actor.id = a.withheld_by
  where a.id = $1
    and a.deleted_at is null
+   and (a.lifecycle = 'published' or a.owner_id = $2::uuid)
    and (a.withheld_at is null or a.owner_id = $2::uuid)
 `
 
@@ -118,10 +171,12 @@ type AssetPageRow struct {
 	Name           string
 	Blurb          string
 	Tags           []string
-	IsNsfw         bool
+	IsNsfw         pgtype.Bool
 	Discovery      string
+	Lifecycle      string
 	CreatedAt      pgtype.Timestamptz
 	Creator        string
+	IsOwner        bool
 	WithheldReason pgtype.Text
 	WithheldAt     pgtype.Timestamptz
 	WithheldBy     pgtype.Text
@@ -140,8 +195,10 @@ func (q *Queries) AssetPage(ctx context.Context, arg AssetPageParams) (AssetPage
 		&i.Tags,
 		&i.IsNsfw,
 		&i.Discovery,
+		&i.Lifecycle,
 		&i.CreatedAt,
 		&i.Creator,
+		&i.IsOwner,
 		&i.WithheldReason,
 		&i.WithheldAt,
 		&i.WithheldBy,
@@ -241,11 +298,11 @@ func (q *Queries) BlobLocation(ctx context.Context, id pgtype.UUID) (BlobLocatio
 
 const browseAssets = `-- name: BrowseAssets :many
 select a.id, a.name, coalesce(owner.username, 'unknown') as creator,
-       a.kind, a.is_nsfw, a.created_at,
+       a.kind, coalesce(a.is_nsfw, true)::boolean as is_nsfw, a.created_at,
        cover.id as cover_id, cover.width as cover_width, cover.height as cover_height,
        a.discovery, a.withheld_at, a.withheld_reason, actor.username as withheld_by
   from assets a
-  join asset_revisions revision on revision.id = a.current_revision_id
+  left join asset_revisions revision on revision.id = a.current_revision_id
   left join users owner on owner.id = a.owner_id
   left join users actor on actor.id = a.withheld_by
   left join asset_media cover
@@ -253,7 +310,8 @@ select a.id, a.name, coalesce(owner.username, 'unknown') as creator,
    and cover.is_current
    and cover.width is not null and cover.height is not null
    and cover.blob_id is not null
- where a.deleted_at is null
+ where a.lifecycle = 'published'
+   and a.deleted_at is null
    and (
        ($1::uuid is null
         and a.discovery = 'listed' and a.withheld_at is null)
@@ -428,9 +486,10 @@ func (q *Queries) ClearPendingEmailCopies(ctx context.Context, arg ClearPendingE
 const countBrowseAssets = `-- name: CountBrowseAssets :one
 select count(*)
   from assets a
-  join asset_revisions revision on revision.id = a.current_revision_id
+  left join asset_revisions revision on revision.id = a.current_revision_id
   left join users owner on owner.id = a.owner_id
- where a.deleted_at is null
+ where a.lifecycle = 'published'
+   and a.deleted_at is null
    and (
        ($1::uuid is null
         and a.discovery = 'listed' and a.withheld_at is null)
@@ -511,9 +570,10 @@ func (q *Queries) CountBrowseAssets(ctx context.Context, arg CountBrowseAssetsPa
 const countSuppressedBrowseAssets = `-- name: CountSuppressedBrowseAssets :one
 select count(*)
   from assets a
-  join asset_revisions revision on revision.id = a.current_revision_id
+  left join asset_revisions revision on revision.id = a.current_revision_id
   left join users owner on owner.id = a.owner_id
- where a.discovery = 'listed'
+ where a.lifecycle = 'published'
+   and a.discovery = 'listed'
    and a.withheld_at is null
    and a.deleted_at is null
    and ($1::uuid is null or a.owner_id = $1::uuid)
@@ -716,9 +776,9 @@ func (q *Queries) HandleUnavailable(ctx context.Context, username string) (bool,
 
 const insertAsset = `-- name: InsertAsset :one
 insert into assets
-  (id, kind, owner_id, name, blurb, tags, is_nsfw, discovery, created_at)
-values ($1, $2, $3, $4, $5, $6, $7, $8,
-        coalesce($9::timestamptz, now()))
+  (id, kind, owner_id, name, blurb, tags, is_nsfw, discovery, lifecycle, created_at)
+values ($1, $2, $3, $4, $5, $6, $9::boolean, $7, $8,
+        coalesce($10::timestamptz, now()))
 returning created_at
 `
 
@@ -729,8 +789,9 @@ type InsertAssetParams struct {
 	Name      string
 	Blurb     string
 	Tags      []string
-	IsNsfw    bool
 	Discovery string
+	Lifecycle string
+	IsNsfw    pgtype.Bool
 	CreatedAt pgtype.Timestamptz
 }
 
@@ -743,13 +804,47 @@ func (q *Queries) InsertAsset(ctx context.Context, arg InsertAssetParams) (pgtyp
 		arg.Name,
 		arg.Blurb,
 		arg.Tags,
-		arg.IsNsfw,
 		arg.Discovery,
+		arg.Lifecycle,
+		arg.IsNsfw,
 		arg.CreatedAt,
 	)
 	var created_at pgtype.Timestamptz
 	err := row.Scan(&created_at)
 	return created_at, err
+}
+
+const insertAssetBlock = `-- name: InsertAssetBlock :exec
+insert into asset_blocks
+  (id, asset_id, definition, title, position, hidden, layout, width, elements)
+values ($1, $2, $3, $9::text, $4, $5, $6, $7, $8)
+`
+
+type InsertAssetBlockParams struct {
+	ID         pgtype.UUID
+	AssetID    pgtype.UUID
+	Definition string
+	Position   int32
+	Hidden     bool
+	Layout     string
+	Width      string
+	Elements   []byte
+	Title      pgtype.Text
+}
+
+func (q *Queries) InsertAssetBlock(ctx context.Context, arg InsertAssetBlockParams) error {
+	_, err := q.db.Exec(ctx, insertAssetBlock,
+		arg.ID,
+		arg.AssetID,
+		arg.Definition,
+		arg.Position,
+		arg.Hidden,
+		arg.Layout,
+		arg.Width,
+		arg.Elements,
+		arg.Title,
+	)
+	return err
 }
 
 const insertDiscordUser = `-- name: InsertDiscordUser :one
@@ -1090,11 +1185,15 @@ with facet_pairs as (
   select unnest($5::text[]) as k, unnest($6::text[]) as v
 )
 select a.id, a.kind, revision.passthrough_platform, revision.format,
-       a.name, a.blurb, a.tags, a.is_nsfw, a.discovery,
+       a.name, a.blurb, a.tags,
+       -- Only a draft leaves the question unanswered and no draft reaches a
+       -- listing. If one ever did, the safe reading is the one that blurs it.
+       coalesce(a.is_nsfw, true)::boolean as is_nsfw, a.discovery,
        a.current_revision_id, a.created_at
   from assets a
-  join asset_revisions revision on revision.id = a.current_revision_id
- where a.discovery = 'listed'
+  left join asset_revisions revision on revision.id = a.current_revision_id
+ where a.lifecycle = 'published'
+   and a.discovery = 'listed'
    and a.withheld_at is null
    and a.deleted_at is null
    and ($1 = '' or a.kind = $1)
@@ -1130,7 +1229,7 @@ type ListAssetsRow struct {
 	ID                  pgtype.UUID
 	Kind                string
 	PassthroughPlatform pgtype.Text
-	Format              string
+	Format              pgtype.Text
 	Name                string
 	Blurb               string
 	Tags                []string
