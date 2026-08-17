@@ -536,11 +536,17 @@ func writeRevision(
 	if err := insertFacets(ctx, tx, revisionID, prepared.Facets); err != nil {
 		return err
 	}
+	if err := supersedeExtractedMedia(ctx, tx, assetID); err != nil {
+		return err
+	}
 	if err := insertAssetMedia(ctx, tx, assetID, prepared.Media); err != nil {
 		return err
 	}
 	if err := setCurrentRevision(ctx, tx, assetID, revisionID); err != nil {
 		return err
 	}
-	return setCoverMedia(ctx, tx, assetID, avatarMedia(prepared.Media))
+	if coverID := avatarMedia(prepared.Media); coverID != nil {
+		return setCoverMedia(ctx, tx, assetID, coverID)
+	}
+	return clearSupersededCover(ctx, tx, assetID)
 }

@@ -36,13 +36,15 @@ type AssetFacet struct {
 }
 
 type AssetMedium struct {
-	ID        pgtype.UUID
-	AssetID   pgtype.UUID
-	Role      string
-	Width     pgtype.Int4
-	Height    pgtype.Int4
-	CreatedAt pgtype.Timestamptz
-	BlobID    pgtype.UUID
+	ID          pgtype.UUID
+	AssetID     pgtype.UUID
+	Role        string
+	Width       pgtype.Int4
+	Height      pgtype.Int4
+	CreatedAt   pgtype.Timestamptz
+	BlobID      pgtype.UUID
+	IsExtracted bool
+	IsCurrent   bool
 }
 
 type AssetRevision struct {

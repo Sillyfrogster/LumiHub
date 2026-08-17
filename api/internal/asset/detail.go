@@ -23,6 +23,7 @@ type DetailTag struct {
 type DetailImage struct {
 	ID        uuid.UUID
 	Role      MediaRole
+	IsCover   bool
 	DetailURL string
 	ThumbURL  string
 	Width     int
@@ -41,7 +42,7 @@ type Detail struct {
 	IsNSFW    bool
 	Discovery Discovery
 	CreatedAt time.Time
-	// Media is cover first.
+	// Media puts the direct cover first, followed by the remaining roles.
 	Media []DetailImage
 	// Preview is the composed social preview a link unfurler fetches.
 	Preview  *string
@@ -102,16 +103,20 @@ func (s *Service) Detail(
 		found.Media = append(found.Media, DetailImage{
 			ID:        mediaID,
 			Role:      MediaRole(image.Role),
+			IsCover:   image.IsCover,
 			DetailURL: variantURL(mediaID, "detail", blurred),
 			ThumbURL:  variantURL(mediaID, "thumb", blurred),
 			Width:     int(image.Width.Int32),
 			Height:    int(image.Height.Int32),
 		})
 	}
-	if len(found.Media) > 0 {
-		// A link unfurler has no reader to ask, so a flagged preview is blurred.
-		preview := variantURL(found.Media[0].ID, "og", found.IsNSFW)
-		found.Preview = &preview
+	for _, image := range found.Media {
+		if image.IsCover {
+			// A link unfurler has no reader to ask, so a flagged preview is blurred.
+			preview := variantURL(image.ID, "og", found.IsNSFW)
+			found.Preview = &preview
+			break
+		}
 	}
 	return found, nil
 }

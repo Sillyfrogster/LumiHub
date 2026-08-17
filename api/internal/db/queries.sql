@@ -58,6 +58,7 @@ select a.id, a.name, coalesce(owner.username, 'unknown') as creator,
   left join users actor on actor.id = a.withheld_by
   left join asset_media cover
     on cover.id = a.cover_media_id and cover.asset_id = a.id
+   and cover.is_current
    and cover.width is not null and cover.height is not null
    and cover.blob_id is not null
  where a.deleted_at is null
@@ -209,11 +210,13 @@ select a.id, a.kind, a.name, a.blurb, a.tags, a.is_nsfw, a.discovery, a.created_
    and (a.withheld_at is null or a.owner_id = sqlc.narg('viewer_id')::uuid);
 
 -- name: AssetPageMedia :many
--- The role order matches BrowseAssets, so the first image is the card's cover.
-select media.id, media.role, media.width, media.height
+-- The direct cover comes first; remaining media follows the established role order.
+select media.id, media.role, media.width, media.height,
+       coalesce(media.id = a.cover_media_id, false)::boolean as is_cover
   from assets a
   join asset_media media on media.asset_id = a.id
  where a.id = $1
+   and media.is_current
    and media.width is not null
    and media.height is not null
    and media.blob_id is not null

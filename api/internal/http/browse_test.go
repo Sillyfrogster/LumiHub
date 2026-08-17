@@ -260,7 +260,7 @@ func TestSignedInBrowseUsesTheReadersSavedContentPreference(t *testing.T) {
 	created := uploadAndFinish(t, router, session, assets, metadata, []byte("garden"))
 	assetID := assetIDFromIngest(t, created)
 	added := send(t, router, authorized(mediaUploadRequest(
-		t, assetID, "gallery", httpTestPNG(t, 80, 120),
+		t, assetID, "avatar", httpTestPNG(t, 80, 120),
 	), session))
 	if added.Code != http.StatusCreated {
 		t.Fatalf("add cover status = %d, want 201: %s", added.Code, added.Body.String())

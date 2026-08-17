@@ -150,10 +150,12 @@ func (q *Queries) AssetPage(ctx context.Context, arg AssetPageParams) (AssetPage
 }
 
 const assetPageMedia = `-- name: AssetPageMedia :many
-select media.id, media.role, media.width, media.height
+select media.id, media.role, media.width, media.height,
+       coalesce(media.id = a.cover_media_id, false)::boolean as is_cover
   from assets a
   join asset_media media on media.asset_id = a.id
  where a.id = $1
+   and media.is_current
    and media.width is not null
    and media.height is not null
    and media.blob_id is not null
@@ -169,13 +171,14 @@ select media.id, media.role, media.width, media.height
 `
 
 type AssetPageMediaRow struct {
-	ID     pgtype.UUID
-	Role   string
-	Width  pgtype.Int4
-	Height pgtype.Int4
+	ID      pgtype.UUID
+	Role    string
+	Width   pgtype.Int4
+	Height  pgtype.Int4
+	IsCover bool
 }
 
-// The role order matches BrowseAssets, so the first image is the card's cover.
+// The direct cover comes first; remaining media follows the established role order.
 func (q *Queries) AssetPageMedia(ctx context.Context, id pgtype.UUID) ([]AssetPageMediaRow, error) {
 	rows, err := q.db.Query(ctx, assetPageMedia, id)
 	if err != nil {
@@ -190,6 +193,7 @@ func (q *Queries) AssetPageMedia(ctx context.Context, id pgtype.UUID) ([]AssetPa
 			&i.Role,
 			&i.Width,
 			&i.Height,
+			&i.IsCover,
 		); err != nil {
 			return nil, err
 		}
@@ -246,6 +250,7 @@ select a.id, a.name, coalesce(owner.username, 'unknown') as creator,
   left join users actor on actor.id = a.withheld_by
   left join asset_media cover
     on cover.id = a.cover_media_id and cover.asset_id = a.id
+   and cover.is_current
    and cover.width is not null and cover.height is not null
    and cover.blob_id is not null
  where a.deleted_at is null

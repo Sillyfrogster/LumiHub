@@ -31,12 +31,15 @@ export function AssetMedia({
   visibility,
 }: AssetMediaProps) {
   const { account } = useAuth();
-  const [chosen, setChosen] = useState(0);
+  const [chosen, setChosen] = useState<number | null>(() => {
+    const cover = media.findIndex((image) => image.isCover);
+    return cover >= 0 ? cover : null;
+  });
   const [failed, setFailed] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const [signedOutVisibility, setSignedOutVisibility] =
     useState<NsfwVisibility>();
-  const shown = media[chosen];
+  const shown = chosen === null ? undefined : media[chosen];
   const useFallback = failed || !shown;
   const showClear =
     visibility === "shown" || signedOutVisibility === "shown" || revealed;
@@ -104,7 +107,7 @@ export function AssetMedia({
         ) : null}
       </div>
 
-      {media.length > 1 ? (
+      {media.length > 1 || (media.length === 1 && chosen === null) ? (
         <ul className={styles.strip}>
           {media.map((image, index) => (
             <li key={image.id}>

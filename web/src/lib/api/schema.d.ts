@@ -782,6 +782,7 @@ export interface components {
         | "gallery"
         | "avatar_alt"
         | "perspective_layer";
+      isCover: boolean;
       detailUrl: string;
       thumbUrl: string;
       width: number;

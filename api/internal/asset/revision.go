@@ -121,8 +121,6 @@ func currentRevisionLocation(
 }
 
 // setCoverMedia points the asset at the picture a reader should see first.
-// A reimport brings its own, so one without a picture clears the old pointer
-// rather than leaving the asset pointing into a file it no longer serves.
 func setCoverMedia(ctx context.Context, tx pgx.Tx, assetID uuid.UUID, mediaID *uuid.UUID) error {
 	if _, err := tx.Exec(ctx,
 		`update assets set cover_media_id = $2 where id = $1`, assetID, mediaID,
@@ -132,13 +130,59 @@ func setCoverMedia(ctx context.Context, tx pgx.Tx, assetID uuid.UUID, mediaID *u
 	return nil
 }
 
+// setAlternateCoverMedia uses an alternate until a primary cover takes its place.
+func setAlternateCoverMedia(ctx context.Context, tx pgx.Tx, assetID, mediaID uuid.UUID) error {
+	if _, err := tx.Exec(ctx, `
+		update assets asset
+		   set cover_media_id = $2
+		 where asset.id = $1
+		   and (
+		       asset.cover_media_id is null
+		       or exists (
+		           select 1
+		             from asset_media cover
+		            where cover.id = asset.cover_media_id
+		              and cover.asset_id = asset.id
+		              and cover.role = 'avatar_alt'
+		       )
+		   )
+	`, assetID, mediaID); err != nil {
+		return fmt.Errorf("set alternate cover media: %w", err)
+	}
+	return nil
+}
+
+// clearSupersededCover removes an imported cover when its replacement has none.
+func clearSupersededCover(ctx context.Context, tx pgx.Tx, assetID uuid.UUID) error {
+	if _, err := tx.Exec(ctx, `
+		update assets asset
+		   set cover_media_id = null
+		 where asset.id = $1
+		   and exists (
+		       select 1
+		         from asset_media media
+		        where media.id = asset.cover_media_id
+		          and media.asset_id = asset.id
+		          and not media.is_current
+		   )
+	`, assetID); err != nil {
+		return fmt.Errorf("clear superseded cover: %w", err)
+	}
+	return nil
+}
+
 // avatarMedia finds the picture that stands for the asset.
 func avatarMedia(media []preparedMedia) *uuid.UUID {
+	var alternate *uuid.UUID
 	for _, item := range media {
 		if item.Role == MediaAvatar {
 			id := item.ID
 			return &id
 		}
+		if item.Role == MediaAvatarAlt && alternate == nil {
+			id := item.ID
+			alternate = &id
+		}
 	}
-	return nil
+	return alternate
 }

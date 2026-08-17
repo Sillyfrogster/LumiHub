@@ -105,8 +105,13 @@ func (s *Service) AddMedia(ctx context.Context, in AddMediaInput) (Media, error)
 	if err != nil {
 		return Media{}, fmt.Errorf("record media: %w", err)
 	}
-	if in.Role == MediaAvatar {
+	switch in.Role {
+	case MediaAvatar:
 		if err := setCoverMedia(ctx, tx, in.AssetID, &id); err != nil {
+			return Media{}, err
+		}
+	case MediaAvatarAlt:
+		if err := setAlternateCoverMedia(ctx, tx, in.AssetID, id); err != nil {
 			return Media{}, err
 		}
 	}
@@ -138,7 +143,7 @@ func (s *Service) ListMedia(ctx context.Context, assetID uuid.UUID, viewerID *uu
 	rows, err := s.pool.Query(ctx, `
 		select id, asset_id, role, width, height
 		  from asset_media
-		 where asset_id = $1
+		 where asset_id = $1 and is_current
 		 order by created_at, id
 	`, foundAssetID)
 	if err != nil {
@@ -240,12 +245,24 @@ func insertAssetMedia(
 ) error {
 	for _, item := range media {
 		_, err := tx.Exec(ctx, `
-			insert into asset_media (id, asset_id, role, width, height, blob_id)
-			values ($1, $2, $3, $4, $5, $6)
+			insert into asset_media
+			  (id, asset_id, role, width, height, blob_id, is_extracted)
+			values ($1, $2, $3, $4, $5, $6, true)
 		`, item.ID, assetID, item.Role, item.Width, item.Height, item.BlobID)
 		if err != nil {
 			return fmt.Errorf("record extracted media: %w", err)
 		}
+	}
+	return nil
+}
+
+func supersedeExtractedMedia(ctx context.Context, tx pgx.Tx, assetID uuid.UUID) error {
+	if _, err := tx.Exec(ctx, `
+		update asset_media
+		   set is_current = false
+		 where asset_id = $1 and is_extracted and is_current
+	`, assetID); err != nil {
+		return fmt.Errorf("supersede extracted media: %w", err)
 	}
 	return nil
 }

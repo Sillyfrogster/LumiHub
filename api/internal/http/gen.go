@@ -711,6 +711,7 @@ type AssetImage struct {
 	DetailUrl string             `json:"detailUrl"`
 	Height    int                `json:"height"`
 	Id        openapi_types.UUID `json:"id"`
+	IsCover   bool               `json:"isCover"`
 	Role      AssetImageRole     `json:"role"`
 	ThumbUrl  string             `json:"thumbUrl"`
 	Width     int                `json:"width"`

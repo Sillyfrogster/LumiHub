@@ -28,6 +28,7 @@ type assetPageResponse struct {
 	Media []struct {
 		ID        string `json:"id"`
 		Role      string `json:"role"`
+		IsCover   bool   `json:"isCover"`
 		DetailURL string `json:"detailUrl"`
 		ThumbURL  string `json:"thumbUrl"`
 		Width     int    `json:"width"`
@@ -105,6 +106,9 @@ func TestAssetPageCarriesItsCoverGalleryExpressionTagsAndBlurb(t *testing.T) {
 	if image.Role != "avatar" || image.Width != 800 || image.Height != 1000 {
 		t.Errorf("cover = %+v", image)
 	}
+	if !image.IsCover || page.Media[1].IsCover || page.Media[2].IsCover {
+		t.Errorf("cover markers = %t, %t, %t", image.IsCover, page.Media[1].IsCover, page.Media[2].IsCover)
+	}
 	if image.DetailURL != "/media/"+image.ID+"/detail/1" {
 		t.Errorf("detailUrl = %q", image.DetailURL)
 	}
@@ -116,6 +120,25 @@ func TestAssetPageCarriesItsCoverGalleryExpressionTagsAndBlurb(t *testing.T) {
 	}
 	if page.Media[1].Role != "gallery" || page.Media[2].Role != "expression" {
 		t.Errorf("page media roles = %q, %q, %q", page.Media[0].Role, page.Media[1].Role, page.Media[2].Role)
+	}
+}
+
+func TestAssetPageDoesNotPromoteGalleryMediaToCover(t *testing.T) {
+	r, session, assets := newVerifiedIngestRouter(t, format.NewRegistry())
+	metadata := exampleMetadata("Coverless Gallery")
+	metadata["filename"] = "coverless-gallery.lumitheme"
+	assetID := assetIDFromIngest(t, uploadAndFinish(t, r, session, assets, metadata, []byte("theme")))
+
+	added := send(t, r, authorized(mediaUploadRequest(
+		t, assetID, "gallery", httpTestPNG(t, 400, 300),
+	), session))
+	if added.Code != http.StatusCreated {
+		t.Fatalf("add gallery status = %d, want 201: %s", added.Code, added.Body.String())
+	}
+
+	page := fetchAssetPage(t, r, "/v1/assets/"+assetID)
+	if len(page.Media) != 1 || page.Media[0].Role != "gallery" || page.Media[0].IsCover {
+		t.Fatalf("coverless gallery media = %+v", page.Media)
 	}
 }
 
@@ -206,7 +229,7 @@ func TestBlurredReaderIsNeverHandedAClearVariant(t *testing.T) {
 	metadata["isNsfw"] = true
 	assetID := assetIDFromIngest(t, uploadAndFinish(t, r, session, assets, metadata, []byte("theme")))
 	added := send(t, r, authorized(mediaUploadRequest(
-		t, assetID, "gallery", httpTestPNG(t, 600, 600),
+		t, assetID, "avatar", httpTestPNG(t, 600, 600),
 	), session))
 	if added.Code != http.StatusCreated {
 		t.Fatalf("add media status = %d, want 201: %s", added.Code, added.Body.String())

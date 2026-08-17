@@ -991,6 +991,7 @@ func toAPIDetail(found asset.Detail, visibility asset.ContentVisibility) AssetDe
 		media = append(media, AssetImage{
 			Id:        types.UUID(image.ID),
 			Role:      AssetImageRole(image.Role),
+			IsCover:   image.IsCover,
 			DetailUrl: image.DetailURL,
 			ThumbUrl:  image.ThumbURL,
 			Width:     image.Width,

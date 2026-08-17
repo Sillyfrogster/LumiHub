@@ -218,6 +218,13 @@ func TestReimportedMediaFillsTheAssetWhileFacetsTrackTheRevision(t *testing.T) {
 	ownerID := revisionOwner(t, svc, "scoped.owner")
 	first := archiveWithImage(t, testPNG(t, 40, 20, color.White))
 	created := ingestOne(t, svc, ownerID, "card.charx", first)
+	added, err := svc.AddMedia(context.Background(), AddMediaInput{
+		OwnerID: ownerID, AssetID: created.ID, Role: MediaGallery,
+		File: bytes.NewReader(testPNG(t, 50, 25, color.Gray{Y: 128})),
+	})
+	if err != nil {
+		t.Fatalf("add creator media: %v", err)
+	}
 
 	second := archiveWithImage(t, testPNG(t, 60, 30, color.Black))
 	operation := addRevision(t, svc, ownerID, created.ID, "card.charx", second)
@@ -247,12 +254,17 @@ func TestReimportedMediaFillsTheAssetWhileFacetsTrackTheRevision(t *testing.T) {
 		t.Fatalf("list reimported media: %v", err)
 	}
 	if len(media) != 2 {
-		t.Fatalf("media rows = %d, want both images on the asset", len(media))
+		t.Fatalf("media rows = %d, want creator media and the reimported image", len(media))
 	}
+	foundCreatorMedia := false
 	for _, image := range media {
 		if image.AssetID != created.ID {
 			t.Fatalf("reimported media belongs to %s, want %s", image.AssetID, created.ID)
 		}
+		foundCreatorMedia = foundCreatorMedia || image.ID == added.ID
+	}
+	if !foundCreatorMedia {
+		t.Fatalf("creator media %s disappeared on reimport", added.ID)
 	}
 
 	var previewAsset uuid.UUID

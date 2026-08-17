@@ -135,6 +135,62 @@ func TestAddingAReplacementMintsANewImmutableMediaRecord(t *testing.T) {
 	}
 }
 
+func TestAlternateAvatarCoversUntilAPrimaryTakesItsPlace(t *testing.T) {
+	svc, _ := newTestService(t)
+	ownerID := uuid.New()
+	created, err := svc.Create(context.Background(), CreateInput{
+		OwnerID: ownerID, Kind: "theme", Filename: "theme.bin",
+		File: bytes.NewReader([]byte("theme")), Name: "Theme",
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	_, err = svc.AddMedia(context.Background(), AddMediaInput{
+		OwnerID: ownerID, AssetID: created.ID, Role: MediaAvatarAlt,
+		File: bytes.NewReader(testPNG(t, 20, 10, color.Black)),
+	})
+	if err != nil {
+		t.Fatalf("Add alternate avatar: %v", err)
+	}
+	alternate, err := svc.AddMedia(context.Background(), AddMediaInput{
+		OwnerID: ownerID, AssetID: created.ID, Role: MediaAvatarAlt,
+		File: bytes.NewReader(testPNG(t, 30, 15, color.White)),
+	})
+	if err != nil {
+		t.Fatalf("Add second alternate avatar: %v", err)
+	}
+	var coverID uuid.UUID
+	if err := svc.pool.QueryRow(context.Background(),
+		`select cover_media_id from assets where id = $1`, created.ID,
+	).Scan(&coverID); err != nil {
+		t.Fatalf("read alternate cover: %v", err)
+	}
+	if coverID != alternate.ID {
+		t.Fatalf("cover = %s, want latest alternate %s", coverID, alternate.ID)
+	}
+	primary, err := svc.AddMedia(context.Background(), AddMediaInput{
+		OwnerID: ownerID, AssetID: created.ID, Role: MediaAvatar,
+		File: bytes.NewReader(testPNG(t, 40, 20, color.Gray{Y: 128})),
+	})
+	if err != nil {
+		t.Fatalf("Add primary avatar: %v", err)
+	}
+	if _, err := svc.AddMedia(context.Background(), AddMediaInput{
+		OwnerID: ownerID, AssetID: created.ID, Role: MediaAvatarAlt,
+		File: bytes.NewReader(testPNG(t, 50, 25, color.White)),
+	}); err != nil {
+		t.Fatalf("Add alternate after primary: %v", err)
+	}
+	if err := svc.pool.QueryRow(context.Background(),
+		`select cover_media_id from assets where id = $1`, created.ID,
+	).Scan(&coverID); err != nil {
+		t.Fatalf("read cover: %v", err)
+	}
+	if coverID != primary.ID || coverID == alternate.ID {
+		t.Fatalf("cover = %s, want primary %s", coverID, primary.ID)
+	}
+}
+
 func TestMediaVariantRegeneratesABoundedCacheMiss(t *testing.T) {
 	svc, _ := newTestService(t)
 	ownerID := uuid.New()

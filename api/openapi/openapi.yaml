@@ -1021,12 +1021,13 @@ components:
           description: The normalized form browse matches on.
     AssetImage:
       type: object
-      required: [id, role, detailUrl, thumbUrl, width, height]
+      required: [id, role, isCover, detailUrl, thumbUrl, width, height]
       properties:
         id: { type: string, format: uuid }
         role:
           type: string
           enum: [avatar, expression, gallery, avatar_alt, perspective_layer]
+        isCover: { type: boolean }
         detailUrl: { type: string }
         thumbUrl: { type: string }
         width: { type: integer, minimum: 1 }

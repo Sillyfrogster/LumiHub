@@ -508,7 +508,10 @@ func TestMediaBelongsToOneAsset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read media columns: %v", err)
 	}
-	want := []string{"id", "asset_id", "role", "width", "height", "created_at", "blob_id"}
+	want := []string{
+		"id", "asset_id", "role", "width", "height", "created_at", "blob_id",
+		"is_extracted", "is_current",
+	}
 	if !slices.Equal(columns, want) {
 		t.Fatalf("media columns = %v, want %v", columns, want)
 	}
