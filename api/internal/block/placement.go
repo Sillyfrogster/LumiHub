@@ -65,18 +65,9 @@ func Place(kind string, tagged []Element) ([]Block, error) {
 func (d Definition) fill(tagged []Element, placed []bool) ([]Element, error) {
 	elements := make([]Element, 0, len(d.Elements))
 	for _, defined := range d.Elements {
-		found := -1
-		for i, candidate := range tagged {
-			if placed[i] || candidate.Role != defined.Role {
-				continue
-			}
-			if found >= 0 {
-				return nil, fmt.Errorf(
-					"%s carries more than one %s element and the block has one place for it",
-					d.ID, defined.Role,
-				)
-			}
-			found = i
+		found, err := d.take(defined.Role, tagged, placed)
+		if err != nil {
+			return nil, err
 		}
 		if found < 0 {
 			if !defined.Pinned {
@@ -108,6 +99,25 @@ func (d Definition) fill(tagged []Element, placed []bool) ([]Element, error) {
 		elements = append(elements, element)
 	}
 	return elements, nil
+}
+
+// take finds the one unplaced element carrying a role, or -1 for none. The
+// definition has one place for it, so a second is refused rather than dropped.
+func (d Definition) take(role Role, tagged []Element, placed []bool) (int, error) {
+	found := -1
+	for i, candidate := range tagged {
+		if placed[i] || candidate.Role != role {
+			continue
+		}
+		if found >= 0 {
+			return 0, fmt.Errorf(
+				"%s carries more than one %s element and the block has one place for it",
+				d.ID, role,
+			)
+		}
+		found = i
+	}
+	return found, nil
 }
 
 // Pinned reports whether an element in this block can be neither removed nor
