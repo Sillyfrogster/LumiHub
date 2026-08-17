@@ -56,22 +56,10 @@ select a.id, a.name, coalesce(owner.username, 'unknown') as creator,
   join asset_revisions revision on revision.id = a.current_revision_id
   left join users owner on owner.id = a.owner_id
   left join users actor on actor.id = a.withheld_by
-  left join lateral (
-      select media.id, media.width, media.height
-        from asset_media media
-       where (media.asset_id = a.id or media.revision_id = a.current_revision_id)
-         and media.width is not null and media.height is not null
-       order by (media.id = a.preview_media_id) desc,
-                case media.role
-                  when 'avatar' then 1
-                  when 'avatar_alt' then 2
-                  when 'gallery' then 3
-                  when 'expression' then 4
-                  else 5
-                end,
-                media.created_at desc, media.id desc
-       limit 1
-  ) cover on true
+  left join asset_media cover
+    on cover.id = a.cover_media_id and cover.asset_id = a.id
+   and cover.width is not null and cover.height is not null
+   and cover.blob_id is not null
  where a.deleted_at is null
    and (
        (sqlc.narg('creator_id')::uuid is null
@@ -224,13 +212,12 @@ select a.id, a.kind, a.name, a.blurb, a.tags, a.is_nsfw, a.discovery, a.created_
 -- The role order matches BrowseAssets, so the first image is the card's cover.
 select media.id, media.role, media.width, media.height
   from assets a
-  join asset_media media
-    on media.asset_id = a.id or media.revision_id = a.current_revision_id
+  join asset_media media on media.asset_id = a.id
  where a.id = $1
    and media.width is not null
    and media.height is not null
    and media.blob_id is not null
- order by (media.id = a.preview_media_id) desc,
+ order by (media.id = a.cover_media_id) desc,
           case media.role
             when 'avatar' then 1
             when 'avatar_alt' then 2

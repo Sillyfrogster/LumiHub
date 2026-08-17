@@ -30,19 +30,25 @@ func TestCreatorAddsMediaAndAnyoneFetchesAnImmutableVariant(t *testing.T) {
 		t.Fatalf("add media status = %d, want 201: %s", added.Code, added.Body.String())
 	}
 	var media struct {
-		ID                string  `json:"id"`
-		AssetID           *string `json:"assetId"`
-		RevisionID        *string `json:"revisionId"`
-		Role              string  `json:"role"`
-		Width             int     `json:"width"`
-		Height            int     `json:"height"`
-		DerivativeVersion uint32  `json:"derivativeVersion"`
+		ID                string `json:"id"`
+		AssetID           string `json:"assetId"`
+		Role              string `json:"role"`
+		Width             int    `json:"width"`
+		Height            int    `json:"height"`
+		DerivativeVersion uint32 `json:"derivativeVersion"`
 	}
 	if err := json.Unmarshal(added.Body.Bytes(), &media); err != nil {
 		t.Fatalf("decode media response: %v", err)
 	}
-	if media.ID == "" || media.AssetID == nil || *media.AssetID != assetID || media.RevisionID != nil {
+	if media.ID == "" || media.AssetID != assetID {
 		t.Fatalf("media response = %+v", media)
+	}
+	var fields map[string]any
+	if err := json.Unmarshal(added.Body.Bytes(), &fields); err != nil {
+		t.Fatalf("decode media fields: %v", err)
+	}
+	if _, exists := fields["revisionId"]; exists {
+		t.Fatalf("media response still carries revisionId: %s", added.Body.String())
 	}
 	if media.Role != "gallery" || media.Width != 1200 || media.Height != 600 {
 		t.Fatalf("media response = %+v", media)

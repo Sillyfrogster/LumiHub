@@ -66,6 +66,13 @@ func TestBrowseReturnsOnlyCardContentAndTheReadersEffectiveCount(t *testing.T) {
 	if finished.Code != http.StatusOK {
 		t.Fatalf("finish ingest status = %d, want 200: %s", finished.Code, finished.Body.String())
 	}
+	assetID := assetIDFromIngest(t, finished)
+	gallery := send(t, router, authorized(mediaUploadRequest(
+		t, assetID, "gallery", httpTestPNG(t, 400, 300),
+	), session))
+	if gallery.Code != http.StatusCreated {
+		t.Fatalf("add gallery status = %d, want 201: %s", gallery.Code, gallery.Body.String())
+	}
 
 	response := send(t, router, httptest.NewRequest(
 		http.MethodGet, "/v1/assets?nsfw=blurred", nil,

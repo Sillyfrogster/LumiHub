@@ -936,13 +936,12 @@ type LinkedInstanceList struct {
 
 // Media defines model for Media.
 type Media struct {
-	AssetId           *openapi_types.UUID `json:"assetId"`
-	DerivativeVersion int                 `json:"derivativeVersion"`
-	Height            int                 `json:"height"`
-	Id                openapi_types.UUID  `json:"id"`
-	RevisionId        *openapi_types.UUID `json:"revisionId"`
-	Role              MediaRole           `json:"role"`
-	Width             int                 `json:"width"`
+	AssetId           openapi_types.UUID `json:"assetId"`
+	DerivativeVersion int                `json:"derivativeVersion"`
+	Height            int                `json:"height"`
+	Id                openapi_types.UUID `json:"id"`
+	Role              MediaRole          `json:"role"`
+	Width             int                `json:"width"`
 }
 
 // MediaRole defines model for Media.Role.

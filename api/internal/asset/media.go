@@ -34,8 +34,7 @@ const (
 
 type Media struct {
 	ID                uuid.UUID
-	AssetID           *uuid.UUID
-	RevisionID        *uuid.UUID
+	AssetID           uuid.UUID
 	Role              MediaRole
 	Width             int
 	Height            int
@@ -106,26 +105,30 @@ func (s *Service) AddMedia(ctx context.Context, in AddMediaInput) (Media, error)
 	if err != nil {
 		return Media{}, fmt.Errorf("record media: %w", err)
 	}
+	if in.Role == MediaAvatar {
+		if err := setCoverMedia(ctx, tx, in.AssetID, &id); err != nil {
+			return Media{}, err
+		}
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return Media{}, fmt.Errorf("commit media addition: %w", err)
 	}
-	assetID := in.AssetID
 	return Media{
-		ID: id, AssetID: &assetID, Role: in.Role,
+		ID: id, AssetID: in.AssetID, Role: in.Role,
 		Width: prepared.Width, Height: prepared.Height,
 		DerivativeVersion: mediaproc.DerivativeVersion,
 	}, nil
 }
 
-// ListMedia returns creator-managed media and media from the current revision.
+// ListMedia returns an asset's media.
 func (s *Service) ListMedia(ctx context.Context, assetID uuid.UUID, viewerID *uuid.UUID) ([]Media, error) {
-	var revisionID uuid.UUID
+	var foundAssetID uuid.UUID
 	err := s.pool.QueryRow(ctx,
-		`select current_revision_id
+		`select id
 		   from assets
 		  where id = $1 and deleted_at is null
 		    and (withheld_at is null or owner_id = $2)`, assetID, viewerID,
-	).Scan(&revisionID)
+	).Scan(&foundAssetID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -133,11 +136,11 @@ func (s *Service) ListMedia(ctx context.Context, assetID uuid.UUID, viewerID *uu
 		return nil, fmt.Errorf("find asset media: %w", err)
 	}
 	rows, err := s.pool.Query(ctx, `
-		select id, asset_id, revision_id, role, width, height
+		select id, asset_id, role, width, height
 		  from asset_media
-		 where asset_id = $1 or revision_id = $2
+		 where asset_id = $1
 		 order by created_at, id
-	`, assetID, revisionID)
+	`, foundAssetID)
 	if err != nil {
 		return nil, fmt.Errorf("list asset media: %w", err)
 	}
@@ -147,7 +150,7 @@ func (s *Service) ListMedia(ctx context.Context, assetID uuid.UUID, viewerID *uu
 		var found Media
 		var width, height pgtype.Int4
 		if err := rows.Scan(
-			&found.ID, &found.AssetID, &found.RevisionID, &found.Role, &width, &height,
+			&found.ID, &found.AssetID, &found.Role, &width, &height,
 		); err != nil {
 			return nil, fmt.Errorf("read asset media: %w", err)
 		}
@@ -229,17 +232,17 @@ func (s *Service) prepareExtractedMedia(
 	return prepared, nil
 }
 
-func insertRevisionMedia(
+func insertAssetMedia(
 	ctx context.Context,
 	tx pgx.Tx,
-	revisionID uuid.UUID,
+	assetID uuid.UUID,
 	media []preparedMedia,
 ) error {
 	for _, item := range media {
 		_, err := tx.Exec(ctx, `
-			insert into asset_media (id, revision_id, role, width, height, blob_id)
+			insert into asset_media (id, asset_id, role, width, height, blob_id)
 			values ($1, $2, $3, $4, $5, $6)
-		`, item.ID, revisionID, item.Role, item.Width, item.Height, item.BlobID)
+		`, item.ID, assetID, item.Role, item.Width, item.Height, item.BlobID)
 		if err != nil {
 			return fmt.Errorf("record extracted media: %w", err)
 		}
@@ -276,8 +279,7 @@ func (s *Service) MediaVariant(
 	err := s.pool.QueryRow(ctx, `
 		select media.blob_id, blob.sha256
 		  from asset_media media
-		  left join asset_revisions revision on revision.id = media.revision_id
-		  join assets asset on asset.id = coalesce(media.asset_id, revision.asset_id)
+		  join assets asset on asset.id = media.asset_id
 		  join blobs blob on blob.id = media.blob_id
 		 where media.id = $1
 		   and asset.deleted_at is null

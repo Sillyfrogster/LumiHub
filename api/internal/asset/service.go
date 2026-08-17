@@ -293,13 +293,13 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Asset, error) {
 	if err := insertFacets(ctx, tx, revisionID, parsed.Facets); err != nil {
 		return Asset{}, err
 	}
-	if err := insertRevisionMedia(ctx, tx, revisionID, extractedMedia); err != nil {
+	if err := insertAssetMedia(ctx, tx, a.ID, extractedMedia); err != nil {
 		return Asset{}, err
 	}
 	if err := setCurrentRevision(ctx, tx, a.ID, revisionID); err != nil {
 		return Asset{}, err
 	}
-	if err := setPreviewMedia(ctx, tx, a.ID, avatarMedia(extractedMedia)); err != nil {
+	if err := setCoverMedia(ctx, tx, a.ID, avatarMedia(extractedMedia)); err != nil {
 		return Asset{}, err
 	}
 

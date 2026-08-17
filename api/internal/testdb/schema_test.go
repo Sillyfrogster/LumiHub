@@ -499,44 +499,84 @@ func TestFacetsBindOnlyToARevision(t *testing.T) {
 	}
 }
 
-func TestMediaBindsToExactlyOneProvenance(t *testing.T) {
+func TestMediaBelongsToOneAsset(t *testing.T) {
 	pool := Connect(t)
-	assetID, revisionID, blobID := insertAssetRevision(t, pool)
+	assetID, _, blobID := insertAssetRevision(t, pool)
 	ctx := context.Background()
+
+	columns, err := tableColumns(pool, "asset_media")
+	if err != nil {
+		t.Fatalf("read media columns: %v", err)
+	}
+	want := []string{"id", "asset_id", "role", "width", "height", "created_at", "blob_id"}
+	if !slices.Equal(columns, want) {
+		t.Fatalf("media columns = %v, want %v", columns, want)
+	}
 
 	roles := []string{"avatar", "expression", "gallery", "avatar_alt", "perspective_layer"}
 	for _, role := range roles {
-		_, err := pool.Exec(ctx,
-			`insert into asset_media (id, revision_id, role, blob_id)
-			 values (gen_random_uuid(), $1, $2, $3)`, revisionID, role, blobID)
-		if err != nil {
-			t.Fatalf("insert revision-scoped %s media: %v", role, err)
-		}
 		_, err = pool.Exec(ctx,
 			`insert into asset_media (id, asset_id, role, blob_id)
 			 values (gen_random_uuid(), $1, $2, $3)`, assetID, role, blobID)
 		if err != nil {
-			t.Fatalf("insert asset-scoped %s media: %v", role, err)
+			t.Fatalf("insert %s media: %v", role, err)
 		}
 	}
 
-	_, err := pool.Exec(ctx,
-		`insert into asset_media (id, asset_id, revision_id, role, blob_id)
-		 values (gen_random_uuid(), $1, $2, 'avatar', $3)`, assetID, revisionID, blobID)
-	if err == nil {
-		t.Error("media bound to both asset and revision was accepted")
-	}
 	_, err = pool.Exec(ctx,
 		`insert into asset_media (id, role, blob_id)
 		 values (gen_random_uuid(), 'gallery', $1)`, blobID)
 	if err == nil {
-		t.Error("media without asset or revision provenance was accepted")
+		t.Error("media without an asset was accepted")
+	}
+	_, err = pool.Exec(ctx,
+		`insert into asset_media (id, asset_id, role, blob_id)
+		 values (gen_random_uuid(), $1, 'gallery', $2)`, uuid.New(), blobID)
+	if err == nil {
+		t.Error("media for an unknown asset was accepted")
 	}
 	_, err = pool.Exec(ctx,
 		`insert into asset_media (id, asset_id, role, blob_id)
 		 values (gen_random_uuid(), $1, 'cover', $2)`, assetID, blobID)
 	if err == nil {
 		t.Error("media with a role outside the closed vocabulary was accepted")
+	}
+}
+
+func TestCoverIsAnOptionalAssetReference(t *testing.T) {
+	pool := Connect(t)
+	assetID, _, blobID := insertAssetRevision(t, pool)
+	ctx := context.Background()
+
+	assetColumns, err := tableColumns(pool, "assets")
+	if err != nil {
+		t.Fatalf("read asset columns: %v", err)
+	}
+	if !slices.Contains(assetColumns, "cover_media_id") || slices.Contains(assetColumns, "preview_media_id") {
+		t.Fatalf("asset columns do not carry the cover directly: %v", assetColumns)
+	}
+
+	var coverID *uuid.UUID
+	if err := pool.QueryRow(ctx,
+		`select cover_media_id from assets where id = $1`, assetID,
+	).Scan(&coverID); err != nil {
+		t.Fatalf("read empty cover: %v", err)
+	}
+	if coverID != nil {
+		t.Fatalf("new asset has synthetic cover %s", *coverID)
+	}
+
+	mediaID := uuid.New()
+	if _, err := pool.Exec(ctx,
+		`insert into asset_media (id, asset_id, role, blob_id)
+		 values ($1, $2, 'avatar', $3)`, mediaID, assetID, blobID,
+	); err != nil {
+		t.Fatalf("insert cover media: %v", err)
+	}
+	if _, err := pool.Exec(ctx,
+		`update assets set cover_media_id = $2 where id = $1`, assetID, mediaID,
+	); err != nil {
+		t.Fatalf("set cover: %v", err)
 	}
 }
 

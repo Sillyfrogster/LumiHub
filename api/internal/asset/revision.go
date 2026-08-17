@@ -120,14 +120,14 @@ func currentRevisionLocation(
 	}, nil
 }
 
-// setPreviewMedia points the asset at the picture a reader should see first.
-// A revision brings its own, so one without a picture clears the old pointer
+// setCoverMedia points the asset at the picture a reader should see first.
+// A reimport brings its own, so one without a picture clears the old pointer
 // rather than leaving the asset pointing into a file it no longer serves.
-func setPreviewMedia(ctx context.Context, tx pgx.Tx, assetID uuid.UUID, mediaID *uuid.UUID) error {
+func setCoverMedia(ctx context.Context, tx pgx.Tx, assetID uuid.UUID, mediaID *uuid.UUID) error {
 	if _, err := tx.Exec(ctx,
-		`update assets set preview_media_id = $2 where id = $1`, assetID, mediaID,
+		`update assets set cover_media_id = $2 where id = $1`, assetID, mediaID,
 	); err != nil {
-		return fmt.Errorf("set preview media: %w", err)
+		return fmt.Errorf("set cover media: %w", err)
 	}
 	return nil
 }

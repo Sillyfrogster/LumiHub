@@ -631,7 +631,7 @@ paths:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
         "200":
-          description: Asset-scoped media and media from the current revision
+          description: Media belonging to the asset
           content:
             application/json:
               schema: { $ref: "#/components/schemas/MediaList" }
@@ -1123,11 +1123,10 @@ components:
           enum: [avatar, expression, gallery, avatar_alt, perspective_layer]
     Media:
       type: object
-      required: [id, assetId, revisionId, role, width, height, derivativeVersion]
+      required: [id, assetId, role, width, height, derivativeVersion]
       properties:
         id: { type: string, format: uuid }
-        assetId: { type: [string, "null"], format: uuid }
-        revisionId: { type: [string, "null"], format: uuid }
+        assetId: { type: string, format: uuid }
         role:
           type: string
           enum: [avatar, expression, gallery, avatar_alt, perspective_layer]

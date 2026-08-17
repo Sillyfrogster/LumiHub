@@ -58,19 +58,19 @@ func TestACardKeepsItsExactBytesWhileItsPictureIsExtracted(t *testing.T) {
 		t.Fatal("the stored card is not the file that was uploaded")
 	}
 
-	var previewRole string
-	var previewRevision uuid.UUID
+	var coverRole string
+	var coverAsset uuid.UUID
 	err = pool.QueryRow(context.Background(), `
-		select media.role, media.revision_id
+		select media.role, media.asset_id
 		  from assets asset
-		  join asset_media media on media.id = asset.preview_media_id
+		  join asset_media media on media.id = asset.cover_media_id
 		 where asset.id = $1
-	`, created.ID).Scan(&previewRole, &previewRevision)
+	`, created.ID).Scan(&coverRole, &coverAsset)
 	if err != nil {
-		t.Fatalf("read preview media: %v", err)
+		t.Fatalf("read cover media: %v", err)
 	}
-	if previewRole != string(MediaAvatar) || previewRevision != created.CurrentRevisionID {
-		t.Fatalf("preview = %s on revision %s", previewRole, previewRevision)
+	if coverRole != string(MediaAvatar) || coverAsset != created.ID {
+		t.Fatalf("cover = %s on asset %s", coverRole, coverAsset)
 	}
 
 	var namespaces []string

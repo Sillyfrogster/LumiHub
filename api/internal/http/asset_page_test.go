@@ -55,7 +55,7 @@ func fetchAssetPage(t *testing.T, r http.Handler, path string) assetPageResponse
 	return page
 }
 
-func TestAssetPageCarriesItsMediaTagsAndBlurb(t *testing.T) {
+func TestAssetPageCarriesItsCoverGalleryExpressionTagsAndBlurb(t *testing.T) {
 	r, session, assets := newVerifiedIngestRouter(t, format.NewRegistry())
 	metadata := exampleMetadata("The Quiet Archivist")
 	metadata["filename"] = "archivist.lumitheme"
@@ -63,11 +63,19 @@ func TestAssetPageCarriesItsMediaTagsAndBlurb(t *testing.T) {
 	metadata["tags"] = []string{"Slow Burn", " Modern "}
 	assetID := assetIDFromIngest(t, uploadAndFinish(t, r, session, assets, metadata, []byte("theme")))
 
-	added := send(t, r, authorized(mediaUploadRequest(
+	cover := send(t, r, authorized(mediaUploadRequest(
 		t, assetID, "avatar", httpTestPNG(t, 800, 1000),
 	), session))
-	if added.Code != http.StatusCreated {
-		t.Fatalf("add media status = %d, want 201: %s", added.Code, added.Body.String())
+	if cover.Code != http.StatusCreated {
+		t.Fatalf("add cover status = %d, want 201: %s", cover.Code, cover.Body.String())
+	}
+	for _, role := range []string{"gallery", "expression"} {
+		added := send(t, r, authorized(mediaUploadRequest(
+			t, assetID, role, httpTestPNG(t, 400, 300),
+		), session))
+		if added.Code != http.StatusCreated {
+			t.Fatalf("add %s status = %d, want 201: %s", role, added.Code, added.Body.String())
+		}
 	}
 
 	page := fetchAssetPage(t, r, "/v1/assets/"+assetID)
@@ -90,8 +98,8 @@ func TestAssetPageCarriesItsMediaTagsAndBlurb(t *testing.T) {
 			t.Errorf("tag %d = %+v, want %q shown and %q matched", i, page.Tags[i], tag.label, tag.value)
 		}
 	}
-	if len(page.Media) != 1 {
-		t.Fatalf("media = %+v, want the one image", page.Media)
+	if len(page.Media) != 3 {
+		t.Fatalf("media = %+v, want the cover, gallery image and expression", page.Media)
 	}
 	image := page.Media[0]
 	if image.Role != "avatar" || image.Width != 800 || image.Height != 1000 {
@@ -105,6 +113,9 @@ func TestAssetPageCarriesItsMediaTagsAndBlurb(t *testing.T) {
 	}
 	if page.Preview == nil || *page.Preview != "/media/"+image.ID+"/og/1" {
 		t.Errorf("preview = %v, want the composed social preview", page.Preview)
+	}
+	if page.Media[1].Role != "gallery" || page.Media[2].Role != "expression" {
+		t.Errorf("page media roles = %q, %q, %q", page.Media[0].Role, page.Media[1].Role, page.Media[2].Role)
 	}
 }
 

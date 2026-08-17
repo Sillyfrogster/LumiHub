@@ -43,9 +43,8 @@ func TestCreatorAddedMediaKeepsNativeDimensionsAndPreGeneratesVariants(t *testin
 	if added.ID == uuid.Nil {
 		t.Fatal("media id is empty")
 	}
-	if added.AssetID == nil || *added.AssetID != created.ID || added.RevisionID != nil {
-		t.Fatalf("media provenance = asset %v revision %v, want asset %s only",
-			added.AssetID, added.RevisionID, created.ID)
+	if added.AssetID != created.ID {
+		t.Fatalf("media asset = %v, want %s", added.AssetID, created.ID)
 	}
 	if added.Width != 1200 || added.Height != 600 {
 		t.Fatalf("dimensions = %dx%d, want native 1200x600", added.Width, added.Height)
@@ -56,18 +55,18 @@ func TestCreatorAddedMediaKeepsNativeDimensionsAndPreGeneratesVariants(t *testin
 
 	var blobID uuid.UUID
 	var digestBytes []byte
-	var storedAsset, storedRevision *uuid.UUID
+	var storedAsset uuid.UUID
 	err = pool.QueryRow(context.Background(), `
-		select media.blob_id, blob.sha256, media.asset_id, media.revision_id
+		select media.blob_id, blob.sha256, media.asset_id
 		  from asset_media media
 		  join blobs blob on blob.id = media.blob_id
 		 where media.id = $1
-	`, added.ID).Scan(&blobID, &digestBytes, &storedAsset, &storedRevision)
+	`, added.ID).Scan(&blobID, &digestBytes, &storedAsset)
 	if err != nil {
 		t.Fatalf("read media row: %v", err)
 	}
-	if storedAsset == nil || *storedAsset != created.ID || storedRevision != nil {
-		t.Fatalf("stored provenance = asset %v revision %v", storedAsset, storedRevision)
+	if storedAsset != created.ID {
+		t.Fatalf("stored media asset = %v, want %s", storedAsset, created.ID)
 	}
 	var digest [sha256.Size]byte
 	copy(digest[:], digestBytes)
@@ -124,6 +123,15 @@ func TestAddingAReplacementMintsANewImmutableMediaRecord(t *testing.T) {
 	}
 	if first.Width != 20 || first.Height != 10 {
 		t.Fatalf("first media mutated to %dx%d", first.Width, first.Height)
+	}
+	var coverID uuid.UUID
+	if err := svc.pool.QueryRow(context.Background(),
+		`select cover_media_id from assets where id = $1`, created.ID,
+	).Scan(&coverID); err != nil {
+		t.Fatalf("read cover: %v", err)
+	}
+	if coverID != second.ID {
+		t.Fatalf("cover = %s, want replacement %s", coverID, second.ID)
 	}
 }
 
@@ -191,7 +199,7 @@ func TestCreatorCannotAddMediaToSomebodyElsesAsset(t *testing.T) {
 	}
 }
 
-func TestIngestStoresExtractedMediaAtRevisionScope(t *testing.T) {
+func TestIngestStoresExtractedMediaOnTheAsset(t *testing.T) {
 	archive := archiveWithImage(t, testPNG(t, 90, 45, color.White))
 	registry := registryWithModule(t, recognizedModule{parsed: format.Parsed{
 		Kind: "character", Format: "recognized",
@@ -221,19 +229,19 @@ func TestIngestStoresExtractedMediaAtRevisionScope(t *testing.T) {
 		t.Fatal("ingest did not create an asset")
 	}
 
-	var assetID, revisionID *uuid.UUID
+	var assetID uuid.UUID
 	var role string
 	var width, height int
 	err = pool.QueryRow(context.Background(), `
-		select asset_id, revision_id, role, width, height
+		select asset_id, role, width, height
 		  from asset_media
-		 where revision_id = $1
-	`, operation.Asset.CurrentRevisionID).Scan(&assetID, &revisionID, &role, &width, &height)
+		 where asset_id = $1
+	`, operation.Asset.ID).Scan(&assetID, &role, &width, &height)
 	if err != nil {
 		t.Fatalf("read extracted media: %v", err)
 	}
-	if assetID != nil || revisionID == nil || *revisionID != operation.Asset.CurrentRevisionID {
-		t.Fatalf("extracted provenance = asset %v revision %v", assetID, revisionID)
+	if assetID != operation.Asset.ID {
+		t.Fatalf("extracted media asset = %v, want %v", assetID, operation.Asset.ID)
 	}
 	if role != "expression" || width != 90 || height != 45 {
 		t.Fatalf("extracted media = %s %dx%d", role, width, height)

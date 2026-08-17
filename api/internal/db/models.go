@@ -16,7 +16,7 @@ type Asset struct {
 	Name              string
 	Blurb             string
 	Tags              []string
-	PreviewMediaID    pgtype.UUID
+	CoverMediaID      pgtype.UUID
 	IsNsfw            bool
 	Discovery         string
 	CreatedAt         pgtype.Timestamptz
@@ -36,14 +36,13 @@ type AssetFacet struct {
 }
 
 type AssetMedium struct {
-	ID         pgtype.UUID
-	AssetID    pgtype.UUID
-	RevisionID pgtype.UUID
-	Role       string
-	Width      pgtype.Int4
-	Height     pgtype.Int4
-	CreatedAt  pgtype.Timestamptz
-	BlobID     pgtype.UUID
+	ID        pgtype.UUID
+	AssetID   pgtype.UUID
+	Role      string
+	Width     pgtype.Int4
+	Height    pgtype.Int4
+	CreatedAt pgtype.Timestamptz
+	BlobID    pgtype.UUID
 }
 
 type AssetRevision struct {

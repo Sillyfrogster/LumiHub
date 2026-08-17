@@ -1373,19 +1373,9 @@ func (h *Handlers) GetMediaVariant(
 }
 
 func toAPIMedia(found asset.Media) Media {
-	var assetID, revisionID *types.UUID
-	if found.AssetID != nil {
-		converted := types.UUID(*found.AssetID)
-		assetID = &converted
-	}
-	if found.RevisionID != nil {
-		converted := types.UUID(*found.RevisionID)
-		revisionID = &converted
-	}
 	return Media{
 		Id:                types.UUID(found.ID),
-		AssetId:           assetID,
-		RevisionId:        revisionID,
+		AssetId:           types.UUID(found.AssetID),
 		Role:              MediaRole(found.Role),
 		Width:             found.Width,
 		Height:            found.Height,

@@ -208,7 +208,7 @@ func TestOnlyTheOwnerOfALiveAssetCanAddARevision(t *testing.T) {
 	}
 }
 
-func TestExtractedMediaAndFacetsBelongToTheRevisionTheyWereReadFrom(t *testing.T) {
+func TestReimportedMediaFillsTheAssetWhileFacetsTrackTheRevision(t *testing.T) {
 	registry := registryWithModule(t, recognizedModule{parsed: format.Parsed{
 		Kind: "character", Format: "recognized",
 		Facets: []format.Facet{{Key: "has_lorebook", Value: "true"}},
@@ -224,8 +224,6 @@ func TestExtractedMediaAndFacetsBelongToTheRevisionTheyWereReadFrom(t *testing.T
 	if operation.Status != IngestSuccess || operation.Asset == nil {
 		t.Fatalf("revision operation = %+v, want success", operation)
 	}
-	newRevisionID := operation.Asset.CurrentRevisionID
-
 	var facetRevisions []uuid.UUID
 	rows, err := pool.Query(context.Background(),
 		`select revision_id from asset_facets where key = 'has_lorebook'`)
@@ -244,23 +242,35 @@ func TestExtractedMediaAndFacetsBelongToTheRevisionTheyWereReadFrom(t *testing.T
 		t.Fatalf("facet rows = %d, want one per revision", len(facetRevisions))
 	}
 
-	var previewID uuid.UUID
-	var previewRevision uuid.UUID
+	media, err := svc.ListMedia(context.Background(), created.ID, &ownerID)
+	if err != nil {
+		t.Fatalf("list reimported media: %v", err)
+	}
+	if len(media) != 2 {
+		t.Fatalf("media rows = %d, want both images on the asset", len(media))
+	}
+	for _, image := range media {
+		if image.AssetID != created.ID {
+			t.Fatalf("reimported media belongs to %s, want %s", image.AssetID, created.ID)
+		}
+	}
+
+	var previewAsset uuid.UUID
 	var width int
 	err = pool.QueryRow(context.Background(), `
-		select media.id, media.revision_id, media.width
+		select media.asset_id, media.width
 		  from assets asset
-		  join asset_media media on media.id = asset.preview_media_id
+		  join asset_media media on media.id = asset.cover_media_id
 		 where asset.id = $1
-	`, created.ID).Scan(&previewID, &previewRevision, &width)
+	`, created.ID).Scan(&previewAsset, &width)
 	if err != nil {
-		t.Fatalf("read preview media: %v", err)
+		t.Fatalf("read cover media: %v", err)
 	}
-	if previewRevision != newRevisionID {
-		t.Fatalf("preview media belongs to revision %s, want %s", previewRevision, newRevisionID)
+	if previewAsset != created.ID {
+		t.Fatalf("cover belongs to asset %s, want %s", previewAsset, created.ID)
 	}
 	if width != 60 {
-		t.Fatalf("preview media is %d wide, want the new revision's picture", width)
+		t.Fatalf("cover media is %d wide, want the reimported picture", width)
 	}
 }
 

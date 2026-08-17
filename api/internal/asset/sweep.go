@@ -283,12 +283,6 @@ func liveBlobReferenceExpression(blobID, at string) string {
 		  join assets asset on asset.id = media.asset_id
 		 where media.blob_id = ` + blobID + `
 		   and (asset.deleted_at is null or asset.recoverable_until > ` + at + `)
-		union all
-		select 1 from asset_media media
-		  join asset_revisions revision on revision.id = media.revision_id
-		  join assets asset on asset.id = revision.asset_id
-		 where media.blob_id = ` + blobID + `
-		   and (asset.deleted_at is null or asset.recoverable_until > ` + at + `)
 	)`
 }
 
@@ -301,11 +295,6 @@ func releaseExpiredReferences(ctx context.Context, tx pgx.Tx, id uuid.UUID, now 
 		`update asset_media media set blob_id = null
 		   from assets asset
 		  where media.asset_id = asset.id and media.blob_id = $1
-		    and asset.deleted_at is not null and asset.recoverable_until <= $2`,
-		`update asset_media media set blob_id = null
-		   from asset_revisions revision, assets asset
-		  where media.revision_id = revision.id and revision.asset_id = asset.id
-		    and media.blob_id = $1
 		    and asset.deleted_at is not null and asset.recoverable_until <= $2`,
 	}
 	for _, statement := range statements {

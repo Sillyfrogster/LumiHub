@@ -536,11 +536,11 @@ func writeRevision(
 	if err := insertFacets(ctx, tx, revisionID, prepared.Facets); err != nil {
 		return err
 	}
-	if err := insertRevisionMedia(ctx, tx, revisionID, prepared.Media); err != nil {
+	if err := insertAssetMedia(ctx, tx, assetID, prepared.Media); err != nil {
 		return err
 	}
 	if err := setCurrentRevision(ctx, tx, assetID, revisionID); err != nil {
 		return err
 	}
-	return setPreviewMedia(ctx, tx, assetID, avatarMedia(prepared.Media))
+	return setCoverMedia(ctx, tx, assetID, avatarMedia(prepared.Media))
 }

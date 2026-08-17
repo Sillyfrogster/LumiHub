@@ -859,9 +859,7 @@ export interface components {
       /** Format: uuid */
       id: string;
       /** Format: uuid */
-      assetId: string | null;
-      /** Format: uuid */
-      revisionId: string | null;
+      assetId: string;
       /** @enum {string} */
       role:
         | "avatar"
@@ -2285,7 +2283,7 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description Asset-scoped media and media from the current revision */
+      /** @description Media belonging to the asset */
       200: {
         headers: {
           [name: string]: unknown;
