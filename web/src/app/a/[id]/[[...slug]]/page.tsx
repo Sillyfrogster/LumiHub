@@ -1,11 +1,9 @@
 import { ArrowLeft, Download } from "lucide-react";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
-import detailBinding from "@/assets/art/full/detail-binding.webp";
 import { Shell } from "@/components/layout/Shell";
 import { type AssetDetail, fetchAsset } from "@/lib/api/query";
 import { assetMetadata } from "@/lib/asset-metadata";
@@ -73,110 +71,152 @@ export default async function AssetPage({
 
   return (
     <div className={styles.page}>
-      <div className={styles.band}>
-        <Image
-          className={styles.detailArt}
-          src={detailBinding}
-          alt=""
-          fill
-          priority
-          sizes="100vw"
-        />
-      </div>
+      <article>
+        <section className={styles.hero}>
+          <Shell className={styles.heroShell}>
+            <Link href="/browse" className={styles.back}>
+              <ArrowLeft size={15} aria-hidden="true" />
+              Back to the collection
+            </Link>
 
-      <Shell as="article" className={styles.body}>
-        <Link href="/browse" className={styles.back}>
-          <ArrowLeft size={15} aria-hidden="true" />
-          Back to the collection
-        </Link>
-
-        <div className={styles.layout}>
-          <AssetMedia
-            id={asset.id}
-            media={asset.media}
-            kind={asset.kind}
-            name={asset.name}
-            isNsfw={asset.isNsfw}
-            visibility={asset.visibility}
-          />
-
-          <div className={styles.identity}>
-            <p className={styles.eyebrow}>
-              <span className={styles.kind}>{kind}</span>
-              <span className={styles.rating}>{ratingLabel(asset.isNsfw)}</span>
-            </p>
-            <h1 className={asset.name ? undefined : styles.unnamed}>
-              {assetDisplayName(asset.name)}
-            </h1>
-            <p className={styles.byline}>
-              by
-              <Link className={styles.creator} href={`/@${asset.creator}`}>
-                {asset.creator}
-              </Link>
-              <span className={styles.dot} aria-hidden="true" />
-              <span className={styles.made}>{made}</span>
-            </p>
-
-            {isDraft ? (
-              <p className={styles.draft}>
-                Draft. Only you can open this page, and it is in no browse or
-                search result.
-              </p>
-            ) : null}
-
-            {asset.withhold ? (
-              <WithholdNotice withhold={asset.withhold} />
-            ) : null}
-
-            {/* A draft has nothing to hand out, so there is nothing to offer. */}
-            {isDraft ? null : (
-              <a className={styles.download} href={`/download/${asset.id}`}>
-                <Download size={16} aria-hidden="true" />
-                Download the source file
-              </a>
-            )}
-
-            {asset.blurb ? (
-              <p className={styles.blurb}>{asset.blurb}</p>
-            ) : (
-              <p className={styles.noBlurb}>
-                The creator has not written a blurb for this{" "}
-                {kind.toLowerCase()} yet.
-              </p>
-            )}
-
-            {asset.tags.length > 0 ? (
-              <ul className={styles.tags}>
-                {asset.tags.map((tag) => (
-                  <li key={tag.value}>
-                    <Link href={browseTagHref(tag.value)}>{tag.label}</Link>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-
-            {/* Discovery applies to a published asset only. */}
-            {isDraft ? null : (
-              <DiscoveryControl
-                assetId={asset.id}
-                creator={asset.creator}
-                initialDiscovery={asset.discovery}
-                frozen={Boolean(asset.withhold)}
+            <div className={styles.heroLayout}>
+              <AssetMedia
+                id={asset.id}
+                media={asset.media}
+                kind={asset.kind}
+                name={asset.name}
+                isNsfw={asset.isNsfw}
+                visibility={asset.visibility}
               />
-            )}
-            {!isDraft && !asset.withhold ? (
-              <WithholdControl assetId={asset.id} />
-            ) : null}
-            <DeleteControl
-              assetId={asset.id}
-              creator={asset.creator}
-              frozen={Boolean(asset.withhold)}
-            />
-          </div>
-        </div>
 
-        <AssetBlocks blocks={asset.blocks} isOwner={asset.isOwner} />
-      </Shell>
+              <div className={styles.identity}>
+                <div className={styles.classification}>
+                  <span className={styles.kind}>{kind}</span>
+                  <span className={styles.rating}>
+                    {ratingLabel(asset.isNsfw)}
+                  </span>
+                </div>
+                <h1 className={asset.name ? undefined : styles.unnamed}>
+                  {assetDisplayName(asset.name)}
+                </h1>
+                <p className={styles.byline}>
+                  Created by
+                  <Link className={styles.creator} href={`/@${asset.creator}`}>
+                    {asset.creator}
+                  </Link>
+                </p>
+
+                {asset.blurb ? (
+                  <p className={styles.blurb}>{asset.blurb}</p>
+                ) : (
+                  <p className={styles.noBlurb}>
+                    The creator has not written a blurb for this{" "}
+                    {kind.toLowerCase()} yet.
+                  </p>
+                )}
+
+                {asset.tags.length > 0 ? (
+                  <ul className={styles.tags}>
+                    {asset.tags.map((tag) => (
+                      <li key={tag.value}>
+                        <Link href={browseTagHref(tag.value)}>{tag.label}</Link>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+
+                {asset.withhold ? (
+                  <WithholdNotice withhold={asset.withhold} />
+                ) : null}
+              </div>
+            </div>
+          </Shell>
+        </section>
+
+        <Shell className={styles.contentShell}>
+          <div className={styles.contentLayout}>
+            <section className={styles.blocks} aria-label="Asset content">
+              <AssetBlocks
+                assetId={asset.id}
+                blocks={asset.blocks}
+                isOwner={asset.isOwner}
+              />
+            </section>
+
+            <aside
+              className={styles.rail}
+              aria-label="Asset details and actions"
+            >
+              {isDraft ? (
+                <section className={styles.draftPanel}>
+                  <h2>Private draft</h2>
+                  <p>
+                    Only you can open this page. It does not appear in browse or
+                    search results.
+                  </p>
+                </section>
+              ) : (
+                <section className={styles.downloadPanel}>
+                  <h2>Keep the original</h2>
+                  <p>Download the creator’s source file as it was shared.</p>
+                  <a href={`/download/${asset.id}`}>
+                    <Download size={16} aria-hidden="true" />
+                    Download source file
+                  </a>
+                </section>
+              )}
+
+              <section className={styles.facts}>
+                <h2>About this {kind.toLowerCase()}</h2>
+                <dl>
+                  <div>
+                    <dt>Creator</dt>
+                    <dd>
+                      <Link href={`/@${asset.creator}`}>{asset.creator}</Link>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Kind</dt>
+                    <dd>{kind}</dd>
+                  </div>
+                  <div>
+                    <dt>Content</dt>
+                    <dd>{ratingLabel(asset.isNsfw)}</dd>
+                  </div>
+                  <div>
+                    <dt>Shared</dt>
+                    <dd>{made}</dd>
+                  </div>
+                </dl>
+              </section>
+
+              {asset.isOwner ? (
+                <section className={styles.creatorTools}>
+                  <h2>Creator tools</h2>
+                  {/* Discovery applies to a published asset only. */}
+                  {isDraft ? null : (
+                    <DiscoveryControl
+                      assetId={asset.id}
+                      creator={asset.creator}
+                      initialDiscovery={asset.discovery}
+                      frozen={Boolean(asset.withhold)}
+                    />
+                  )}
+                  <DeleteControl
+                    assetId={asset.id}
+                    creator={asset.creator}
+                    frozen={Boolean(asset.withhold)}
+                  />
+                </section>
+              ) : null}
+
+              {!isDraft && !asset.withhold ? (
+                <WithholdControl assetId={asset.id} />
+              ) : null}
+            </aside>
+          </div>
+        </Shell>
+      </article>
     </div>
   );
 }

@@ -1,12 +1,17 @@
 .control {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 14px;
   align-items: start;
   max-width: 56ch;
   margin-top: 26px;
   padding-top: 24px;
   border-top: 1px solid var(--line);
+}
+
+.control > button {
+  grid-column: 2;
+  justify-self: start;
 }
 
 .icon {
@@ -82,10 +87,6 @@
 }
 
 @media (max-width: 560px) {
-  .control {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
   .control > button {
     grid-column: 2;
     justify-self: start;

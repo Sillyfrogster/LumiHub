@@ -6,6 +6,8 @@ export type AssetDetail = components["schemas"]["AssetDetail"];
 export type AssetImage = components["schemas"]["AssetImage"];
 export type AssetBlock = components["schemas"]["AssetBlock"];
 export type AssetElement = components["schemas"]["AssetElement"];
+export type SaveAssetBlockRequest =
+  components["schemas"]["SaveAssetBlockRequest"];
 export type AssetTag = components["schemas"]["AssetTag"];
 export type Profile = components["schemas"]["Profile"];
 export type BrowseAsset = components["schemas"]["BrowseAsset"];
@@ -126,6 +128,27 @@ export async function saveAssetDiscovery(
     body: { discovery },
   });
   if (error) throw new Error("Could not save discovery");
+}
+
+/** Saves one builder section without changing any other section on the page. */
+export async function saveAssetBlock(
+  assetId: string,
+  blockId: string,
+  block: SaveAssetBlockRequest,
+): Promise<AssetBlock> {
+  const { data, error } = await api.PUT("/v1/assets/{id}/blocks/{blockId}", {
+    params: { path: { id: assetId, blockId } },
+    body: block,
+  });
+  if (error || !data) {
+    const detail = error as { error?: unknown } | undefined;
+    const message =
+      typeof detail?.error === "string"
+        ? detail.error.replace(/^invalid block:\s*/i, "")
+        : "The section could not be saved. Try again.";
+    throw new Error(message);
+  }
+  return data;
 }
 
 export async function withholdAsset(id: string, reason: string) {

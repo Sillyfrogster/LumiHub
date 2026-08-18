@@ -13,13 +13,13 @@
   z-index: 1;
   width: 100%;
   height: auto;
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
 }
 
 .cover {
-  border: 1px solid var(--line-soft);
-  background: var(--surface-frame);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: #1d1d1f;
 }
 
 .defaultCover {
@@ -35,10 +35,10 @@
   align-items: center;
   gap: 6px;
   padding: 5px 11px;
-  border: 1px solid var(--line-soft);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.92);
-  color: var(--ink-strong);
+  background: rgba(21, 21, 23, 0.88);
+  color: #f5f5f7;
   font-size: 0.66rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -78,7 +78,7 @@
   z-index: 2;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 10px;
+  gap: 8px;
   margin-top: 16px;
   list-style: none;
 }
@@ -90,21 +90,21 @@
   aspect-ratio: 1;
   overflow: hidden;
   padding: 0;
-  border: 1px solid var(--line-soft);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: var(--radius-xs);
-  background: var(--surface-frame);
+  background: #1d1d1f;
   transition:
     border-color 0.25s var(--ease),
     transform 0.25s var(--ease);
 }
 
 .thumb:hover {
-  border-color: var(--faint);
+  border-color: rgba(255, 255, 255, 0.46);
   transform: translateY(-2px);
 }
 
 .pickedThumb {
-  border-color: var(--accent);
+  border-color: #d946ef;
 }
 
 .thumb img,

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Lato, Playfair_Display } from "next/font/google";
+import { Inter, Lato, Playfair_Display } from "next/font/google";
 import { PaperGrain } from "@/components/layout/PaperGrain";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader } from "@/components/layout/SiteHeader";
@@ -19,6 +19,11 @@ const lato = Lato({
   style: ["normal", "italic"],
 });
 
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+});
+
 /** The public origin, so link previews carry absolute URLs. */
 const siteUrl = process.env.SITE_URL ?? "http://localhost:8000";
 
@@ -31,7 +36,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${playfair.variable} ${lato.variable}`}>
+    <html
+      lang="en"
+      className={`${playfair.variable} ${lato.variable} ${inter.variable}`}
+    >
       <body>
         <PaperGrain />
         <Providers>
