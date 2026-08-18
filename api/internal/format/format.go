@@ -435,11 +435,15 @@ type Declaration struct {
 	ID string
 	// Label is the format's name in a download menu, where a reader picks
 	// without having to learn what the formats are.
-	Label         string
-	Kind          string
-	Direction     Direction
-	Recognition   []Recognition
-	Roles         map[block.Role]DirectionalRoleSupport
+	Label       string
+	Kind        string
+	Direction   Direction
+	Recognition []Recognition
+	Roles       map[block.Role]DirectionalRoleSupport
+	// Header names the fields above the blocks that this writer puts in the
+	// file it produces. A field absent from every writer for a kind reaches
+	// no file that kind can be downloaded as.
+	Header        []HeaderField
 	Slots         []SlotDeclaration
 	Limits        ContentLimits
 	ConsumedKeys  []string
@@ -467,6 +471,11 @@ func ValidateDeclaration(d Declaration) error {
 	}
 	if d.Direction.Read && len(d.Recognition) == 0 {
 		return errors.New("a reader needs declared recognition")
+	}
+	for _, field := range d.Header {
+		if !field.Known() {
+			return fmt.Errorf("header field %q is not one an asset carries", field)
+		}
 	}
 	for _, recognition := range d.Recognition {
 		if len(recognition.Containers) == 0 {

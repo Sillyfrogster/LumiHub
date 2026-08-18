@@ -196,10 +196,19 @@ func declaration(id string) format.Declaration {
 	if id != V2 {
 		consumedKeys = append(consumedKeys, "group_only_greetings")
 	}
+	// The header fields a card carries. A v2 card has no nickname key, so the
+	// creator's alternate name is part of the file a v3 card writes and no
+	// part of the one a v2 card writes.
+	header := []format.HeaderField{
+		format.HeaderName, format.HeaderCreditedAuthor, format.HeaderAssetVersion,
+	}
+	if id != V2 {
+		header = append(header, format.HeaderNickname)
+	}
 	return format.Declaration{
 		ID: id, Label: labels[id], Kind: Kind,
 		Direction:   format.Direction{Read: true, Write: true},
-		Recognition: recognition, Roles: roles,
+		Recognition: recognition, Roles: roles, Header: header,
 		Limits: format.ContentLimits{
 			PayloadBytes: block.MaxPayloadBytes, CollectionItems: block.MaxCollectionItems,
 			ItemBytes: block.MaxItemBytes,

@@ -78,6 +78,10 @@ func (s *Service) DeletePreservedNamespace(
 	if _, err := lockEditableAsset(ctx, tx, ownerID, assetID); err != nil {
 		return err
 	}
+	fingerprint, err := s.contentFingerprint(ctx, tx, assetID)
+	if err != nil {
+		return err
+	}
 	result, err := tx.Exec(ctx, `
 		delete from asset_preserved_data where asset_id = $1 and namespace = $2
 	`, assetID, namespace)
@@ -86,6 +90,9 @@ func (s *Service) DeletePreservedNamespace(
 	}
 	if result.RowsAffected() == 0 {
 		return ErrNotFound
+	}
+	if err := s.moveContentGeneration(ctx, tx, assetID, fingerprint); err != nil {
+		return err
 	}
 	return tx.Commit(ctx)
 }

@@ -69,12 +69,21 @@ func (s *Service) SetIdentity(ctx context.Context, in Identity) error {
 	if in.IsNSFW == nil && Lifecycle(lifecycle) != LifecycleDraft {
 		return ErrRatingUnanswerable
 	}
+	fingerprint, err := s.contentFingerprint(ctx, tx, in.AssetID)
+	if err != nil {
+		return err
+	}
 
 	if _, err := tx.Exec(ctx, `
 		update assets set name = $2, is_nsfw = $3, updated_at = now()
 		 where id = $1
 	`, in.AssetID, name, in.IsNSFW); err != nil {
 		return fmt.Errorf("save asset header: %w", err)
+	}
+	// A name is part of a file and the adult content answer is part of a page,
+	// so the counter follows the name alone.
+	if err := s.moveContentGeneration(ctx, tx, in.AssetID, fingerprint); err != nil {
+		return err
 	}
 	return tx.Commit(ctx)
 }

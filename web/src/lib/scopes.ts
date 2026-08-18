@@ -18,7 +18,7 @@ const SCOPES: Record<Scope, ScopeCopy> = {
   "library:sync": {
     title: "Report what it has installed",
     detail:
-      "So LumiHub can show what you already have, and when a newer revision exists.",
+      "So LumiHub can show what you already have, and when a newer version exists.",
   },
 };
 

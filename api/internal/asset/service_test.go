@@ -49,6 +49,7 @@ func (opaqueTestModule) Declaration() format.Declaration {
 	declaration := testReaderDeclaration("test_opaque", "character")
 	declaration.Label = "Test format"
 	declaration.Direction.Write = true
+	declaration.Header = []format.HeaderField{format.HeaderName, format.HeaderAssetVersion}
 	declaration.TestedOrigins = append(declaration.TestedOrigins, format.OriginIllarin)
 	declaration.Roles = map[block.Role]format.DirectionalRoleSupport{
 		block.RoleDescription: {

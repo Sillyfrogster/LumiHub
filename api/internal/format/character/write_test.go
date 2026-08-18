@@ -482,3 +482,40 @@ func decodeObject(t *testing.T, source []byte) map[string]json.RawMessage {
 	}
 	return object
 }
+
+// The header a module declares is what tells Illarin an edit to that field
+// changes the file, so the declaration has to match what the writer writes.
+func TestEachCardWritesEveryHeaderFieldItDeclares(t *testing.T) {
+	written := map[format.HeaderField]string{
+		format.HeaderName:           "name",
+		format.HeaderCreditedAuthor: "creator",
+		format.HeaderAssetVersion:   "character_version",
+		format.HeaderNickname:       "nickname",
+	}
+	subject := format.ExportAsset{
+		Kind: Kind,
+		Header: format.Header{
+			Name: "Ana", AssetVersion: "1.2", CreditedAuthor: "Wren", Nickname: "Archivist",
+		},
+		Elements: []block.Element{
+			prose(block.RoleDescription, "Keeps the archive."),
+			greetings("Hello"),
+		},
+	}
+	for _, module := range Modules() {
+		t.Run(module.ID(), func(t *testing.T) {
+			declaration := module.Declaration()
+			body := writtenBody(t, write(t, module, subject).Body, module.ID())
+			for field, key := range written {
+				value, carried := body[key]
+				declared := slices.Contains(declaration.Header, field)
+				if declared && (!carried || text(t, value) == "") {
+					t.Errorf("%s is declared but %q is not in the file", field, key)
+				}
+				if !declared && carried && text(t, value) != "" {
+					t.Errorf("%q is in the file but %s is not declared", key, field)
+				}
+			}
+		})
+	}
+}

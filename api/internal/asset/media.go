@@ -120,6 +120,10 @@ func (s *Service) AddMedia(ctx context.Context, in AddMediaInput) (Media, error)
 	if withheldAt.Valid {
 		return Media{}, ErrAssetFrozen
 	}
+	fingerprint, err := s.contentFingerprint(ctx, tx, in.AssetID)
+	if err != nil {
+		return Media{}, err
+	}
 
 	stored, err := s.store.Put(ctx, in.File)
 	if err != nil {
@@ -146,6 +150,12 @@ func (s *Service) AddMedia(ctx context.Context, in AddMediaInput) (Media, error)
 		if err := setAlternateCoverMedia(ctx, tx, in.AssetID, id); err != nil {
 			return Media{}, err
 		}
+	}
+	// A picture nothing points at yet reaches no file. This moves the counter
+	// where the new picture became the cover, and leaves it where a gallery
+	// image waits for the block save that will use it.
+	if err := s.moveContentGeneration(ctx, tx, in.AssetID, fingerprint); err != nil {
+		return Media{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return Media{}, fmt.Errorf("commit media addition: %w", err)

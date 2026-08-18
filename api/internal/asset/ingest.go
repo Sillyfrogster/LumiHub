@@ -499,6 +499,13 @@ func (s *Service) writeIngestResult(
 ) (uuid.UUID, error) {
 	blocks := prepared.Blocks
 	if job.Target != nil {
+		if err := lockRevisionTarget(ctx, tx, job.Target.AssetID, job.OwnerID); err != nil {
+			return uuid.Nil, err
+		}
+		fingerprint, err := s.contentFingerprint(ctx, tx, job.Target.AssetID)
+		if err != nil {
+			return uuid.Nil, err
+		}
 		if err := appendRevision(ctx, tx, job, prepared); err != nil {
 			return uuid.Nil, err
 		}
@@ -514,14 +521,16 @@ func (s *Service) writeIngestResult(
 		if _, err := tx.Exec(ctx, `
 			update assets
 			   set origin_format = $2, asset_version = $3, credited_author = $4,
-			       nickname = $5, content_generation = content_generation + 1,
-			       updated_at = now()
+			       nickname = $5, updated_at = now()
 			 where id = $1
 		`, job.Target.AssetID, prepared.Format, prepared.Header.AssetVersion,
 			prepared.Header.CreditedAuthor, prepared.Header.Nickname); err != nil {
 			return uuid.Nil, fmt.Errorf("move asset origin: %w", err)
 		}
 		if err := s.writeExportProjection(ctx, tx, job.Target.AssetID); err != nil {
+			return uuid.Nil, err
+		}
+		if err := s.moveContentGeneration(ctx, tx, job.Target.AssetID, fingerprint); err != nil {
 			return uuid.Nil, err
 		}
 		return job.Target.AssetID, nil
@@ -594,6 +603,25 @@ func replacePreservedData(
 	return nil
 }
 
+// lockRevisionTarget takes the row lock every later step in a replacement runs
+// under, and refuses a frozen asset.
+func lockRevisionTarget(ctx context.Context, tx pgx.Tx, assetID, ownerID uuid.UUID) error {
+	var withheldAt pgtype.Timestamptz
+	err := tx.QueryRow(ctx, `
+		select withheld_at
+		  from assets
+		 where id = $1 and owner_id = $2 and deleted_at is null
+		 for update
+	`, assetID, ownerID).Scan(&withheldAt)
+	if err != nil {
+		return fmt.Errorf("lock revision target: %w", err)
+	}
+	if withheldAt.Valid {
+		return fmt.Errorf("asset %s is frozen", assetID)
+	}
+	return nil
+}
+
 // appendRevision adds a set of source bytes to an asset that already exists.
 // Catalog metadata is never re-seeded here: it was the creator's from the
 // moment the asset was made.
@@ -603,19 +631,6 @@ func appendRevision(
 	job ingestJob,
 	prepared preparedIngest,
 ) error {
-	var withheldAt pgtype.Timestamptz
-	err := tx.QueryRow(ctx, `
-		select withheld_at
-		  from assets
-		 where id = $1 and owner_id = $2 and deleted_at is null
-		 for update
-	`, job.Target.AssetID, job.OwnerID).Scan(&withheldAt)
-	if err != nil {
-		return fmt.Errorf("lock revision target: %w", err)
-	}
-	if withheldAt.Valid {
-		return fmt.Errorf("asset %s is frozen", job.Target.AssetID)
-	}
 	var next int
 	if err := tx.QueryRow(ctx, `
 		select coalesce(max(revision), 0) + 1 from asset_revisions where asset_id = $1
