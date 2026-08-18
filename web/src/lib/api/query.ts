@@ -10,6 +10,8 @@ export type SaveAssetBlockRequest =
   components["schemas"]["SaveAssetBlockRequest"];
 export type ArrangeAssetBlocksRequest =
   components["schemas"]["ArrangeAssetBlocksRequest"];
+export type EntryTableContent = components["schemas"]["EntryTableContent"];
+export type LorebookEntry = EntryTableContent["entries"][number];
 export type AddableSection = components["schemas"]["AddableSection"];
 export type ElementType = components["schemas"]["ElementType"];
 export type AssetTag = components["schemas"]["AssetTag"];
@@ -184,13 +186,17 @@ export async function addAssetBlock(
 /**
  * Stores one image against the asset and answers with its new id. The page
  * reads the image back from the asset once the section holding it is saved.
+ *
+ * The role is what the creator put the image into. An expression set is a
+ * collection that says it holds expressions, and everything else is a gallery.
  */
 export async function addAssetImage(
   assetId: string,
   file: File,
+  role: "expression" | "gallery",
 ): Promise<string> {
   const body = new FormData();
-  body.append("metadata", JSON.stringify({ role: "gallery" }));
+  body.append("metadata", JSON.stringify({ role }));
   body.append("file", file, file.name);
   const response = await fetch(`/api/v1/assets/${assetId}/media`, {
     method: "POST",

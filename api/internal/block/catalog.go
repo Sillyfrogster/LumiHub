@@ -6,15 +6,20 @@ import "slices"
 type DefinitionID string
 
 const (
-	CharacterCore DefinitionID = "character_core"
-	Messages      DefinitionID = "messages"
-	Gallery       DefinitionID = "gallery"
-	Usage         DefinitionID = "usage"
-	Changelog     DefinitionID = "changelog"
-	Attributes    DefinitionID = "attributes"
-	AuthorNotes   DefinitionID = "author_notes"
-	RunsBestWith  DefinitionID = "runs_best_with"
-	CustomSection DefinitionID = "custom_section"
+	CharacterCore     DefinitionID = "character_core"
+	Messages          DefinitionID = "messages"
+	Expressions       DefinitionID = "expressions"
+	Lorebook          DefinitionID = "lorebook"
+	ImagePrompts      DefinitionID = "image_prompts"
+	ModelInstructions DefinitionID = "model_instructions"
+	Relationships     DefinitionID = "relationships"
+	Gallery           DefinitionID = "gallery"
+	Usage             DefinitionID = "usage"
+	Changelog         DefinitionID = "changelog"
+	Attributes        DefinitionID = "attributes"
+	AuthorNotes       DefinitionID = "author_notes"
+	RunsBestWith      DefinitionID = "runs_best_with"
+	CustomSection     DefinitionID = "custom_section"
 )
 
 // Group is where a block's content ends up. The add tray groups by it,
@@ -74,12 +79,36 @@ type Definition struct {
 	Choices []DefinedElement
 }
 
-// choices returns the elements a creator may start this block with.
-func (d Definition) choices() []DefinedElement {
+// start is one way a section can arrive. It is the elements the section holds
+// on the day it is added, and the name the add tray offers it under.
+//
+// A definition that names choices has one start per choice. Every other
+// definition has exactly one, its own declared elements, because there is no
+// route that adds an element to a section later.
+type start struct {
+	Type     Type
+	Label    string
+	Elements []DefinedElement
+}
+
+// starts returns the ways a creator may start this block, in the order the
+// tray offers them.
+func (d Definition) starts() []start {
 	if len(d.Choices) > 0 {
-		return d.Choices
+		starts := make([]start, 0, len(d.Choices))
+		for _, choice := range d.Choices {
+			starts = append(starts, start{
+				Type:     choice.Type,
+				Label:    typeLabels[choice.Type],
+				Elements: []DefinedElement{choice},
+			})
+		}
+		return starts
 	}
-	return d.Elements
+	if len(d.Elements) == 0 {
+		return nil
+	}
+	return []start{{Type: d.Elements[0].Type, Label: d.Title, Elements: d.Elements}}
 }
 
 // DefinedElement is one element a definition places.
@@ -124,6 +153,64 @@ var character = []Definition{
 		Layouts: []Layout{Stack2, Stack3},
 		Width:   Full,
 	},
+	{
+		ID:      Expressions,
+		Title:   "Expressions",
+		Summary: "A picture per expression, each named as the source named it.",
+		Group:   GroupFile,
+		Elements: []DefinedElement{
+			{Role: RoleExpressions, Type: TypeImageSet, Options: Options{ItemSize: ItemSmall}},
+		},
+		Layouts: []Layout{Single},
+		Width:   Full,
+	},
+	{
+		ID:       Lorebook,
+		Title:    "Lorebook",
+		Summary:  "Entries a model reads once one of their key words turns up.",
+		Group:    GroupFile,
+		Elements: []DefinedElement{{Role: RoleLorebookEntries, Type: TypeEntryTable}},
+		Layouts:  []Layout{Single},
+		Width:    TwoThirds,
+	},
+	{
+		ID:      ImagePrompts,
+		Title:   "Image prompts",
+		Summary: "The settings and the prompt text the artwork came from.",
+		Group:   GroupWork,
+		// A prompt is text and its settings are named values, so the section
+		// needs no type of its own for either.
+		Elements: []DefinedElement{
+			{Type: TypeFieldList},
+			{Type: TypeProse, Options: Options{Display: DisplayVerbatim}},
+			{Type: TypeProse, Options: Options{Display: DisplayVerbatim}},
+		},
+		Layouts: []Layout{Stack3},
+		Width:   TwoThirds,
+	},
+	{
+		ID:      ModelInstructions,
+		Title:   "Model instructions",
+		Summary: "The system prompt, and the note that goes after the history.",
+		Group:   GroupFile,
+		Elements: []DefinedElement{
+			{Role: RoleSystemPrompt, Type: TypeProse, Options: Options{Display: DisplayVerbatim}},
+			{Role: RolePostHistoryInstructions, Type: TypeProse, Options: Options{Display: DisplayVerbatim}},
+		},
+		// Half width has no room for duo, so a creator who wants the two
+		// prompts side by side widens the section first.
+		Layouts: []Layout{Stack2, Duo},
+		Width:   Half,
+	},
+	{
+		ID:       Relationships,
+		Title:    "Relationships",
+		Summary:  "Links to the work this character belongs beside.",
+		Group:    GroupReader,
+		Elements: []DefinedElement{{Type: TypeLinkList}},
+		Layouts:  []Layout{Single},
+		Width:    Third,
+	},
 }
 
 // shared is the seven definitions every kind lists. They hold the parts no
@@ -166,13 +253,17 @@ var shared = []Definition{
 		Width:    Third,
 	},
 	{
-		ID:       AuthorNotes,
-		Title:    "Author’s notes",
-		Summary:  "What you want to say about making it.",
-		Group:    GroupWork,
-		Elements: []DefinedElement{{Type: TypeProse, Options: Options{Display: DisplayRich}}},
-		Layouts:  []Layout{Single},
-		Width:    Third,
+		ID:      AuthorNotes,
+		Title:   "Author’s notes",
+		Summary: "What you want to say about making it.",
+		Group:   GroupWork,
+		// Creator notes are what a card format carries, so this is where the
+		// role binds. A kind whose formats carry none never fills it.
+		Elements: []DefinedElement{
+			{Role: RoleCreatorNotes, Type: TypeProse, Options: Options{Display: DisplayRich}},
+		},
+		Layouts: []Layout{Single},
+		Width:   Third,
 	},
 	{
 		ID:       RunsBestWith,

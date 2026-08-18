@@ -198,7 +198,7 @@
 .defaultTitle,
 .addItem,
 .removeItem,
-.elementHeading > button {
+.elementActions > button {
   display: inline-flex;
   min-height: 40px;
   align-items: center;
@@ -238,10 +238,32 @@ button.defaultTitle:hover:not(:disabled),
   line-height: 1.55;
 }
 
-.elementHeading > button,
+.elementFacts {
+  font-weight: 700;
+}
+
+.elementActions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.expand {
+  padding-inline: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.elementActions > button,
 .removeItem {
   flex: 0 0 auto;
   color: #8a4444;
+}
+
+.elementActions .expand {
+  color: var(--body);
 }
 
 .listEditor {
@@ -386,7 +408,7 @@ button.defaultTitle:hover:not(:disabled),
 .addItem:disabled,
 .removeItem:disabled,
 .blockActions button:disabled,
-.elementHeading > button:disabled,
+.elementActions > button:disabled,
 .naming input:disabled,
 .listItem input:disabled,
 .listItem textarea:disabled,
@@ -446,7 +468,7 @@ button.defaultTitle:hover:not(:disabled),
     width: 100%;
   }
 
-  .elementHeading > button {
+  .elementActions {
     align-self: flex-start;
   }
 }

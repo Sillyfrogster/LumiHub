@@ -54,6 +54,10 @@ func toAPIElements(kind string, holder block.Block) ([]AssetElement, error) {
 		if err != nil {
 			return nil, err
 		}
+		facts := element.Facts()
+		if facts == nil {
+			facts = []string{}
+		}
 		served := AssetElement{
 			Id:      types.UUID(element.ID),
 			Type:    ElementType(element.Type),
@@ -61,6 +65,7 @@ func toAPIElements(kind string, holder block.Block) ([]AssetElement, error) {
 			Label:   element.Label(),
 			Pinned:  holder.Pinned(element.Role, kind),
 			IsEmpty: element.Content == nil || element.Content.Empty(),
+			Facts:   facts,
 			Content: content,
 		}
 		if element.Role != "" {

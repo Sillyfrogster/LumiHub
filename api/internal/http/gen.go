@@ -515,6 +515,7 @@ func (e DeletedAssetKind) Valid() bool {
 // Defines values for ElementType.
 const (
 	DialogueSample ElementType = "dialogue_sample"
+	EntryTable     ElementType = "entry_table"
 	FieldList      ElementType = "field_list"
 	ImageSet       ElementType = "image_set"
 	LinkList       ElementType = "link_list"
@@ -527,6 +528,8 @@ func (e ElementType) Valid() bool {
 	switch e {
 	case DialogueSample:
 		return true
+	case EntryTable:
+		return true
 	case FieldList:
 		return true
 	case ImageSet:
@@ -536,6 +539,24 @@ func (e ElementType) Valid() bool {
 	case Prose:
 		return true
 	case TextSet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EntryTableContentEntriesPosition.
+const (
+	AfterCharacter  EntryTableContentEntriesPosition = "after_character"
+	BeforeCharacter EntryTableContentEntriesPosition = "before_character"
+)
+
+// Valid indicates whether the value is a known member of the EntryTableContentEntriesPosition enum.
+func (e EntryTableContentEntriesPosition) Valid() bool {
+	switch e {
+	case AfterCharacter:
+		return true
+	case BeforeCharacter:
 		return true
 	default:
 		return false
@@ -1103,8 +1124,11 @@ type AssetElement struct {
 	// Content The element type's own body. A reader switches on type to read it.
 	Content json.RawMessage      `json:"content"`
 	Display *AssetElementDisplay `json:"display,omitempty"`
-	Id      openapi_types.UUID   `json:"id"`
-	IsEmpty bool                 `json:"isEmpty"`
+
+	// Facts What the element says about its own data, such as how many entries a book holds and how many are switched on. Worked out on the way out and never stored, and never a token count.
+	Facts   []string           `json:"facts"`
+	Id      openapi_types.UUID `json:"id"`
+	IsEmpty bool               `json:"isEmpty"`
 
 	// ItemSize How large the images inside an element are drawn. It names what it controls, and no element type declares a measurement of its own.
 	ItemSize *ItemSize `json:"itemSize,omitempty"`
@@ -1289,6 +1313,32 @@ type DialogueSampleContent struct {
 
 // ElementType What an element's data structure is, from the global vocabulary.
 type ElementType string
+
+// EntryTableContent A lorebook. An entry is switched on by its keys, and how it behaves on the passes after the first is its own setting.
+type EntryTableContent struct {
+	Entries []struct {
+		CaseSensitive *bool    `json:"caseSensitive,omitempty"`
+		Constant      *bool    `json:"constant,omitempty"`
+		Enabled       bool     `json:"enabled"`
+		Keys          []string `json:"keys"`
+		Name          *string  `json:"name,omitempty"`
+		Order         *int     `json:"order,omitempty"`
+
+		// Position Unset where the book leaves the choice to whatever reads it.
+		Position  *EntryTableContentEntriesPosition `json:"position,omitempty"`
+		Recursion *struct {
+			DelayUntil *bool `json:"delayUntil,omitempty"`
+			Exclude    *bool `json:"exclude,omitempty"`
+			Prevent    *bool `json:"prevent,omitempty"`
+		} `json:"recursion,omitempty"`
+		SecondaryKeys *[]string `json:"secondaryKeys,omitempty"`
+		Selective     *bool     `json:"selective,omitempty"`
+		Text          string    `json:"text"`
+	} `json:"entries"`
+}
+
+// EntryTableContentEntriesPosition Unset where the book leaves the choice to whatever reads it.
+type EntryTableContentEntriesPosition string
 
 // FieldListContent defines model for FieldListContent.
 type FieldListContent struct {

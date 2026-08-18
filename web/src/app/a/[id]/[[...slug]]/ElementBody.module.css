@@ -4,6 +4,13 @@
   gap: 10px;
 }
 
+.heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
 .label {
   color: var(--muted);
   font-family: var(--font-body);
@@ -11,6 +18,40 @@
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+}
+
+.facts {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.label + .facts {
+  margin-top: 4px;
+}
+
+.expand {
+  display: inline-flex;
+  min-height: 40px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  padding-inline: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--body);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.expand:hover {
+  border-color: var(--faint);
+  color: var(--ink);
+}
+
+.expand:focus-visible {
+  outline: 3px solid rgba(182, 92, 255, 0.25);
+  outline-offset: 2px;
 }
 
 .element p {
@@ -151,4 +192,130 @@
   font-size: 0.76rem;
   line-height: 1.35;
   overflow-wrap: anywhere;
+}
+
+.entryTableScroll {
+  overflow-x: auto;
+}
+
+.entryTable {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.entryTable th {
+  padding: 0 12px 8px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.entryTable th:last-child,
+.entryTable td:last-child {
+  width: 1%;
+  padding-right: 0;
+  white-space: nowrap;
+}
+
+.entryTable td {
+  padding: 14px 12px 14px 0;
+  border-bottom: 1px solid var(--line-hair);
+  color: var(--body);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  vertical-align: top;
+}
+
+.entryTable tr[data-off] td {
+  color: var(--faint);
+}
+
+.entryTable td p {
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.entryName {
+  color: var(--ink-strong);
+  font-size: 0.88rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.entryTable tr[data-off] .entryName {
+  color: var(--muted);
+}
+
+.entryKeys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  list-style: none;
+}
+
+.entryKeys > li {
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunk);
+  color: var(--body);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  overflow-wrap: anywhere;
+}
+
+.entryNoKeys {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+/* Four columns need a section wide enough to hold them. Below that the row
+   becomes the stacked list a reader can actually follow. */
+@container block (max-width: 620px) {
+  .entryTable thead {
+    display: none;
+  }
+
+  .entryTable tr {
+    display: block;
+    padding-block: 16px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .entryTable td {
+    display: block;
+    padding: 0;
+    border: 0;
+  }
+
+  .entryTable td + td {
+    margin-top: 8px;
+  }
+
+  .entryTable td[data-column="Keys"]::before,
+  .entryTable td[data-column="State"]::before {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--muted);
+    content: attr(data-column);
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .entryTable th:last-child,
+  .entryTable td:last-child {
+    width: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .heading {
+    flex-direction: column;
+    gap: 10px;
+  }
 }

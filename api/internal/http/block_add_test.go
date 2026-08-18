@@ -142,7 +142,8 @@ func TestARequiredSectionAndAnUnofferedElementAreBothRefused(t *testing.T) {
 	if response := addBlock(t, r, session, started.ID, "gallery", "prose"); response.Code != http.StatusBadRequest {
 		t.Errorf("starting a gallery with prose: status = %d, want 400", response.Code)
 	}
-	if response := addBlock(t, r, session, started.ID, "expressions", "image_set"); response.Code != http.StatusBadRequest {
+	// A theme's core section belongs to another kind's catalog entirely.
+	if response := addBlock(t, r, session, started.ID, "theme_core", "color_set"); response.Code != http.StatusBadRequest {
 		t.Errorf("adding a section the kind has not got: status = %d, want 400", response.Code)
 	}
 }

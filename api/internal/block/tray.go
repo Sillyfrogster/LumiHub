@@ -13,12 +13,13 @@ type Offer struct {
 	Summary    string
 	Group      Group
 	Repeatable bool
-	// Choices are the elements a creator may start the section with. One
-	// choice needs no question asking.
+	// Choices are the ways a creator may start the section. Where there is
+	// only one, the tray adds the section without asking anything.
 	Choices []Choice
 }
 
-// Choice is one element a section can start with.
+// Choice is one way a section can start, named by the element type that leads
+// it.
 type Choice struct {
 	Type  Type
 	Label string
@@ -36,12 +37,10 @@ func Offers(kind string) ([]Offer, bool) {
 		if definition.Required {
 			continue
 		}
-		choices := make([]Choice, 0, len(definition.choices()))
-		for _, defined := range definition.choices() {
-			choices = append(choices, Choice{
-				Type:  defined.Type,
-				Label: typeLabels[defined.Type],
-			})
+		starts := definition.starts()
+		choices := make([]Choice, 0, len(starts))
+		for _, option := range starts {
+			choices = append(choices, Choice{Type: option.Type, Label: option.Label})
 		}
 		offers = append(offers, Offer{
 			Definition: definition.ID,
@@ -72,24 +71,37 @@ func NewBlock(kind string, id DefinitionID, elementType Type, page []Block) (Blo
 			}
 		}
 	}
-	var chosen DefinedElement
+	var chosen start
 	found := false
-	for _, candidate := range definition.choices() {
-		if candidate.Type == elementType {
-			chosen, found = candidate, true
+	for _, option := range definition.starts() {
+		if option.Type == elementType {
+			chosen, found = option, true
 			break
 		}
 	}
 	if !found {
 		return Block{}, fmt.Errorf("%s does not hold %s content", definition.Title, elementType)
 	}
-	layout, ok := definition.layoutFor(1)
+	layout, ok := definition.layoutFor(len(chosen.Elements))
 	if !ok {
-		return Block{}, fmt.Errorf("%s has no layout with room for one element", id)
+		return Block{}, fmt.Errorf(
+			"%s has no layout with room for %d elements", id, len(chosen.Elements),
+		)
 	}
-	content, err := chosen.Type.Empty()
-	if err != nil {
-		return Block{}, err
+	elements := make([]Element, 0, len(chosen.Elements))
+	for i, defined := range chosen.Elements {
+		content, err := defined.Type.Empty()
+		if err != nil {
+			return Block{}, err
+		}
+		elements = append(elements, Element{
+			ID:      uuid.New(),
+			Type:    defined.Type,
+			Role:    defined.Role,
+			Slot:    layout.Slots()[i],
+			Options: defined.Options,
+			Content: content,
+		})
 	}
 	return Block{
 		ID:         uuid.New(),
@@ -97,13 +109,6 @@ func NewBlock(kind string, id DefinitionID, elementType Type, page []Block) (Blo
 		Position:   len(page),
 		Layout:     layout,
 		Width:      definition.Width,
-		Elements: []Element{{
-			ID:      uuid.New(),
-			Type:    chosen.Type,
-			Role:    chosen.Role,
-			Slot:    layout.Slots()[0],
-			Options: chosen.Options,
-			Content: content,
-		}},
+		Elements:   elements,
 	}, nil
 }

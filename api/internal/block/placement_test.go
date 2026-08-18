@@ -1,6 +1,7 @@
 package block
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/google/uuid"
@@ -173,8 +174,11 @@ func TestPlacementRefusesRatherThanDroppingWhatItCannotPut(t *testing.T) {
 		t.Errorf("a kind with no catalog was placed anyway")
 	}
 
+	// A sampler setting belongs to a preset, and a character has nowhere for
+	// it, so placement says so rather than dropping it quietly.
 	_, err = Place("character", []Element{{
-		Type: TypeProse, Role: "system_prompt", Content: Prose{Text: "Stay in character."},
+		Type: TypeFieldList, Role: "sampler_settings",
+		Content: FieldList{Fields: []FieldItem{{Name: "Temperature", Value: "0.9"}}},
 	}})
 	if err == nil {
 		t.Errorf("an element the catalog has nowhere for was accepted")
@@ -211,5 +215,128 @@ func TestASingularRoleTakesOneElementHoldingItsList(t *testing.T) {
 	}
 	if greetings != 1 {
 		t.Errorf("greetings elements = %d, want one holding the whole list", greetings)
+	}
+}
+
+func TestTheCharacterCatalogDeclaresItsFiveOptionalSections(t *testing.T) {
+	definitions, ok := Catalog("character")
+	if !ok {
+		t.Fatalf("a character has no catalog")
+	}
+	byID := make(map[DefinitionID]Definition, len(definitions))
+	order := make([]DefinitionID, 0, len(definitions))
+	for _, definition := range definitions {
+		byID[definition.ID] = definition
+		order = append(order, definition.ID)
+	}
+
+	want := []struct {
+		id      DefinitionID
+		roles   []Role
+		types   []Type
+		layouts []Layout
+		width   Width
+	}{
+		{Expressions, []Role{RoleExpressions}, []Type{TypeImageSet}, []Layout{Single}, Full},
+		{Lorebook, []Role{RoleLorebookEntries}, []Type{TypeEntryTable}, []Layout{Single}, TwoThirds},
+		{ImagePrompts, []Role{"", "", ""}, []Type{TypeFieldList, TypeProse, TypeProse}, []Layout{Stack3}, TwoThirds},
+		{ModelInstructions, []Role{RoleSystemPrompt, RolePostHistoryInstructions},
+			[]Type{TypeProse, TypeProse}, []Layout{Stack2, Duo}, Half},
+		{Relationships, []Role{""}, []Type{TypeLinkList}, []Layout{Single}, Third},
+	}
+	for _, expected := range want {
+		definition, listed := byID[expected.id]
+		if !listed {
+			t.Errorf("%s is not in the character catalog", expected.id)
+			continue
+		}
+		if definition.Required {
+			t.Errorf("%s is required, and the catalog declares it optional", expected.id)
+		}
+		if len(definition.Elements) != len(expected.roles) {
+			t.Errorf("%s declares %d elements, want %d",
+				expected.id, len(definition.Elements), len(expected.roles))
+			continue
+		}
+		for i, element := range definition.Elements {
+			if element.Role != expected.roles[i] || element.Type != expected.types[i] {
+				t.Errorf("%s element %d is %s/%s, want %s/%s", expected.id, i+1,
+					element.Role, element.Type, expected.roles[i], expected.types[i])
+			}
+		}
+		if !slices.Equal(definition.Layouts, expected.layouts) {
+			t.Errorf("%s offers layouts %v, want %v", expected.id, definition.Layouts, expected.layouts)
+		}
+		if definition.Width != expected.width {
+			t.Errorf("%s is %s wide, want %s", expected.id, definition.Width, expected.width)
+		}
+	}
+
+	wantOrder := []DefinitionID{
+		CharacterCore, Messages, Expressions, Lorebook,
+		ImagePrompts, ModelInstructions, Relationships,
+		Gallery, Usage, Changelog, Attributes, AuthorNotes, RunsBestWith, CustomSection,
+	}
+	if !slices.Equal(order, wantOrder) {
+		t.Errorf("the character catalog reads %v, want %v", order, wantOrder)
+	}
+}
+
+func TestALorebookRoleIsNotNamedForTheFieldOneFormatUses(t *testing.T) {
+	// The role is named for the content, so a standalone lorebook and a
+	// character's embedded book are the same role.
+	if !RoleLorebookEntries.Allows(TypeEntryTable) {
+		t.Errorf("lorebook entries cannot be held in an entry table")
+	}
+	if RoleLorebookEntries.Allows(TypeProse) {
+		t.Errorf("lorebook entries can be held in prose")
+	}
+	if RoleExpressions.Cardinality() != Singular {
+		t.Errorf("a character may carry more than one expression set")
+	}
+	if RoleGallery.Cardinality() != Repeatable {
+		t.Errorf("a gallery cannot repeat")
+	}
+	if RoleGroupGreetings == RoleGreetings {
+		t.Errorf("group-only greetings share a role with ordinary ones")
+	}
+}
+
+func TestExpressionsArePlacedWhereASourceCarriesThem(t *testing.T) {
+	images := []Element{{
+		ID: uuid.New(), Type: TypeImageSet, Role: RoleExpressions,
+		Content: ImageSet{Images: []ImageItem{
+			{MediaID: uuid.New(), Name: "hey there. do you feel better now?"},
+			{MediaID: uuid.New(), Name: "Alexandra_neutral"},
+		}},
+	}}
+	blocks, err := Place("character", images)
+	if err != nil {
+		t.Fatalf("place an expression set: %v", err)
+	}
+	set := find(t, blocks, Expressions)
+	if len(set.Elements) != 1 || set.Elements[0].Role != RoleExpressions {
+		t.Fatalf("the expressions block holds %v", roles(set))
+	}
+	// Free text, whatever the source called them. A closed vocabulary of
+	// emotions would have refused or mangled eleven of twelve real sets.
+	names := set.Elements[0].Content.(ImageSet).Images
+	if names[0].Name != "hey there. do you feel better now?" || names[1].Name != "Alexandra_neutral" {
+		t.Errorf("expression names came back as %q and %q", names[0].Name, names[1].Name)
+	}
+
+	// Nothing identified these as expressions, so nothing guesses.
+	gallery := []Element{{
+		ID: uuid.New(), Type: TypeImageSet, Role: RoleGallery,
+		Content: ImageSet{Images: []ImageItem{{MediaID: uuid.New()}}},
+	}}
+	blocks, err = Place("character", gallery)
+	if err != nil {
+		t.Fatalf("place a gallery: %v", err)
+	}
+	for _, holder := range blocks {
+		if holder.Definition == Expressions {
+			t.Errorf("images nothing named as expressions became an expression set")
+		}
 	}
 }

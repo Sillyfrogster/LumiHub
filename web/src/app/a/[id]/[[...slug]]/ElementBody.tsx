@@ -1,6 +1,10 @@
+"use client";
+
+import { Maximize2 } from "lucide-react";
 import Image from "next/image";
 import type { CSSProperties } from "react";
-import type { AssetElement, AssetImage } from "@/lib/api/query";
+import type { AssetElement, AssetImage, LorebookEntry } from "@/lib/api/query";
+import { fitsInTheSheet, opensFullScreen } from "@/lib/page-arrangement";
 import styles from "./ElementBody.module.css";
 
 /** The image sizes an element can draw its items at, as a rendered width. */
@@ -8,25 +12,55 @@ const ITEM_WIDTHS = { small: "120px", medium: "180px", large: "260px" };
 
 /**
  * One element on the page. An empty one renders nothing to a reader and a
- * labelled placeholder to its owner. A heading appears only where the element
- * carries a role, because a section holding one nameless element is already
- * named by its own title.
+ * labelled placeholder to its owner. A heading appears only where it says
+ * something the section's own title does not, because a section holding one
+ * element is already named by that title.
  */
 export function ElementBody({
   element,
   isOwner,
   images = [],
+  blockTitle,
+  onExpand,
 }: {
   element: AssetElement;
   isOwner: boolean;
   images?: AssetImage[];
+  blockTitle?: string;
+  onExpand?: () => void;
 }) {
   if (element.isEmpty && !isOwner) return null;
 
+  const label =
+    element.role && element.label && element.label !== blockTitle
+      ? element.label
+      : null;
+  // Size earns a line on the page once the content is past a glance.
+  const facts = fitsInTheSheet(element) ? [] : element.facts;
+  const expandable = isOwner && onExpand && opensFullScreen(element.type);
+
   return (
     <section className={styles.element}>
-      {element.role && element.label ? (
-        <h3 className={styles.label}>{element.label}</h3>
+      {label || facts.length > 0 || expandable ? (
+        <div className={styles.heading}>
+          <div>
+            {label ? <h3 className={styles.label}>{label}</h3> : null}
+            {facts.length > 0 ? (
+              <p className={styles.facts}>{facts.join(" · ")}</p>
+            ) : null}
+          </div>
+          {expandable ? (
+            <button
+              type="button"
+              className={styles.expand}
+              onClick={onExpand}
+              aria-label={`Edit ${element.label || "this content"} in full screen`}
+            >
+              <Maximize2 size={14} aria-hidden="true" />
+              Edit in full screen
+            </button>
+          ) : null}
+        </div>
       ) : null}
       {element.isEmpty ? (
         <p className={styles.blank}>Nothing written here yet.</p>
@@ -138,7 +172,62 @@ function ElementContent({
     );
   }
 
+  if (element.type === "entry_table" && "entries" in content) {
+    return <EntryTable entries={content.entries} />;
+  }
+
   return null;
+}
+
+/**
+ * A book as its entries. Four columns where the section is wide enough to hold
+ * them, and a stacked list where it is not, because four columns in 430 pixels
+ * is not a table anybody can read.
+ */
+function EntryTable({ entries }: { entries: LorebookEntry[] }) {
+  return (
+    <div className={styles.entryTableScroll}>
+      <table className={styles.entryTable}>
+        <thead>
+          <tr>
+            <th scope="col">Entry</th>
+            <th scope="col">Keys</th>
+            <th scope="col">Text</th>
+            <th scope="col">State</th>
+          </tr>
+        </thead>
+        <tbody>
+          {entries.map((entry, index) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: Entries stay ordered and hold no local state.
+            <tr key={index} data-off={entry.enabled ? undefined : true}>
+              <td data-column="Entry">
+                <span className={styles.entryName}>
+                  {entry.name?.trim() || `Entry ${index + 1}`}
+                </span>
+              </td>
+              <td data-column="Keys">
+                {entry.keys.length === 0 ? (
+                  <span className={styles.entryNoKeys}>
+                    {entry.constant ? "Always on" : "No keys"}
+                  </span>
+                ) : (
+                  <ul className={styles.entryKeys}>
+                    {entry.keys.map((key) => (
+                      <li key={key}>{key}</li>
+                    ))}
+                  </ul>
+                )}
+              </td>
+              <td data-column="Text">
+                <Paragraphs text={entry.text} />
+              </td>
+              <td data-column="State">{entry.enabled ? "On" : "Off"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 function Paragraphs({ text }: { text: string }) {

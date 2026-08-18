@@ -1,0 +1,286 @@
+.editor {
+  display: grid;
+  min-height: 0;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.list {
+  display: flex;
+  min-width: 0;
+  max-height: min(62vh, 640px);
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-quiet);
+}
+
+.search input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 13px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.search input:focus {
+  border-color: var(--accent);
+}
+
+.hiddenLabel {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.entries {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.entries button {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 11px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--body);
+  text-align: left;
+}
+
+.entries button:hover {
+  background: var(--surface);
+}
+
+.entries button[aria-current="true"] {
+  border-color: var(--line);
+  background: var(--surface);
+}
+
+.entryName {
+  color: var(--ink-strong);
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.entryKeys {
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.off {
+  align-self: flex-start;
+  margin-top: 3px;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunk);
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.nothing {
+  padding: 10px 2px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+.addEntry,
+.removeEntry {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.addEntry {
+  align-self: flex-start;
+  flex: 0 0 auto;
+  padding-inline: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--body);
+}
+
+.removeEntry {
+  color: #8a4444;
+}
+
+.detail {
+  min-width: 0;
+  scroll-margin-top: 12px;
+}
+
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.detailHeading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.detailHeading h4 {
+  color: var(--ink-strong);
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 500;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.field {
+  display: block;
+}
+
+.field > span {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--body);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.field small {
+  color: var(--muted);
+  font-size: inherit;
+  font-weight: 400;
+}
+
+.field input,
+.field textarea,
+.field select {
+  width: 100%;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--surface-quiet);
+  color: var(--ink);
+  font: inherit;
+  line-height: 1.6;
+}
+
+.field input,
+.field select {
+  min-height: 46px;
+  padding: 10px 13px;
+}
+
+.field textarea {
+  padding: 13px 15px;
+  resize: vertical;
+}
+
+.field input:focus,
+.field textarea:focus,
+.field select:focus {
+  border-color: var(--accent);
+  background: var(--surface);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.group legend {
+  padding-inline: 8px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 14px;
+}
+
+.switch {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.switch input {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+
+.switch > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--ink-strong);
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.switch small {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.addEntry:disabled,
+.removeEntry:disabled,
+.field input:disabled,
+.field textarea:disabled,
+.field select:disabled,
+.switch input:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+@media (max-width: 860px) {
+  .editor {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .list {
+    max-height: 46vh;
+  }
+
+  .pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

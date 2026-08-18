@@ -1210,12 +1210,13 @@ components:
             - $ref: "#/components/schemas/DialogueSampleContent"
             - $ref: "#/components/schemas/ImageSetContent"
             - $ref: "#/components/schemas/LinkListContent"
+            - $ref: "#/components/schemas/EntryTableContent"
     AssetElement:
       type: object
       description: >-
         One piece of content. Its role is what import and export read, and it
         travels with the element wherever the creator moves it.
-      required: [id, type, slot, label, pinned, isEmpty, content]
+      required: [id, type, slot, label, pinned, isEmpty, facts, content]
       properties:
         id: { type: string, format: uuid }
         type: { $ref: "#/components/schemas/ElementType" }
@@ -1230,6 +1231,13 @@ components:
         display: { type: string, enum: [rich, verbatim] }
         itemSize: { $ref: "#/components/schemas/ItemSize" }
         isEmpty: { type: boolean }
+        facts:
+          type: array
+          description: >-
+            What the element says about its own data, such as how many entries a
+            book holds and how many are switched on. Worked out on the way out
+            and never stored, and never a token count.
+          items: { type: string }
         content:
           description: The element type's own body. A reader switches on type to read it.
           x-go-type: json.RawMessage
@@ -1240,6 +1248,7 @@ components:
             - $ref: "#/components/schemas/DialogueSampleContent"
             - $ref: "#/components/schemas/ImageSetContent"
             - $ref: "#/components/schemas/LinkListContent"
+            - $ref: "#/components/schemas/EntryTableContent"
     ProseContent:
       type: object
       required: [text]
@@ -1309,10 +1318,46 @@ components:
               label: { type: string }
               url: { type: string }
               note: { type: string }
+    EntryTableContent:
+      type: object
+      required: [entries]
+      description: >-
+        A lorebook. An entry is switched on by its keys, and how it behaves on
+        the passes after the first is its own setting.
+      properties:
+        entries:
+          type: array
+          items:
+            type: object
+            required: [keys, text, enabled]
+            properties:
+              name: { type: string }
+              keys:
+                type: array
+                items: { type: string }
+              secondaryKeys:
+                type: array
+                items: { type: string }
+              selective: { type: boolean }
+              caseSensitive: { type: boolean }
+              constant: { type: boolean }
+              enabled: { type: boolean }
+              order: { type: integer }
+              position:
+                type: string
+                description: Unset where the book leaves the choice to whatever reads it.
+                enum: [before_character, after_character]
+              recursion:
+                type: object
+                properties:
+                  exclude: { type: boolean }
+                  prevent: { type: boolean }
+                  delayUntil: { type: boolean }
+              text: { type: string }
     ElementType:
       type: string
       description: What an element's data structure is, from the global vocabulary.
-      enum: [prose, text_set, field_list, dialogue_sample, image_set, link_list]
+      enum: [prose, text_set, field_list, dialogue_sample, image_set, link_list, entry_table]
     ItemSize:
       type: string
       description: >-

@@ -31,6 +31,7 @@ type startedBlock struct {
 		Display  string          `json:"display"`
 		ItemSize string          `json:"itemSize"`
 		IsEmpty  bool            `json:"isEmpty"`
+		Facts    []string        `json:"facts"`
 		Content  json.RawMessage `json:"content"`
 	} `json:"elements"`
 }

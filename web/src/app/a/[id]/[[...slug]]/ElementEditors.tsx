@@ -1,6 +1,6 @@
 "use client";
 
-import { ImagePlus, Plus, Trash2 } from "lucide-react";
+import { ImagePlus, Maximize2, Plus, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { useRef, useState } from "react";
 import {
@@ -8,7 +8,9 @@ import {
   type AssetImage,
   addAssetImage,
 } from "@/lib/api/query";
+import { fitsInTheSheet, opensFullScreen } from "@/lib/page-arrangement";
 import styles from "./BlockSheet.module.css";
+import { EntryTableEditor } from "./EntryTableEditor";
 
 type TextItem = { name?: string; text: string };
 type DialogueTurn = { speaker: string; text: string };
@@ -27,6 +29,11 @@ function without<T>(items: T[], index: number): T[] {
   return items.filter((_, position) => position !== index);
 }
 
+/**
+ * One element inside a section sheet. Small content is edited here. Content
+ * past what a sheet can hold says so and sends the creator to the full-screen
+ * surface, which stays available either way.
+ */
 export function ElementEditor({
   assetId,
   element,
@@ -35,6 +42,7 @@ export function ElementEditor({
   onChange,
   onRemove,
   onImageAdded,
+  onExpand,
 }: {
   assetId: string;
   element: AssetElement;
@@ -43,7 +51,9 @@ export function ElementEditor({
   onChange: (element: AssetElement) => void;
   onRemove?: () => void;
   onImageAdded: () => void;
+  onExpand?: () => void;
 }) {
+  const editableHere = fitsInTheSheet(element);
   return (
     <section
       className={styles.element}
@@ -53,27 +63,51 @@ export function ElementEditor({
         <div>
           <h3 id={`element-${element.id}`}>{element.label || "Content"}</h3>
           <p>{elementHint(element.type)}</p>
+          {element.facts.length > 0 ? (
+            <p className={styles.elementFacts}>{element.facts.join(" · ")}</p>
+          ) : null}
         </div>
-        {onRemove ? (
-          <button type="button" onClick={onRemove} disabled={pending}>
-            <Trash2 size={15} aria-hidden="true" />
-            Remove
-          </button>
-        ) : null}
+        <div className={styles.elementActions}>
+          {onExpand && opensFullScreen(element.type) ? (
+            <button
+              type="button"
+              className={styles.expand}
+              onClick={onExpand}
+              disabled={pending}
+            >
+              <Maximize2 size={15} aria-hidden="true" />
+              Full screen
+            </button>
+          ) : null}
+          {onRemove ? (
+            <button type="button" onClick={onRemove} disabled={pending}>
+              <Trash2 size={15} aria-hidden="true" />
+              Remove
+            </button>
+          ) : null}
+        </div>
       </div>
-      <ElementFields
-        assetId={assetId}
-        element={element}
-        images={images}
-        pending={pending}
-        onChange={onChange}
-        onImageAdded={onImageAdded}
-      />
+      {editableHere ? (
+        <ElementFields
+          assetId={assetId}
+          element={element}
+          images={images}
+          pending={pending}
+          onChange={onChange}
+          onImageAdded={onImageAdded}
+        />
+      ) : (
+        <p className={styles.readOnly}>
+          There is more here than a sheet can hold. Full screen is where it is
+          edited, and nothing about it changes on the way.
+        </p>
+      )}
     </section>
   );
 }
 
-function ElementFields({
+/** The editing fields for one element, at whatever width it is given. */
+export function ElementFields({
   assetId,
   element,
   images,
@@ -180,12 +214,30 @@ function ElementFields({
         items={element.content.images}
         images={images}
         pending={pending}
+        // Putting an image in an expression set is what identifies it as one.
+        mediaRole={element.role === "expressions" ? "expression" : "gallery"}
         onAdded={onImageAdded}
         onChange={(added) =>
           onChange({
             ...element,
             content: { images: added },
             isEmpty: added.length === 0,
+          })
+        }
+      />
+    );
+  }
+
+  if (element.type === "entry_table" && "entries" in element.content) {
+    return (
+      <EntryTableEditor
+        entries={element.content.entries}
+        pending={pending}
+        onChange={(entries) =>
+          onChange({
+            ...element,
+            content: { entries },
+            isEmpty: entries.every((entry) => entry.text.trim() === ""),
           })
         }
       />
@@ -347,6 +399,7 @@ function ImageEditor({
   items,
   images,
   pending,
+  mediaRole,
   onChange,
   onAdded,
 }: {
@@ -354,6 +407,7 @@ function ImageEditor({
   items: ImageItem[];
   images: AssetImage[];
   pending: boolean;
+  mediaRole: "expression" | "gallery";
   onChange: (items: ImageItem[]) => void;
   onAdded: () => void;
 }) {
@@ -367,7 +421,7 @@ function ImageEditor({
     setUploading(true);
     setMessage("");
     try {
-      const mediaId = await addAssetImage(assetId, chosen);
+      const mediaId = await addAssetImage(assetId, chosen, mediaRole);
       setPreviews((current) => ({
         ...current,
         [mediaId]: URL.createObjectURL(chosen),
@@ -626,6 +680,8 @@ function elementHint(type: AssetElement["type"]): string {
       return "Each row is a short name and the value beside it.";
     case "link_list":
       return "Addresses have to start with http or https.";
+    case "entry_table":
+      return "Each entry is switched on by its own keys.";
   }
 }
 function capitalize(value: string) {

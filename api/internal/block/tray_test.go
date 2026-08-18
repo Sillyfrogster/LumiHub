@@ -173,3 +173,60 @@ func TestAPageWithTwoCustomSectionsPassesValidationAndTwoGalleriesDoNot(t *testi
 		t.Errorf("two galleries were allowed on one page")
 	}
 }
+
+func TestASectionWithMoreThanOneElementArrivesWholeRatherThanInPieces(t *testing.T) {
+	// There is no route that adds an element to a section later, so a
+	// definition that declares three of them has to arrive holding all three.
+	prompts, err := NewBlock("character", ImagePrompts, TypeFieldList, nil)
+	if err != nil {
+		t.Fatalf("add image prompts: %v", err)
+	}
+	if got := len(prompts.Elements); got != 3 {
+		t.Fatalf("image prompts arrived with %d elements, want the three it declares", got)
+	}
+	if prompts.Layout != Stack3 {
+		t.Errorf("image prompts arrived in %s, want the layout with room for three", prompts.Layout)
+	}
+	wantTypes := []Type{TypeFieldList, TypeProse, TypeProse}
+	for i, element := range prompts.Elements {
+		if element.Type != wantTypes[i] {
+			t.Errorf("element %d is a %s, want %s", i+1, element.Type, wantTypes[i])
+		}
+		if element.Slot != Stack3.Slots()[i] {
+			t.Errorf("element %d is in slot %q, want %q", i+1, element.Slot, Stack3.Slots()[i])
+		}
+	}
+	if prompts.Elements[1].Options.Display != DisplayVerbatim {
+		t.Errorf("a prompt body is shown as %q, want verbatim", prompts.Elements[1].Options.Display)
+	}
+
+	instructions, err := NewBlock("character", ModelInstructions, TypeProse, nil)
+	if err != nil {
+		t.Fatalf("add model instructions: %v", err)
+	}
+	if got := roles(instructions); len(got) != 2 ||
+		got[0] != RoleSystemPrompt || got[1] != RolePostHistoryInstructions {
+		t.Errorf("model instructions arrived with roles %v, want both prompts", got)
+	}
+}
+
+func TestASectionThatArrivesWholeIsOfferedAsOneChoice(t *testing.T) {
+	offers, ok := Offers("character")
+	if !ok {
+		t.Fatalf("a character has no add tray")
+	}
+	byDefinition := make(map[DefinitionID]Offer, len(offers))
+	for _, offer := range offers {
+		byDefinition[offer.Definition] = offer
+	}
+	prompts, offered := byDefinition[ImagePrompts]
+	if !offered {
+		t.Fatalf("image prompts are not offered on a character")
+	}
+	if len(prompts.Choices) != 1 {
+		t.Errorf("image prompts are offered as %d choices, want one whole section", len(prompts.Choices))
+	}
+	if len(byDefinition[CustomSection].Choices) < 2 {
+		t.Errorf("a custom section is offered without the elements it can start with")
+	}
+}

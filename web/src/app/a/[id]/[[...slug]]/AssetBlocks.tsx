@@ -6,6 +6,7 @@ import { type CSSProperties, useEffect, useState } from "react";
 import {
   type AddableSection,
   type AssetBlock,
+  type AssetElement,
   type AssetImage,
   addAssetBlock,
   arrangeAssetBlocks,
@@ -26,6 +27,18 @@ import {
 import styles from "./AssetBlocks.module.css";
 import { BlockSheet } from "./BlockSheet";
 import { ElementBody } from "./ElementBody";
+import { ElementOverlay } from "./ElementOverlay";
+
+/**
+ * Puts a creator back on a section by scrolling to it and marking it. Setting
+ * a hash that is already set scrolls nothing, so the section is asked to
+ * scroll directly and the hash only does the marking.
+ */
+function returnToBlock(blockId: string) {
+  const anchor = `block-${blockId}`;
+  document.getElementById(anchor)?.scrollIntoView({ block: "start" });
+  window.location.hash = anchor;
+}
 
 /** One row arrangement per layout preset the catalog can choose. */
 const LAYOUT_CLASS: Record<AssetBlock["layout"], string> = {
@@ -65,13 +78,18 @@ export function AssetBlocks({
   const [removing, setRemoving] = useState<AssetBlock | null>(null);
   const [blockActionPending, setBlockActionPending] = useState(false);
   const [added, setAdded] = useState<string | null>(null);
+  const [expanding, setExpanding] = useState<{
+    blockId: string;
+    element: AssetElement;
+  } | null>(null);
+  const [expandPending, setExpandPending] = useState(false);
+  const [expandMessage, setExpandMessage] = useState("");
 
   useEffect(() => setCurrentBlocks(blocks), [blocks]);
 
-  // Setting the hash is what scrolls to the new section and marks it.
   useEffect(() => {
     if (!added) return;
-    window.location.hash = `block-${added}`;
+    returnToBlock(added);
     setAdded(null);
   }, [added]);
 
@@ -82,6 +100,46 @@ export function AssetBlocks({
   const rows = packBlockRows(packable, { showHidden: editingVisible });
 
   const editedBlock = currentBlocks.find((block) => block.id === editing);
+  const expandedBlock = expanding
+    ? currentBlocks.find((block) => block.id === expanding.blockId)
+    : undefined;
+
+  /**
+   * Leaving the overlay writes the element through and puts the creator back
+   * on the section it came from. A save that fails keeps the overlay open
+   * holding the editing, rather than closing over a loss.
+   */
+  async function leaveOverlay() {
+    if (!expanding || !expandedBlock || expandPending) return;
+    setExpandPending(true);
+    setExpandMessage("");
+    try {
+      const saved = await saveAssetBlock(
+        assetId,
+        expandedBlock.id,
+        blockSaveRequest(expandedBlock, {
+          elements: expandedBlock.elements.map((element) =>
+            element.id === expanding.element.id ? expanding.element : element,
+          ),
+        }),
+      );
+      setCurrentBlocks((current) =>
+        saved
+          ? current.map((item) => (item.id === saved.id ? saved : item))
+          : current.filter((item) => item.id !== expandedBlock.id),
+      );
+      setExpanding(null);
+      if (saved) returnToBlock(saved.id);
+    } catch (error) {
+      setExpandMessage(
+        error instanceof Error
+          ? error.message
+          : "The content could not be saved. Try again.",
+      );
+    } finally {
+      setExpandPending(false);
+    }
+  }
 
   function addSection(definition: string, elementType: ElementType) {
     void runBlockAction(async () => {
@@ -213,7 +271,7 @@ export function AssetBlocks({
                                   const saved = await saveAssetBlock(
                                     assetId,
                                     block.id,
-                                    blockSaveRequest(block, width),
+                                    blockSaveRequest(block, { width }),
                                   );
                                   setCurrentBlocks((current) =>
                                     saved
@@ -296,6 +354,13 @@ export function AssetBlocks({
                               element={element}
                               isOwner={editingVisible}
                               images={images}
+                              blockTitle={block.title}
+                              onExpand={() =>
+                                setExpanding({
+                                  blockId: block.id,
+                                  element: structuredClone(element),
+                                })
+                              }
                             />
                           </div>
                         ))}
@@ -344,6 +409,23 @@ export function AssetBlocks({
             setCurrentBlocks(saved);
           }}
           onRemove={() => setRemoving(editedBlock)}
+        />
+      ) : null}
+      {expanding && expandedBlock ? (
+        <ElementOverlay
+          assetId={assetId}
+          element={expanding.element}
+          images={images}
+          returnLabel={`Return to ${expandedBlock.title}`}
+          pending={expandPending}
+          message={expandMessage}
+          onChange={(element) =>
+            setExpanding((current) =>
+              current ? { ...current, element } : current,
+            )
+          }
+          onLeave={() => void leaveOverlay()}
+          onImageAdded={() => router.refresh()}
         />
       ) : null}
       {removing ? (
@@ -396,13 +478,13 @@ export function AssetBlocks({
 
 function blockSaveRequest(
   block: AssetBlock,
-  width: AssetBlock["width"],
+  changes: { width?: AssetBlock["width"]; elements?: AssetElement[] },
 ): SaveAssetBlockRequest {
   return {
     title: block.titleIsDefault ? null : block.title,
     layout: block.layout,
-    width,
-    elements: block.elements.map((element) => ({
+    width: changes.width ?? block.width,
+    elements: (changes.elements ?? block.elements).map((element) => ({
       id: element.id,
       type: element.type,
       role: element.role,

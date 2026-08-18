@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
   contentItemCount,
+  fitsInTheSheet,
+  INLINE_ITEM_LIMIT,
   LAYOUTS,
   layoutChoiceIssue,
+  opensFullScreen,
   packBlockRows,
   WIDTH_COLUMNS,
   widthChoiceIssue,
@@ -204,5 +207,38 @@ describe("remove confirmation counts", () => {
     for (const [type, content, count] of examples) {
       expect(contentItemCount({ type, content })).toBe(count);
     }
+  });
+});
+
+describe("where an element is edited", () => {
+  test("the four collection types open a full-screen surface", () => {
+    for (const type of [
+      "entry_table",
+      "image_set",
+      "text_set",
+      "dialogue_sample",
+    ]) {
+      expect(opensFullScreen(type)).toBe(true);
+    }
+    for (const type of ["prose", "field_list", "link_list"]) {
+      expect(opensFullScreen(type)).toBe(false);
+    }
+  });
+
+  test("small content stays editable in the sheet", () => {
+    const two = { type: "text_set", content: { texts: [{}, {}] } };
+    expect(fitsInTheSheet(two)).toBe(true);
+
+    const many = {
+      type: "entry_table",
+      content: { entries: Array.from({ length: INLINE_ITEM_LIMIT + 1 }) },
+    };
+    expect(fitsInTheSheet(many)).toBe(false);
+  });
+
+  test("prose is never sent to the overlay however long it is", () => {
+    expect(
+      fitsInTheSheet({ type: "prose", content: { text: "x".repeat(9000) } }),
+    ).toBe(true);
   });
 });

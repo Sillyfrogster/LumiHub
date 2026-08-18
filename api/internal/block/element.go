@@ -26,6 +26,7 @@ const (
 	TypeDialogueSample Type = "dialogue_sample"
 	TypeImageSet       Type = "image_set"
 	TypeLinkList       Type = "link_list"
+	TypeEntryTable     Type = "entry_table"
 )
 
 // Role is what an element's content means, and it is the whole of what import
@@ -39,7 +40,23 @@ const (
 	RoleGreetings       Role = "greetings"
 	RoleGroupGreetings  Role = "group_greetings"
 	RoleExampleDialogue Role = "example_dialogue"
-	RoleGallery         Role = "gallery"
+	// RoleSystemPrompt and RolePostHistoryInstructions are prompt text a
+	// creator writes for a model rather than for a reader.
+	RoleSystemPrompt            Role = "system_prompt"
+	RolePostHistoryInstructions Role = "post_history_instructions"
+	// RoleCreatorNotes is what the creator wanted to say about making the
+	// thing, which is the note every card format carries as creator_notes.
+	RoleCreatorNotes Role = "creator_notes"
+	RoleGallery      Role = "gallery"
+	// RoleExpressions is a named set of pictures of one face. The names are
+	// free text and an exporter maps them. Illarin holds no vocabulary of
+	// emotions to check them against.
+	RoleExpressions Role = "expressions"
+	// RoleLorebookEntries is one role for a character's embedded book and for
+	// a standalone lorebook alike. It was named for the field CCv2 uses while
+	// character was the only kind that had one, and it is named for the
+	// content now.
+	RoleLorebookEntries Role = "lorebook_entries"
 )
 
 // Cardinality says how many elements one role may have on an asset.
@@ -325,6 +342,8 @@ func DecodeContent(elementType Type, raw json.RawMessage) (Content, error) {
 			}
 		}
 		return LinkList{Links: *incoming.Links}, nil
+	case TypeEntryTable:
+		return decodeEntryTable(raw)
 	case TypeImageSet:
 		var incoming struct {
 			Images *[]ImageItem `json:"images"`
@@ -440,6 +459,12 @@ var labels = map[Role]string{
 	RoleGroupGreetings:  "Group-only greetings",
 	RoleExampleDialogue: "Example dialogue",
 	RoleGallery:         "Images",
+
+	RoleSystemPrompt:            "System prompt",
+	RolePostHistoryInstructions: "Post-history instructions",
+	RoleCreatorNotes:            "Author’s notes",
+	RoleExpressions:             "Expressions",
+	RoleLorebookEntries:         "Entries",
 }
 
 // typeLabels name an element that carries no role, so a removal confirmation
@@ -451,6 +476,7 @@ var typeLabels = map[Type]string{
 	TypeDialogueSample: "Dialogue",
 	TypeImageSet:       "Images",
 	TypeLinkList:       "Links",
+	TypeEntryTable:     "Entries",
 }
 
 // Label returns the element's wording, from its role where it has one and from
@@ -470,6 +496,12 @@ var roleTypes = map[Role][]Type{
 	RoleGroupGreetings:  {TypeTextSet},
 	RoleExampleDialogue: {TypeDialogueSample},
 	RoleGallery:         {TypeImageSet},
+
+	RoleSystemPrompt:            {TypeProse},
+	RolePostHistoryInstructions: {TypeProse},
+	RoleCreatorNotes:            {TypeProse},
+	RoleExpressions:             {TypeImageSet},
+	RoleLorebookEntries:         {TypeEntryTable},
 }
 
 // Label returns the role's wording on the page.

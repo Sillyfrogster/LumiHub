@@ -76,4 +76,8 @@ var schemas = map[Type]schema{
 		empty:  func() Content { return LinkList{Links: []LinkItem{}} },
 		decode: decodeAs[LinkList],
 	},
+	TypeEntryTable: {
+		empty:  func() Content { return EntryTable{Entries: []Entry{}} },
+		decode: decodeAs[EntryTable],
+	},
 }

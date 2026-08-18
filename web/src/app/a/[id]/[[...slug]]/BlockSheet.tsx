@@ -13,6 +13,7 @@ import { LAYOUTS } from "@/lib/page-arrangement";
 import { LayoutPicker, WidthPicker } from "./ArrangementPickers";
 import styles from "./BlockSheet.module.css";
 import { ElementEditor } from "./ElementEditors";
+import { ElementOverlay } from "./ElementOverlay";
 
 export function BlockSheet({
   assetId,
@@ -46,6 +47,9 @@ export function BlockSheet({
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
   const [arrangementMessage, setArrangementMessage] = useState("");
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  const expandedElement = elements.find((element) => element.id === expanded);
 
   useEffect(() => {
     dialog.current?.showModal();
@@ -212,6 +216,7 @@ export function BlockSheet({
                 pending={pending}
                 onChange={replaceElement}
                 onImageAdded={onImageAdded}
+                onExpand={() => setExpanded(element.id)}
                 onRemove={
                   element.pinned
                     ? undefined
@@ -289,6 +294,20 @@ export function BlockSheet({
           </button>
         </footer>
       </form>
+      {expandedElement ? (
+        <ElementOverlay
+          assetId={assetId}
+          element={expandedElement}
+          images={images}
+          // The sheet stays open behind it, holding the rest of the section.
+          returnLabel={`Return to ${block.title}`}
+          pending={false}
+          message=""
+          onChange={replaceElement}
+          onLeave={() => setExpanded(null)}
+          onImageAdded={onImageAdded}
+        />
+      ) : null}
     </dialog>
   );
 }

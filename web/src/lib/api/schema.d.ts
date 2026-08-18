@@ -851,7 +851,8 @@ export interface components {
         | components["schemas"]["FieldListContent"]
         | components["schemas"]["DialogueSampleContent"]
         | components["schemas"]["ImageSetContent"]
-        | components["schemas"]["LinkListContent"];
+        | components["schemas"]["LinkListContent"]
+        | components["schemas"]["EntryTableContent"];
     };
     /** @description One piece of content. Its role is what import and export read, and it travels with the element wherever the creator moves it. */
     AssetElement: {
@@ -868,6 +869,8 @@ export interface components {
       display?: "rich" | "verbatim";
       itemSize?: components["schemas"]["ItemSize"];
       isEmpty: boolean;
+      /** @description What the element says about its own data, such as how many entries a book holds and how many are switched on. Worked out on the way out and never stored, and never a token count. */
+      facts: string[];
       /** @description The element type's own body. A reader switches on type to read it. */
       content:
         | components["schemas"]["ProseContent"]
@@ -875,7 +878,8 @@ export interface components {
         | components["schemas"]["FieldListContent"]
         | components["schemas"]["DialogueSampleContent"]
         | components["schemas"]["ImageSetContent"]
-        | components["schemas"]["LinkListContent"];
+        | components["schemas"]["LinkListContent"]
+        | components["schemas"]["EntryTableContent"];
     };
     ProseContent: {
       text: string;
@@ -913,6 +917,30 @@ export interface components {
         note?: string;
       }[];
     };
+    /** @description A lorebook. An entry is switched on by its keys, and how it behaves on the passes after the first is its own setting. */
+    EntryTableContent: {
+      entries: {
+        name?: string;
+        keys: string[];
+        secondaryKeys?: string[];
+        selective?: boolean;
+        caseSensitive?: boolean;
+        constant?: boolean;
+        enabled: boolean;
+        order?: number;
+        /**
+         * @description Unset where the book leaves the choice to whatever reads it.
+         * @enum {string}
+         */
+        position?: "before_character" | "after_character";
+        recursion?: {
+          exclude?: boolean;
+          prevent?: boolean;
+          delayUntil?: boolean;
+        };
+        text: string;
+      }[];
+    };
     /**
      * @description What an element's data structure is, from the global vocabulary.
      * @enum {string}
@@ -923,7 +951,8 @@ export interface components {
       | "field_list"
       | "dialogue_sample"
       | "image_set"
-      | "link_list";
+      | "link_list"
+      | "entry_table";
     /**
      * @description How large the images inside an element are drawn. It names what it controls, and no element type declares a measurement of its own.
      * @enum {string}
