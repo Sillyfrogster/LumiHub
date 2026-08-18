@@ -248,6 +248,25 @@ func TestSavingAnElementWithAnUnknownDisplayNamesTheClosedChoices(t *testing.T) 
 	}
 }
 
+func TestSavingTextWithoutDisplayNamesTheClosedChoices(t *testing.T) {
+	r, session := newVerifiedTestRouter(t)
+	started := startCharacter(t, r, session)
+	coreBlock := blockNamed(t, started.Blocks, "character_core")
+	core := editableBlock(coreBlock)
+	core.Elements[0].Display = ""
+
+	response := saveBlock(t, r, session, started.ID, coreBlock.ID, core)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("missing display status = %d, want 400: %s", response.Code, response.Body.String())
+	}
+	for _, want := range []string{"Description", "display", "rich", "verbatim"} {
+		if !strings.Contains(response.Body.String(), want) {
+			t.Errorf("refusal %q does not name %q", response.Body.String(), want)
+		}
+	}
+}
+
 func TestSavingDuplicateElementIdentityNamesWhatMustChange(t *testing.T) {
 	r, session := newVerifiedTestRouter(t)
 	started := startCharacter(t, r, session)
@@ -261,6 +280,44 @@ func TestSavingDuplicateElementIdentityNamesWhatMustChange(t *testing.T) {
 		t.Fatalf("duplicate element id status = %d, want 400: %s", response.Code, response.Body.String())
 	}
 	for _, want := range []string{"Description", "Personality", "same id"} {
+		if !strings.Contains(response.Body.String(), want) {
+			t.Errorf("refusal %q does not name %q", response.Body.String(), want)
+		}
+	}
+}
+
+func TestSavingAReplacementElementIdentityIsRefused(t *testing.T) {
+	r, session := newVerifiedTestRouter(t)
+	started := startCharacter(t, r, session)
+	coreBlock := blockNamed(t, started.Blocks, "character_core")
+	core := editableBlock(coreBlock)
+	core.Elements[0].ID = "00000000-0000-4000-8000-000000000001"
+
+	response := saveBlock(t, r, session, started.ID, coreBlock.ID, core)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("replacement element id status = %d, want 400: %s", response.Code, response.Body.String())
+	}
+	for _, want := range []string{"Description", "existing id"} {
+		if !strings.Contains(response.Body.String(), want) {
+			t.Errorf("refusal %q does not name %q", response.Body.String(), want)
+		}
+	}
+}
+
+func TestMalformedElementIdentityNamesTheRequiredShape(t *testing.T) {
+	r, session := newVerifiedTestRouter(t)
+	started := startCharacter(t, r, session)
+	coreBlock := blockNamed(t, started.Blocks, "character_core")
+	core := editableBlock(coreBlock)
+	core.Elements[0].ID = "not-a-uuid"
+
+	response := saveBlock(t, r, session, started.ID, coreBlock.ID, core)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("malformed element id status = %d, want 400: %s", response.Code, response.Body.String())
+	}
+	for _, want := range []string{"id", "UUID"} {
 		if !strings.Contains(response.Body.String(), want) {
 			t.Errorf("refusal %q does not name %q", response.Body.String(), want)
 		}

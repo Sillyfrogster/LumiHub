@@ -19,7 +19,9 @@ func (h *Handlers) SaveAssetBlock(c *gin.Context, id types.UUID, blockID types.U
 	}
 	var request SaveAssetBlockRequest
 	if err := decodeOneJSON(c.Request.Body, &request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Send only the section title and elements as JSON."})
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Send valid JSON with only a title and elements. Every element id must be a UUID; display must be rich or verbatim.",
+		})
 		return
 	}
 	update, err := blockUpdate(request)

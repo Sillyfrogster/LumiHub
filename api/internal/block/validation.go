@@ -34,19 +34,19 @@ func ValidateStructure(holder Block) error {
 			)
 		}
 		identities[element.ID] = name
-		if element.Options.Display != "" {
+		supportsDisplay := element.Type == TypeProse || element.Type == TypeTextSet
+		if supportsDisplay {
 			if !element.Options.Display.Known() {
 				return fmt.Errorf(
 					"%s uses display %q. Choose rich or verbatim before saving",
 					name, element.Options.Display,
 				)
 			}
-			if element.Type != TypeProse && element.Type != TypeTextSet {
-				return fmt.Errorf(
-					"%s does not support a display option. Remove it before saving",
-					name,
-				)
-			}
+		} else if element.Options.Display != "" {
+			return fmt.Errorf(
+				"%s does not support a display option. Remove it before saving",
+				name,
+			)
 		}
 		if !slices.Contains(available, element.Slot) {
 			return fmt.Errorf(
@@ -73,6 +73,12 @@ func ValidateStructure(holder Block) error {
 func ValidateBuilderConstraints(kind string, before []Block, after []Block) error {
 	roleCount := make(map[Role]int)
 	elementIDs := make(map[uuid.UUID]string)
+	existingIDs := make(map[uuid.UUID]struct{})
+	for _, holder := range before {
+		for _, element := range holder.Elements {
+			existingIDs[element.ID] = struct{}{}
+		}
+	}
 	for _, holder := range after {
 		for i, element := range holder.Elements {
 			name := element.Role.Label()
@@ -84,6 +90,9 @@ func ValidateBuilderConstraints(kind string, before []Block, after []Block) erro
 					"%s and %s use the same id. Give each element its own id before saving",
 					prior, name,
 				)
+			}
+			if _, exists := existingIDs[element.ID]; !exists {
+				return fmt.Errorf("%s must keep its existing id before saving", name)
 			}
 			elementIDs[element.ID] = name
 			if element.Role == "" {

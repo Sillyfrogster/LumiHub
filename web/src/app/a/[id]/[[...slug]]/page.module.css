@@ -5,6 +5,7 @@
   --detail-dark-line: rgba(255, 255, 255, 0.14);
   --detail-dark-text: #f5f5f7;
   --detail-dark-muted: #a1a1aa;
+  --detail-dark-accent: #a78bfa;
   position: relative;
   overflow-x: clip;
   background: #fafafb;
@@ -84,7 +85,7 @@
 
 .kind {
   border-color: rgba(182, 92, 255, 0.32);
-  color: #e1b8ff;
+  color: var(--detail-dark-accent);
 }
 
 .identity h1 {
@@ -100,7 +101,7 @@
 }
 
 .unnamed {
-  color: #92929c;
+  color: var(--detail-dark-muted);
   font-style: italic;
 }
 
@@ -122,14 +123,14 @@
 }
 
 .creator:hover {
-  color: #e1b8ff;
+  color: var(--detail-dark-accent);
 }
 
 .blurb,
 .noBlurb {
   max-width: 65ch;
   margin-top: 28px;
-  color: #d4d4da;
+  color: var(--detail-dark-muted);
   font-size: 1.05rem;
   line-height: 1.7;
 }
