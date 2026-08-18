@@ -1242,8 +1242,10 @@ type DeletedAssetList struct {
 // DialogueSampleContent defines model for DialogueSampleContent.
 type DialogueSampleContent struct {
 	Turns []struct {
-		Speaker string `json:"speaker"`
-		Text    string `json:"text"`
+		// Id Illarin's own id for this item, minted when the item is created. Preserved data keys against it, so send it back unchanged; an item with no id is a new one.
+		Id      *openapi_types.UUID `json:"id,omitempty"`
+		Speaker string              `json:"speaker"`
+		Text    string              `json:"text"`
 	} `json:"turns"`
 }
 
@@ -1253,12 +1255,15 @@ type ElementType string
 // EntryTableContent A lorebook. An entry is switched on by its keys, and how it behaves on the passes after the first is its own setting.
 type EntryTableContent struct {
 	Entries []struct {
-		CaseSensitive *bool    `json:"caseSensitive,omitempty"`
-		Constant      *bool    `json:"constant,omitempty"`
-		Enabled       bool     `json:"enabled"`
-		Keys          []string `json:"keys"`
-		Name          *string  `json:"name,omitempty"`
-		Order         *int     `json:"order,omitempty"`
+		CaseSensitive *bool `json:"caseSensitive,omitempty"`
+		Constant      *bool `json:"constant,omitempty"`
+		Enabled       bool  `json:"enabled"`
+
+		// Id Illarin's own id for this item, minted when the item is created. Preserved data keys against it, so send it back unchanged; an item with no id is a new one.
+		Id    *openapi_types.UUID `json:"id,omitempty"`
+		Keys  []string            `json:"keys"`
+		Name  *string             `json:"name,omitempty"`
+		Order *int                `json:"order,omitempty"`
 
 		// Position Unset where the book leaves the choice to whatever reads it.
 		Position  *EntryTableContentEntriesPosition `json:"position,omitempty"`
@@ -1279,8 +1284,10 @@ type EntryTableContentEntriesPosition string
 // FieldListContent defines model for FieldListContent.
 type FieldListContent struct {
 	Fields []struct {
-		Name  *string `json:"name,omitempty"`
-		Value string  `json:"value"`
+		// Id Illarin's own id for this item, minted when the item is created. Preserved data keys against it, so send it back unchanged; an item with no id is a new one.
+		Id    *openapi_types.UUID `json:"id,omitempty"`
+		Name  *string             `json:"name,omitempty"`
+		Value string              `json:"value"`
 	} `json:"fields"`
 }
 
@@ -1299,8 +1306,10 @@ type FileFieldPatch struct {
 // ImageSetContent An ordered list of images. An item carries its image and one optional free-text name, and its position is where it sits in the list.
 type ImageSetContent struct {
 	Images []struct {
-		MediaId openapi_types.UUID `json:"mediaId"`
-		Name    *string            `json:"name,omitempty"`
+		// Id Illarin's own id for this item, minted when the item is created. Preserved data keys against it, so send it back unchanged; an item with no id is a new one.
+		Id      *openapi_types.UUID `json:"id,omitempty"`
+		MediaId openapi_types.UUID  `json:"mediaId"`
+		Name    *string             `json:"name,omitempty"`
 	} `json:"images"`
 }
 
@@ -1331,9 +1340,11 @@ type ItemSize string
 // LinkListContent defines model for LinkListContent.
 type LinkListContent struct {
 	Links []struct {
-		Label *string `json:"label,omitempty"`
-		Note  *string `json:"note,omitempty"`
-		Url   string  `json:"url"`
+		// Id Illarin's own id for this item, minted when the item is created. Preserved data keys against it, so send it back unchanged; an item with no id is a new one.
+		Id    *openapi_types.UUID `json:"id,omitempty"`
+		Label *string             `json:"label,omitempty"`
+		Note  *string             `json:"note,omitempty"`
+		Url   string              `json:"url"`
 	} `json:"links"`
 }
 
@@ -1437,6 +1448,15 @@ type PendingLink struct {
 // PollLinkRequest defines model for PollLinkRequest.
 type PollLinkRequest struct {
 	DeviceCode string `json:"deviceCode"`
+}
+
+// PreservedNamespace defines model for PreservedNamespace.
+type PreservedNamespace struct {
+	// Bytes How much the asset is holding under this namespace.
+	Bytes int `json:"bytes"`
+
+	// Name The namespace as the file that carried it named it.
+	Name string `json:"name"`
 }
 
 // Profile defines model for Profile.
@@ -1546,8 +1566,10 @@ type StartLinkRequest struct {
 // TextSetContent defines model for TextSetContent.
 type TextSetContent struct {
 	Texts []struct {
-		Name *string `json:"name,omitempty"`
-		Text string  `json:"text"`
+		// Id Illarin's own id for this item, minted when the item is created. Preserved data keys against it, so send it back unchanged; an item with no id is a new one.
+		Id   *openapi_types.UUID `json:"id,omitempty"`
+		Name *string             `json:"name,omitempty"`
+		Text string              `json:"text"`
 	} `json:"texts"`
 }
 
@@ -1778,6 +1800,12 @@ type ServerInterface interface {
 
 	// (POST /v1/assets/{id}/media)
 	AddMedia(c *gin.Context, id openapi_types.UUID)
+
+	// (GET /v1/assets/{id}/preserved)
+	ListPreservedNamespaces(c *gin.Context, id openapi_types.UUID)
+
+	// (DELETE /v1/assets/{id}/preserved/{namespace})
+	DeletePreservedNamespace(c *gin.Context, id openapi_types.UUID, namespace string)
 
 	// (POST /v1/assets/{id}/publish)
 	PublishAsset(c *gin.Context, id openapi_types.UUID)
@@ -2489,6 +2517,65 @@ func (siw *ServerInterfaceWrapper) AddMedia(c *gin.Context) {
 	siw.Handler.AddMedia(c, id)
 }
 
+// ListPreservedNamespaces operation middleware
+func (siw *ServerInterfaceWrapper) ListPreservedNamespaces(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ListPreservedNamespaces(c, id)
+}
+
+// DeletePreservedNamespace operation middleware
+func (siw *ServerInterfaceWrapper) DeletePreservedNamespace(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "namespace" -------------
+	var namespace string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "namespace", c.Param("namespace"), &namespace, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter namespace: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DeletePreservedNamespace(c, id, namespace)
+}
+
 // PublishAsset operation middleware
 func (siw *ServerInterfaceWrapper) PublishAsset(c *gin.Context) {
 
@@ -3036,6 +3123,8 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/v1/assets/:id/blocks", wrapper.AddAssetBlock)
 	router.PUT(options.BaseURL+"/v1/assets/:id/blocks", wrapper.ArrangeAssetBlocks)
 	router.POST(options.BaseURL+"/v1/assets/:id/blocks/:blockId/move-and-remove", wrapper.MoveAssetBlockContent)
+	router.GET(options.BaseURL+"/v1/assets/:id/preserved", wrapper.ListPreservedNamespaces)
+	router.DELETE(options.BaseURL+"/v1/assets/:id/preserved/:namespace", wrapper.DeletePreservedNamespace)
 	router.PUT(options.BaseURL+"/v1/assets/:id/file-patch", wrapper.SetFilePatch)
 	router.POST(options.BaseURL+"/v1/assets/:id/restore", wrapper.RestoreAsset)
 	router.PUT(options.BaseURL+"/v1/assets/:id/identity", wrapper.SetAssetIdentity)

@@ -165,8 +165,9 @@ type TextSet struct {
 }
 
 type TextItem struct {
-	Name string `json:"name,omitempty"`
-	Text string `json:"text"`
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name,omitempty"`
+	Text string    `json:"text"`
 }
 
 func (s TextSet) Empty() bool {
@@ -184,8 +185,9 @@ type DialogueSample struct {
 }
 
 type DialogueTurn struct {
-	Speaker string `json:"speaker"`
-	Text    string `json:"text"`
+	ID      uuid.UUID `json:"id"`
+	Speaker string    `json:"speaker"`
+	Text    string    `json:"text"`
 }
 
 func (d DialogueSample) Empty() bool { return len(d.Turns) == 0 }
@@ -198,6 +200,7 @@ type ImageSet struct {
 }
 
 type ImageItem struct {
+	ID      uuid.UUID `json:"id"`
 	MediaID uuid.UUID `json:"mediaId"`
 	Name    string    `json:"name,omitempty"`
 }
@@ -210,8 +213,9 @@ type FieldList struct {
 }
 
 type FieldItem struct {
-	Name  string `json:"name,omitempty"`
-	Value string `json:"value"`
+	ID    uuid.UUID `json:"id"`
+	Name  string    `json:"name,omitempty"`
+	Value string    `json:"value"`
 }
 
 func (l FieldList) Empty() bool {
@@ -230,9 +234,10 @@ type LinkList struct {
 }
 
 type LinkItem struct {
-	Label string `json:"label,omitempty"`
-	URL   string `json:"url"`
-	Note  string `json:"note,omitempty"`
+	ID    uuid.UUID `json:"id"`
+	Label string    `json:"label,omitempty"`
+	URL   string    `json:"url"`
+	Note  string    `json:"note,omitempty"`
 }
 
 func (l LinkList) Empty() bool {
@@ -279,8 +284,9 @@ func DecodeContent(elementType Type, raw json.RawMessage) (Content, error) {
 	case TypeTextSet:
 		var incoming struct {
 			Texts *[]struct {
-				Name string  `json:"name,omitempty"`
-				Text *string `json:"text"`
+				ID   uuid.UUID `json:"id,omitempty"`
+				Name string    `json:"name,omitempty"`
+				Text *string   `json:"text"`
 			} `json:"texts"`
 		}
 		if err := decodeContentJSON(raw, &incoming); err != nil {
@@ -294,14 +300,15 @@ func DecodeContent(elementType Type, raw json.RawMessage) (Content, error) {
 			if item.Text == nil {
 				return nil, fmt.Errorf("text %d must include text as a string", i+1)
 			}
-			texts[i] = TextItem{Name: item.Name, Text: *item.Text}
+			texts[i] = TextItem{ID: itemID(item.ID), Name: item.Name, Text: *item.Text}
 		}
 		return TextSet{Texts: texts}, nil
 	case TypeDialogueSample:
 		var incoming struct {
 			Turns *[]struct {
-				Speaker *string `json:"speaker"`
-				Text    *string `json:"text"`
+				ID      uuid.UUID `json:"id,omitempty"`
+				Speaker *string   `json:"speaker"`
+				Text    *string   `json:"text"`
 			} `json:"turns"`
 		}
 		if err := decodeContentJSON(raw, &incoming); err != nil {
@@ -315,14 +322,15 @@ func DecodeContent(elementType Type, raw json.RawMessage) (Content, error) {
 			if turn.Speaker == nil || turn.Text == nil {
 				return nil, fmt.Errorf("turn %d must include speaker and text as strings", i+1)
 			}
-			turns[i] = DialogueTurn{Speaker: *turn.Speaker, Text: *turn.Text}
+			turns[i] = DialogueTurn{ID: itemID(turn.ID), Speaker: *turn.Speaker, Text: *turn.Text}
 		}
 		return DialogueSample{Turns: turns}, nil
 	case TypeFieldList:
 		var incoming struct {
 			Fields *[]struct {
-				Name  string  `json:"name,omitempty"`
-				Value *string `json:"value"`
+				ID    uuid.UUID `json:"id,omitempty"`
+				Name  string    `json:"name,omitempty"`
+				Value *string   `json:"value"`
 			} `json:"fields"`
 		}
 		if err := decodeContentJSON(raw, &incoming); err != nil {
@@ -336,7 +344,7 @@ func DecodeContent(elementType Type, raw json.RawMessage) (Content, error) {
 			if field.Value == nil {
 				return nil, fmt.Errorf("field %d must include value as a string", i+1)
 			}
-			fields[i] = FieldItem{Name: field.Name, Value: *field.Value}
+			fields[i] = FieldItem{ID: itemID(field.ID), Name: field.Name, Value: *field.Value}
 		}
 		return FieldList{Fields: fields}, nil
 	case TypeLinkList:
@@ -349,12 +357,14 @@ func DecodeContent(elementType Type, raw json.RawMessage) (Content, error) {
 		if incoming.Links == nil {
 			return nil, fmt.Errorf("links must be present as a list")
 		}
-		for i, link := range *incoming.Links {
-			if err := checkWebAddress(link.URL); err != nil {
+		links := *incoming.Links
+		for i := range links {
+			if err := checkWebAddress(links[i].URL); err != nil {
 				return nil, fmt.Errorf("link %d: %w", i+1, err)
 			}
+			links[i].ID = itemID(links[i].ID)
 		}
-		return LinkList{Links: *incoming.Links}, nil
+		return LinkList{Links: links}, nil
 	case TypeEntryTable:
 		return decodeEntryTable(raw)
 	case TypeImageSet:
@@ -367,12 +377,14 @@ func DecodeContent(elementType Type, raw json.RawMessage) (Content, error) {
 		if incoming.Images == nil {
 			return nil, fmt.Errorf("images must be present as a list")
 		}
-		for i, image := range *incoming.Images {
-			if image.MediaID == uuid.Nil {
+		images := *incoming.Images
+		for i := range images {
+			if images[i].MediaID == uuid.Nil {
 				return nil, fmt.Errorf("image %d must include a media id", i+1)
 			}
+			images[i].ID = itemID(images[i].ID)
 		}
-		return ImageSet{Images: *incoming.Images}, nil
+		return ImageSet{Images: images}, nil
 	default:
 		return nil, fmt.Errorf("no element type %q", elementType)
 	}

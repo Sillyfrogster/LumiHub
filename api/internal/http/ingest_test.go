@@ -50,7 +50,7 @@ func testReaderDeclaration(id, kind string) format.Declaration {
 			ItemBytes: block.MaxItemBytes,
 		},
 		ConsumedKeys:  []string{"payload"},
-		Preservation:  format.PreservationDeclaration{Namespaces: []string{"test"}},
+		Preservation:  format.PreservationDeclaration{Body: "test"},
 		TestedOrigins: []string{id},
 	}
 }

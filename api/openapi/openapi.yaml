@@ -606,6 +606,44 @@ paths:
         "403": { description: The signed-in account has not verified its email }
         "404": { description: The asset or either block does not belong to the creator }
         "409": { description: The asset is withheld and cannot be changed }
+  /v1/assets/{id}/preserved:
+    get:
+      operationId: listPreservedNamespaces
+      description: >-
+        Name the platform-specific namespaces this asset carries. The panel is
+        read-only apart from deleting, so nothing here returns a payload.
+        Namespaces the asset's own format calls boilerplate are left out, which
+        is display and not storage.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: Every namespace the asset carries, in name order
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PreservedNamespace" }
+        "401": { description: No account is signed in }
+        "403": { description: The signed-in account has not verified its email }
+        "404": { description: The asset does not belong to the creator }
+  /v1/assets/{id}/preserved/{namespace}:
+    delete:
+      operationId: deletePreservedNamespace
+      description: >-
+        Delete one namespace and everything stored under it. Deletion is
+        permanent: the lossless rule binds Illarin, not the creator.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: namespace, in: path, required: true, schema: { type: string } }
+      responses:
+        "204": { description: The namespace is gone }
+        "401": { description: No account is signed in }
+        "403": { description: The signed-in account has not verified its email }
+        "404": { description: The asset or the namespace does not belong to the creator }
+        "409": { description: The asset is withheld and cannot be changed }
   /v1/assets/{id}/file-patch:
     put:
       operationId: setFilePatch
@@ -1241,6 +1279,13 @@ components:
             type: object
             required: [text]
             properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
               name: { type: string }
               text: { type: string }
     DialogueSampleContent:
@@ -1253,6 +1298,13 @@ components:
             type: object
             required: [speaker, text]
             properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
               speaker: { type: string }
               text: { type: string }
     ImageSetContent:
@@ -1268,6 +1320,13 @@ components:
             type: object
             required: [mediaId]
             properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
               mediaId: { type: string, format: uuid }
               name: { type: string }
     FieldListContent:
@@ -1280,6 +1339,13 @@ components:
             type: object
             required: [value]
             properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
               name: { type: string }
               value: { type: string }
     LinkListContent:
@@ -1292,6 +1358,13 @@ components:
             type: object
             required: [url]
             properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
               label: { type: string }
               url: { type: string }
               note: { type: string }
@@ -1308,6 +1381,13 @@ components:
             type: object
             required: [keys, text, enabled]
             properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
               name: { type: string }
               keys:
                 type: array
@@ -1459,6 +1539,16 @@ components:
         visibility: { type: string, enum: [hidden, blurred, shown] }
         withhold:
           $ref: "#/components/schemas/AssetWithhold"
+    PreservedNamespace:
+      type: object
+      required: [name, bytes]
+      properties:
+        name:
+          type: string
+          description: The namespace as the file that carried it named it.
+        bytes:
+          type: integer
+          description: How much the asset is holding under this namespace.
     AssetDiscoveryRequest:
       type: object
       additionalProperties: false

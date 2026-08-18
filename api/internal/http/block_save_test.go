@@ -111,8 +111,21 @@ func TestACreatorSavesDescriptionAndGreetingContent(t *testing.T) {
 	if string(core.Elements[0].Content) != `{"text":"She keeps the memories that books forget."}` {
 		t.Errorf("saved description = %s", core.Elements[0].Content)
 	}
-	if string(messages.Elements[0].Content) != `{"texts":[{"text":"The west shelf moved again. Come in."}]}` {
+	var greetings struct {
+		Texts []struct {
+			ID   uuid.UUID `json:"id"`
+			Text string    `json:"text"`
+		} `json:"texts"`
+	}
+	if err := json.Unmarshal(messages.Elements[0].Content, &greetings); err != nil {
+		t.Fatalf("read the saved greetings: %v", err)
+	}
+	if len(greetings.Texts) != 1 || greetings.Texts[0].Text != "The west shelf moved again. Come in." {
 		t.Errorf("saved greetings = %s", messages.Elements[0].Content)
+	}
+	// The greeting is an item, so it left the save with an id of its own.
+	if greetings.Texts[0].ID == uuid.Nil {
+		t.Error("the saved greeting carries no id")
 	}
 }
 

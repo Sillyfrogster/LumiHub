@@ -3,6 +3,8 @@ package block
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/google/uuid"
 )
 
 // EntryTable is a lorebook. A model reads an entry once one of its key words
@@ -16,6 +18,9 @@ type EntryTable struct {
 
 // Entry is one lorebook entry.
 type Entry struct {
+	// ID is Illarin's own, minted when the entry is created. Preserved data
+	// keys against it, so reordering the book moves nothing onto a neighbour.
+	ID uuid.UUID `json:"id"`
 	// Name is the creator's own label. It reaches no model.
 	Name string `json:"name,omitempty"`
 	// Keys are the words that switch the entry on.
@@ -84,6 +89,7 @@ func (t EntryTable) Empty() bool {
 func decodeEntryTable(raw json.RawMessage) (Content, error) {
 	var incoming struct {
 		Entries *[]struct {
+			ID            uuid.UUID      `json:"id,omitempty"`
 			Name          string         `json:"name,omitempty"`
 			Keys          *[]string      `json:"keys"`
 			SecondaryKeys []string       `json:"secondaryKeys,omitempty"`
@@ -118,6 +124,7 @@ func decodeEntryTable(raw json.RawMessage) (Content, error) {
 			)
 		}
 		entries[i] = Entry{
+			ID:            itemID(item.ID),
 			Name:          item.Name,
 			Keys:          *item.Keys,
 			SecondaryKeys: item.SecondaryKeys,

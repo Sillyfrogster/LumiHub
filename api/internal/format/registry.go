@@ -136,6 +136,16 @@ func (r *Registry) CanEdit(id string) bool {
 	return editable
 }
 
+// Declaration returns one registered module's contract, for code that needs to
+// read what a format declares without asking it to parse anything.
+func (r *Registry) Declaration(id string) (Declaration, bool) {
+	module, ok := r.modules[id]
+	if !ok {
+		return Declaration{}, false
+	}
+	return module.Declaration(), true
+}
+
 // ResolveExporter selects a declared target or falls back to raw.
 func (r *Registry) ResolveExporter(id, target string) (Exporter, string, bool) {
 	module, ok := r.modules[id]

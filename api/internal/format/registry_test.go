@@ -21,7 +21,7 @@ func testReaderDeclaration(id, kind string) Declaration {
 		}},
 		Limits:        ContentLimits{PayloadBytes: 1024, CollectionItems: 100, ItemBytes: 100},
 		ConsumedKeys:  []string{"payload"},
-		Preservation:  PreservationDeclaration{Namespaces: []string{"test"}},
+		Preservation:  PreservationDeclaration{Body: "test"},
 		TestedOrigins: []string{id},
 	}
 }

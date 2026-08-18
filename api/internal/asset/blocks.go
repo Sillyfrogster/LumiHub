@@ -99,6 +99,9 @@ func (s *Service) SaveBlock(
 		if err := deleteBlockAndClosePositions(ctx, tx, assetID, saved.ID, remaining); err != nil {
 			return SavedBlock{}, err
 		}
+		if err := dropUnownedPreservedData(ctx, tx, assetID, remaining); err != nil {
+			return SavedBlock{}, err
+		}
 		if err := tx.Commit(ctx); err != nil {
 			return SavedBlock{}, err
 		}
@@ -119,6 +122,9 @@ func (s *Service) SaveBlock(
 	}
 	if result.RowsAffected() != 1 {
 		return SavedBlock{}, ErrNotFound
+	}
+	if err := dropUnownedPreservedData(ctx, tx, assetID, blocks); err != nil {
+		return SavedBlock{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return SavedBlock{}, err
@@ -280,6 +286,9 @@ func (s *Service) RemoveBlock(
 	if err := deleteBlockAndClosePositions(ctx, tx, assetID, blockID, remaining); err != nil {
 		return err
 	}
+	if err := dropUnownedPreservedData(ctx, tx, assetID, remaining); err != nil {
+		return err
+	}
 	return tx.Commit(ctx)
 }
 
@@ -371,6 +380,9 @@ func (s *Service) MoveBlockContent(
 		return SavedBlocks{}, fmt.Errorf("save moved elements: %w", err)
 	}
 	if err := deleteBlockAndClosePositions(ctx, tx, assetID, source.ID, after); err != nil {
+		return SavedBlocks{}, err
+	}
+	if err := dropUnownedPreservedData(ctx, tx, assetID, after); err != nil {
 		return SavedBlocks{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {

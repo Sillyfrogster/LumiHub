@@ -6,6 +6,7 @@ package character
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	"github.com/Sillyfrogster/LumiHub/api/internal/media"
 	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
+	"github.com/google/uuid"
 )
 
 // Kind is what a character card is to a person. It comes from the module, so a
@@ -151,6 +153,14 @@ func declaration(id string) format.Declaration {
 			}
 		}
 	}
+	// The keys this module turns into content. Everything else the card
+	// carries is preserved, which is what makes the remainder a per-key
+	// answer rather than a per-namespace one.
+	//
+	// `assets` is not one of them. A CharX card's asset list names files, and
+	// Illarin holds those pictures as media of its own, but the list also
+	// names a reader's own icon and files that live elsewhere. Reading part of
+	// it is not consuming it, so the whole list is preserved.
 	consumedKeys := []string{
 		"name", "nickname", "character_version", "creator", "description",
 		"personality", "scenario", "first_mes", "alternate_greetings",
@@ -160,9 +170,6 @@ func declaration(id string) format.Declaration {
 	if id != V2 {
 		consumedKeys = append(consumedKeys, "group_only_greetings")
 	}
-	if id == CharX {
-		consumedKeys = append(consumedKeys, "assets")
-	}
 	return format.Declaration{
 		ID: id, Kind: Kind, Direction: format.Direction{Read: true, Write: true},
 		Recognition: recognition, Roles: roles,
@@ -171,10 +178,19 @@ func declaration(id string) format.Declaration {
 			ItemBytes: block.MaxItemBytes,
 		},
 		ConsumedKeys: consumedKeys,
+		// SillyTavern stamps these four onto every card it writes, whether or
+		// not the creator touched them, so half a real corpus carries four
+		// namespaces that record nothing. They are stored like everything
+		// else; this list only keeps them out of the creator's panel.
 		Boilerplate: []format.Boilerplate{
-			{Namespace: "extensions", Path: []string{"depth_prompt", "prompt"}},
+			{Namespace: "depth_prompt", Path: []string{"prompt"}},
+			{Namespace: "world"},
+			{Namespace: "fav"},
+			{Namespace: "talkativeness", Unchosen: []string{"0.5"}},
 		},
-		Preservation:  format.PreservationDeclaration{Namespaces: []string{"card", "extensions"}},
+		Preservation: format.PreservationDeclaration{
+			Body: cardNamespace, Container: []string{extensionsKey},
+		},
 		TestedOrigins: []string{id, "illarin"},
 	}
 }
@@ -236,7 +252,12 @@ func (c card) parsed(formatID string, pictures []format.Media) (format.Parsed, e
 			}
 		}
 	}
-	parsed := format.Parsed{
+	// The book is read once. Its entries carry ids Illarin mints here, and the
+	// preserved data keys against those ids, so reading it twice would key
+	// against ids nothing else has.
+	book := c.lorebook()
+	elements := c.elements(formatID, book)
+	return format.Parsed{
 		Kind:      Kind,
 		Format:    formatID,
 		Blurb:     c.blurb(),
@@ -248,69 +269,92 @@ func (c card) parsed(formatID string, pictures []format.Media) (format.Parsed, e
 			Name: c.name(), AssetVersion: c.text("character_version"),
 			CreditedAuthor: c.text("creator"), Nickname: c.text("nickname"),
 		},
-		Elements: c.elements(formatID),
-	}
-	parsed.Remainder = c.remainder(formatID)
-	return parsed, nil
+		Elements:  elements,
+		Remainder: c.remainder(formatID, book, elements),
+	}, nil
 }
 
-func (c card) remainder(formatID string) []format.Remainder {
-	consumed := make(map[string]bool)
-	_, bookLocation, bookRemainder, bookOK := c.lorebook()
-	for _, field := range []string{
-		"name", "nickname", "character_version", "creator", "description",
-		"personality", "scenario", "first_mes", "mes_example", "system_prompt",
-		"post_history_instructions", "creator_notes",
-	} {
-		if raw, ok := c.fields[field]; ok {
-			var value string
-			consumed[field] = json.Unmarshal(raw, &value) == nil
-		}
-	}
-	listFields := []string{"alternate_greetings"}
-	if formatID != V2 {
-		listFields = append(listFields, "group_only_greetings")
-	}
-	for _, field := range listFields {
-		if raw, ok := c.fields[field]; ok {
-			var value []string
-			consumed[field] = json.Unmarshal(raw, &value) == nil
-		}
-	}
-	if bookOK && bookLocation == "card" {
-		consumed["character_book"] = true
-	}
+// remainder is everything the card carried that did not become content, one
+// namespace at a time.
+//
+// It is computed per key. The declaration names the keys this module consumes;
+// a declared key whose value did not fit is not consumed, so a bad value
+// degrades into preservation instead of being lost. Every key of `extensions`
+// becomes a namespace of its own, which is how a namespace Illarin half
+// understands is split rather than kept twice.
+func (c card) remainder(
+	formatID string,
+	book lorebook,
+	elements []block.Element,
+) []format.Remainder {
+	consumed := c.consumed(formatID, book)
+	extensions := c.extensions()
+	remainder := make([]format.Remainder, 0, len(extensions)+2)
 
-	cardRemainder := make(map[string]json.RawMessage)
+	body := make(map[string]json.RawMessage, len(c.fields))
 	for key, raw := range c.fields {
-		if key == "extensions" || consumed[key] {
+		if key == extensionsKey || consumed[key] {
 			continue
 		}
-		cardRemainder[key] = raw
+		body[key] = raw
 	}
-	if bookLocation == "card" && len(bookRemainder) > 0 {
-		cardRemainder["character_book"] = bookRemainder
+	// A card whose extensions carry a key named for the card body itself
+	// would ask for two namespaces of one name. Nothing in a real corpus does,
+	// and the key travels back out whole either way, so it stays where it is
+	// rather than being split out beside its namesake.
+	if collision, clash := extensions[cardNamespace]; clash {
+		body[extensionsKey], _ = json.Marshal(map[string]json.RawMessage{cardNamespace: collision})
+		delete(extensions, cardNamespace)
 	}
-	remainder := make([]format.Remainder, 0, 2)
-	if len(cardRemainder) > 0 {
-		payload, _ := json.Marshal(cardRemainder)
-		remainder = append(remainder, format.Remainder{Namespace: "card", Payload: payload})
+	if len(body) > 0 {
+		payload, _ := json.Marshal(body)
+		remainder = append(remainder, format.Remainder{
+			Owner: format.OwnerAsset, Namespace: cardNamespace, Payload: payload,
+		})
 	}
-	extensions := c.extensions()
-	if bookOK && bookLocation == "extensions" {
-		delete(extensions, "character_book")
-		if len(bookRemainder) > 0 {
-			extensions["character_book"] = bookRemainder
-		}
+
+	if consumed[bookKey] {
+		delete(extensions, bookKey)
+		remainder = append(remainder, book.preserved(elements)...)
 	}
-	if len(extensions) > 0 {
-		payload, _ := json.Marshal(extensions)
-		remainder = append(remainder, format.Remainder{Namespace: "extensions", Payload: payload})
+	for _, namespace := range slices.Sorted(maps.Keys(extensions)) {
+		remainder = append(remainder, format.Remainder{
+			Owner: format.OwnerAsset, Namespace: namespace, Payload: extensions[namespace],
+		})
 	}
 	return remainder
 }
 
-func (c card) elements(formatID string) []block.Element {
+// consumed reports which of the module's declared keys this card actually
+// turned into content. A declared key the card wrote as the wrong shape is not
+// among them.
+func (c card) consumed(formatID string, book lorebook) map[string]bool {
+	consumed := make(map[string]bool)
+	for _, key := range declaration(formatID).ConsumedKeys {
+		raw, present := c.fields[key]
+		if !present {
+			continue
+		}
+		switch key {
+		case bookKey:
+			consumed[key] = book.found
+		case "alternate_greetings", "group_only_greetings":
+			var texts []string
+			consumed[key] = json.Unmarshal(raw, &texts) == nil
+		default:
+			var text string
+			consumed[key] = json.Unmarshal(raw, &text) == nil
+		}
+	}
+	// A book the card kept inside its extensions is content all the same, so
+	// the extensions key holding it is consumed rather than the card's own.
+	if book.found {
+		consumed[bookKey] = true
+	}
+	return consumed
+}
+
+func (c card) elements(formatID string, book lorebook) []block.Element {
 	elements := []block.Element{
 		{Type: block.TypeProse, Role: block.RoleDescription, Content: block.Prose{Text: c.text("description")}},
 		{Type: block.TypeProse, Role: block.RolePersonality, Content: block.Prose{Text: c.text("personality")}},
@@ -339,10 +383,15 @@ func (c card) elements(formatID string) []block.Element {
 			Content: block.TextSet{Texts: greetings},
 		})
 	}
-	if book, _, _, ok := c.lorebook(); ok {
+	if book.found {
 		elements = append(elements, block.Element{
-			Type: block.TypeEntryTable, Role: block.RoleLorebookEntries, Content: book,
+			Type: block.TypeEntryTable, Role: block.RoleLorebookEntries, Content: book.table,
 		})
+	}
+	// Every element carries an id from the moment it is read, because the
+	// preserved data beside it points at that id.
+	for i := range elements {
+		elements[i].ID = uuid.New()
 	}
 	return elements
 }
@@ -380,85 +429,6 @@ func dialogueTurns(sample string) []block.DialogueTurn {
 		})
 	}
 	return turns
-}
-
-func (c card) lorebook() (block.EntryTable, string, json.RawMessage, bool) {
-	raw := c.fields["character_book"]
-	location := "card"
-	if len(raw) == 0 {
-		raw = c.extensions()["character_book"]
-		location = "extensions"
-	}
-	var source map[string]json.RawMessage
-	if len(raw) == 0 || json.Unmarshal(raw, &source) != nil {
-		return block.EntryTable{}, "", nil, false
-	}
-	var entryPayloads []json.RawMessage
-	if entriesRaw, present := source["entries"]; !present || json.Unmarshal(entriesRaw, &entryPayloads) != nil {
-		return block.EntryTable{}, "", nil, false
-	}
-	delete(source, "entries")
-	entries := make([]block.Entry, 0, len(entryPayloads))
-	entryRemainders := make([]json.RawMessage, len(entryPayloads))
-	hasEntryRemainder := false
-	for index, payload := range entryPayloads {
-		var fields map[string]json.RawMessage
-		if json.Unmarshal(payload, &fields) != nil || fields == nil {
-			entryRemainders[index] = payload
-			hasEntryRemainder = true
-			continue
-		}
-		item := block.Entry{Enabled: true}
-		consumeLorebookField(fields, "name", &item.Name)
-		consumeLorebookField(fields, "keys", &item.Keys)
-		consumeLorebookField(fields, "secondary_keys", &item.SecondaryKeys)
-		consumeLorebookField(fields, "selective", &item.Selective)
-		consumeLorebookField(fields, "case_sensitive", &item.CaseSensitive)
-		consumeLorebookField(fields, "constant", &item.Constant)
-		consumeLorebookField(fields, "enabled", &item.Enabled)
-		consumeLorebookField(fields, "insertion_order", &item.Order)
-		consumeLorebookField(fields, "content", &item.Text)
-		var position string
-		if consumeLorebookField(fields, "position", &position) {
-			switch position {
-			case "", "before_char", "before_character":
-				if position != "" {
-					item.Position = block.BeforeCharacter
-				}
-			case "after_char", "after_character":
-				item.Position = block.AfterCharacter
-			default:
-				fields["position"], _ = json.Marshal(position)
-			}
-		}
-		entries = append(entries, item)
-		if len(fields) > 0 {
-			entryRemainders[index], _ = json.Marshal(fields)
-			hasEntryRemainder = true
-		}
-	}
-	if hasEntryRemainder {
-		for index := range entryRemainders {
-			if len(entryRemainders[index]) == 0 {
-				entryRemainders[index] = json.RawMessage("null")
-			}
-		}
-		source["entries"], _ = json.Marshal(entryRemainders)
-	}
-	var remainder json.RawMessage
-	if len(source) > 0 {
-		remainder, _ = json.Marshal(source)
-	}
-	return block.EntryTable{Entries: entries}, location, remainder, true
-}
-
-func consumeLorebookField[T any](fields map[string]json.RawMessage, name string, target *T) bool {
-	raw, present := fields[name]
-	if !present || json.Unmarshal(raw, target) != nil {
-		return false
-	}
-	delete(fields, name)
-	return true
 }
 
 func (c card) text(name string) string {
@@ -532,10 +502,10 @@ func (c card) facets() []format.Facet {
 }
 
 func (c card) hasLorebook() bool {
-	if isPopulatedObject(c.fields["character_book"]) {
+	if isPopulatedObject(c.fields[bookKey]) {
 		return true
 	}
-	return isPopulatedObject(c.extensions()["character_book"])
+	return isPopulatedObject(c.extensions()[bookKey])
 }
 
 // extensionNamespaces names every top-level key under extensions, so what a

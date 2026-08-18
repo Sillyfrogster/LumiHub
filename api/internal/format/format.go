@@ -14,6 +14,7 @@ import (
 	"github.com/Sillyfrogster/LumiHub/api/internal/block"
 	"github.com/Sillyfrogster/LumiHub/api/internal/media"
 	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
+	"github.com/google/uuid"
 )
 
 type FailureReason string
@@ -138,8 +139,22 @@ type Header struct {
 	Nickname       string
 }
 
+// Owner is what a preserved payload belongs to. It is one mechanism with three
+// owners, the asset, one element, and one item inside an element.
+type Owner string
+
+const (
+	OwnerAsset   Owner = "asset"
+	OwnerElement Owner = "element"
+	OwnerItem    Owner = "item"
+)
+
 // Remainder is source data a reader could not turn into an element or header.
+// OwnerID is the element's or the item's stable id, and is unset where the
+// asset itself owns the payload.
 type Remainder struct {
+	Owner     Owner
+	OwnerID   uuid.UUID
 	Namespace string
 	Payload   []byte
 }
@@ -324,13 +339,97 @@ type ContentLimits struct {
 	ItemBytes       int
 }
 
+// Boilerplate names a namespace a tool stamps on every file it writes, and
+// where inside that namespace the creator's own value would sit. Where that
+// value records nothing the creator's panel leaves the namespace out. This
+// governs display alone, and the data is stored either way.
 type Boilerplate struct {
 	Namespace string
-	Path      []string
+	// Path locates the value inside the namespace. Empty means the namespace's
+	// whole payload is the value.
+	Path []string
+	// Unchosen are values at Path that a tool writes when nobody picked
+	// anything. A blank value counts as unchosen whether or not it is listed.
+	Unchosen []string
 }
 
+// PreservationDeclaration says where in the format's own structure preserved
+// namespaces sit, so a writer knows where to put each one back.
 type PreservationDeclaration struct {
-	Namespaces []string
+	// Body is the namespace holding keys left over from the format's own top
+	// level. It is Illarin's name for that place rather than a key in the file.
+	Body string
+	// Container is the path to an object whose every key is a namespace of its
+	// own, which is what `extensions` is on a character card.
+	Container []string
+}
+
+// RecordsNothing reports whether a preserved payload is boilerplate the panel
+// should leave out. A namespace with no boilerplate entry always shows.
+func (d Declaration) RecordsNothing(namespace string, payload []byte) bool {
+	for _, entry := range d.Boilerplate {
+		if entry.Namespace != namespace {
+			continue
+		}
+		value, ok := valueAtPath(payload, entry.Path)
+		if !ok || blankJSON(value) {
+			return true
+		}
+		return slices.Contains(entry.Unchosen, scalarText(value))
+	}
+	return false
+}
+
+// valueAtPath walks into a payload. An empty path is the payload itself.
+func valueAtPath(payload []byte, path []string) (json.RawMessage, bool) {
+	value := json.RawMessage(payload)
+	for _, part := range path {
+		var object map[string]json.RawMessage
+		if json.Unmarshal(value, &object) != nil {
+			return nil, false
+		}
+		next, ok := object[part]
+		if !ok {
+			return nil, false
+		}
+		value = next
+	}
+	return value, len(value) > 0
+}
+
+// blankJSON reports whether a value is one a reader would call empty.
+func blankJSON(value json.RawMessage) bool {
+	var decoded any
+	if json.Unmarshal(value, &decoded) != nil {
+		return false
+	}
+	switch held := decoded.(type) {
+	case nil:
+		return true
+	case string:
+		return held == ""
+	case bool:
+		return !held
+	case float64:
+		return held == 0
+	case []any:
+		return len(held) == 0
+	case map[string]any:
+		return len(held) == 0
+	default:
+		return false
+	}
+}
+
+// scalarText writes a scalar the way the declaration names it, so a
+// talkativeness of 0.5 matches whether the file wrote it as a string or a
+// number.
+func scalarText(value json.RawMessage) string {
+	var text string
+	if json.Unmarshal(value, &text) == nil {
+		return text
+	}
+	return string(bytes.TrimSpace(value))
 }
 
 // Declaration is the complete static contract beside one format module.
@@ -420,8 +519,8 @@ func ValidateDeclaration(d Declaration) error {
 	if len(d.ConsumedKeys) == 0 {
 		return errors.New("consumed keys are required")
 	}
-	if len(d.Preservation.Namespaces) == 0 {
-		return errors.New("preservation namespaces are required")
+	if d.Preservation.Body == "" {
+		return errors.New("a namespace for the format's own leftover keys is required")
 	}
 	if len(d.TestedOrigins) == 0 {
 		return errors.New("tested origins are required")

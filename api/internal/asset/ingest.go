@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"sync"
 	"time"
@@ -137,8 +138,9 @@ func (s *Service) readImport(
 	}
 	if declaration.Limits.PayloadBytes > 0 && payloadBytes > int64(declaration.Limits.PayloadBytes) {
 		return preparedImport{}, format.LimitExceeded(fmt.Errorf(
-			"%s reads payloads up to %d bytes; this payload has %d bytes",
+			"%s reads payloads up to %d bytes; this payload has %d bytes%s",
 			resolution.Module.ID(), declaration.Limits.PayloadBytes, payloadBytes,
+			heaviestNamespace(payload, declaration),
 		))
 	}
 
@@ -187,6 +189,38 @@ func (s *Service) readImport(
 	return preparedImport{
 		Parsed: parsed, Blocks: blocks, Media: preparedMedia, MediaType: mediaType,
 	}, nil
+}
+
+// heaviestNamespace names the largest thing a refused file carries that no
+// module reads, so a creator over the limit learns what is in their file
+// rather than only that it is too big.
+//
+// It adds no limit of its own. Preserved data can never be larger than the
+// file it came from, so a second smaller limit could only refuse files the
+// first one allowed. It answers with nothing where the weight is elsewhere.
+func heaviestNamespace(payload probe.Payload, declaration format.Declaration) string {
+	container := payload.Root
+	for _, part := range declaration.Preservation.Container {
+		raw, present := container[part]
+		if !present {
+			return ""
+		}
+		var next map[string]json.RawMessage
+		if json.Unmarshal(raw, &next) != nil {
+			return ""
+		}
+		container = next
+	}
+	heaviest, size := "", 0
+	for _, namespace := range slices.Sorted(maps.Keys(container)) {
+		if held := len(container[namespace]); held > size {
+			heaviest, size = namespace, held
+		}
+	}
+	if heaviest == "" {
+		return ""
+	}
+	return fmt.Sprintf(". The largest part of it is the %s data, at %d bytes", heaviest, size)
 }
 
 // ProcessNextIngest leases and processes one available operation.
@@ -512,6 +546,13 @@ func writeIngestResult(
 	return assetID, writeRevision(ctx, tx, assetID, 1, job, prepared)
 }
 
+// replacePreservedData writes what a reader could not model. A new revision
+// replaces every row, because the creator has handed over a file that
+// deliberately no longer holds what the last one did.
+//
+// The owner is the asset, one element, or one item inside an element. That is
+// one mechanism with three owners, and it is what lets a deleted entry take
+// its preserved fields with it.
 func replacePreservedData(
 	ctx context.Context,
 	tx pgx.Tx,
@@ -525,11 +566,22 @@ func replacePreservedData(
 		if item.Namespace == "" || len(item.Payload) == 0 {
 			return errors.New("preserved data needs a namespace and payload")
 		}
+		owner := assetID
+		switch item.Owner {
+		case format.OwnerAsset:
+		case format.OwnerElement, format.OwnerItem:
+			if item.OwnerID == uuid.Nil {
+				return fmt.Errorf("preserved %s names no %s to belong to", item.Namespace, item.Owner)
+			}
+			owner = item.OwnerID
+		default:
+			return fmt.Errorf("preserved %s belongs to %q", item.Namespace, item.Owner)
+		}
 		if _, err := tx.Exec(ctx, `
 			insert into asset_preserved_data
 			  (id, asset_id, owner_kind, owner_id, namespace, payload)
-			values ($1, $2, 'asset', $2, $3, $4)
-		`, uuid.New(), assetID, item.Namespace, item.Payload); err != nil {
+			values ($1, $2, $3, $4, $5, $6)
+		`, uuid.New(), assetID, string(item.Owner), owner, item.Namespace, item.Payload); err != nil {
 			return fmt.Errorf("preserve %s: %w", item.Namespace, err)
 		}
 	}

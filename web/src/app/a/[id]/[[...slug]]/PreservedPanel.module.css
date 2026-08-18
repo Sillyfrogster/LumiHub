@@ -1,0 +1,184 @@
+.panel {
+  padding: 22px;
+  border: 1px solid var(--line-card);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+}
+
+.panel h2 {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 1.22rem;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+
+.lead {
+  margin-top: 8px;
+  color: var(--body);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.namespaces {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 17px;
+  padding-top: 15px;
+  border-top: 1px solid var(--line-hair);
+  list-style: none;
+}
+
+.namespaces li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 11px;
+  border: 1px solid var(--line-hair);
+  border-radius: var(--radius-md);
+  background: var(--surface-quiet);
+}
+
+.namespaces strong {
+  display: block;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.size {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.namespaces button {
+  display: inline-grid;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--body);
+  transition:
+    border-color 160ms var(--ease),
+    color 160ms var(--ease);
+}
+
+.namespaces button:hover,
+.namespaces button:focus-visible {
+  border-color: #9f2d2d;
+  color: #9f2d2d;
+}
+
+/* The name is in the row beside it, so the button says it only to a reader. */
+.buttonLabel {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.error {
+  margin-top: 13px;
+  padding: 11px 13px;
+  border: 1px solid rgba(159, 45, 45, 0.3);
+  border-radius: var(--radius-md);
+  background: rgba(159, 45, 45, 0.07);
+  color: #7e2929;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.dialog {
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100dvh - 40px);
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  border: 1px solid var(--line-card);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  color: var(--body);
+}
+
+.dialog::backdrop {
+  background: rgba(13, 13, 15, 0.68);
+}
+
+.dialogBody {
+  padding: 28px 30px 26px;
+}
+
+.dialog h2 {
+  margin-top: 3px;
+  font-size: 1.8rem;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.dialogBody > p {
+  max-width: 62ch;
+  margin-top: 7px;
+  color: var(--body);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.dialogBody strong {
+  color: var(--ink);
+}
+
+.context {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.noCopy {
+  font-weight: 700;
+}
+
+.dialogFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  padding: 16px 30px;
+  border-top: 1px solid var(--line-hair);
+  background: var(--surface-quiet);
+}
+
+.dialogFooter button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding-inline: 15px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--body);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.dialogFooter .confirmDelete {
+  border-color: #9f2d2d;
+  background: #9f2d2d;
+  color: #fff;
+}
+
+.dialogFooter button:disabled {
+  opacity: 0.55;
+}

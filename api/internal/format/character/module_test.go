@@ -56,9 +56,13 @@ func TestCharacterDeclarationsTellTheTruthAboutVersionedRoles(t *testing.T) {
 		t.Error("character header bindings were declared as named format slots")
 	}
 	if slices.Contains(v2.ConsumedKeys, "group_only_greetings") ||
-		slices.Contains(v2.ConsumedKeys, "assets") || slices.Contains(v3.ConsumedKeys, "assets") ||
-		!slices.Contains((CharXModule{}).Declaration().ConsumedKeys, "assets") {
+		!slices.Contains(v3.ConsumedKeys, "group_only_greetings") {
 		t.Error("declared consumed keys do not match the versioned character readers")
+	}
+	// A CharX asset list is read for its pictures and never consumed, because
+	// it also names a reader's own icon and files that live somewhere else.
+	if slices.Contains((CharXModule{}).Declaration().ConsumedKeys, "assets") {
+		t.Error("CharX declared the asset list consumed")
 	}
 }
 
@@ -372,14 +376,22 @@ func TestBadLorebookValuesCostOnlyThoseValues(t *testing.T) {
 		t.Fatalf("bad values were not degraded locally: %+v, %+v, %+v",
 			book.Entries[4], book.Entries[100], book.Entries[250])
 	}
-	var preserved []byte
+	// Each unread value stays with the entry it came from, keyed against that
+	// entry's id rather than its place in the book.
+	byEntry := make(map[uuid.UUID][]byte)
 	for _, remainder := range parsed.Remainder {
-		if remainder.Namespace == "card" {
-			preserved = remainder.Payload
+		if remainder.Owner == format.OwnerItem && remainder.Namespace == "character_book" {
+			byEntry[remainder.OwnerID] = remainder.Payload
 		}
 	}
-	if bytes.Count(preserved, []byte(`"wrong"`)) != 3 {
-		t.Fatalf("preserved lorebook values = %s, want the three unread values", preserved)
+	if len(byEntry) != 3 {
+		t.Fatalf("preserved entries = %d, want the three carrying an unread value", len(byEntry))
+	}
+	for _, index := range []int{4, 100, 250} {
+		payload, ok := byEntry[book.Entries[index].ID]
+		if !ok || !bytes.Contains(payload, []byte(`"wrong"`)) {
+			t.Errorf("entry %d preserved %s, want its unread value", index, payload)
+		}
 	}
 }
 

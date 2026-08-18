@@ -16,6 +16,7 @@ export type AddableSection = components["schemas"]["AddableSection"];
 export type ElementType = components["schemas"]["ElementType"];
 export type AssetTag = components["schemas"]["AssetTag"];
 export type ReadinessItem = components["schemas"]["ReadinessItem"];
+export type PreservedNamespace = components["schemas"]["PreservedNamespace"];
 export type Profile = components["schemas"]["Profile"];
 export type BrowseAsset = components["schemas"]["BrowseAsset"];
 export type BrowsePage = components["schemas"]["AssetList"];
@@ -323,6 +324,34 @@ export async function publishAsset(
         : "The asset could not be published. Try again.",
     readiness: refusal?.readiness,
   };
+}
+
+/**
+ * Names what an asset carried that Illarin does not read. The owner alone can
+ * ask: preserved data belongs to the file and never to the page.
+ */
+export async function fetchPreservedNamespaces(
+  id: string,
+): Promise<PreservedNamespace[]> {
+  const { data } = await api.GET("/v1/assets/{id}/preserved", {
+    params: { path: { id } },
+  });
+  return data ?? [];
+}
+
+/** Deletes one namespace and everything under it, for good. */
+export async function deletePreservedNamespace(id: string, namespace: string) {
+  const { error } = await api.DELETE("/v1/assets/{id}/preserved/{namespace}", {
+    params: { path: { id, namespace } },
+  });
+  if (error) {
+    const detail = error as { error?: unknown } | undefined;
+    throw new Error(
+      typeof detail?.error === "string"
+        ? detail.error
+        : "That data could not be deleted. Try again.",
+    );
+  }
 }
 
 export async function withholdAsset(id: string, reason: string) {

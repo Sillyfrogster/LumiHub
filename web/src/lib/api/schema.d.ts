@@ -467,6 +467,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/assets/{id}/preserved": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Name the platform-specific namespaces this asset carries. The panel is read-only apart from deleting, so nothing here returns a payload. Namespaces the asset's own format calls boilerplate are left out, which is display and not storage. */
+    get: operations["listPreservedNamespaces"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/assets/{id}/preserved/{namespace}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Delete one namespace and everything stored under it. Deletion is permanent: the lossless rule binds Illarin, not the creator. */
+    delete: operations["deletePreservedNamespace"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/assets/{id}/file-patch": {
     parameters: {
       query?: never;
@@ -886,12 +920,22 @@ export interface components {
     };
     TextSetContent: {
       texts: {
+        /**
+         * Format: uuid
+         * @description Illarin's own id for this item, minted when the item is created. Preserved data keys against it, so send it back unchanged; an item with no id is a new one.
+         */
+        id?: string;
         name?: string;
         text: string;
       }[];
     };
     DialogueSampleContent: {
       turns: {
+        /**
+         * Format: uuid
+         * @description Illarin's own id for this item, minted when the item is created. Preserved data keys against it, so send it back unchanged; an item with no id is a new one.
+         */
+        id?: string;
         speaker: string;
         text: string;
       }[];
@@ -899,6 +943,11 @@ export interface components {
     /** @description An ordered list of images. An item carries its image and one optional free-text name, and its position is where it sits in the list. */
     ImageSetContent: {
       images: {
+        /**
+         * Format: uuid
+         * @description Illarin's own id for this item, minted when the item is created. Preserved data keys against it, so send it back unchanged; an item with no id is a new one.
+         */
+        id?: string;
         /** Format: uuid */
         mediaId: string;
         name?: string;
@@ -906,12 +955,22 @@ export interface components {
     };
     FieldListContent: {
       fields: {
+        /**
+         * Format: uuid
+         * @description Illarin's own id for this item, minted when the item is created. Preserved data keys against it, so send it back unchanged; an item with no id is a new one.
+         */
+        id?: string;
         name?: string;
         value: string;
       }[];
     };
     LinkListContent: {
       links: {
+        /**
+         * Format: uuid
+         * @description Illarin's own id for this item, minted when the item is created. Preserved data keys against it, so send it back unchanged; an item with no id is a new one.
+         */
+        id?: string;
         label?: string;
         url: string;
         note?: string;
@@ -920,6 +979,11 @@ export interface components {
     /** @description A lorebook. An entry is switched on by its keys, and how it behaves on the passes after the first is its own setting. */
     EntryTableContent: {
       entries: {
+        /**
+         * Format: uuid
+         * @description Illarin's own id for this item, minted when the item is created. Preserved data keys against it, so send it back unchanged; an item with no id is a new one.
+         */
+        id?: string;
         name?: string;
         keys: string[];
         secondaryKeys?: string[];
@@ -1030,6 +1094,12 @@ export interface components {
       /** @enum {string} */
       visibility: "hidden" | "blurred" | "shown";
       withhold?: components["schemas"]["AssetWithhold"];
+    };
+    PreservedNamespace: {
+      /** @description The namespace as the file that carried it named it. */
+      name: string;
+      /** @description How much the asset is holding under this namespace. */
+      bytes: number;
     };
     AssetDiscoveryRequest: {
       /** @enum {string} */
@@ -2525,6 +2595,98 @@ export interface operations {
         content?: never;
       };
       /** @description The asset or either block does not belong to the creator */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The asset is withheld and cannot be changed */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  listPreservedNamespaces: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Every namespace the asset carries, in name order */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PreservedNamespace"][];
+        };
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The signed-in account has not verified its email */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The asset does not belong to the creator */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  deletePreservedNamespace: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+        namespace: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The namespace is gone */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The signed-in account has not verified its email */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The asset or the namespace does not belong to the creator */
       404: {
         headers: {
           [name: string]: unknown;

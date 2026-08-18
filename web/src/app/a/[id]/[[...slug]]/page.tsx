@@ -15,6 +15,7 @@ import { AssetMedia } from "./AssetMedia";
 import { DeleteControl } from "./DeleteControl";
 import { DiscoveryControl } from "./DiscoveryControl";
 import { IdentityPanel } from "./IdentityPanel";
+import { PreservedPanel } from "./PreservedPanel";
 import { PublishPanel } from "./PublishPanel";
 import styles from "./page.module.css";
 import { WithholdControl } from "./WithholdControl";
@@ -169,6 +170,8 @@ export default async function AssetPage({
                   </a>
                 </section>
               ) : null}
+
+              {asset.isOwner ? <PreservedPanel assetId={asset.id} /> : null}
 
               {asset.isOwner ? (
                 <IdentityPanel
