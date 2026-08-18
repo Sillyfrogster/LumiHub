@@ -112,21 +112,12 @@ function FormatLine({
 
   return (
     <div className={styles.format}>
-      <div className={styles.head}>
-        <p className={styles.label}>
-          {target.label}
-          {target.recommended ? (
-            <span className={styles.recommended}>Recommended</span>
-          ) : null}
-        </p>
-        <a
-          className={styles.take}
-          href={`/download/${assetId}/${target.format}`}
-        >
-          <Download size={15} aria-hidden="true" />
-          Download
-        </a>
-      </div>
+      <p className={styles.label}>
+        {target.label}
+        {target.recommended ? (
+          <span className={styles.recommended}>Recommended</span>
+        ) : null}
+      </p>
       {detail.length === 0 ? (
         <p className={styles.cost}>{costLine(target)}</p>
       ) : (
@@ -148,6 +139,10 @@ function FormatLine({
           </ul>
         </details>
       )}
+      <a className={styles.take} href={`/download/${assetId}/${target.format}`}>
+        <Download size={15} aria-hidden="true" />
+        Download {target.label}
+      </a>
     </div>
   );
 }
@@ -165,7 +160,13 @@ function Sample({ role, images }: { role: RoleVerdict; images: AssetImage[] }) {
       <ul className={styles.strip}>
         {pictures.map((picture) => (
           <li key={picture.id}>
-            <Image src={picture.thumbUrl} alt="" width={40} height={40} />
+            <Image
+              src={picture.thumbUrl}
+              alt=""
+              width={40}
+              height={40}
+              unoptimized
+            />
           </li>
         ))}
       </ul>
@@ -175,8 +176,9 @@ function Sample({ role, images }: { role: RoleVerdict; images: AssetImage[] }) {
   if (texts.length === 0) return null;
   return (
     <ul className={styles.examples}>
-      {texts.map((text) => (
-        <li key={text}>{text}</li>
+      {texts.map((text, index) => (
+        // Two greetings may open with the same words, so position is the key.
+        <li key={`${index}-${text}`}>{text}</li>
       ))}
     </ul>
   );

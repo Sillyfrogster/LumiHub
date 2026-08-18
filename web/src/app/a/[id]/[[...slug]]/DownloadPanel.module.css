@@ -36,13 +36,6 @@
   background: rgba(255, 255, 255, 0.03);
 }
 
-.head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
 .label {
   display: flex;
   flex-wrap: wrap;
@@ -66,11 +59,12 @@
 
 .take,
 .takeOriginal {
-  display: inline-flex;
-  min-height: 40px;
-  flex: none;
+  display: flex;
+  min-height: 42px;
   align-items: center;
+  justify-content: center;
   gap: 7px;
+  margin-top: 11px;
   padding-inline: 13px;
   border-radius: var(--radius-md);
   background: #f5f5f7;
@@ -201,7 +195,6 @@
 }
 
 .takeOriginal {
-  margin-top: 13px;
   border: 1px solid var(--detail-dark-line);
   background: transparent;
   color: var(--detail-dark-text);

@@ -53,8 +53,8 @@ export function PublishPanel({
     <section className={styles.panel} aria-labelledby="publish-heading">
       <h2 id="publish-heading">Before you publish</h2>
       <p className={styles.privacy}>
-        Only you can open this page. It is in no browse or search result, and it
-        has nothing to download.
+        Only you can open this page. It is in no browse or search result, and
+        nobody else can download it.
       </p>
 
       <ul className={styles.checklist}>

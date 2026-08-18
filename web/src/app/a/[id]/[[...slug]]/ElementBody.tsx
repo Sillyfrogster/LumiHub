@@ -212,8 +212,9 @@ function EntryTable({ entries }: { entries: LorebookEntry[] }) {
                   </span>
                 ) : (
                   <ul className={styles.entryKeys}>
-                    {entry.keys.map((key) => (
-                      <li key={key}>{key}</li>
+                    {/* A book may list the same key word twice. */}
+                    {entry.keys.map((key, position) => (
+                      <li key={`${position}-${key}`}>{key}</li>
                     ))}
                   </ul>
                 )}
