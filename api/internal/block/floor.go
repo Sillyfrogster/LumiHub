@@ -67,3 +67,15 @@ func ContentFloor(kind string, blocks []Block) []Check {
 	}
 	return checks
 }
+
+// RequiredRoles names the roles a kind asks for before an asset may be
+// published. Export reads the same list, because a target that would drop
+// content a kind requires is not the asset and is never offered.
+func RequiredRoles(kind string) []Role {
+	requirements := contentFloors[kind]
+	roles := make([]Role, 0, len(requirements))
+	for _, requirement := range requirements {
+		roles = append(roles, requirement.Role)
+	}
+	return roles
+}

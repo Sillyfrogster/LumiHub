@@ -21,12 +21,6 @@ func (m CCv3Module) BrowseDefinition() format.BrowseDefinition {
 
 func (CCv3Module) ExportTargets() []format.BrowseOption { return exportTargets() }
 
-func (CCv3Module) ValidatePatch(patch format.Patch) error { return validatePatch(patch) }
-
-func (CCv3Module) Export(_ context.Context, request format.ExportRequest) (format.ExportedArtifact, error) {
-	return exportCard(request, V3, "ccv3")
-}
-
 func (m CCv3Module) Claim(file probe.Inspection) (format.Claim, bool) {
 	return format.ClaimByDeclaration(file, m.Declaration())
 }

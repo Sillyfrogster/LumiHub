@@ -7,6 +7,11 @@ import (
 	"github.com/google/uuid"
 )
 
+// RawDownloadTarget is what the download log records when a reader takes the
+// creator's own upload rather than a file Illarin wrote. It is not a format a
+// writer produces, which is why it never appears in the download menu's list.
+const RawDownloadTarget = "raw"
+
 type AuthorizationClass string
 
 const (

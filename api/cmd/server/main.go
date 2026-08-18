@@ -47,6 +47,15 @@ func main() {
 	}
 
 	svc := asset.NewServiceWithProbeLimits(pool, registry, blob, cfg.ProbeLimits)
+	// Changing what a format declares is a deploy, so the deploy is what
+	// recomputes the loss reports the declaration invalidated.
+	recomputed, err := svc.RecomputeStaleExportProjections(context.Background())
+	if err != nil {
+		log.Fatalf("export projections: %v", err)
+	}
+	if recomputed > 0 {
+		log.Printf("recomputed the export projection for %d assets", recomputed)
+	}
 	go svc.RunIngestWorkers(context.Background(), cfg.IngestWorkers, func(err error) {
 		log.Printf("ingest worker: %v", err)
 	})

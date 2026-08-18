@@ -507,50 +507,6 @@ func (h *Handlers) SetAssetDiscovery(c *gin.Context, id types.UUID) {
 	}
 }
 
-func (h *Handlers) SetFilePatch(c *gin.Context, id types.UUID) {
-	owner, ok := h.uploadOwner(c)
-	if !ok {
-		return
-	}
-	var request FileFieldPatch
-	if err := decodeOneJSON(c.Request.Body, &request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Send supported file fields as JSON."})
-		return
-	}
-	patch := make(format.Patch)
-	for field, value := range map[format.Field]*string{
-		format.FieldDescription:             request.Description,
-		format.FieldPersonality:             request.Personality,
-		format.FieldScenario:                request.Scenario,
-		format.FieldFirstMessage:            request.FirstMes,
-		format.FieldSystemPrompt:            request.SystemPrompt,
-		format.FieldPostHistoryInstructions: request.PostHistoryInstructions,
-		format.FieldCreatorNotes:            request.CreatorNotes,
-		format.FieldCharacterVersion:        request.CharacterVersion,
-	} {
-		if value != nil {
-			patch[field] = *value
-		}
-	}
-	err := h.assets.SetFilePatch(c.Request.Context(), asset.FilePatchInput{
-		OwnerID: owner.ID, AssetID: uuid.UUID(id), Patch: patch,
-	})
-	switch {
-	case errors.Is(err, asset.ErrNotFound):
-		c.JSON(http.StatusNotFound, gin.H{"error": "no such asset"})
-	case errors.Is(err, asset.ErrAssetFrozen):
-		c.JSON(http.StatusConflict, gin.H{"error": "A withheld asset cannot be changed."})
-	case errors.Is(err, asset.ErrPatchUnsupported):
-		c.JSON(http.StatusConflict, gin.H{"error": "This file format cannot be patched."})
-	case errors.Is(err, format.ErrInvalidPatch):
-		c.JSON(http.StatusBadRequest, gin.H{"error": "The file patch is not valid."})
-	case err != nil:
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not save the file patch."})
-	default:
-		c.Status(http.StatusNoContent)
-	}
-}
-
 func toAPIDetail(found asset.Detail, visibility asset.ContentVisibility) (AssetDetail, error) {
 	tags := make([]AssetTag, 0, len(found.Tags))
 	for _, tag := range found.Tags {
@@ -583,7 +539,8 @@ func toAPIDetail(found asset.Detail, visibility asset.ContentVisibility) (AssetD
 		Discovery:       AssetDetailDiscovery(found.Discovery),
 		Lifecycle:       AssetDetailLifecycle(found.Lifecycle),
 		IsOwner:         found.IsOwner,
-		HasSourceFile:   found.HasSourceFile,
+		Downloads:       toAPIDownloads(found.Downloads),
+		Original:        toAPIOriginalUpload(found.Original),
 		CreatedAt:       found.CreatedAt,
 		Blocks:          blocks,
 		Media:           media,
@@ -593,6 +550,61 @@ func toAPIDetail(found asset.Detail, visibility asset.ContentVisibility) (AssetD
 		Visibility:      AssetDetailVisibility(visibility),
 		Withhold:        toAPIWithhold(found.Withhold),
 	}, nil
+}
+
+// toAPIDownloads serves the download menu: one line per format, each already
+// carrying what it does and does not take with it.
+func toAPIDownloads(targets []format.Target) []DownloadTarget {
+	downloads := make([]DownloadTarget, 0, len(targets))
+	for _, target := range targets {
+		roles := make([]DownloadRoleVerdict, 0, len(target.Roles))
+		for _, role := range target.Roles {
+			roles = append(roles, DownloadRoleVerdict{
+				Role: string(role.Role), Label: role.Label,
+				Verdict:     DownloadRoleVerdictVerdict(role.Verdict),
+				Reason:      textOrNil(role.Reason),
+				Destination: textOrNil(role.Destination),
+				Sample:      toAPIDownloadSample(role.Sample),
+			})
+		}
+		downloads = append(downloads, DownloadTarget{
+			Format: target.Format, Label: target.Label,
+			Recommended: target.Recommended, Roles: roles,
+		})
+	}
+	return downloads
+}
+
+func toAPIDownloadSample(sample block.Sample) DownloadSample {
+	converted := DownloadSample{Count: sample.Count}
+	if len(sample.Texts) > 0 {
+		texts := sample.Texts
+		converted.Texts = &texts
+	}
+	if len(sample.Images) > 0 {
+		images := make([]types.UUID, 0, len(sample.Images))
+		for _, image := range sample.Images {
+			images = append(images, types.UUID(image))
+		}
+		converted.Images = &images
+	}
+	return converted
+}
+
+func toAPIOriginalUpload(found *asset.OriginalUpload) *OriginalUpload {
+	if found == nil {
+		return nil
+	}
+	return &OriginalUpload{
+		Label: found.Label, MediaType: found.MediaType, ArrivedAt: found.ArrivedAt,
+	}
+}
+
+func textOrNil(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
 }
 
 // toAPIAddableSections serves the add tray's catalog. Only the owner can add a

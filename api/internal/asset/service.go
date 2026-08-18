@@ -231,6 +231,9 @@ func (s *Service) StartFromNothing(
 	if err := insertBlocks(ctx, tx, a.ID, blocks); err != nil {
 		return uuid.Nil, err
 	}
+	if err := s.writeExportProjection(ctx, tx, a.ID); err != nil {
+		return uuid.Nil, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return uuid.Nil, err
 	}
@@ -321,6 +324,9 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Asset, error) {
 	if err := setCoverMedia(ctx, tx, a.ID, avatarMedia(extractedMedia)); err != nil {
 		return Asset{}, err
 	}
+	if err := s.writeExportProjection(ctx, tx, a.ID); err != nil {
+		return Asset{}, err
+	}
 
 	if err := tx.Commit(ctx); err != nil {
 		return Asset{}, err
@@ -396,11 +402,6 @@ type SourceDownload struct {
 	Event            DownloadEvent
 }
 
-type ExportDownload struct {
-	SourceDownload
-	Target string
-}
-
 // DownloadSource resolves the exact current source for an nginx handoff.
 func (s *Service) DownloadSource(
 	ctx context.Context,
@@ -422,53 +423,21 @@ func (s *Service) DownloadSource(
 		InternalRedirect: redirect, MediaType: location.MediaType,
 		Inline: probe.IsInlineMediaType(location.MediaType),
 		Event: downloadEvent(
-			location.AssetID, location.RevisionID, format.RawTarget,
+			location.AssetID, location.RevisionID, RawDownloadTarget,
 			location.OwnerID, viewerID,
 		),
 	}, nil
 }
 
-// DownloadExport prepares one generated artifact for an nginx handoff.
+// DownloadExport writes one generated artifact. It is produced on request and
+// never cached, because an export is a response rather than stored content.
 func (s *Service) DownloadExport(
 	ctx context.Context,
 	assetID uuid.UUID,
 	viewerID *uuid.UUID,
 	target string,
-) (ExportDownload, error) {
-	exported, err := s.OpenExport(ctx, assetID, viewerID, target)
-	if err != nil {
-		return ExportDownload{}, err
-	}
-	if exported.sourceBlobID != uuid.Nil {
-		closeErr := exported.Artifact.Close()
-		if closeErr != nil {
-			return ExportDownload{}, fmt.Errorf("close source export: %w", closeErr)
-		}
-		redirect, err := s.store.InternalRedirect(ctx, exported.sourceBlobID)
-		if err != nil {
-			return ExportDownload{}, fmt.Errorf("resolve source export: %w", err)
-		}
-		return ExportDownload{
-			SourceDownload: exported.sourceDownload(redirect, assetID, viewerID),
-			Target:         exported.Target,
-		}, nil
-	}
-	putErr := s.store.PutDerivative(ctx, exported.derivativeID, exported.Artifact)
-	closeErr := exported.Artifact.Close()
-	if putErr != nil {
-		return ExportDownload{}, fmt.Errorf("store generated export: %w", putErr)
-	}
-	if closeErr != nil {
-		return ExportDownload{}, fmt.Errorf("close generated export: %w", closeErr)
-	}
-	redirect, err := s.store.InternalDerivativeRedirect(ctx, exported.derivativeID)
-	if err != nil {
-		return ExportDownload{}, fmt.Errorf("resolve generated export: %w", err)
-	}
-	return ExportDownload{
-		SourceDownload: exported.sourceDownload(redirect, assetID, viewerID),
-		Target:         exported.Target,
-	}, nil
+) (Export, error) {
+	return s.OpenExport(ctx, assetID, viewerID, target)
 }
 
 // DownloadExportForLinkedInstance prepares an export after instance authentication.
@@ -476,25 +445,13 @@ func (s *Service) DownloadExportForLinkedInstance(
 	ctx context.Context,
 	assetID uuid.UUID,
 	target string,
-) (ExportDownload, error) {
-	download, err := s.DownloadExport(ctx, assetID, nil, target)
+) (Export, error) {
+	download, err := s.OpenExport(ctx, assetID, nil, target)
 	if err != nil {
-		return ExportDownload{}, err
+		return Export{}, err
 	}
-	download.Event.AuthorizationClass = AuthorizationLinkedInstance
+	if download.Event != nil {
+		download.Event.AuthorizationClass = AuthorizationLinkedInstance
+	}
 	return download, nil
-}
-
-func (exported ExportFile) sourceDownload(
-	redirect string,
-	assetID uuid.UUID,
-	viewerID *uuid.UUID,
-) SourceDownload {
-	return SourceDownload{
-		InternalRedirect: redirect, MediaType: exported.MediaType,
-		Inline: probe.IsInlineMediaType(exported.MediaType),
-		Event: downloadEvent(
-			assetID, exported.revisionID, exported.Target, exported.ownerID, viewerID,
-		),
-	}
 }

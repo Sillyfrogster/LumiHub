@@ -65,8 +65,31 @@ func (neverClaimsModule) Parse(context.Context, probe.Inspection, format.Claim) 
 }
 
 func (opaqueTestModule) ID() string { return "test_opaque" }
+
+// The stand-in reads and writes, because an asset with no writer is offered no
+// download at all.
 func (opaqueTestModule) Declaration() format.Declaration {
-	return testReaderDeclaration("test_opaque", "character")
+	declaration := testReaderDeclaration("test_opaque", "character")
+	declaration.Label = "Test format"
+	declaration.Direction.Write = true
+	declaration.TestedOrigins = append(declaration.TestedOrigins, format.OriginIllarin)
+	declaration.Roles = map[block.Role]format.DirectionalRoleSupport{
+		block.RoleDescription: {
+			Read:  format.RoleSupport{Grade: format.SupportFull},
+			Write: format.RoleSupport{Grade: format.SupportFull},
+		},
+		block.RoleGreetings: {
+			Read:  format.RoleSupport{Grade: format.SupportFull},
+			Write: format.RoleSupport{Grade: format.SupportFull},
+		},
+	}
+	return declaration
+}
+func (opaqueTestModule) Write(_ context.Context, written format.ExportAsset) (format.Artifact, error) {
+	return format.Artifact{
+		Body:      []byte(written.Text(block.RoleDescription)),
+		MediaType: "text/plain", Extension: ".txt",
+	}, nil
 }
 func (opaqueTestModule) Claim(file probe.Inspection) (format.Claim, bool) {
 	return format.WholeFileCompatibilityClaim(file), true

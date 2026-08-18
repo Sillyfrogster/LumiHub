@@ -22,12 +22,6 @@ func (m CCv2Module) BrowseDefinition() format.BrowseDefinition {
 
 func (CCv2Module) ExportTargets() []format.BrowseOption { return exportTargets() }
 
-func (CCv2Module) ValidatePatch(patch format.Patch) error { return validatePatch(patch) }
-
-func (CCv2Module) Export(_ context.Context, request format.ExportRequest) (format.ExportedArtifact, error) {
-	return exportCard(request, V2, "chara")
-}
-
 func (m CCv2Module) Claim(file probe.Inspection) (format.Claim, bool) {
 	return format.ClaimByDeclaration(file, m.Declaration())
 }

@@ -466,7 +466,7 @@ func (s *Service) finalizeIngest(ctx context.Context, job ingestJob, prepared pr
 		return errIngestLeaseLost
 	}
 
-	assetID, err := writeIngestResult(ctx, tx, job, prepared)
+	assetID, err := s.writeIngestResult(ctx, tx, job, prepared)
 	if err != nil {
 		return err
 	}
@@ -491,7 +491,7 @@ func (s *Service) finalizeIngest(ctx context.Context, job ingestJob, prepared pr
 // writeIngestResult turns a finished parse into rows. Either it publishes a new
 // catalog entry or it adds a revision to one that already exists, and both end
 // with the asset pointing at the revision just written.
-func writeIngestResult(
+func (s *Service) writeIngestResult(
 	ctx context.Context,
 	tx pgx.Tx,
 	job ingestJob,
@@ -521,6 +521,9 @@ func writeIngestResult(
 			prepared.Header.CreditedAuthor, prepared.Header.Nickname); err != nil {
 			return uuid.Nil, fmt.Errorf("move asset origin: %w", err)
 		}
+		if err := s.writeExportProjection(ctx, tx, job.Target.AssetID); err != nil {
+			return uuid.Nil, err
+		}
 		return job.Target.AssetID, nil
 	}
 	assetID := uuid.New()
@@ -543,7 +546,10 @@ func writeIngestResult(
 	if err := replacePreservedData(ctx, tx, assetID, prepared.Remainder); err != nil {
 		return uuid.Nil, err
 	}
-	return assetID, writeRevision(ctx, tx, assetID, 1, job, prepared)
+	if err := writeRevision(ctx, tx, assetID, 1, job, prepared); err != nil {
+		return uuid.Nil, err
+	}
+	return assetID, s.writeExportProjection(ctx, tx, assetID)
 }
 
 // replacePreservedData writes what a reader could not model. A new revision

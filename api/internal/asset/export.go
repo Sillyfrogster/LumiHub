@@ -2,248 +2,327 @@ package asset
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/binary"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"sort"
+	"strings"
+	"time"
 
+	"github.com/Sillyfrogster/LumiHub/api/internal/block"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
-	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// ExportFile is one resolved primary export artifact.
-type ExportFile struct {
-	Artifact        io.ReadCloser
-	MediaType       string
-	Extension       string
-	Target          string
-	UnembeddedMedia []format.ExportMedia
-	sourceBlobID    uuid.UUID
-	derivativeID    storage.DerivativeID
-	revisionID      uuid.UUID
-	ownerID         *uuid.UUID
+// ErrTargetNotOffered is a format this asset is not offered in. The menu is a
+// list of choices and a target outside it was never one of them.
+var ErrTargetNotOffered = errors.New("that download is not offered for this asset")
+
+// Export is one finished file on its way to a reader. It is a response rather
+// than stored content, so no blob is created and nothing enters a quota.
+type Export struct {
+	Body      []byte
+	MediaType string
+	Filename  string
+	Target    string
+	// Event is what the download log records, and is nil for a draft, which
+	// no reader has been handed anything from.
+	Event *DownloadEvent
 }
 
-type exportSource struct {
-	revisionID uuid.UUID
-	blobID     uuid.UUID
-	formatID   string
-	mediaType  string
-	digest     [sha256.Size]byte
+// exportSubject is one asset as export reads it. It carries what the asset is,
+// where it came from, and the content a writer empties into a file.
+type exportSubject struct {
+	assetID    uuid.UUID
+	kind       string
+	name       string
+	origin     string
+	header     format.Header
+	blocks     []block.Block
 	ownerID    *uuid.UUID
+	lifecycle  Lifecycle
+	revisionID *uuid.UUID
 }
 
-// OpenExport applies additions to the current source for a resolved target.
+// OpenExport writes this asset out in one of the formats it is offered in.
+//
+// The gates run first, against the same rules the menu is built from. A target
+// that is not offered is refused here as surely as it is absent from the menu.
 func (s *Service) OpenExport(
 	ctx context.Context,
 	assetID uuid.UUID,
 	viewerID *uuid.UUID,
 	target string,
-) (ExportFile, error) {
-	source, err := s.exportSource(ctx, assetID, viewerID)
+) (Export, error) {
+	subject, err := s.exportSubject(ctx, assetID, viewerID)
 	if err != nil {
-		return ExportFile{}, err
+		return Export{}, err
 	}
-	exporter, resolvedTarget, exportable := s.reg.ResolveExporter(source.formatID, target)
-	if !exportable {
-		artifact, err := s.store.Open(ctx, source.blobID)
-		if err != nil {
-			return ExportFile{}, fmt.Errorf("open raw export: %w", err)
-		}
-		return rawExportFile(source, artifact), nil
+	offered := s.reg.OfferedTargets(subject.capability())
+	if !offersTarget(offered, target) {
+		return Export{}, ErrTargetNotOffered
 	}
-	patch, err := s.filePatch(ctx, assetID, source.revisionID)
+	module, known := s.reg.ByID(target)
+	if !known {
+		return Export{}, ErrTargetNotOffered
+	}
+	writer, writes := module.(format.Writer)
+	if !writes {
+		return Export{}, ErrTargetNotOffered
+	}
+	written, err := s.writeExport(ctx, subject, writer)
 	if err != nil {
-		return ExportFile{}, err
+		return Export{}, err
 	}
-	media, err := s.exportMedia(ctx, assetID)
-	if err != nil {
-		return ExportFile{}, err
+	export := Export{
+		Body: written.Body, MediaType: written.MediaType, Target: target,
+		Filename: downloadFilename(subject.name, written.Extension),
 	}
-	if resolvedTarget == format.RawTarget && len(patch) == 0 && len(media) == 0 {
-		artifact, err := s.store.Open(ctx, source.blobID)
-		if err != nil {
-			return ExportFile{}, fmt.Errorf("open raw export: %w", err)
-		}
-		return rawExportFile(source, artifact), nil
+	if subject.lifecycle == LifecyclePublished && subject.revisionID != nil {
+		event := downloadEvent(assetID, *subject.revisionID, target, subject.ownerID, viewerID)
+		export.Event = &event
 	}
-	stored, err := s.store.Open(ctx, source.blobID)
-	if err != nil {
-		return ExportFile{}, fmt.Errorf("open export source: %w", err)
-	}
-	written, exportErr := exporter.Export(ctx, format.ExportRequest{
-		Source: stored, Target: resolvedTarget, Patch: patch, Media: media,
-	})
-	closeErr := stored.Close()
-	if exportErr != nil {
-		return ExportFile{}, fmt.Errorf("export %s: %w", resolvedTarget, exportErr)
-	}
-	if closeErr != nil {
-		return ExportFile{}, fmt.Errorf("close export source: %w", closeErr)
-	}
-	return ExportFile{
-		Artifact: io.NopCloser(written.Artifact), MediaType: written.MediaType,
-		Extension: written.Extension, Target: resolvedTarget,
-		UnembeddedMedia: written.UnembeddedMedia,
-		derivativeID:    exportDerivativeID(source.digest, resolvedTarget, patch, media),
-		revisionID:      source.revisionID,
-		ownerID:         source.ownerID,
-	}, nil
+	return export, nil
 }
 
-func rawExportFile(source exportSource, artifact io.ReadCloser) ExportFile {
-	return ExportFile{
-		Artifact: artifact, MediaType: source.mediaType, Target: format.RawTarget,
-		sourceBlobID: source.blobID, revisionID: source.revisionID,
-		ownerID: source.ownerID,
+func (s *Service) writeExport(
+	ctx context.Context,
+	subject exportSubject,
+	writer format.Writer,
+) (format.Artifact, error) {
+	asset := format.ExportAsset{
+		Kind: subject.kind, Header: subject.header, Elements: subject.elements(),
+	}
+	cover, images, err := s.exportImages(ctx, subject)
+	if err != nil {
+		return format.Artifact{}, err
+	}
+	asset.Cover, asset.Images = cover, images
+	asset.Preserved, err = s.travellingPreservedData(ctx, subject, writer.ID())
+	if err != nil {
+		return format.Artifact{}, err
+	}
+	written, err := writer.Write(ctx, asset)
+	if err != nil {
+		return format.Artifact{}, fmt.Errorf("write %s: %w", writer.ID(), err)
+	}
+	return written, nil
+}
+
+// elements is the asset's content in page order. A hidden block's elements are
+// in here, because hiding is a promise about a page and an export is a promise
+// about a file (ADR-0024).
+func (subject exportSubject) elements() []block.Element {
+	elements := make([]block.Element, 0)
+	for _, holder := range subject.blocks {
+		elements = append(elements, holder.Elements...)
+	}
+	return elements
+}
+
+func (subject exportSubject) capability() format.CapabilitySubject {
+	return format.CapabilitySubject{
+		Kind: subject.kind, Origin: subject.origin, Elements: subject.elements(),
 	}
 }
 
-func (s *Service) exportSource(ctx context.Context, assetID uuid.UUID, viewerID *uuid.UUID) (exportSource, error) {
-	var source exportSource
-	var digest []byte
-	var ownerID pgtype.UUID
+func offersTarget(offered []format.Target, target string) bool {
+	for _, candidate := range offered {
+		if candidate.Format == target {
+			return true
+		}
+	}
+	return false
+}
+
+// exportSubject reads the asset a writer is about to be handed. A draft answers
+// to its owner alone, exactly as its page does.
+func (s *Service) exportSubject(
+	ctx context.Context,
+	assetID uuid.UUID,
+	viewerID *uuid.UUID,
+) (exportSubject, error) {
+	var subject exportSubject
+	var origin pgtype.Text
+	var ownerID, revisionID pgtype.UUID
 	err := s.pool.QueryRow(ctx, `
-		select revision.id, revision.blob_id, revision.format, revision.media_type, blob.sha256,
-		       asset.owner_id
+		select asset.kind, asset.name, asset.origin_format, asset.lifecycle,
+		       asset.asset_version, asset.credited_author, asset.nickname,
+		       asset.owner_id, asset.current_revision_id
 		  from assets asset
-		  join asset_revisions revision on revision.id = asset.current_revision_id
-		  join blobs blob on blob.id = revision.blob_id
 		 where asset.id = $1 and asset.deleted_at is null
-		   and asset.lifecycle = 'published'
+		   and (asset.lifecycle = 'published' or asset.owner_id = $2)
 		   and (asset.withheld_at is null or asset.owner_id = $2)
 	`, assetID, viewerID).Scan(
-		&source.revisionID, &source.blobID, &source.formatID, &source.mediaType, &digest,
-		&ownerID,
+		&subject.kind, &subject.name, &origin, &subject.lifecycle,
+		&subject.header.AssetVersion, &subject.header.CreditedAuthor,
+		&subject.header.Nickname, &ownerID, &revisionID,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return exportSource{}, ErrNotFound
+		return exportSubject{}, ErrNotFound
 	}
 	if err != nil {
-		return exportSource{}, fmt.Errorf("find export source: %w", err)
+		return exportSubject{}, fmt.Errorf("read the asset to export: %w", err)
 	}
-	if len(digest) != sha256.Size {
-		return exportSource{}, fmt.Errorf("find export source: invalid blob digest length %d", len(digest))
+	subject.assetID = assetID
+	subject.header.Name = subject.name
+	subject.origin = origin.String
+	subject.ownerID = uuidOrNil(ownerID)
+	subject.revisionID = uuidOrNil(revisionID)
+	subject.blocks, err = readBlocks(ctx, s.pool, assetID)
+	if err != nil {
+		return exportSubject{}, err
 	}
-	copy(source.digest[:], digest)
-	if ownerID.Valid {
-		owner := uuidFromPgtype(ownerID)
-		source.ownerID = &owner
-	}
-	return source, nil
+	return subject, nil
 }
 
-func exportDerivativeID(
-	source [sha256.Size]byte,
+// travellingPreservedData reads what the asset kept from the file it arrived
+// as, and only where the target belongs to that file's family. Having somewhere
+// to put a namespace never makes a target eligible for it.
+func (s *Service) travellingPreservedData(
+	ctx context.Context,
+	subject exportSubject,
 	target string,
-	patch format.Patch,
-	media []format.ExportMedia,
-) storage.DerivativeID {
-	hash := sha256.New()
-	writeFingerprintPart(hash, []byte(target))
-	fields := make([]string, 0, len(patch))
-	for field := range patch {
-		fields = append(fields, string(field))
+) ([]format.Remainder, error) {
+	if subject.origin == "" {
+		return nil, nil
 	}
-	sort.Strings(fields)
-	for _, field := range fields {
-		writeFingerprintPart(hash, []byte(field))
-		writeFingerprintPart(hash, []byte(patch[format.Field(field)]))
+	origin, known := s.reg.Declaration(subject.origin)
+	written, writes := s.reg.Declaration(target)
+	if !known || !writes || !format.TravelsWithOrigin(origin, written) {
+		return nil, nil
 	}
-	for _, item := range media {
-		writeFingerprintPart(hash, []byte(item.Role))
-		writeFingerprintPart(hash, []byte(item.MediaType))
-		writeFingerprintPart(hash, item.Data)
-	}
-	return storage.DerivativeID{
-		SourceDigest: source,
-		Variant:      "export/" + target + "/" + hex.EncodeToString(hash.Sum(nil)),
-		Version:      1,
-	}
-}
-
-func writeFingerprintPart(destination io.Writer, value []byte) {
-	var length [8]byte
-	binary.BigEndian.PutUint64(length[:], uint64(len(value)))
-	_, _ = destination.Write(length[:])
-	_, _ = destination.Write(value)
-}
-
-func (s *Service) filePatch(ctx context.Context, assetID, revisionID uuid.UUID) (format.Patch, error) {
 	rows, err := s.pool.Query(ctx, `
-		select field, value
-		  from file_field_patches
+		select owner_kind, owner_id, namespace, payload
+		  from asset_preserved_data
 		 where asset_id = $1
-		   and (provenance = 'creator' or revision_id = $2)
-		 order by case provenance when 'reconciliation' then 0 else 1 end
-	`, assetID, revisionID)
+		 order by namespace, owner_id
+	`, subject.assetID)
 	if err != nil {
-		return nil, fmt.Errorf("read file patch: %w", err)
+		return nil, fmt.Errorf("read preserved data: %w", err)
 	}
 	defer rows.Close()
-	patch := make(format.Patch)
+	preserved := make([]format.Remainder, 0)
 	for rows.Next() {
-		var field format.Field
-		var value string
-		if err := rows.Scan(&field, &value); err != nil {
-			return nil, fmt.Errorf("scan file patch: %w", err)
+		var row format.Remainder
+		if err := rows.Scan(&row.Owner, &row.OwnerID, &row.Namespace, &row.Payload); err != nil {
+			return nil, fmt.Errorf("read a preserved row: %w", err)
 		}
-		patch[field] = value
+		preserved = append(preserved, row)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("read file patch: %w", err)
-	}
-	return patch, nil
+	return preserved, rows.Err()
 }
 
-func (s *Service) exportMedia(ctx context.Context, assetID uuid.UUID) ([]format.ExportMedia, error) {
+// exportImages opens the pictures a writer may put in the file. That is the
+// asset's own picture and every one an image element points at.
+func (s *Service) exportImages(
+	ctx context.Context,
+	subject exportSubject,
+) (*format.ExportMedia, map[uuid.UUID]format.ExportMedia, error) {
+	wanted := make([]uuid.UUID, 0)
+	for _, element := range subject.elements() {
+		set, isSet := element.Content.(block.ImageSet)
+		if !isSet {
+			continue
+		}
+		for _, image := range set.Images {
+			wanted = append(wanted, image.MediaID)
+		}
+	}
+	var held pgtype.UUID
+	if err := s.pool.QueryRow(ctx,
+		`select cover_media_id from assets where id = $1`, subject.assetID,
+	).Scan(&held); err != nil {
+		return nil, nil, fmt.Errorf("read the cover: %w", err)
+	}
+	coverID := uuidOrNil(held)
+	if coverID != nil {
+		wanted = append(wanted, *coverID)
+	}
+	if len(wanted) == 0 {
+		return nil, map[uuid.UUID]format.ExportMedia{}, nil
+	}
+
 	rows, err := s.pool.Query(ctx, `
-		select id, role, blob_id from asset_media where asset_id = $1 order by created_at, id
-	`, assetID)
+		select id, blob_id from asset_media
+		 where asset_id = $1 and is_current and id = any($2)
+	`, subject.assetID, wanted)
 	if err != nil {
-		return nil, fmt.Errorf("list export media: %w", err)
+		return nil, nil, fmt.Errorf("list the pictures to export: %w", err)
 	}
 	defer rows.Close()
-	type foundMedia struct {
-		id     uuid.UUID
-		role   MediaRole
-		blobID uuid.UUID
-	}
-	var found []foundMedia
+	blobs := make(map[uuid.UUID]uuid.UUID)
 	for rows.Next() {
-		var item foundMedia
-		if err := rows.Scan(&item.id, &item.role, &item.blobID); err != nil {
-			return nil, fmt.Errorf("scan export media: %w", err)
+		var mediaID, blobID uuid.UUID
+		if err := rows.Scan(&mediaID, &blobID); err != nil {
+			return nil, nil, fmt.Errorf("read a picture to export: %w", err)
 		}
-		found = append(found, item)
+		blobs[mediaID] = blobID
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("list export media: %w", err)
+		return nil, nil, fmt.Errorf("list the pictures to export: %w", err)
 	}
-	media := make([]format.ExportMedia, 0, len(found))
-	for _, item := range found {
-		opened, err := s.store.Open(ctx, item.blobID)
+
+	images := make(map[uuid.UUID]format.ExportMedia, len(blobs))
+	for mediaID, blobID := range blobs {
+		picture, err := s.readBlob(ctx, blobID)
 		if err != nil {
-			return nil, fmt.Errorf("open export media %s: %w", item.id, err)
+			return nil, nil, fmt.Errorf("read picture %s: %w", mediaID, err)
 		}
-		data, readErr := io.ReadAll(opened)
-		closeErr := opened.Close()
-		if readErr != nil {
-			return nil, fmt.Errorf("read export media %s: %w", item.id, readErr)
-		}
-		if closeErr != nil {
-			return nil, fmt.Errorf("close export media %s: %w", item.id, closeErr)
-		}
-		media = append(media, format.ExportMedia{
-			Role: item.role, MediaType: http.DetectContentType(data), Data: data,
-		})
+		images[mediaID] = picture
 	}
-	return media, nil
+	var cover *format.ExportMedia
+	if coverID != nil {
+		if picture, held := images[*coverID]; held {
+			cover = &picture
+			delete(images, *coverID)
+		}
+	}
+	return cover, images, nil
+}
+
+func (s *Service) readBlob(ctx context.Context, blobID uuid.UUID) (format.ExportMedia, error) {
+	opened, err := s.store.Open(ctx, blobID)
+	if err != nil {
+		return format.ExportMedia{}, err
+	}
+	data, readErr := io.ReadAll(opened)
+	closeErr := opened.Close()
+	if readErr != nil {
+		return format.ExportMedia{}, readErr
+	}
+	if closeErr != nil {
+		return format.ExportMedia{}, closeErr
+	}
+	return format.ExportMedia{MediaType: http.DetectContentType(data), Data: data}, nil
+}
+
+// downloadFilename names the file a reader receives after the asset rather
+// than after the format they picked.
+func downloadFilename(name, extension string) string {
+	slug := make([]rune, 0, len(name))
+	for _, letter := range strings.ToLower(name) {
+		switch {
+		case letter >= 'a' && letter <= 'z', letter >= '0' && letter <= '9':
+			slug = append(slug, letter)
+		case len(slug) > 0 && slug[len(slug)-1] != '-':
+			slug = append(slug, '-')
+		}
+	}
+	trimmed := strings.Trim(string(slug), "-")
+	if trimmed == "" {
+		trimmed = "download"
+	}
+	return trimmed + extension
+}
+
+// OriginalUpload is the creator's own file. It sits on its own below the
+// generated downloads, because a reader should never mistake a year-old file
+// for the current work.
+type OriginalUpload struct {
+	Label     string
+	MediaType string
+	ArrivedAt time.Time
 }

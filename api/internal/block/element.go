@@ -59,6 +59,17 @@ const (
 	RoleLorebookEntries Role = "lorebook_entries"
 )
 
+// Roles returns the semantic vocabulary in the order a report reads it, which
+// is the order the roles are declared above.
+func Roles() []Role {
+	return []Role{
+		RoleDescription, RolePersonality, RoleScenario, RoleGreetings,
+		RoleGroupGreetings, RoleExampleDialogue, RoleSystemPrompt,
+		RolePostHistoryInstructions, RoleCreatorNotes, RoleGallery,
+		RoleExpressions, RoleLorebookEntries,
+	}
+}
+
 // Known reports whether the role belongs to the shared semantic vocabulary.
 func (r Role) Known() bool {
 	switch r {

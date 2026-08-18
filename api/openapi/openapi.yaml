@@ -644,28 +644,6 @@ paths:
         "403": { description: The signed-in account has not verified its email }
         "404": { description: The asset or the namespace does not belong to the creator }
         "409": { description: The asset is withheld and cannot be changed }
-  /v1/assets/{id}/file-patch:
-    put:
-      operationId: setFilePatch
-      description: >-
-        Replace the creator's semantic changes to the file. Omitted fields are
-        removed from the patch. Catalog metadata is a separate concern and is
-        never written into the artifact.
-      security: [{ sessionCookie: [] }]
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/FileFieldPatch" }
-      responses:
-        "204": { description: The creator's file patch is saved }
-        "400": { description: The body is not a supported semantic patch }
-        "401": { description: No account is signed in }
-        "403": { description: The signed-in account has not verified its email }
-        "404": { description: The asset does not belong to the creator }
-        "409": { description: The asset is withheld or its format cannot be patched }
   /v1/assets/{id}/restore:
     post:
       operationId: restoreAsset
@@ -822,15 +800,19 @@ paths:
           name: target
           in: path
           required: true
-          description: A declared export target. Unsupported values fall back to raw.
+          description: >-
+            One of the formats the asset is offered in. A format outside that
+            list was never a choice and is refused.
           schema: { type: string }
       responses:
         "200":
-          description: The current revision exported to the resolved target
+          description: >-
+            The asset written in the requested format. It is produced on
+            request and never cached.
           headers:
             Content-Disposition:
               required: true
-              schema: { type: string, enum: [attachment, inline] }
+              schema: { type: string, enum: [attachment] }
             X-Content-Type-Options:
               required: true
               schema: { type: string, enum: [nosniff] }
@@ -1470,7 +1452,8 @@ components:
       type: object
       required:
         [id, kind, name, blurb, tags, creator, isNsfw, discovery, lifecycle,
-         isOwner, hasSourceFile, createdAt, blocks, media, preview, visibility]
+         isOwner, downloads, original, createdAt, blocks, media, preview,
+         visibility]
       properties:
         id: { type: string, format: uuid }
         kind: { type: string, enum: [character, lorebook, preset, theme] }
@@ -1501,11 +1484,21 @@ components:
           description: >-
             Whether the reader owns the asset. The owner's page is the reader's
             page with its editing affordances, not a second visual state.
-        hasSourceFile:
-          type: boolean
+        downloads:
+          type: array
           description: >-
-            Whether the asset carries a file a reader can download. An asset
-            built from nothing carries none.
+            The formats this asset is offered in, read from its projection. A
+            format Illarin cannot produce for the asset is absent rather than
+            listed as unavailable, so this is a list of choices and not a
+            capability report.
+          items: { $ref: "#/components/schemas/DownloadTarget" }
+        original:
+          description: >-
+            The creator's own upload. Null for an asset built from nothing,
+            which gets no group saying so.
+          oneOf:
+            - { $ref: "#/components/schemas/OriginalUpload" }
+            - { type: "null" }
         createdAt: { type: string, format: date-time }
         blocks:
           type: array
@@ -1539,6 +1532,63 @@ components:
         visibility: { type: string, enum: [hidden, blurred, shown] }
         withhold:
           $ref: "#/components/schemas/AssetWithhold"
+    DownloadTarget:
+      type: object
+      required: [format, label, recommended, roles]
+      properties:
+        format:
+          type: string
+          description: The format id, which is also the download's target.
+        label: { type: string }
+        recommended:
+          type: boolean
+          description: >-
+            Computed by the widest-compatibility rule and never chosen by a
+            creator: the format that loses the least among the formats most
+            apps can open.
+        roles:
+          type: array
+          description: One verdict per role this asset has content for.
+          items: { $ref: "#/components/schemas/DownloadRoleVerdict" }
+    DownloadRoleVerdict:
+      type: object
+      required: [role, label, verdict, sample]
+      properties:
+        role: { type: string }
+        label: { type: string }
+        verdict: { type: string, enum: [carried, reduced, dropped] }
+        reason:
+          type: string
+          description: What went, on a reduced verdict.
+        destination:
+          type: string
+          description: >-
+            Where the content lands when that is not the format's standard home
+            for it. Independent of how much survives, so it rides on a carried
+            verdict too.
+        sample: { $ref: "#/components/schemas/DownloadSample" }
+    DownloadSample:
+      type: object
+      required: [count]
+      properties:
+        count:
+          type: integer
+          description: How many things the role holds in all.
+        texts:
+          type: array
+          description: Entry names and greeting openings, a few of them.
+          items: { type: string }
+        images:
+          type: array
+          description: The media ids of a few of the pictures at stake.
+          items: { type: string, format: uuid }
+    OriginalUpload:
+      type: object
+      required: [label, mediaType, arrivedAt]
+      properties:
+        label: { type: string }
+        mediaType: { type: string }
+        arrivedAt: { type: string, format: date-time }
     PreservedNamespace:
       type: object
       required: [name, bytes]
@@ -1587,18 +1637,6 @@ components:
           description: The whole floor, so a refusal names every missing item at once.
           type: array
           items: { $ref: "#/components/schemas/ReadinessItem" }
-    FileFieldPatch:
-      type: object
-      additionalProperties: false
-      properties:
-        description: { type: string }
-        personality: { type: string }
-        scenario: { type: string }
-        first_mes: { type: string }
-        system_prompt: { type: string }
-        post_history_instructions: { type: string }
-        creator_notes: { type: string }
-        character_version: { type: string }
     DeletedAssetList:
       type: object
       required: [items]

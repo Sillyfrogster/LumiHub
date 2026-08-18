@@ -488,6 +488,27 @@ func (e DeletedAssetKind) Valid() bool {
 	}
 }
 
+// Defines values for DownloadRoleVerdictVerdict.
+const (
+	Carried DownloadRoleVerdictVerdict = "carried"
+	Dropped DownloadRoleVerdictVerdict = "dropped"
+	Reduced DownloadRoleVerdictVerdict = "reduced"
+)
+
+// Valid indicates whether the value is a known member of the DownloadRoleVerdictVerdict enum.
+func (e DownloadRoleVerdictVerdict) Valid() bool {
+	switch e {
+	case Carried:
+		return true
+	case Dropped:
+		return true
+	case Reduced:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ElementType.
 const (
 	DialogueSample ElementType = "dialogue_sample"
@@ -1016,9 +1037,9 @@ type AssetDetail struct {
 	Creator   string               `json:"creator"`
 	Discovery AssetDetailDiscovery `json:"discovery"`
 
-	// HasSourceFile Whether the asset carries a file a reader can download. An asset built from nothing carries none.
-	HasSourceFile bool               `json:"hasSourceFile"`
-	Id            openapi_types.UUID `json:"id"`
+	// Downloads The formats this asset is offered in, read from its projection. A format Illarin cannot produce for the asset is absent rather than listed as unavailable, so this is a list of choices and not a capability report.
+	Downloads []DownloadTarget   `json:"downloads"`
+	Id        openapi_types.UUID `json:"id"`
 
 	// IsNsfw Null while a draft has not been asked the adult content question. Nothing answers it on the creator's behalf.
 	IsNsfw *bool `json:"isNsfw"`
@@ -1033,6 +1054,9 @@ type AssetDetail struct {
 	// Media The asset's images, cover first. Variant URLs already reflect the reader's preference, so a blurred reader is never handed a clear one.
 	Media []AssetImage `json:"media"`
 	Name  string       `json:"name"`
+
+	// Original The creator's own upload. Null for an asset built from nothing, which gets no group saying so.
+	Original *OriginalUpload `json:"original"`
 
 	// Preview The composed social preview for link unfurling. Null on a draft, which nothing unfurls.
 	Preview *string `json:"preview"`
@@ -1249,6 +1273,47 @@ type DialogueSampleContent struct {
 	} `json:"turns"`
 }
 
+// DownloadRoleVerdict defines model for DownloadRoleVerdict.
+type DownloadRoleVerdict struct {
+	// Destination Where the content lands when that is not the format's standard home for it. Independent of how much survives, so it rides on a carried verdict too.
+	Destination *string `json:"destination,omitempty"`
+	Label       string  `json:"label"`
+
+	// Reason What went, on a reduced verdict.
+	Reason  *string                    `json:"reason,omitempty"`
+	Role    string                     `json:"role"`
+	Sample  DownloadSample             `json:"sample"`
+	Verdict DownloadRoleVerdictVerdict `json:"verdict"`
+}
+
+// DownloadRoleVerdictVerdict defines model for DownloadRoleVerdict.Verdict.
+type DownloadRoleVerdictVerdict string
+
+// DownloadSample defines model for DownloadSample.
+type DownloadSample struct {
+	// Count How many things the role holds in all.
+	Count int `json:"count"`
+
+	// Images The media ids of a few of the pictures at stake.
+	Images *[]openapi_types.UUID `json:"images,omitempty"`
+
+	// Texts Entry names and greeting openings, a few of them.
+	Texts *[]string `json:"texts,omitempty"`
+}
+
+// DownloadTarget defines model for DownloadTarget.
+type DownloadTarget struct {
+	// Format The format id, which is also the download's target.
+	Format string `json:"format"`
+	Label  string `json:"label"`
+
+	// Recommended Computed by the widest-compatibility rule and never chosen by a creator: the format that loses the least among the formats most apps can open.
+	Recommended bool `json:"recommended"`
+
+	// Roles One verdict per role this asset has content for.
+	Roles []DownloadRoleVerdict `json:"roles"`
+}
+
 // ElementType What an element's data structure is, from the global vocabulary.
 type ElementType string
 
@@ -1289,18 +1354,6 @@ type FieldListContent struct {
 		Name  *string             `json:"name,omitempty"`
 		Value string              `json:"value"`
 	} `json:"fields"`
-}
-
-// FileFieldPatch defines model for FileFieldPatch.
-type FileFieldPatch struct {
-	CharacterVersion        *string `json:"character_version,omitempty"`
-	CreatorNotes            *string `json:"creator_notes,omitempty"`
-	Description             *string `json:"description,omitempty"`
-	FirstMes                *string `json:"first_mes,omitempty"`
-	Personality             *string `json:"personality,omitempty"`
-	PostHistoryInstructions *string `json:"post_history_instructions,omitempty"`
-	Scenario                *string `json:"scenario,omitempty"`
-	SystemPrompt            *string `json:"system_prompt,omitempty"`
 }
 
 // ImageSetContent An ordered list of images. An item carries its image and one optional free-text name, and its position is where it sits in the list.
@@ -1427,6 +1480,13 @@ type NsfwVisibilityRequest struct {
 
 // NsfwVisibilityRequestVisibility defines model for NsfwVisibilityRequest.Visibility.
 type NsfwVisibilityRequestVisibility string
+
+// OriginalUpload defines model for OriginalUpload.
+type OriginalUpload struct {
+	ArrivedAt time.Time `json:"arrivedAt"`
+	Label     string    `json:"label"`
+	MediaType string    `json:"mediaType"`
+}
 
 // PasswordRequest defines model for PasswordRequest.
 type PasswordRequest struct {
@@ -1696,9 +1756,6 @@ type MoveAssetBlockContentJSONRequestBody = MoveAssetBlockContentRequest
 // SetAssetDiscoveryJSONRequestBody defines body for SetAssetDiscovery for application/json ContentType.
 type SetAssetDiscoveryJSONRequestBody = AssetDiscoveryRequest
 
-// SetFilePatchJSONRequestBody defines body for SetFilePatch for application/json ContentType.
-type SetFilePatchJSONRequestBody = FileFieldPatch
-
 // SetAssetIdentityJSONRequestBody defines body for SetAssetIdentity for application/json ContentType.
 type SetAssetIdentityJSONRequestBody = AssetIdentityRequest
 
@@ -1788,9 +1845,6 @@ type ServerInterface interface {
 
 	// (PUT /v1/assets/{id}/discovery)
 	SetAssetDiscovery(c *gin.Context, id openapi_types.UUID)
-
-	// (PUT /v1/assets/{id}/file-patch)
-	SetFilePatch(c *gin.Context, id openapi_types.UUID)
 
 	// (PUT /v1/assets/{id}/identity)
 	SetAssetIdentity(c *gin.Context, id openapi_types.UUID)
@@ -2415,31 +2469,6 @@ func (siw *ServerInterfaceWrapper) SetAssetDiscovery(c *gin.Context) {
 	}
 
 	siw.Handler.SetAssetDiscovery(c, id)
-}
-
-// SetFilePatch operation middleware
-func (siw *ServerInterfaceWrapper) SetFilePatch(c *gin.Context) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "id" -------------
-	var id openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
-	if err != nil {
-		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
-		return
-	}
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		middleware(c)
-		if c.IsAborted() {
-			return
-		}
-	}
-
-	siw.Handler.SetFilePatch(c, id)
 }
 
 // SetAssetIdentity operation middleware
@@ -3125,7 +3154,6 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/v1/assets/:id/blocks/:blockId/move-and-remove", wrapper.MoveAssetBlockContent)
 	router.GET(options.BaseURL+"/v1/assets/:id/preserved", wrapper.ListPreservedNamespaces)
 	router.DELETE(options.BaseURL+"/v1/assets/:id/preserved/:namespace", wrapper.DeletePreservedNamespace)
-	router.PUT(options.BaseURL+"/v1/assets/:id/file-patch", wrapper.SetFilePatch)
 	router.POST(options.BaseURL+"/v1/assets/:id/restore", wrapper.RestoreAsset)
 	router.PUT(options.BaseURL+"/v1/assets/:id/identity", wrapper.SetAssetIdentity)
 	router.POST(options.BaseURL+"/v1/assets/:id/publish", wrapper.PublishAsset)

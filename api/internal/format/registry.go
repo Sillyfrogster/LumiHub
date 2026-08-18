@@ -63,8 +63,8 @@ func (r *Registry) ValidateDeclarations() error {
 			}
 		}
 		if declaration.Direction.Write {
-			if _, ok := module.(Exporter); !ok {
-				return fmt.Errorf("module %q declares write support without an exporter: %w", id, ErrInvariant)
+			if _, ok := module.(Writer); !ok {
+				return fmt.Errorf("module %q declares write support without a writer: %w", id, ErrInvariant)
 			}
 		}
 	}
@@ -127,15 +127,6 @@ func (r *Registry) ByID(id string) (Module, bool) {
 	return m, ok
 }
 
-func (r *Registry) CanEdit(id string) bool {
-	m, ok := r.modules[id]
-	if !ok {
-		return false
-	}
-	_, editable := m.(Patcher)
-	return editable
-}
-
 // Declaration returns one registered module's contract, for code that needs to
 // read what a format declares without asking it to parse anything.
 func (r *Registry) Declaration(id string) (Declaration, bool) {
@@ -144,35 +135,6 @@ func (r *Registry) Declaration(id string) (Declaration, bool) {
 		return Declaration{}, false
 	}
 	return module.Declaration(), true
-}
-
-// ResolveExporter selects a declared target or falls back to raw.
-func (r *Registry) ResolveExporter(id, target string) (Exporter, string, bool) {
-	module, ok := r.modules[id]
-	if !ok {
-		return nil, RawTarget, false
-	}
-	declaration := module.Declaration()
-	if !declaration.Direction.Write {
-		return nil, RawTarget, false
-	}
-	exporter, ok := module.(Exporter)
-	if !ok {
-		return nil, RawTarget, false
-	}
-	if target == "" || target == RawTarget {
-		return exporter, RawTarget, true
-	}
-	declarer, ok := module.(ExportTargetDeclarer)
-	if !ok {
-		return exporter, RawTarget, true
-	}
-	for _, declared := range declarer.ExportTargets() {
-		if declared.Value == target {
-			return exporter, target, true
-		}
-	}
-	return exporter, RawTarget, true
 }
 
 type RegisteredBrowseDefinition struct {

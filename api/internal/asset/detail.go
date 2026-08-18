@@ -8,6 +8,7 @@ import (
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/block"
 	"github.com/Sillyfrogster/LumiHub/api/internal/db"
+	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	mediaproc "github.com/Sillyfrogster/LumiHub/api/internal/media"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -47,10 +48,15 @@ type Detail struct {
 	// IsOwner says whether the reader owns the asset. The owner's page is the
 	// reader's page with more on it, never a second page.
 	IsOwner bool
-	// HasSourceFile is false for an asset built from nothing, which has no
-	// file to hand a reader.
-	HasSourceFile bool
-	CreatedAt     time.Time
+	// Downloads are the formats this asset is offered in, read from its
+	// projection rather than worked out per request. The recommended one is
+	// marked, and a format Illarin cannot produce for the asset is absent
+	// rather than listed as unavailable.
+	Downloads []format.Target
+	// Original is the creator's own upload, and is nil for an asset built from
+	// nothing. It stands on its own below the generated downloads.
+	Original  *OriginalUpload
+	CreatedAt time.Time
 	// Blocks are the asset's content, in page order.
 	Blocks []block.Block
 	// Media puts the direct cover first, followed by the remaining roles.
@@ -89,19 +95,23 @@ func (s *Service) Detail(
 		return Detail{}, fmt.Errorf("read asset page: %w", err)
 	}
 	found := Detail{
-		ID:            uuidFromPgtype(row.ID),
-		Kind:          row.Kind,
-		Name:          row.Name,
-		Blurb:         row.Blurb,
-		Tags:          detailTags(row.Tags),
-		Creator:       row.Creator,
-		IsNSFW:        boolFromPgtype(row.IsNsfw),
-		Discovery:     Discovery(row.Discovery),
-		Lifecycle:     Lifecycle(row.Lifecycle),
-		IsOwner:       row.IsOwner,
-		HasSourceFile: row.HasSourceFile,
-		CreatedAt:     timeFromPgtype(row.CreatedAt),
-		Media:         []DetailImage{},
+		ID:        uuidFromPgtype(row.ID),
+		Kind:      row.Kind,
+		Name:      row.Name,
+		Blurb:     row.Blurb,
+		Tags:      detailTags(row.Tags),
+		Creator:   row.Creator,
+		IsNSFW:    boolFromPgtype(row.IsNsfw),
+		Discovery: Discovery(row.Discovery),
+		Lifecycle: Lifecycle(row.Lifecycle),
+		IsOwner:   row.IsOwner,
+		Original:  originalUpload(s.reg, row),
+		CreatedAt: timeFromPgtype(row.CreatedAt),
+		Media:     []DetailImage{},
+	}
+	found.Downloads, err = s.exportProjection(ctx, id)
+	if err != nil {
+		return Detail{}, err
 	}
 	found.Blocks, err = readBlocks(ctx, s.pool, id)
 	if err != nil {
@@ -152,6 +162,23 @@ func (s *Service) Detail(
 		}
 	}
 	return found, nil
+}
+
+// originalUpload names the creator's own file by what it is and when it
+// arrived. An asset built from nothing has none, and gets no group saying so.
+func originalUpload(reg *format.Registry, row db.AssetPageRow) *OriginalUpload {
+	if !row.OriginalFormat.Valid {
+		return nil
+	}
+	label := row.OriginalFormat.String
+	if declaration, known := reg.Declaration(row.OriginalFormat.String); known {
+		label = declaration.Label
+	}
+	return &OriginalUpload{
+		Label:     label,
+		MediaType: row.OriginalMediaType.String,
+		ArrivedAt: timeFromPgtype(row.OriginalArrivedAt),
+	}
 }
 
 // detailTags pairs the creator's text with the form browse matches on.

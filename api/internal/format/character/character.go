@@ -64,21 +64,6 @@ var browsableExtensions = []format.BrowseOption{
 	{Value: "chub", Label: "Chub metadata"},
 }
 
-var patchableFields = []format.Field{
-	format.FieldDescription,
-	format.FieldPersonality,
-	format.FieldScenario,
-	format.FieldFirstMessage,
-	format.FieldSystemPrompt,
-	format.FieldPostHistoryInstructions,
-	format.FieldCreatorNotes,
-	format.FieldCharacterVersion,
-}
-
-func validatePatch(patch format.Patch) error {
-	return format.ValidatePatchFields(patch, patchableFields...)
-}
-
 func browseFacets() []format.BrowseFacet {
 	return []format.BrowseFacet{
 		{Key: "has_lorebook", Label: "Lorebook", Options: []format.BrowseOption{
@@ -95,6 +80,14 @@ func browseDefinition(targets []format.BrowseOption) format.BrowseDefinition {
 		ExportTargets: targets,
 		Facets:        browseFacets(),
 	}
+}
+
+// labels name a format in a download menu, where a reader picks without
+// having to learn what the formats are.
+var labels = map[string]string{
+	V2:    "Character Card V2",
+	V3:    "Character Card V3",
+	CharX: "CharX",
 }
 
 func declaration(id string) format.Declaration {
@@ -125,15 +118,39 @@ func declaration(id string) format.Declaration {
 	roles := make(map[block.Role]format.DirectionalRoleSupport)
 	for _, role := range []block.Role{
 		block.RoleDescription, block.RolePersonality, block.RoleScenario,
-		block.RoleGreetings, block.RoleGroupGreetings, block.RoleExampleDialogue,
-		block.RoleSystemPrompt, block.RolePostHistoryInstructions,
-		block.RoleCreatorNotes, block.RoleLorebookEntries,
-		block.RoleGallery, block.RoleExpressions,
+		block.RoleGroupGreetings, block.RoleSystemPrompt,
+		block.RolePostHistoryInstructions, block.RoleCreatorNotes,
+		block.RoleLorebookEntries, block.RoleGallery, block.RoleExpressions,
 	} {
 		roles[role] = format.DirectionalRoleSupport{
 			Read:  format.RoleSupport{Grade: format.SupportFull},
 			Write: format.RoleSupport{Grade: format.SupportFull},
 		}
+	}
+	// A card holds its greetings as plain strings and its example exchange as
+	// one run of lines, so both carry whole until an asset uses a part of
+	// Illarin's own model that the card has no room for. Neither condition
+	// fires on an imported card, which is the point of stating them as
+	// conditions rather than as a sentence every character would show.
+	roles[block.RoleGreetings] = format.DirectionalRoleSupport{
+		Read: format.RoleSupport{Grade: format.SupportFull},
+		Write: format.RoleSupport{
+			Grade: format.SupportPartial,
+			Condition: &format.ContentCondition{
+				Description: "a name written on a greeting, because a card holds greetings as plain text",
+				Matches:     hasNamedText,
+			},
+		},
+	}
+	roles[block.RoleExampleDialogue] = format.DirectionalRoleSupport{
+		Read: format.RoleSupport{Grade: format.SupportFull},
+		Write: format.RoleSupport{
+			Grade: format.SupportPartial,
+			Condition: &format.ContentCondition{
+				Description: "the line breaks inside a message, because a card holds the example as one line per turn",
+				Matches:     hasMultilineTurn,
+			},
+		},
 	}
 	if id == V2 {
 		for _, role := range []block.Role{
@@ -153,6 +170,15 @@ func declaration(id string) format.Declaration {
 			}
 		}
 	}
+	if id != V2 {
+		// The standard names an asset type for a face and none for a gallery,
+		// so the pictures travel under an extension type. They are in the file
+		// and only a client that knows the type will show them.
+		gallery := roles[block.RoleGallery]
+		gallery.Write.Destination = "an " + galleryAssetType +
+			" asset, which only a client that knows the type will show"
+		roles[block.RoleGallery] = gallery
+	}
 	// The keys this module turns into content. Everything else the card
 	// carries is preserved, which is what makes the remainder a per-key
 	// answer rather than a per-namespace one.
@@ -171,7 +197,8 @@ func declaration(id string) format.Declaration {
 		consumedKeys = append(consumedKeys, "group_only_greetings")
 	}
 	return format.Declaration{
-		ID: id, Kind: Kind, Direction: format.Direction{Read: true, Write: true},
+		ID: id, Label: labels[id], Kind: Kind,
+		Direction:   format.Direction{Read: true, Write: true},
 		Recognition: recognition, Roles: roles,
 		Limits: format.ContentLimits{
 			PayloadBytes: block.MaxPayloadBytes, CollectionItems: block.MaxCollectionItems,
@@ -191,7 +218,13 @@ func declaration(id string) format.Declaration {
 		Preservation: format.PreservationDeclaration{
 			Body: cardNamespace, Container: []string{extensionsKey},
 		},
-		TestedOrigins: []string{id, "illarin"},
+		// The three card standards share one field vocabulary, and the writers
+		// build a file out of roles rather than out of another format's bytes,
+		// so every character origin is a tested origin for every character
+		// writer. That is a deliberate addition to the default of one's own
+		// format and Illarin-authored assets (ADR-0020), and the round trips
+		// that back it are in this package's tests.
+		TestedOrigins: []string{V2, V3, CharX, format.OriginIllarin},
 	}
 }
 
@@ -569,4 +602,33 @@ func truncate(text string, limit int) string {
 // rather than remembering to add each one.
 func Modules() []format.Reader {
 	return []format.Reader{CCv2Module{}, CCv3Module{}, CharXModule{}}
+}
+
+// hasNamedText reports whether a creator gave one of a set's texts a name.
+func hasNamedText(content block.Content) bool {
+	set, ok := content.(block.TextSet)
+	if !ok {
+		return false
+	}
+	for _, item := range set.Texts {
+		if item.Name != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// hasMultilineTurn reports whether one turn of an example exchange spans more
+// than one line, which is what runs together when a card is read back.
+func hasMultilineTurn(content block.Content) bool {
+	sample, ok := content.(block.DialogueSample)
+	if !ok {
+		return false
+	}
+	for _, turn := range sample.Turns {
+		if strings.ContainsAny(turn.Text, "\r\n") {
+			return true
+		}
+	}
+	return false
 }

@@ -501,23 +501,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/v1/assets/{id}/file-patch": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    /** @description Replace the creator's semantic changes to the file. Omitted fields are removed from the patch. Catalog metadata is a separate concern and is never written into the artifact. */
-    put: operations["setFilePatch"];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   "/v1/assets/{id}/restore": {
     parameters: {
       query?: never;
@@ -1077,8 +1060,10 @@ export interface components {
       lifecycle: "draft" | "published";
       /** @description Whether the reader owns the asset. The owner's page is the reader's page with its editing affordances, not a second visual state. */
       isOwner: boolean;
-      /** @description Whether the asset carries a file a reader can download. An asset built from nothing carries none. */
-      hasSourceFile: boolean;
+      /** @description The formats this asset is offered in, read from its projection. A format Illarin cannot produce for the asset is absent rather than listed as unavailable, so this is a list of choices and not a capability report. */
+      downloads: components["schemas"]["DownloadTarget"][];
+      /** @description The creator's own upload. Null for an asset built from nothing, which gets no group saying so. */
+      original: components["schemas"]["OriginalUpload"] | null;
       /** Format: date-time */
       createdAt: string;
       /** @description The asset's blocks in page order. */
@@ -1094,6 +1079,40 @@ export interface components {
       /** @enum {string} */
       visibility: "hidden" | "blurred" | "shown";
       withhold?: components["schemas"]["AssetWithhold"];
+    };
+    DownloadTarget: {
+      /** @description The format id, which is also the download's target. */
+      format: string;
+      label: string;
+      /** @description Computed by the widest-compatibility rule and never chosen by a creator: the format that loses the least among the formats most apps can open. */
+      recommended: boolean;
+      /** @description One verdict per role this asset has content for. */
+      roles: components["schemas"]["DownloadRoleVerdict"][];
+    };
+    DownloadRoleVerdict: {
+      role: string;
+      label: string;
+      /** @enum {string} */
+      verdict: "carried" | "reduced" | "dropped";
+      /** @description What went, on a reduced verdict. */
+      reason?: string;
+      /** @description Where the content lands when that is not the format's standard home for it. Independent of how much survives, so it rides on a carried verdict too. */
+      destination?: string;
+      sample: components["schemas"]["DownloadSample"];
+    };
+    DownloadSample: {
+      /** @description How many things the role holds in all. */
+      count: number;
+      /** @description Entry names and greeting openings, a few of them. */
+      texts?: string[];
+      /** @description The media ids of a few of the pictures at stake. */
+      images?: string[];
+    };
+    OriginalUpload: {
+      label: string;
+      mediaType: string;
+      /** Format: date-time */
+      arrivedAt: string;
     };
     PreservedNamespace: {
       /** @description The namespace as the file that carried it named it. */
@@ -1126,16 +1145,6 @@ export interface components {
       error: string;
       /** @description The whole floor, so a refusal names every missing item at once. */
       readiness?: components["schemas"]["ReadinessItem"][];
-    };
-    FileFieldPatch: {
-      description?: string;
-      personality?: string;
-      scenario?: string;
-      first_mes?: string;
-      system_prompt?: string;
-      post_history_instructions?: string;
-      creator_notes?: string;
-      character_version?: string;
     };
     DeletedAssetList: {
       items: components["schemas"]["DeletedAsset"][];
@@ -2702,65 +2711,6 @@ export interface operations {
       };
     };
   };
-  setFilePatch: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["FileFieldPatch"];
-      };
-    };
-    responses: {
-      /** @description The creator's file patch is saved */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description The body is not a supported semantic patch */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description No account is signed in */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description The signed-in account has not verified its email */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description The asset does not belong to the creator */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description The asset is withheld or its format cannot be patched */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
   restoreAsset: {
     parameters: {
       query?: never;
@@ -3142,17 +3092,17 @@ export interface operations {
       header?: never;
       path: {
         id: string;
-        /** @description A declared export target. Unsupported values fall back to raw. */
+        /** @description One of the formats the asset is offered in. A format outside that list was never a choice and is refused. */
         target: string;
       };
       cookie?: never;
     };
     requestBody?: never;
     responses: {
-      /** @description The current revision exported to the resolved target */
+      /** @description The asset written in the requested format. It is produced on request and never cached. */
       200: {
         headers: {
-          "Content-Disposition": "attachment" | "inline";
+          "Content-Disposition": "attachment";
           "X-Content-Type-Options": "nosniff";
           "X-LumiHub-Export-Target": string;
           [name: string]: unknown;

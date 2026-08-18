@@ -102,6 +102,9 @@ func (s *Service) SaveBlock(
 		if err := dropUnownedPreservedData(ctx, tx, assetID, remaining); err != nil {
 			return SavedBlock{}, err
 		}
+		if err := s.writeExportProjection(ctx, tx, assetID); err != nil {
+			return SavedBlock{}, err
+		}
 		if err := tx.Commit(ctx); err != nil {
 			return SavedBlock{}, err
 		}
@@ -124,6 +127,9 @@ func (s *Service) SaveBlock(
 		return SavedBlock{}, ErrNotFound
 	}
 	if err := dropUnownedPreservedData(ctx, tx, assetID, blocks); err != nil {
+		return SavedBlock{}, err
+	}
+	if err := s.writeExportProjection(ctx, tx, assetID); err != nil {
 		return SavedBlock{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -171,13 +177,19 @@ func (s *Service) AddBlock(
 	if err := insertBlocks(ctx, tx, assetID, []block.Block{added}); err != nil {
 		return SavedBlock{}, err
 	}
+	if err := s.writeExportProjection(ctx, tx, assetID); err != nil {
+		return SavedBlock{}, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return SavedBlock{}, err
 	}
 	return SavedBlock{Kind: kind, Block: added}, nil
 }
 
-// ArrangeBlocks rewrites page order, visibility and width as one change.
+// ArrangeBlocks rewrites page order, visibility and width as one change. None
+// of the three reaches a download, so the export section of the projection is
+// left where it is. An export is a promise about a file and hiding is a promise
+// about a page (ADR-0024).
 func (s *Service) ArrangeBlocks(
 	ctx context.Context,
 	ownerID uuid.UUID,
@@ -289,6 +301,9 @@ func (s *Service) RemoveBlock(
 	if err := dropUnownedPreservedData(ctx, tx, assetID, remaining); err != nil {
 		return err
 	}
+	if err := s.writeExportProjection(ctx, tx, assetID); err != nil {
+		return err
+	}
 	return tx.Commit(ctx)
 }
 
@@ -383,6 +398,9 @@ func (s *Service) MoveBlockContent(
 		return SavedBlocks{}, err
 	}
 	if err := dropUnownedPreservedData(ctx, tx, assetID, after); err != nil {
+		return SavedBlocks{}, err
+	}
+	if err := s.writeExportProjection(ctx, tx, assetID); err != nil {
 		return SavedBlocks{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {

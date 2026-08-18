@@ -157,13 +157,15 @@ func (q *Queries) AssetDeletionState(ctx context.Context, arg AssetDeletionState
 const assetPage = `-- name: AssetPage :one
 select a.id, a.kind, a.name, a.blurb, a.tags, a.is_nsfw, a.discovery,
        a.lifecycle, a.created_at,
-       (a.current_revision_id is not null)::boolean as has_source_file,
+       revision.format as original_format, revision.media_type as original_media_type,
+       revision.created_at as original_arrived_at,
        coalesce(owner.username, 'unknown') as creator,
        coalesce(a.owner_id = $2::uuid, false)::boolean as is_owner,
        a.withheld_reason, a.withheld_at, actor.username as withheld_by
   from assets a
   left join users owner on owner.id = a.owner_id
   left join users actor on actor.id = a.withheld_by
+  left join asset_revisions revision on revision.id = a.current_revision_id
  where a.id = $1
    and a.deleted_at is null
    and (a.lifecycle = 'published' or a.owner_id = $2::uuid)
@@ -176,21 +178,23 @@ type AssetPageParams struct {
 }
 
 type AssetPageRow struct {
-	ID             pgtype.UUID
-	Kind           string
-	Name           string
-	Blurb          string
-	Tags           []string
-	IsNsfw         pgtype.Bool
-	Discovery      string
-	Lifecycle      string
-	CreatedAt      pgtype.Timestamptz
-	HasSourceFile  bool
-	Creator        string
-	IsOwner        bool
-	WithheldReason pgtype.Text
-	WithheldAt     pgtype.Timestamptz
-	WithheldBy     pgtype.Text
+	ID                pgtype.UUID
+	Kind              string
+	Name              string
+	Blurb             string
+	Tags              []string
+	IsNsfw            pgtype.Bool
+	Discovery         string
+	Lifecycle         string
+	CreatedAt         pgtype.Timestamptz
+	OriginalFormat    pgtype.Text
+	OriginalMediaType pgtype.Text
+	OriginalArrivedAt pgtype.Timestamptz
+	Creator           string
+	IsOwner           bool
+	WithheldReason    pgtype.Text
+	WithheldAt        pgtype.Timestamptz
+	WithheldBy        pgtype.Text
 }
 
 // Unlisted is missing from this predicate on purpose. A stranger holding the
@@ -208,7 +212,9 @@ func (q *Queries) AssetPage(ctx context.Context, arg AssetPageParams) (AssetPage
 		&i.Discovery,
 		&i.Lifecycle,
 		&i.CreatedAt,
-		&i.HasSourceFile,
+		&i.OriginalFormat,
+		&i.OriginalMediaType,
+		&i.OriginalArrivedAt,
 		&i.Creator,
 		&i.IsOwner,
 		&i.WithheldReason,

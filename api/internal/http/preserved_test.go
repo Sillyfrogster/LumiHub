@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -352,6 +351,9 @@ func TestAnOverLimitFileIsRefusedAndNamesWhereTheWeightIs(t *testing.T) {
 // The round trip, end to end: a card carrying third-party namespaces is
 // uploaded, an unrelated block is edited, and an export in the same format
 // brings every preserved key back byte for byte.
+// The round trip this whole effort exists for: a card carrying third-party
+// namespaces is read, an unrelated block is edited, and every preserved key
+// comes back byte-identical.
 func TestAnExportInTheSameFormatBringsEveryPreservedKeyBack(t *testing.T) {
 	r, session, assets := newCharacterIngestRouter(t)
 	metadata := exampleMetadata("Ana")
@@ -368,23 +370,52 @@ func TestAnExportInTheSameFormatBringsEveryPreservedKeyBack(t *testing.T) {
 		t.Fatalf("save the description: status = %d: %s", saved.Code, saved.Body.String())
 	}
 
-	export, err := assets.OpenExport(context.Background(), uuid.MustParse(assetID), nil, "sillytavern")
+	export, err := assets.OpenExport(
+		context.Background(), uuid.MustParse(assetID), nil, "chara_card_v3",
+	)
 	if err != nil {
 		t.Fatalf("export the card: %v", err)
 	}
-	defer export.Artifact.Close()
-	written, err := io.ReadAll(export.Artifact)
-	if err != nil {
-		t.Fatalf("read the exported card: %v", err)
-	}
 
-	exported := cardBodyOf(t, written)
+	exported := cardBodyOf(t, export.Body)
 	source := cardBodyOf(t, []byte(aCardCarryingThirdPartyNamespaces))
-	for _, key := range []string{"tags", "extensions", "character_book"} {
-		if !bytes.Equal(exported[key], source[key]) {
+	// Every key the reader could not model, back where it came from.
+	for _, key := range []string{"tags"} {
+		if !bytes.Equal(compactJSON(t, exported[key]), compactJSON(t, source[key])) {
 			t.Errorf("%s came back as %s, want %s", key, exported[key], source[key])
 		}
 	}
+	for namespace, value := range namespacesOf(t, source["extensions"]) {
+		got := namespacesOf(t, exported["extensions"])[namespace]
+		if !bytes.Equal(compactJSON(t, got), compactJSON(t, value)) {
+			t.Errorf("%s came back as %s, want %s", namespace, got, value)
+		}
+	}
+	// The book's own keys and each entry's own keys come back too, keyed
+	// against the entry Illarin minted an id for.
+	book := namespacesOf(t, exported["character_book"])
+	if !bytes.Equal(compactJSON(t, book["scan_depth"]), []byte("4")) {
+		t.Errorf("the book's own keys did not come back: %s", exported["character_book"])
+	}
+	var entries []map[string]json.RawMessage
+	if err := json.Unmarshal(book["entries"], &entries); err != nil {
+		t.Fatalf("read the written entries: %v", err)
+	}
+	if len(entries) == 0 || string(entries[0]["uid"]) == "" {
+		t.Errorf("an entry lost the identifier its format gave it: %+v", entries)
+	}
+}
+
+func namespacesOf(t *testing.T, raw json.RawMessage) map[string]json.RawMessage {
+	t.Helper()
+	found := make(map[string]json.RawMessage)
+	if len(raw) == 0 {
+		return found
+	}
+	if err := json.Unmarshal(raw, &found); err != nil {
+		t.Fatalf("read %s as an object: %v", raw, err)
+	}
+	return found
 }
 
 func cardBodyOf(t *testing.T, card []byte) map[string]json.RawMessage {

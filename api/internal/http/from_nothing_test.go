@@ -53,6 +53,34 @@ type startedAsset struct {
 	Readiness       []readinessItem  `json:"readiness"`
 	Blocks          []startedBlock   `json:"blocks"`
 	AddableSections []addableSection `json:"addableSections"`
+	Downloads       []downloadTarget `json:"downloads"`
+	Original        *originalUpload  `json:"original"`
+}
+
+type downloadTarget struct {
+	Format      string        `json:"format"`
+	Label       string        `json:"label"`
+	Recommended bool          `json:"recommended"`
+	Roles       []roleVerdict `json:"roles"`
+}
+
+type roleVerdict struct {
+	Role        string `json:"role"`
+	Label       string `json:"label"`
+	Verdict     string `json:"verdict"`
+	Reason      string `json:"reason"`
+	Destination string `json:"destination"`
+	Sample      struct {
+		Count  int      `json:"count"`
+		Texts  []string `json:"texts"`
+		Images []string `json:"images"`
+	} `json:"sample"`
+}
+
+type originalUpload struct {
+	Label     string `json:"label"`
+	MediaType string `json:"mediaType"`
+	ArrivedAt string `json:"arrivedAt"`
 }
 
 type addableSection struct {

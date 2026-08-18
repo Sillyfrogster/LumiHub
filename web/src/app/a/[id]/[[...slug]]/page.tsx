@@ -1,4 +1,4 @@
-import { ArrowLeft, Download } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import Link from "next/link";
@@ -14,6 +14,7 @@ import { AssetBlocks } from "./AssetBlocks";
 import { AssetMedia } from "./AssetMedia";
 import { DeleteControl } from "./DeleteControl";
 import { DiscoveryControl } from "./DiscoveryControl";
+import { DownloadPanel } from "./DownloadPanel";
 import { IdentityPanel } from "./IdentityPanel";
 import { PreservedPanel } from "./PreservedPanel";
 import { PublishPanel } from "./PublishPanel";
@@ -152,24 +153,21 @@ export default async function AssetPage({
               className={styles.rail}
               aria-label="Asset details and actions"
             >
-              {isDraft ? (
-                asset.isOwner && asset.readiness ? (
-                  <PublishPanel
-                    assetId={asset.id}
-                    kind={kind.toLowerCase()}
-                    readiness={asset.readiness}
-                  />
-                ) : null
-              ) : asset.hasSourceFile ? (
-                <section className={styles.downloadPanel}>
-                  <h2>Keep the original</h2>
-                  <p>Download the creator’s source file as it was shared.</p>
-                  <a href={`/download/${asset.id}`}>
-                    <Download size={16} aria-hidden="true" />
-                    Download source file
-                  </a>
-                </section>
+              {isDraft && asset.isOwner && asset.readiness ? (
+                <PublishPanel
+                  assetId={asset.id}
+                  kind={kind.toLowerCase()}
+                  readiness={asset.readiness}
+                />
               ) : null}
+
+              {/* The creator reads the reader's panel, in the reader's words. */}
+              <DownloadPanel
+                assetId={asset.id}
+                downloads={asset.downloads}
+                original={asset.original}
+                images={asset.media}
+              />
 
               {asset.isOwner ? <PreservedPanel assetId={asset.id} /> : null}
 

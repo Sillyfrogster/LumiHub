@@ -22,7 +22,6 @@ import (
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/asset"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
-	"github.com/Sillyfrogster/LumiHub/api/internal/format/character"
 	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
 	"github.com/google/uuid"
 )
@@ -198,18 +197,26 @@ func TestDownloadSnapshotsDiscoveryAtHandoff(t *testing.T) {
 	}
 }
 
-func TestExportDownloadRecordsTheResolvedTarget(t *testing.T) {
+func TestExportDownloadRecordsTheFormatItHandedOver(t *testing.T) {
 	router, session, assets, pool := newVerifiedIngestRouterWithPool(t, format.NewRegistry())
 	assetID := uploadDiscoveryTestAsset(t, router, session, assets, asset.DiscoveryListed)
 
 	download := send(t, router, httptest.NewRequest(
-		http.MethodGet, "/download/"+assetID+"/unsupported-target", nil,
+		http.MethodGet, "/download/"+assetID+"/test_opaque", nil,
 	))
 	if download.Code != http.StatusOK {
-		t.Fatalf("download status = %d, want 200", download.Code)
+		t.Fatalf("download status = %d, want 200: %s", download.Code, download.Body.String())
 	}
-	if got := download.Header().Get("X-LumiHub-Export-Target"); got != "raw" {
-		t.Fatalf("resolved target header = %q, want raw", got)
+	if got := download.Header().Get("X-LumiHub-Export-Target"); got != "test_opaque" {
+		t.Fatalf("target header = %q, want the format handed over", got)
+	}
+	// An export is a response, not stored content, so nothing was handed to
+	// nginx and no blob was created.
+	if redirect := download.Header().Get("X-Accel-Redirect"); redirect != "" {
+		t.Fatalf("a generated export was served from disk at %q", redirect)
+	}
+	if got := download.Header().Get("Content-Disposition"); !strings.Contains(got, ".txt") {
+		t.Fatalf("disposition = %q, want a filename the format chose", got)
 	}
 
 	var target string
@@ -218,8 +225,22 @@ func TestExportDownloadRecordsTheResolvedTarget(t *testing.T) {
 	`, assetID).Scan(&target); err != nil {
 		t.Fatalf("read download event: %v", err)
 	}
-	if target != "raw" {
-		t.Fatalf("recorded target = %q, want raw", target)
+	if target != "test_opaque" {
+		t.Fatalf("recorded target = %q, want the format handed over", target)
+	}
+}
+
+// A format outside the offered list was never a choice, so asking for it is a
+// miss rather than a quieter answer in some other format.
+func TestATargetTheAssetIsNotOfferedInIs404(t *testing.T) {
+	router, session, assets := newVerifiedIngestRouter(t, format.NewRegistry())
+	assetID := uploadDiscoveryTestAsset(t, router, session, assets, asset.DiscoveryListed)
+
+	response := send(t, router, httptest.NewRequest(
+		http.MethodGet, "/download/"+assetID+"/chara_card_v2", nil,
+	))
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404: %s", response.Code, response.Body.String())
 	}
 }
 
@@ -335,62 +356,33 @@ func TestDownloadUnknownAssetIs404(t *testing.T) {
 	}
 }
 
-func TestOwnerCanPatchAFileFieldAndDownloadADeclaredTarget(t *testing.T) {
-	registry := format.NewRegistry()
-	for _, module := range character.Modules() {
-		if err := registry.Register(module); err != nil {
-			t.Fatalf("register %q: %v", module.ID(), err)
-		}
-	}
-	r, session, assets := newVerifiedIngestRouter(t, registry)
-	metadata := exampleMetadata("Ana")
-	metadata["filename"] = "ana.json"
+// A creator edits a block, downloads the same format, and gets a file carrying
+// the edit and every namespace the upload arrived with. The upload itself is
+// still exactly what they handed over.
+func TestEditingABlockChangesTheDownloadAndNotTheUpload(t *testing.T) {
+	r, session, assets := newCharacterIngestRouter(t)
 	source := []byte(`{
 		"spec":"chara_card_v3","spec_version":"3.0",
-		"data":{"name":"Ana","description":"Before","first_mes":"Hello","extensions": { "third_party": { "keep": true, "order": [3,1,2] } }}
+		"data":{"name":"Ana","description":"Before","first_mes":"Hello",
+			"extensions": { "third_party": { "keep": true, "order": [3,1,2] } }}
 	}`)
-	var sourceCard struct {
-		Data struct {
-			Extensions json.RawMessage `json:"extensions"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal(source, &sourceCard); err != nil {
-		t.Fatalf("decode source fixture: %v", err)
-	}
-	created := uploadAndFinish(t, r, session, assets, metadata, source)
-	var operation struct {
-		Asset *struct {
-			ID string `json:"id"`
-		} `json:"asset"`
-	}
-	if err := json.Unmarshal(created.Body.Bytes(), &operation); err != nil || operation.Asset == nil {
-		t.Fatalf("decode completed ingest: %v, %+v", err, operation)
+	metadata := exampleMetadata("Ana")
+	metadata["filename"] = "ana.json"
+	assetID := assetIDFromIngest(t, uploadAndFinish(t, r, session, assets, metadata, source))
+
+	page := fetchStartedAsset(t, r, session, assetID)
+	core := editableBlock(blockNamed(t, page.Blocks, "character_core"))
+	core.Elements[0].Content = json.RawMessage(`{"text":"After"}`)
+	saved := saveBlock(t, r, session, assetID, blockNamed(t, page.Blocks, "character_core").ID, core)
+	if saved.Code != http.StatusOK {
+		t.Fatalf("save the description: %d %s", saved.Code, saved.Body.String())
 	}
 
-	patched := send(t, r, authorizedJSONRequest(t, http.MethodPut,
-		"/v1/assets/"+operation.Asset.ID+"/file-patch",
-		`{"description":"After"}`, session,
+	download := send(t, r, httptest.NewRequest(
+		http.MethodGet, "/download/"+assetID+"/chara_card_v3", nil,
 	))
-	if patched.Code != http.StatusNoContent {
-		t.Fatalf("patch status = %d, want 204: %s", patched.Code, patched.Body.String())
-	}
-	invalid := send(t, r, authorizedJSONRequest(t, http.MethodPut,
-		"/v1/assets/"+operation.Asset.ID+"/file-patch",
-		`{"extensions.depth_prompt":"lost"}`, session,
-	))
-	if invalid.Code != http.StatusBadRequest {
-		t.Fatalf("arbitrary path status = %d, want 400", invalid.Code)
-	}
-
-	assetID := uuid.MustParse(operation.Asset.ID)
-	exported, err := assets.OpenExport(context.Background(), assetID, nil, "sillytavern")
-	if err != nil {
-		t.Fatalf("OpenExport: %v", err)
-	}
-	written, readErr := io.ReadAll(exported.Artifact)
-	closeErr := exported.Artifact.Close()
-	if readErr != nil || closeErr != nil {
-		t.Fatalf("read export: %v, close: %v", readErr, closeErr)
+	if download.Code != http.StatusOK {
+		t.Fatalf("download status = %d, want 200: %s", download.Code, download.Body.String())
 	}
 	var card struct {
 		Data struct {
@@ -398,40 +390,43 @@ func TestOwnerCanPatchAFileFieldAndDownloadADeclaredTarget(t *testing.T) {
 			Extensions  json.RawMessage `json:"extensions"`
 		} `json:"data"`
 	}
-	if err := json.Unmarshal(written, &card); err != nil || card.Data.Description != "After" {
-		t.Fatalf("exported card = %+v, decode: %v", card, err)
+	if err := json.Unmarshal(download.Body.Bytes(), &card); err != nil {
+		t.Fatalf("read the downloaded card: %v", err)
 	}
-	if !bytes.Equal(card.Data.Extensions, sourceCard.Data.Extensions) {
+	if card.Data.Description != "After" {
+		t.Fatalf("downloaded description = %q, want the edit", card.Data.Description)
+	}
+	var sourceCard struct {
+		Data struct {
+			Extensions json.RawMessage `json:"extensions"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(source, &sourceCard); err != nil {
+		t.Fatalf("read the source fixture: %v", err)
+	}
+	if !bytes.Equal(compactJSON(t, card.Data.Extensions), compactJSON(t, sourceCard.Data.Extensions)) {
 		t.Fatalf("third-party extensions changed\n got: %s\nwant: %s",
 			card.Data.Extensions, sourceCard.Data.Extensions)
 	}
 
-	download := send(t, r, httptest.NewRequest(http.MethodGet,
-		"/download/"+operation.Asset.ID+"/sillytavern", nil,
-	))
-	if download.Code != http.StatusOK ||
-		!strings.HasPrefix(download.Header().Get("X-Accel-Redirect"), "/_lumihub/derivatives/") ||
-		download.Header().Get("X-LumiHub-Export-Target") != "sillytavern" {
-		t.Fatalf("download = %d, redirect %q", download.Code, download.Header().Get("X-Accel-Redirect"))
-	}
-	sourceDownload := send(t, r, httptest.NewRequest(
-		http.MethodGet, "/download/"+operation.Asset.ID, nil,
-	))
-	if !strings.HasPrefix(sourceDownload.Header().Get("X-Accel-Redirect"), "/_lumihub/blobs/") {
-		t.Fatalf("source redirect = %q, want canonical blob", sourceDownload.Header().Get("X-Accel-Redirect"))
-	}
-	if sourceDownload.Header().Get("X-LumiHub-Export-Target") != "" {
-		t.Fatal("the exact source route was treated as an export")
-	}
-	storedSource, err := assets.OpenSource(context.Background(), assetID)
+	storedSource, err := assets.OpenSource(context.Background(), uuid.MustParse(assetID))
 	if err != nil {
 		t.Fatalf("OpenSource: %v", err)
 	}
 	storedBytes, readErr := io.ReadAll(storedSource)
-	closeErr = storedSource.Close()
+	closeErr := storedSource.Close()
 	if readErr != nil || closeErr != nil || !bytes.Equal(storedBytes, source) {
-		t.Fatalf("current source changed: read %v, close %v", readErr, closeErr)
+		t.Fatalf("the upload changed: read %v, close %v", readErr, closeErr)
 	}
+}
+
+func compactJSON(t *testing.T, raw json.RawMessage) []byte {
+	t.Helper()
+	var out bytes.Buffer
+	if err := json.Compact(&out, raw); err != nil {
+		t.Fatalf("compact %s: %v", raw, err)
+	}
+	return out.Bytes()
 }
 
 func TestUnverifiedSourceTypeDownloadsAsAnOpaqueAttachment(t *testing.T) {

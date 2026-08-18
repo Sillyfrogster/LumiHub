@@ -61,3 +61,12 @@ func timeToNullable(t *time.Time) pgtype.Timestamptz {
 	}
 	return pgtype.Timestamptz{Time: *t, Valid: true}
 }
+
+// uuidOrNil reads a nullable id, giving back nil where the column is null.
+func uuidOrNil(p pgtype.UUID) *uuid.UUID {
+	if !p.Valid {
+		return nil
+	}
+	found := uuid.UUID(p.Bytes)
+	return &found
+}

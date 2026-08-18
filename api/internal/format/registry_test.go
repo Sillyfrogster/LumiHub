@@ -69,10 +69,6 @@ func (s stubModule) Parse(context.Context, probe.Inspection, Claim) (Parsed, err
 	return Parsed{Format: s.id}, nil
 }
 
-type editableModule struct{ stubModule }
-
-func (editableModule) ValidatePatch(Patch) error { return nil }
-
 type declarationModule struct {
 	stubModule
 	declaration Declaration
@@ -109,18 +105,5 @@ func TestRegisterRejectsDuplicateIDs(t *testing.T) {
 	}
 	if err := r.Register(stubModule{id: "same"}); err == nil {
 		t.Fatal("expected an error registering the same id twice")
-	}
-}
-
-func TestCanEditReflectsTheOptionalInterface(t *testing.T) {
-	r := NewRegistry()
-	_ = r.Register(stubModule{id: "plain"})
-	_ = r.Register(editableModule{stubModule{id: "rich"}})
-
-	if r.CanEdit("plain") {
-		t.Error("CanEdit(plain) = true, want false")
-	}
-	if !r.CanEdit("rich") {
-		t.Error("CanEdit(rich) = false, want true")
 	}
 }

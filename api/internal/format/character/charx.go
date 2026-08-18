@@ -3,7 +3,6 @@ package character
 import (
 	"context"
 	"encoding/json"
-	"slices"
 	"strings"
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/block"
@@ -31,18 +30,7 @@ func (m CharXModule) BrowseDefinition() format.BrowseDefinition {
 	return browseDefinition(m.ExportTargets())
 }
 
-func (CharXModule) ExportTargets() []format.BrowseOption {
-	return slices.Concat(exportTargets(), []format.BrowseOption{
-		{Value: targetCCv3JSON, Label: "CCv3 JSON"},
-		{Value: targetCCv2PNG, Label: "CCv2 PNG"},
-	})
-}
-
-func (CharXModule) ValidatePatch(patch format.Patch) error { return validatePatch(patch) }
-
-func (CharXModule) Export(_ context.Context, request format.ExportRequest) (format.ExportedArtifact, error) {
-	return exportCharX(request)
-}
+func (CharXModule) ExportTargets() []format.BrowseOption { return exportTargets() }
 
 func (m CharXModule) Claim(file probe.Inspection) (format.Claim, bool) {
 	return format.ClaimByDeclaration(file, m.Declaration())

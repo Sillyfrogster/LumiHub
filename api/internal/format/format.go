@@ -9,7 +9,6 @@ import (
 	"io"
 	"slices"
 	"time"
-	"unicode/utf8"
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/block"
 	"github.com/Sillyfrogster/LumiHub/api/internal/media"
@@ -97,12 +96,6 @@ type BrowseDefinition struct {
 
 type BrowseDeclarer interface {
 	BrowseDefinition() BrowseDefinition
-}
-
-// ExportTargetDeclarer names every non-raw artifact a module can produce.
-// Browse may expose a smaller, platform-oriented subset of these targets.
-type ExportTargetDeclarer interface {
-	ExportTargets() []BrowseOption
 }
 
 // Media is one image a module found in a source file and gave a role. It names
@@ -320,6 +313,11 @@ type ContentCondition struct {
 type RoleSupport struct {
 	Grade     SupportGrade
 	Condition *ContentCondition
+	// Destination names where this format puts the role's content when that is
+	// not its standard home for it, such as an extensions namespace only some
+	// clients read. It is an independent fact from how much survives, so it
+	// rides on a carried verdict as readily as a reduced one.
+	Destination string
 }
 
 type DirectionalRoleSupport struct {
@@ -434,7 +432,10 @@ func scalarText(value json.RawMessage) string {
 
 // Declaration is the complete static contract beside one format module.
 type Declaration struct {
-	ID            string
+	ID string
+	// Label is the format's name in a download menu, where a reader picks
+	// without having to learn what the formats are.
+	Label         string
 	Kind          string
 	Direction     Direction
 	Recognition   []Recognition
@@ -445,6 +446,11 @@ type Declaration struct {
 	Boilerplate   []Boilerplate
 	Preservation  PreservationDeclaration
 	TestedOrigins []string
+	// CrossPlatform marks a writer that produces a file for another platform.
+	// Such a target is offered only where the creator has allowed it, and
+	// nothing grants an allowance yet. The three character card formats are
+	// ordinary targets and are not marked.
+	CrossPlatform bool
 }
 
 // ValidateDeclaration checks the parts registry consumers rely on without
@@ -452,6 +458,9 @@ type Declaration struct {
 func ValidateDeclaration(d Declaration) error {
 	if d.ID == "" || d.Kind == "" {
 		return errors.New("identity and kind are required")
+	}
+	if d.Direction.Write && d.Label == "" {
+		return errors.New("a writer needs a label for the download menu")
 	}
 	if !d.Direction.Read && !d.Direction.Write {
 		return errors.New("at least one direction is required")
@@ -556,68 +565,6 @@ type SpecOwner interface {
 	OwnedSpecs() []string
 }
 
-// Field names one semantic part of a creator file that a module may patch.
-type Field string
-
-const (
-	FieldDescription             Field = "description"
-	FieldPersonality             Field = "personality"
-	FieldScenario                Field = "scenario"
-	FieldFirstMessage            Field = "first_mes"
-	FieldSystemPrompt            Field = "system_prompt"
-	FieldPostHistoryInstructions Field = "post_history_instructions"
-	FieldCreatorNotes            Field = "creator_notes"
-	FieldCharacterVersion        Field = "character_version"
-)
-
-// Patch is a creator's named changes to their file.
-type Patch map[Field]string
-
-var ErrInvalidPatch = errors.New("invalid file patch")
-
-const RawTarget = "raw"
-
-// ValidatePatchFields checks a patch against the fields one module owns.
-func ValidatePatchFields(patch Patch, fields ...Field) error {
-	for field, value := range patch {
-		if !slices.Contains(fields, field) {
-			return fmt.Errorf("field %q is not patchable: %w", field, ErrInvalidPatch)
-		}
-		if !utf8.ValidString(value) {
-			return fmt.Errorf("field %q is not UTF-8: %w", field, ErrInvalidPatch)
-		}
-	}
-	return nil
-}
-
-// Patcher is implemented by modules that map semantic fields into their files.
-type Patcher interface {
-	ValidatePatch(Patch) error
-}
-
-// ExportMedia is creator-managed media available while writing an artifact.
-type ExportMedia struct {
-	Role      media.Role
-	MediaType string
-	Data      []byte
-}
-
-// ExportRequest is everything a format module may merge into one artifact.
-type ExportRequest struct {
-	Source io.Reader
-	Target string
-	Patch  Patch
-	Media  []ExportMedia
-}
-
-// ExportedArtifact is one primary file and any media it could not embed.
-type ExportedArtifact struct {
-	Artifact        io.Reader
-	MediaType       string
-	Extension       string
-	UnembeddedMedia []ExportMedia
-}
-
 // ownsSpec reports whether an authoritative claim naming spec belongs to m.
 func ownsSpec(m Module, spec string) bool {
 	if spec == m.ID() {
@@ -673,11 +620,6 @@ func (c Claim) Payload(file probe.Inspection) (probe.Payload, bool) {
 		}
 	}
 	return probe.Payload{}, false
-}
-
-/** Implemented only by modules that can write a file out in another format */
-type Exporter interface {
-	Export(context.Context, ExportRequest) (ExportedArtifact, error)
 }
 
 /** A labelled block of plain text, for quality scoring and moderation */

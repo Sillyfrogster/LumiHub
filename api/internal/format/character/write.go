@@ -1,0 +1,526 @@
+package character
+
+import (
+	"archive/zip"
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/binary"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"hash/crc32"
+	"path"
+	"slices"
+	"strings"
+
+	"github.com/Sillyfrogster/LumiHub/api/internal/block"
+	"github.com/Sillyfrogster/LumiHub/api/internal/format"
+)
+
+// The card writers build a file out of the asset's roles. Nothing here reads
+// another format's bytes. What a card carries is decided by what the asset
+// holds and by what the standard has a place for.
+
+const (
+	v2SpecVersion = "2.0"
+	v3SpecVersion = "3.0"
+	// dialogueStart is the separator a card puts before an example exchange.
+	dialogueStart = "<START>"
+	// defaultAssetURI is how a CCv3 card points at the picture its own
+	// container carries.
+	defaultAssetURI = "ccdefault:"
+)
+
+// v3OnlyKeys are the keys the v3 standard added. A v2 card has nowhere to put
+// them, so they are left behind on the way into one even when the asset kept
+// them from a v3 file it arrived as. Shipping an asset list inside a v2 card
+// would hand a reader the very images the loss report just said were dropped.
+var v3OnlyKeys = []string{
+	"assets", "nickname", "group_only_greetings", "creation_date",
+	"modification_date", "source", "creator_notes_multilingual",
+}
+
+func (CCv2Module) Write(_ context.Context, asset format.ExportAsset) (format.Artifact, error) {
+	return writeCard(asset, V2)
+}
+
+func (CCv3Module) Write(_ context.Context, asset format.ExportAsset) (format.Artifact, error) {
+	return writeCard(asset, V3)
+}
+
+func (CharXModule) Write(_ context.Context, asset format.ExportAsset) (format.Artifact, error) {
+	return writeCharX(asset)
+}
+
+// writeCard writes a card inside the picture that stands for the asset where
+// there is one a card can be embedded in, and as a JSON document where there is
+// not. Both are the format, and the container follows what the asset holds.
+func writeCard(asset format.ExportAsset, formatID string) (format.Artifact, error) {
+	picture := embeddablePicture(asset)
+	body, entries := cardFields(asset, formatID)
+	if formatID != V2 {
+		body["assets"] = inlineAssets(asset, picture != nil)
+	}
+	if err := RestorePreserved(body, entries, asset.Preserved); err != nil {
+		return format.Artifact{}, err
+	}
+	if formatID == V2 {
+		for _, key := range v3OnlyKeys {
+			delete(body, key)
+		}
+	}
+	card, err := marshalCard(formatID, body)
+	if err != nil {
+		return format.Artifact{}, err
+	}
+	if picture == nil {
+		return format.Artifact{Body: card, MediaType: "application/json", Extension: ".json"}, nil
+	}
+	written, err := embedCardInPNG(picture.Data, card, chunkName(formatID))
+	if err != nil {
+		return format.Artifact{}, err
+	}
+	return format.Artifact{Body: written, MediaType: "image/png", Extension: ".png"}, nil
+}
+
+// writeCharX writes the archive form. A v3 card sits beside the pictures it
+// names, each one a file rather than a string inside the card.
+func writeCharX(asset format.ExportAsset) (format.Artifact, error) {
+	body, entries := cardFields(asset, CharX)
+	files, records := archivedAssets(asset)
+	body["assets"] = records
+	if err := RestorePreserved(body, entries, asset.Preserved); err != nil {
+		return format.Artifact{}, err
+	}
+	card, err := marshalCard(V3, body)
+	if err != nil {
+		return format.Artifact{}, err
+	}
+
+	var output bytes.Buffer
+	archive := zip.NewWriter(&output)
+	if err := writeArchiveFile(archive, "card.json", card); err != nil {
+		return format.Artifact{}, err
+	}
+	for _, file := range files {
+		if err := writeArchiveFile(archive, file.path, file.data); err != nil {
+			return format.Artifact{}, err
+		}
+	}
+	if err := archive.Close(); err != nil {
+		return format.Artifact{}, fmt.Errorf("close CharX: %w", err)
+	}
+	return format.Artifact{
+		Body: output.Bytes(), MediaType: "application/zip", Extension: ".charx",
+	}, nil
+}
+
+func writeArchiveFile(archive *zip.Writer, name string, data []byte) error {
+	destination, err := archive.Create(name)
+	if err != nil {
+		return fmt.Errorf("create CharX entry %q: %w", name, err)
+	}
+	if _, err := destination.Write(data); err != nil {
+		return fmt.Errorf("write CharX entry %q: %w", name, err)
+	}
+	return nil
+}
+
+func marshalCard(formatID string, body map[string]json.RawMessage) ([]byte, error) {
+	data, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("write the card body: %w", err)
+	}
+	version := v3SpecVersion
+	if formatID == V2 {
+		version = v2SpecVersion
+	}
+	card, err := json.Marshal(map[string]json.RawMessage{
+		"spec":         mustJSON(formatID),
+		"spec_version": mustJSON(version),
+		"data":         data,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("write the card: %w", err)
+	}
+	return card, nil
+}
+
+// chunkName is the PNG text keyword each standard puts its card under.
+func chunkName(formatID string) string {
+	if formatID == V2 {
+		return "chara"
+	}
+	return "ccv3"
+}
+
+// cardFields writes the card body one key at a time out of the asset's roles,
+// and returns the book's entries in the order they were written so preserved
+// keys can find their way back to them.
+func cardFields(
+	asset format.ExportAsset,
+	formatID string,
+) (map[string]json.RawMessage, []block.Entry) {
+	greetings := textItems(asset, block.RoleGreetings)
+	first := ""
+	if len(greetings) > 0 {
+		first = greetings[0].Text
+	}
+	body := map[string]json.RawMessage{
+		"name":                      mustJSON(asset.Header.Name),
+		"description":               mustJSON(asset.Text(block.RoleDescription)),
+		"personality":               mustJSON(asset.Text(block.RolePersonality)),
+		"scenario":                  mustJSON(asset.Text(block.RoleScenario)),
+		"first_mes":                 mustJSON(first),
+		"alternate_greetings":       mustJSON(textsOf(greetings[min(1, len(greetings)):])),
+		"mes_example":               mustJSON(dialogueText(asset)),
+		"system_prompt":             mustJSON(asset.Text(block.RoleSystemPrompt)),
+		"post_history_instructions": mustJSON(asset.Text(block.RolePostHistoryInstructions)),
+		"creator_notes":             mustJSON(asset.Text(block.RoleCreatorNotes)),
+		"creator":                   mustJSON(asset.Header.CreditedAuthor),
+		"character_version":         mustJSON(asset.Header.AssetVersion),
+	}
+	if formatID != V2 {
+		body["nickname"] = mustJSON(asset.Header.Nickname)
+		body["group_only_greetings"] = mustJSON(
+			textsOf(textItems(asset, block.RoleGroupGreetings)),
+		)
+	}
+	entries := bookEntries(asset)
+	if len(entries) > 0 {
+		body[bookKey] = writtenBook(entries)
+	}
+	return body, entries
+}
+
+func textItems(asset format.ExportAsset, role block.Role) []block.TextItem {
+	content, ok := asset.Content(role)
+	if !ok {
+		return nil
+	}
+	set, isSet := content.(block.TextSet)
+	if !isSet {
+		return nil
+	}
+	return set.Texts
+}
+
+func textsOf(items []block.TextItem) []string {
+	texts := make([]string, 0, len(items))
+	for _, item := range items {
+		texts = append(texts, item.Text)
+	}
+	return texts
+}
+
+// dialogueText writes the example exchange the way a card holds it, one line
+// per turn under a start marker. A turn spanning more than one line runs
+// together when it is read back, which is what the declared condition warns
+// about.
+func dialogueText(asset format.ExportAsset) string {
+	content, ok := asset.Content(block.RoleExampleDialogue)
+	if !ok {
+		return ""
+	}
+	sample, isSample := content.(block.DialogueSample)
+	if !isSample || len(sample.Turns) == 0 {
+		return ""
+	}
+	lines := make([]string, 0, len(sample.Turns)+1)
+	lines = append(lines, dialogueStart)
+	for _, turn := range sample.Turns {
+		if turn.Speaker == "" {
+			lines = append(lines, turn.Text)
+			continue
+		}
+		lines = append(lines, turn.Speaker+": "+turn.Text)
+	}
+	return strings.Join(lines, "\n")
+}
+
+func bookEntries(asset format.ExportAsset) []block.Entry {
+	content, ok := asset.Content(block.RoleLorebookEntries)
+	if !ok {
+		return nil
+	}
+	table, isTable := content.(block.EntryTable)
+	if !isTable {
+		return nil
+	}
+	return table.Entries
+}
+
+// writtenBook writes the entries a card carries. Everything a book held that
+// the entry table has no place for comes back afterwards, from preservation.
+func writtenBook(entries []block.Entry) json.RawMessage {
+	written := make([]map[string]json.RawMessage, 0, len(entries))
+	for _, entry := range entries {
+		fields := map[string]json.RawMessage{
+			"keys":            mustJSON(orEmptyStrings(entry.Keys)),
+			"content":         mustJSON(entry.Text),
+			"enabled":         mustJSON(entry.Enabled),
+			"insertion_order": mustJSON(entry.Order),
+		}
+		writeIfSet(fields, "name", entry.Name != "", entry.Name)
+		writeIfSet(fields, "secondary_keys", len(entry.SecondaryKeys) > 0, entry.SecondaryKeys)
+		writeIfSet(fields, "selective", entry.Selective, entry.Selective)
+		writeIfSet(fields, "case_sensitive", entry.CaseSensitive, entry.CaseSensitive)
+		writeIfSet(fields, "constant", entry.Constant, entry.Constant)
+		writeIfSet(fields, "position", entry.Position != "", cardPosition(entry.Position))
+		written = append(written, fields)
+	}
+	return mustJSON(map[string]any{"entries": written})
+}
+
+func writeIfSet(fields map[string]json.RawMessage, key string, set bool, value any) {
+	if set {
+		fields[key] = mustJSON(value)
+	}
+}
+
+// cardPosition is the wording a card uses for where an entry's text goes.
+func cardPosition(position block.EntryPosition) string {
+	if position == block.AfterCharacter {
+		return "after_char"
+	}
+	return "before_char"
+}
+
+func orEmptyStrings(values []string) []string {
+	if values == nil {
+		return []string{}
+	}
+	return values
+}
+
+// cardAssetRecord is one entry of a v3 card's asset list.
+type cardAssetRecord struct {
+	Type string `json:"type"`
+	URI  string `json:"uri"`
+	Name string `json:"name"`
+	Ext  string `json:"ext"`
+}
+
+// archivedFile is one picture written beside the card in a CharX archive.
+type archivedFile struct {
+	path string
+	data []byte
+}
+
+// inlineAssets writes the picture list a JSON or PNG card carries, each image
+// as a string inside the card itself. The card's own picture points at the
+// container it is embedded in rather than repeating it.
+func inlineAssets(asset format.ExportAsset, embedded bool) json.RawMessage {
+	records := make([]cardAssetRecord, 0)
+	for _, picture := range exportedPictures(asset) {
+		uri := dataURI(picture.media.MediaType, picture.media.Data)
+		if picture.assetType == iconAssetType && embedded {
+			uri = defaultAssetURI
+		}
+		records = append(records, cardAssetRecord{
+			Type: picture.assetType, URI: uri, Name: picture.name,
+			Ext: mediaExtension(picture.media.MediaType),
+		})
+	}
+	return mustJSON(records)
+}
+
+// archivedAssets writes the picture list a CharX card carries and the files it
+// points at.
+func archivedAssets(asset format.ExportAsset) ([]archivedFile, json.RawMessage) {
+	files := make([]archivedFile, 0)
+	records := make([]cardAssetRecord, 0)
+	taken := make(map[string]bool)
+	for index, picture := range exportedPictures(asset) {
+		extension := mediaExtension(picture.media.MediaType)
+		entry := path.Join("assets", picture.assetType, fmt.Sprintf("%d.%s", index+1, extension))
+		if taken[entry] {
+			continue
+		}
+		taken[entry] = true
+		files = append(files, archivedFile{path: entry, data: picture.media.Data})
+		records = append(records, cardAssetRecord{
+			Type: picture.assetType, URI: embeddedPrefix + entry,
+			Name: picture.name, Ext: extension,
+		})
+	}
+	return files, mustJSON(records)
+}
+
+const (
+	iconAssetType       = "icon"
+	emotionAssetType    = "emotion"
+	galleryAssetType    = "x_gallery"
+	mainIconAssetName   = "main"
+	fallbackPictureName = "image"
+)
+
+// exportedPicture is one picture on its way into a card, with the asset type
+// the standard files it under.
+type exportedPicture struct {
+	assetType string
+	name      string
+	media     format.ExportMedia
+}
+
+// exportedPictures is every picture a card carries, the asset's own first.
+func exportedPictures(asset format.ExportAsset) []exportedPicture {
+	pictures := make([]exportedPicture, 0)
+	if asset.Cover != nil {
+		pictures = append(pictures, exportedPicture{
+			assetType: iconAssetType, name: mainIconAssetName, media: *asset.Cover,
+		})
+	}
+	for _, role := range []struct {
+		role      block.Role
+		assetType string
+	}{
+		{block.RoleExpressions, emotionAssetType},
+		{block.RoleGallery, galleryAssetType},
+	} {
+		for _, element := range asset.Elements {
+			if element.Role != role.role {
+				continue
+			}
+			set, isSet := element.Content.(block.ImageSet)
+			if !isSet {
+				continue
+			}
+			for index, image := range set.Images {
+				found, held := asset.Images[image.MediaID]
+				if !held {
+					continue
+				}
+				pictures = append(pictures, exportedPicture{
+					assetType: role.assetType,
+					name:      pictureName(image.Name, index),
+					media:     found,
+				})
+			}
+		}
+	}
+	return pictures
+}
+
+func pictureName(name string, index int) string {
+	if name != "" {
+		return name
+	}
+	return fmt.Sprintf("%s-%d", fallbackPictureName, index+1)
+}
+
+// embeddablePicture is the asset's own picture where a card can be written
+// inside it. A card goes into a PNG and nothing else, so an asset whose cover
+// is another kind of image downloads as a JSON document.
+func embeddablePicture(asset format.ExportAsset) *format.ExportMedia {
+	if asset.Cover == nil || !bytes.HasPrefix(asset.Cover.Data, pngSignature) {
+		return nil
+	}
+	return asset.Cover
+}
+
+func dataURI(mediaType string, data []byte) string {
+	if mediaType == "" {
+		mediaType = "application/octet-stream"
+	}
+	return "data:" + mediaType + ";base64," + base64.StdEncoding.EncodeToString(data)
+}
+
+func mediaExtension(mediaType string) string {
+	switch mediaType {
+	case "image/png":
+		return "png"
+	case "image/jpeg":
+		return "jpg"
+	case "image/webp":
+		return "webp"
+	case "image/gif":
+		return "gif"
+	default:
+		return "bin"
+	}
+}
+
+var pngSignature = []byte("\x89PNG\r\n\x1a\n")
+
+// embedCardInPNG writes the card into a copy of the picture, replacing any
+// card chunk already there and leaving every other chunk exactly as it was.
+func embedCardInPNG(source, card []byte, keyword string) ([]byte, error) {
+	if !bytes.HasPrefix(source, pngSignature) {
+		return nil, errors.New("the asset's picture is not a PNG")
+	}
+	var output bytes.Buffer
+	output.Write(source[:8])
+	inserted := false
+	err := visitPNGChunks(source, func(kind string, data, raw []byte) error {
+		if kind == "IEND" && !inserted {
+			encoded := base64.StdEncoding.EncodeToString(card)
+			output.Write(makePNGChunk("tEXt", slices.Concat([]byte(keyword), []byte{0}, []byte(encoded))))
+			inserted = true
+		}
+		if !isCardChunk(kind, data) {
+			output.Write(raw)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if !inserted {
+		return nil, errors.New("the asset's picture has no IEND chunk")
+	}
+	return output.Bytes(), nil
+}
+
+func isCardChunk(kind string, data []byte) bool {
+	if kind != "tEXt" {
+		return false
+	}
+	keyword, _, found := bytes.Cut(data, []byte{0})
+	return found && (string(keyword) == "chara" || string(keyword) == "ccv3")
+}
+
+func makePNGChunk(kind string, data []byte) []byte {
+	chunk := make([]byte, 12+len(data))
+	binary.BigEndian.PutUint32(chunk[:4], uint32(len(data)))
+	copy(chunk[4:8], kind)
+	copy(chunk[8:], data)
+	binary.BigEndian.PutUint32(chunk[8+len(data):], crc32.ChecksumIEEE(chunk[4:8+len(data)]))
+	return chunk
+}
+
+func visitPNGChunks(source []byte, visit func(kind string, data, raw []byte) error) error {
+	if !bytes.HasPrefix(source, pngSignature) {
+		return errors.New("file is not a PNG")
+	}
+	for offset := 8; offset < len(source); {
+		if offset+12 > len(source) {
+			return fmt.Errorf("PNG chunk at byte %d is truncated", offset)
+		}
+		length := int(binary.BigEndian.Uint32(source[offset : offset+4]))
+		end := offset + 12 + length
+		if length < 0 || end < offset || end > len(source) {
+			return fmt.Errorf("PNG chunk at byte %d exceeds the file", offset)
+		}
+		if err := visit(
+			string(source[offset+4:offset+8]),
+			source[offset+8:offset+8+length],
+			source[offset:end],
+		); err != nil {
+			return err
+		}
+		offset = end
+	}
+	return nil
+}
+
+// mustJSON encodes a value the writer built itself. Every call site passes a
+// string, a bool, a number or a slice of those, none of which can fail.
+func mustJSON(value any) json.RawMessage {
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		panic(fmt.Sprintf("write a card value: %v", err))
+	}
+	return encoded
+}

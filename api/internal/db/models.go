@@ -74,6 +74,13 @@ type AssetPreservedDatum struct {
 	Payload   []byte
 }
 
+type AssetProjection struct {
+	AssetID     pgtype.UUID
+	Export      []byte
+	ExportStamp string
+	ComputedAt  pgtype.Timestamptz
+}
+
 type AssetRevision struct {
 	ID        pgtype.UUID
 	AssetID   pgtype.UUID
@@ -118,14 +125,6 @@ type EmailVerificationToken struct {
 	UserID    pgtype.UUID
 	Email     string
 	ExpiresAt pgtype.Timestamptz
-}
-
-type FileFieldPatch struct {
-	AssetID    pgtype.UUID
-	RevisionID pgtype.UUID
-	Field      string
-	Value      string
-	Provenance string
 }
 
 type IngestOperation struct {

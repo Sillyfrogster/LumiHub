@@ -77,7 +77,6 @@ func Register(r *gin.Engine, h *Handlers, d Deadlines) error {
 		routeKey(http.MethodPost, "/v1/assets/:id/publish"):                         d.JSON,
 		routeKey(http.MethodGet, "/v1/assets/:id/preserved"):                        d.JSON,
 		routeKey(http.MethodDelete, "/v1/assets/:id/preserved/:namespace"):          d.JSON,
-		routeKey(http.MethodPut, "/v1/assets/:id/file-patch"):                       d.JSON,
 		routeKey(http.MethodPut, "/v1/assets/:id/withhold"):                         d.JSON,
 		routeKey(http.MethodDelete, "/v1/assets/:id/withhold"):                      d.JSON,
 		routeKey(http.MethodPost, "/v1/assets/:id/media"):                           d.Upload,

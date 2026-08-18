@@ -34,16 +34,30 @@ func (h *Handlers) DownloadExport(c *gin.Context, id types.UUID, target string) 
 		h.downloadError(c, err)
 		return
 	}
-	c.Header("X-LumiHub-Export-Target", download.Target)
-	h.handOffDownload(c, download.SourceDownload)
+	h.handOffExport(c, download)
 }
 
 func (h *Handlers) downloadError(c *gin.Context, err error) {
-	if errors.Is(err, asset.ErrNotFound) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "no such asset"})
+	if errors.Is(err, asset.ErrNotFound) || errors.Is(err, asset.ErrTargetNotOffered) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "no such download"})
 		return
 	}
 	c.JSON(http.StatusInternalServerError, gin.H{"error": "could not read the file"})
+}
+
+// handOffExport writes a generated file straight out. There is nothing on disk
+// to hand nginx, because an export is produced on request and never cached.
+func (h *Handlers) handOffExport(c *gin.Context, download asset.Export) {
+	if download.Event != nil {
+		if err := h.assets.RecordDownload(c.Request.Context(), *download.Event); err != nil {
+			h.downloadError(c, err)
+			return
+		}
+	}
+	c.Header("Content-Disposition", `attachment; filename="`+download.Filename+`"`)
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.Header("X-LumiHub-Export-Target", download.Target)
+	c.Data(http.StatusOK, download.MediaType, download.Body)
 }
 
 func (h *Handlers) handOffDownload(c *gin.Context, download asset.SourceDownload) {
