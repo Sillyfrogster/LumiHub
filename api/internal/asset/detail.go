@@ -170,7 +170,9 @@ func originalUpload(reg *format.Registry, row db.AssetPageRow) *OriginalUpload {
 	if !row.OriginalFormat.Valid {
 		return nil
 	}
-	label := row.OriginalFormat.String
+	// A format Illarin has no module for names itself to nobody, so the file is
+	// described by what it is rather than by a stored identifier.
+	label := ""
 	if declaration, known := reg.Declaration(row.OriginalFormat.String); known {
 		label = declaration.Label
 	}

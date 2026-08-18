@@ -56,6 +56,10 @@ func (CharXModule) Write(_ context.Context, asset format.ExportAsset) (format.Ar
 // writeCard writes a card inside the picture that stands for the asset where
 // there is one a card can be embedded in, and as a JSON document where there is
 // not. Both are the format, and the container follows what the asset holds.
+//
+// A v3 card also carries a v2 copy of itself, which is what every card in the
+// corpus does. Without it a reader that knows only the older shape opens the
+// file and finds a picture with nothing in it.
 func writeCard(asset format.ExportAsset, formatID string) (format.Artifact, error) {
 	picture := embeddablePicture(asset)
 	body, entries := cardFields(asset, formatID)
@@ -74,14 +78,64 @@ func writeCard(asset format.ExportAsset, formatID string) (format.Artifact, erro
 	if err != nil {
 		return format.Artifact{}, err
 	}
+	copies := []cardCopy{{keyword: chunkName(formatID), card: card}}
+	if formatID != V2 {
+		fallback, err := marshalCard(V2, olderShape(body))
+		if err != nil {
+			return format.Artifact{}, err
+		}
+		copies = append(copies, cardCopy{keyword: chunkName(V2), card: fallback})
+	}
 	if picture == nil {
+		if formatID != V2 {
+			card, err = withLegacyFields(card, body)
+			if err != nil {
+				return format.Artifact{}, err
+			}
+		}
 		return format.Artifact{Body: card, MediaType: "application/json", Extension: ".json"}, nil
 	}
-	written, err := embedCardInPNG(picture.Data, card, chunkName(formatID))
+	written, err := embedCardsInPNG(picture.Data, copies)
 	if err != nil {
 		return format.Artifact{}, err
 	}
 	return format.Artifact{Body: written, MediaType: "image/png", Extension: ".png"}, nil
+}
+
+// olderShape is the body with the keys the v3 standard added taken out, which
+// is what the v2 copy of a card holds.
+func olderShape(body map[string]json.RawMessage) map[string]json.RawMessage {
+	older := make(map[string]json.RawMessage, len(body))
+	for key, value := range body {
+		if !slices.Contains(v3OnlyKeys, key) {
+			older[key] = value
+		}
+	}
+	return older
+}
+
+// legacyFields are the six a card carried before any spec existed. A v3 JSON
+// document repeats them at its top level for the same reason a v3 picture
+// carries a v2 chunk: a reader that knows only the older shape looks there.
+var legacyFields = []string{
+	"name", "description", "personality", "scenario", "first_mes", "mes_example",
+}
+
+func withLegacyFields(card []byte, body map[string]json.RawMessage) ([]byte, error) {
+	var document map[string]json.RawMessage
+	if err := json.Unmarshal(card, &document); err != nil {
+		return nil, fmt.Errorf("read the written card: %w", err)
+	}
+	for _, field := range legacyFields {
+		if value, written := body[field]; written {
+			document[field] = value
+		}
+	}
+	written, err := json.Marshal(document)
+	if err != nil {
+		return nil, fmt.Errorf("write the card: %w", err)
+	}
+	return written, nil
 }
 
 // writeCharX writes the archive form. A v3 card sits beside the pictures it
@@ -444,9 +498,15 @@ func mediaExtension(mediaType string) string {
 
 var pngSignature = []byte("\x89PNG\r\n\x1a\n")
 
-// embedCardInPNG writes the card into a copy of the picture, replacing any
+// cardCopy is one card and the PNG text keyword it goes under.
+type cardCopy struct {
+	keyword string
+	card    []byte
+}
+
+// embedCardsInPNG writes the cards into a copy of the picture, replacing any
 // card chunk already there and leaving every other chunk exactly as it was.
-func embedCardInPNG(source, card []byte, keyword string) ([]byte, error) {
+func embedCardsInPNG(source []byte, copies []cardCopy) ([]byte, error) {
 	if !bytes.HasPrefix(source, pngSignature) {
 		return nil, errors.New("the asset's picture is not a PNG")
 	}
@@ -455,8 +515,12 @@ func embedCardInPNG(source, card []byte, keyword string) ([]byte, error) {
 	inserted := false
 	err := visitPNGChunks(source, func(kind string, data, raw []byte) error {
 		if kind == "IEND" && !inserted {
-			encoded := base64.StdEncoding.EncodeToString(card)
-			output.Write(makePNGChunk("tEXt", slices.Concat([]byte(keyword), []byte{0}, []byte(encoded))))
+			for _, copied := range copies {
+				encoded := base64.StdEncoding.EncodeToString(copied.card)
+				output.Write(makePNGChunk("tEXt", slices.Concat(
+					[]byte(copied.keyword), []byte{0}, []byte(encoded),
+				)))
+			}
 			inserted = true
 		}
 		if !isCardChunk(kind, data) {

@@ -68,6 +68,7 @@ func (s *Service) OpenExport(
 	if !known {
 		return Export{}, ErrTargetNotOffered
 	}
+	declaration := module.Declaration()
 	writer, writes := module.(format.Writer)
 	if !writes {
 		return Export{}, ErrTargetNotOffered
@@ -78,7 +79,7 @@ func (s *Service) OpenExport(
 	}
 	export := Export{
 		Body: written.Body, MediaType: written.MediaType, Target: target,
-		Filename: downloadFilename(subject.name, written.Extension),
+		Filename: downloadFilename(subject.name, declaration.Label, written.Extension),
 	}
 	if subject.lifecycle == LifecyclePublished && subject.revisionID != nil {
 		event := downloadEvent(assetID, *subject.revisionID, target, subject.ownerID, viewerID)
@@ -299,11 +300,25 @@ func (s *Service) readBlob(ctx context.Context, blobID uuid.UUID) (format.Export
 	return format.ExportMedia{MediaType: http.DetectContentType(data), Data: data}, nil
 }
 
-// downloadFilename names the file a reader receives after the asset rather
-// than after the format they picked.
-func downloadFilename(name, extension string) string {
-	slug := make([]rune, 0, len(name))
-	for _, letter := range strings.ToLower(name) {
+// downloadFilename names the file after the asset and the format it is in.
+// Two of the three character formats are a picture, so a name that said only
+// the asset would put three files in a folder that nothing tells apart.
+func downloadFilename(name, label, extension string) string {
+	parts := make([]string, 0, 2)
+	for _, part := range []string{name, label} {
+		if slug := filenameSlug(part); slug != "" {
+			parts = append(parts, slug)
+		}
+	}
+	if len(parts) == 0 {
+		return "download" + extension
+	}
+	return strings.Join(parts, "-") + extension
+}
+
+func filenameSlug(text string) string {
+	slug := make([]rune, 0, len(text))
+	for _, letter := range strings.ToLower(text) {
 		switch {
 		case letter >= 'a' && letter <= 'z', letter >= '0' && letter <= '9':
 			slug = append(slug, letter)
@@ -311,11 +326,7 @@ func downloadFilename(name, extension string) string {
 			slug = append(slug, '-')
 		}
 	}
-	trimmed := strings.Trim(string(slug), "-")
-	if trimmed == "" {
-		trimmed = "download"
-	}
-	return trimmed + extension
+	return strings.Trim(string(slug), "-")
 }
 
 // OriginalUpload is the creator's own file. It sits on its own below the

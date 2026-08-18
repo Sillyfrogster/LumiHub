@@ -262,7 +262,7 @@ func writtenBody(t *testing.T, artifact []byte, formatID string) map[string]json
 	t.Helper()
 	card := artifact
 	if bytes.HasPrefix(artifact, pngSignature) {
-		card = cardTextChunk(t, artifact)
+		card = cardChunks(t, artifact)[chunkName(formatID)]
 	} else if !json.Valid(artifact) {
 		card = archiveEntries(t, artifact)["card.json"]
 	}
@@ -281,27 +281,6 @@ func writtenBody(t *testing.T, artifact []byte, formatID string) map[string]json
 		t.Fatalf("spec = %q, want %q", read.Spec, wanted)
 	}
 	return read.Data
-}
-
-func cardTextChunk(t *testing.T, picture []byte) []byte {
-	t.Helper()
-	var card []byte
-	err := visitPNGChunks(picture, func(kind string, data, _ []byte) error {
-		if !isCardChunk(kind, data) {
-			return nil
-		}
-		_, encoded, _ := bytes.Cut(data, []byte{0})
-		decoded, decodeErr := base64.StdEncoding.DecodeString(string(encoded))
-		if decodeErr != nil {
-			return decodeErr
-		}
-		card = decoded
-		return nil
-	})
-	if err != nil || card == nil {
-		t.Fatalf("read the card chunk: %v", err)
-	}
-	return card
 }
 
 func archiveEntries(t *testing.T, data []byte) map[string][]byte {
@@ -393,4 +372,113 @@ func TestEveryCharacterOriginWritesEveryCharacterTarget(t *testing.T) {
 			})
 		}
 	}
+}
+
+// A v3 card keeps a v2 copy of itself, which is what every card in the corpus
+// does. A reader that knows only the older shape has to find something.
+func TestAV3CardCarriesAV2CopyOfItself(t *testing.T) {
+	asset := format.ExportAsset{
+		Kind:     Kind,
+		Header:   format.Header{Name: "Ana", Nickname: "Archivist"},
+		Elements: []block.Element{prose(block.RoleDescription, "Quiet"), greetings("Hello")},
+		Cover:    &format.ExportMedia{MediaType: "image/png", Data: testPNG(t)},
+	}
+	for _, module := range []format.Module{CCv3Module{}, CharXModule{}} {
+		if module.ID() == CharX {
+			// The archive holds one card and names it, so there is no chunk.
+			continue
+		}
+		t.Run(module.ID(), func(t *testing.T) {
+			picture := write(t, module, asset).Body
+			chunks := cardChunks(t, picture)
+			if len(chunks) != 2 {
+				t.Fatalf("card chunks = %v, want the v3 card and its v2 copy", keysOf(chunks))
+			}
+			v3 := readCardText(t, chunks["ccv3"])
+			v2 := readCardText(t, chunks["chara"])
+			if v3["spec"] == nil || string(v3["spec"]) != `"chara_card_v3"` {
+				t.Errorf("the ccv3 chunk holds spec %s", v3["spec"])
+			}
+			if string(v2["spec"]) != `"chara_card_v2"` {
+				t.Errorf("the chara chunk holds spec %s", v2["spec"])
+			}
+			body := decodeObject(t, v2["data"])
+			if text(t, body["description"]) != "Quiet" {
+				t.Errorf("the v2 copy lost the description: %s", v2["data"])
+			}
+			for _, key := range v3OnlyKeys {
+				if _, present := body[key]; present {
+					t.Errorf("the v2 copy carries %q", key)
+				}
+			}
+		})
+	}
+}
+
+// A v3 JSON document repeats the six fields a card carried before any spec
+// existed, for the same reason its picture carries a v2 chunk.
+func TestAV3DocumentRepeatsTheFieldsAnOlderReaderLooksFor(t *testing.T) {
+	asset := format.ExportAsset{
+		Kind:     Kind,
+		Header:   format.Header{Name: "Ana"},
+		Elements: []block.Element{prose(block.RoleDescription, "Quiet"), greetings("Hello")},
+	}
+	written := write(t, CCv3Module{}, asset)
+	document := decodeObject(t, written.Body)
+	if text(t, document["name"]) != "Ana" || text(t, document["description"]) != "Quiet" ||
+		text(t, document["first_mes"]) != "Hello" {
+		t.Fatalf("the document has no legacy fields: %s", written.Body)
+	}
+	// The spec-defined body is still where a v3 reader looks.
+	if text(t, decodeObject(t, document["data"])["description"]) != "Quiet" {
+		t.Errorf("the spec body lost the description: %s", document["data"])
+	}
+}
+
+// cardChunks reads every card the picture carries, by its keyword.
+func cardChunks(t *testing.T, picture []byte) map[string][]byte {
+	t.Helper()
+	found := make(map[string][]byte)
+	err := visitPNGChunks(picture, func(kind string, data, _ []byte) error {
+		if !isCardChunk(kind, data) {
+			return nil
+		}
+		keyword, encoded, _ := bytes.Cut(data, []byte{0})
+		decoded, decodeErr := base64.StdEncoding.DecodeString(string(encoded))
+		if decodeErr != nil {
+			return decodeErr
+		}
+		found[string(keyword)] = decoded
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("read the card chunks: %v", err)
+	}
+	return found
+}
+
+func readCardText(t *testing.T, card []byte) map[string]json.RawMessage {
+	t.Helper()
+	if card == nil {
+		t.Fatal("the picture has no card under that keyword")
+	}
+	return decodeObject(t, card)
+}
+
+func keysOf(found map[string][]byte) []string {
+	names := make([]string, 0, len(found))
+	for name := range found {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	return names
+}
+
+func decodeObject(t *testing.T, source []byte) map[string]json.RawMessage {
+	t.Helper()
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(source, &object); err != nil {
+		t.Fatalf("read %s as an object: %v", source, err)
+	}
+	return object
 }

@@ -41,8 +41,8 @@ function fileWord(mediaType: string): string {
     return mediaType.slice("image/".length).toUpperCase();
   }
   if (mediaType === "application/json") return "JSON";
-  if (mediaType === "application/zip") return "archive";
-  return "file";
+  if (mediaType === "application/zip") return "Archive";
+  return "File";
 }
 
 function arrivalDate(when: string): string {
@@ -200,7 +200,8 @@ function Original({
     <div className={styles.original}>
       <h3>The creator’s own file</h3>
       <p>
-        {original.label} · {fileWord(original.mediaType)}, uploaded{" "}
+        {original.label ? `${original.label} · ` : ""}
+        {fileWord(original.mediaType)}, uploaded{" "}
         {arrivalDate(original.arrivedAt)}.
       </p>
       <p className={styles.sinceThen}>Edits made since are not in this file.</p>

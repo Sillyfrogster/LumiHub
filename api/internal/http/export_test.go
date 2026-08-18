@@ -133,6 +133,29 @@ func roleVerdictNamed(t *testing.T, target downloadTarget, role string) roleVerd
 	return roleVerdict{}
 }
 
+// Two of the three character formats are a picture, so a download that named
+// only the asset would put three files in a folder that nothing tells apart.
+func TestEachDownloadIsNamedAfterItsFormat(t *testing.T) {
+	r, session, assets := newCharacterIngestRouter(t)
+	assetID := uploadedCharacterID(t, r, session, assets, aPlainCard)
+	publishCharacter(t, r, session, assetID)
+
+	seen := make(map[string]string)
+	for _, target := range []string{"chara_card_v2", "chara_card_v3", "charx"} {
+		download := send(t, r, httptest.NewRequest(
+			http.MethodGet, "/download/"+assetID+"/"+target, nil,
+		))
+		if download.Code != http.StatusOK {
+			t.Fatalf("%s status = %d: %s", target, download.Code, download.Body.String())
+		}
+		filename := download.Header().Get("Content-Disposition")
+		if held, taken := seen[filename]; taken {
+			t.Fatalf("%s and %s both arrive as %s", held, target, filename)
+		}
+		seen[filename] = target
+	}
+}
+
 // The creator's panel is the reader's, read from the same projection.
 func TestTheDownloadMenuReadsTheSameForItsOwnerAndAStranger(t *testing.T) {
 	r, session, assets := newCharacterIngestRouter(t)
