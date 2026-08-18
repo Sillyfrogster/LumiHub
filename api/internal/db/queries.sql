@@ -225,6 +225,7 @@ select count(*)
 -- link gets a normal answer.
 select a.id, a.kind, a.name, a.blurb, a.tags, a.is_nsfw, a.discovery,
        a.lifecycle, a.created_at,
+       (a.current_revision_id is not null)::boolean as has_source_file,
        coalesce(owner.username, 'unknown') as creator,
        coalesce(a.owner_id = sqlc.narg('viewer_id')::uuid, false)::boolean as is_owner,
        a.withheld_reason, a.withheld_at, actor.username as withheld_by

@@ -58,6 +58,7 @@
 
 .kind,
 .nsfw,
+.unrated,
 .ownerState {
   position: absolute;
   z-index: 2;
@@ -81,7 +82,8 @@
   border-radius: 2px 8px 2px 2px;
 }
 
-.nsfw {
+.nsfw,
+.unrated {
   right: 13px;
   bottom: 13px;
   gap: 5px;
@@ -89,6 +91,11 @@
   border-radius: 8px 2px 2px 2px;
   background: rgba(110, 55, 67, 0.88);
   letter-spacing: 0.06em;
+}
+
+/* An unanswered question is neutral. Reading it as a no would be an answer. */
+.unrated {
+  background: rgba(8, 29, 58, 0.78);
 }
 
 .ownerState {

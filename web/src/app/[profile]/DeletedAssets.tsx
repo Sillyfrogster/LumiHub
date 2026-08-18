@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Shell } from "@/components/layout/Shell";
 import type { DeletedAsset } from "@/lib/api/query";
 import { restoreAsset } from "@/lib/api/query";
+import { assetDisplayName } from "@/lib/asset-name";
 import { remainingDeletionWindow } from "@/lib/deletion-window";
 import { KIND_LABELS } from "@/lib/kinds";
 import styles from "./DeletedAssets.module.css";
@@ -40,7 +41,9 @@ export function DeletedAssets({
       router.refresh();
     } catch {
       setItems((current) => [item, ...current]);
-      setMessage(`${item.name} could not be restored. Try again.`);
+      setMessage(
+        `${assetDisplayName(item.name)} could not be restored. Try again.`,
+      );
     } finally {
       setPending(null);
     }
@@ -75,7 +78,7 @@ export function DeletedAssets({
               <li key={item.id}>
                 <div className={styles.identity}>
                   <span>{KIND_LABELS[item.kind]}</span>
-                  <h3>{item.name}</h3>
+                  <h3>{assetDisplayName(item.name)}</h3>
                 </div>
                 <p>
                   <span suppressHydrationWarning>

@@ -1168,7 +1168,7 @@ components:
       type: object
       required:
         [id, kind, name, blurb, tags, creator, isNsfw, discovery, lifecycle,
-         isOwner, createdAt, blocks, media, preview, visibility]
+         isOwner, hasSourceFile, createdAt, blocks, media, preview, visibility]
       properties:
         id: { type: string, format: uuid }
         kind: { type: string, enum: [character, lorebook, preset, theme] }
@@ -1199,6 +1199,11 @@ components:
           description: >-
             Whether the reader owns the asset. The owner's page is the reader's
             page with its editing affordances, not a second visual state.
+        hasSourceFile:
+          type: boolean
+          description: >-
+            Whether the asset carries a file a reader can download. An asset
+            built from nothing carries none.
         createdAt: { type: string, format: date-time }
         blocks:
           type: array

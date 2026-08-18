@@ -863,7 +863,10 @@ type AssetDetail struct {
 	CreatedAt time.Time            `json:"createdAt"`
 	Creator   string               `json:"creator"`
 	Discovery AssetDetailDiscovery `json:"discovery"`
-	Id        openapi_types.UUID   `json:"id"`
+
+	// HasSourceFile Whether the asset carries a file a reader can download. An asset built from nothing carries none.
+	HasSourceFile bool               `json:"hasSourceFile"`
+	Id            openapi_types.UUID `json:"id"`
 
 	// IsNsfw Null while a draft has not been asked the adult content question. Nothing answers it on the creator's behalf.
 	IsNsfw *bool `json:"isNsfw"`

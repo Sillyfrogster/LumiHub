@@ -194,7 +194,6 @@
 }
 
 .downloadPanel,
-.draftPanel,
 .facts,
 .creatorTools {
   padding: 22px;
@@ -211,7 +210,6 @@
 }
 
 .downloadPanel h2,
-.draftPanel h2,
 .facts h2,
 .creatorTools > h2 {
   font-family: var(--font-display);
@@ -220,8 +218,7 @@
   letter-spacing: -0.015em;
 }
 
-.downloadPanel p,
-.draftPanel p {
+.downloadPanel p {
   margin-top: 8px;
   color: var(--detail-dark-muted);
   font-size: 0.82rem;
@@ -249,15 +246,6 @@
   transform: translateY(-1px);
   background: #fff;
   color: #151517;
-}
-
-.draftPanel {
-  border-color: rgba(182, 92, 255, 0.24);
-  background: rgba(182, 92, 255, 0.055);
-}
-
-.draftPanel p {
-  color: var(--body);
 }
 
 .facts dl {

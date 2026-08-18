@@ -9,6 +9,7 @@ export type AssetElement = components["schemas"]["AssetElement"];
 export type SaveAssetBlockRequest =
   components["schemas"]["SaveAssetBlockRequest"];
 export type AssetTag = components["schemas"]["AssetTag"];
+export type ReadinessItem = components["schemas"]["ReadinessItem"];
 export type Profile = components["schemas"]["Profile"];
 export type BrowseAsset = components["schemas"]["BrowseAsset"];
 export type BrowsePage = components["schemas"]["AssetList"];
@@ -149,6 +150,55 @@ export async function saveAssetBlock(
     throw new Error(message);
   }
   return data;
+}
+
+/**
+ * The header fields that sit above an asset's blocks. A null answer to the
+ * adult content question is the unanswered state, which only a draft may be
+ * in.
+ */
+export async function saveAssetIdentity(
+  id: string,
+  identity: { name: string; isNsfw: boolean | null },
+) {
+  const { error } = await api.PUT("/v1/assets/{id}/identity", {
+    params: { path: { id } },
+    body: identity,
+  });
+  if (error) {
+    const detail = error as { error?: unknown } | undefined;
+    throw new Error(
+      typeof detail?.error === "string"
+        ? detail.error
+        : "The details could not be saved. Try again.",
+    );
+  }
+}
+
+/**
+ * Publishes a draft, or comes back with what publication is still waiting on.
+ */
+export async function publishAsset(
+  id: string,
+): Promise<
+  | { published: true }
+  | { published: false; error: string; readiness?: ReadinessItem[] }
+> {
+  const { data, error } = await api.POST("/v1/assets/{id}/publish", {
+    params: { path: { id } },
+  });
+  if (data) return { published: true };
+  const refusal = error as
+    | { error?: unknown; readiness?: ReadinessItem[] }
+    | undefined;
+  return {
+    published: false,
+    error:
+      typeof refusal?.error === "string"
+        ? refusal.error
+        : "The asset could not be published. Try again.",
+    readiness: refusal?.readiness,
+  };
 }
 
 export async function withholdAsset(id: string, reason: string) {

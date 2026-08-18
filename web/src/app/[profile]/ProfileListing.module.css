@@ -100,6 +100,7 @@
   display: flex;
   min-height: 58px;
   align-items: stretch;
+  gap: 26px;
 }
 
 .sections a {
@@ -113,7 +114,7 @@
   font-weight: 600;
 }
 
-.sections a::after {
+.sections a[aria-current]::after {
   position: absolute;
   right: 0;
   bottom: -1px;

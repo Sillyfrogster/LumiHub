@@ -46,8 +46,11 @@ type Detail struct {
 	Lifecycle Lifecycle
 	// IsOwner says whether the reader owns the asset. The owner's page is the
 	// reader's page with more on it, never a second page.
-	IsOwner   bool
-	CreatedAt time.Time
+	IsOwner bool
+	// HasSourceFile is false for an asset built from nothing, which has no
+	// file to hand a reader.
+	HasSourceFile bool
+	CreatedAt     time.Time
 	// Blocks are the asset's content, in page order.
 	Blocks []block.Block
 	// Media puts the direct cover first, followed by the remaining roles.
@@ -86,18 +89,19 @@ func (s *Service) Detail(
 		return Detail{}, fmt.Errorf("read asset page: %w", err)
 	}
 	found := Detail{
-		ID:        uuidFromPgtype(row.ID),
-		Kind:      row.Kind,
-		Name:      row.Name,
-		Blurb:     row.Blurb,
-		Tags:      detailTags(row.Tags),
-		Creator:   row.Creator,
-		IsNSFW:    boolFromPgtype(row.IsNsfw),
-		Discovery: Discovery(row.Discovery),
-		Lifecycle: Lifecycle(row.Lifecycle),
-		IsOwner:   row.IsOwner,
-		CreatedAt: timeFromPgtype(row.CreatedAt),
-		Media:     []DetailImage{},
+		ID:            uuidFromPgtype(row.ID),
+		Kind:          row.Kind,
+		Name:          row.Name,
+		Blurb:         row.Blurb,
+		Tags:          detailTags(row.Tags),
+		Creator:       row.Creator,
+		IsNSFW:        boolFromPgtype(row.IsNsfw),
+		Discovery:     Discovery(row.Discovery),
+		Lifecycle:     Lifecycle(row.Lifecycle),
+		IsOwner:       row.IsOwner,
+		HasSourceFile: row.HasSourceFile,
+		CreatedAt:     timeFromPgtype(row.CreatedAt),
+		Media:         []DetailImage{},
 	}
 	found.Blocks, err = readBlocks(ctx, s.pool, id)
 	if err != nil {

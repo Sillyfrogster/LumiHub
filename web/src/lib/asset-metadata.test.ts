@@ -16,6 +16,7 @@ function asset(over: Partial<AssetDetail> = {}): AssetDetail {
     discovery: "listed",
     lifecycle: "published",
     isOwner: false,
+    hasSourceFile: true,
     createdAt: "2026-08-13T00:00:00Z",
     blocks: [],
     media: [],

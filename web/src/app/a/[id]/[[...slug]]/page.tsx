@@ -14,6 +14,8 @@ import { AssetBlocks } from "./AssetBlocks";
 import { AssetMedia } from "./AssetMedia";
 import { DeleteControl } from "./DeleteControl";
 import { DiscoveryControl } from "./DiscoveryControl";
+import { IdentityPanel } from "./IdentityPanel";
+import { PublishPanel } from "./PublishPanel";
 import styles from "./page.module.css";
 import { WithholdControl } from "./WithholdControl";
 import { WithholdNotice } from "./WithholdNotice";
@@ -148,14 +150,14 @@ export default async function AssetPage({
               aria-label="Asset details and actions"
             >
               {isDraft ? (
-                <section className={styles.draftPanel}>
-                  <h2>Private draft</h2>
-                  <p>
-                    Only you can open this page. It does not appear in browse or
-                    search results.
-                  </p>
-                </section>
-              ) : (
+                asset.isOwner && asset.readiness ? (
+                  <PublishPanel
+                    assetId={asset.id}
+                    kind={kind.toLowerCase()}
+                    readiness={asset.readiness}
+                  />
+                ) : null
+              ) : asset.hasSourceFile ? (
                 <section className={styles.downloadPanel}>
                   <h2>Keep the original</h2>
                   <p>Download the creator’s source file as it was shared.</p>
@@ -164,7 +166,16 @@ export default async function AssetPage({
                     Download source file
                   </a>
                 </section>
-              )}
+              ) : null}
+
+              {asset.isOwner ? (
+                <IdentityPanel
+                  assetId={asset.id}
+                  initialName={asset.name}
+                  initialIsNsfw={asset.isNsfw}
+                  isDraft={isDraft}
+                />
+              ) : null}
 
               <section className={styles.facts}>
                 <h2>About this {kind.toLowerCase()}</h2>
@@ -205,6 +216,8 @@ export default async function AssetPage({
                   <DeleteControl
                     assetId={asset.id}
                     creator={asset.creator}
+                    kind={kind.toLowerCase()}
+                    isDraft={isDraft}
                     frozen={Boolean(asset.withhold)}
                   />
                 </section>

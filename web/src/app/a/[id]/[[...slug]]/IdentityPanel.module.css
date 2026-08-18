@@ -1,0 +1,124 @@
+.panel {
+  padding: 22px;
+  border: 1px solid var(--line-card);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  scroll-margin-top: calc(var(--header-height) + 16px);
+}
+
+.panel h2 {
+  font-family: var(--font-display);
+  font-size: 1.22rem;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+
+.panel label,
+.rating legend {
+  display: block;
+  margin: 16px 0 7px;
+  color: var(--body);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.panel input {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 13px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--surface-quiet);
+  color: var(--ink);
+  font: inherit;
+  transition:
+    border-color 160ms var(--ease),
+    background 160ms var(--ease);
+}
+
+.panel input:focus {
+  border-color: var(--accent);
+  background: var(--surface);
+}
+
+.rating {
+  border: 0;
+}
+
+.answers {
+  display: flex;
+  gap: 8px;
+}
+
+.answers button {
+  min-height: 44px;
+  flex: 1;
+  padding-inline: 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--body);
+  font-size: 0.76rem;
+  font-weight: 800;
+  transition:
+    border-color 160ms var(--ease),
+    background 160ms var(--ease),
+    color 160ms var(--ease);
+}
+
+.answers button:hover:not(:disabled) {
+  border-color: var(--faint);
+  background: var(--surface-frame);
+}
+
+.answers button[aria-pressed="true"] {
+  border-color: var(--ink-strong);
+  background: var(--surface-frame);
+  color: var(--ink-strong);
+}
+
+.note {
+  margin-top: 9px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+
+.save {
+  min-height: 44px;
+  margin-top: 16px;
+  padding-inline: 18px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-strong);
+  font-size: 0.76rem;
+  font-weight: 900;
+  transition:
+    border-color 180ms var(--ease),
+    background 180ms var(--ease);
+}
+
+.save:hover:not(:disabled) {
+  border-color: var(--faint);
+  background: var(--surface-frame);
+}
+
+.save:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.saved,
+.error {
+  margin-top: 9px;
+  font-size: 0.76rem;
+}
+
+.saved {
+  color: var(--pass);
+}
+
+.error {
+  color: #813f3f;
+}

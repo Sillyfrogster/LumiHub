@@ -148,6 +148,7 @@ func (q *Queries) AssetDeletionState(ctx context.Context, arg AssetDeletionState
 const assetPage = `-- name: AssetPage :one
 select a.id, a.kind, a.name, a.blurb, a.tags, a.is_nsfw, a.discovery,
        a.lifecycle, a.created_at,
+       (a.current_revision_id is not null)::boolean as has_source_file,
        coalesce(owner.username, 'unknown') as creator,
        coalesce(a.owner_id = $2::uuid, false)::boolean as is_owner,
        a.withheld_reason, a.withheld_at, actor.username as withheld_by
@@ -175,6 +176,7 @@ type AssetPageRow struct {
 	Discovery      string
 	Lifecycle      string
 	CreatedAt      pgtype.Timestamptz
+	HasSourceFile  bool
 	Creator        string
 	IsOwner        bool
 	WithheldReason pgtype.Text
@@ -197,6 +199,7 @@ func (q *Queries) AssetPage(ctx context.Context, arg AssetPageParams) (AssetPage
 		&i.Discovery,
 		&i.Lifecycle,
 		&i.CreatedAt,
+		&i.HasSourceFile,
 		&i.Creator,
 		&i.IsOwner,
 		&i.WithheldReason,

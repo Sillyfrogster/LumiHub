@@ -10,6 +10,30 @@
   border: 1px solid var(--line-card);
   border-radius: var(--radius-xl);
   background: var(--surface);
+  scroll-margin-top: calc(var(--header-height) + 16px);
+}
+
+/* A readiness link lands here, so the block says which one it is. */
+.block:target {
+  border-color: rgba(182, 92, 255, 0.55);
+  box-shadow: 0 0 0 4px rgba(182, 92, 255, 0.12);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .block:target {
+    animation: blockArrival 1200ms var(--ease) both;
+  }
+}
+
+@keyframes blockArrival {
+  0%,
+  55% {
+    box-shadow: 0 0 0 6px rgba(182, 92, 255, 0.22);
+  }
+
+  100% {
+    box-shadow: 0 0 0 4px rgba(182, 92, 255, 0.12);
+  }
 }
 
 .header {

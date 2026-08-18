@@ -10,10 +10,14 @@ import styles from "./DeleteControl.module.css";
 export function DeleteControl({
   assetId,
   creator,
+  kind,
+  isDraft,
   frozen,
 }: {
   assetId: string;
   creator: string;
+  kind: string;
+  isDraft: boolean;
   frozen: boolean;
 }) {
   const router = useRouter();
@@ -44,15 +48,25 @@ export function DeleteControl({
         {frozen ? <LockKeyhole size={18} /> : <Trash2 size={18} />}
       </div>
       <div className={styles.copy}>
-        <h2 id="delete-heading">Delete this asset</h2>
+        <h2 id="delete-heading">
+          {isDraft ? "Delete this draft" : "Delete this asset"}
+        </h2>
         <p>
           {frozen
             ? "A withheld asset cannot be deleted."
-            : "Its page and downloads stop now. You can restore it from your profile for 30 days."}
+            : isDraft
+              ? "Every section and image goes with it. You can restore it from your profile for 30 days."
+              : "Its page and downloads stop now. You can restore it from your profile for 30 days."}
         </p>
+        {isDraft && !frozen ? (
+          <p>
+            A {kind} stays a {kind}. If you picked the wrong kind, delete this
+            draft and start the one you meant.
+          </p>
+        ) : null}
         {confirming && !frozen ? (
           <div className={styles.confirmation}>
-            <p>Move this asset to Deleted?</p>
+            <p>Move this {isDraft ? "draft" : "asset"} to Deleted?</p>
             <button type="button" onClick={remove} disabled={pending}>
               {pending ? "Deleting…" : "Yes, delete it"}
             </button>

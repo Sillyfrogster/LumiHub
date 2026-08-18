@@ -1,10 +1,11 @@
 "use client";
 
-import { Eye, EyeOff } from "lucide-react";
+import { CircleHelp, Eye, EyeOff } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import type { BrowseAsset, NsfwVisibility } from "@/lib/api/query";
+import { assetDisplayName } from "@/lib/asset-name";
 import { assetHref } from "@/lib/asset-url";
 import { DEFAULT_COVERS, KIND_LABELS } from "@/lib/kinds";
 import styles from "./BrowseCard.module.css";
@@ -41,7 +42,12 @@ export function BrowseCard({
             unoptimized={!usesDefault}
           />
           <span className={styles.kind}>{KIND_LABELS[asset.kind]}</span>
-          {asset.isNsfw ? (
+          {asset.isNsfw === null ? (
+            <span className={styles.unrated}>
+              <CircleHelp size={12} aria-hidden="true" />
+              Rating not set
+            </span>
+          ) : asset.isNsfw ? (
             <span className={styles.nsfw}>
               {visibility !== "shown" ? (
                 <EyeOff size={12} aria-hidden="true" />
@@ -56,7 +62,7 @@ export function BrowseCard({
           ) : null}
         </div>
         <div className={styles.identity}>
-          <h3>{asset.name}</h3>
+          <h3>{assetDisplayName(asset.name)}</h3>
           <p>@{asset.creator}</p>
         </div>
       </Link>

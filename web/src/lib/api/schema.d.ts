@@ -869,6 +869,8 @@ export interface components {
       lifecycle: "draft" | "published";
       /** @description Whether the reader owns the asset. The owner's page is the reader's page with its editing affordances, not a second visual state. */
       isOwner: boolean;
+      /** @description Whether the asset carries a file a reader can download. An asset built from nothing carries none. */
+      hasSourceFile: boolean;
       /** Format: date-time */
       createdAt: string;
       /** @description The asset's blocks in page order. */
