@@ -390,6 +390,30 @@ func TestAChunkNameNeverOverridesWhatTheCardSaysItIs(t *testing.T) {
 	}
 }
 
+// CCv3 asks a writer to keep the v2 copy, so nearly every v3 card is this file.
+func TestAV3CardCarryingItsV2CopyIsReadAsV3(t *testing.T) {
+	file := pngCardChunks(t,
+		textChunk{name: "ccv3", body: `{"spec":"chara_card_v3","spec_version":"3.0","data":{"name":"Ana"}}`},
+		textChunk{name: "chara", body: `{"spec":"chara_card_v2","spec_version":"2.0","data":{"name":"Ana"}}`},
+	)
+	if _, ok := (CCv2Module{}).Claim(file); ok {
+		t.Error("CCv2 claimed the copy of itself a v3 card carries")
+	}
+	if parsed := resolveAndParse(t, file); parsed.Format != V3 {
+		t.Errorf("format = %q, want %q", parsed.Format, V3)
+	}
+}
+
+// Standing down for v3 must not take a plain v2 card away from CCv2.
+func TestAV2CardWithNoV3CopyIsStillReadAsV2(t *testing.T) {
+	file := pngCardChunks(t,
+		textChunk{name: "chara", body: `{"spec":"chara_card_v2","spec_version":"2.0","data":{"name":"Ana"}}`},
+	)
+	if parsed := resolveAndParse(t, file); parsed.Format != V2 {
+		t.Errorf("format = %q, want %q", parsed.Format, V2)
+	}
+}
+
 func TestAV3CardInAnArchiveIsCharXAndNotCCv3(t *testing.T) {
 	file := charxCard(t, `{"spec":"chara_card_v3","spec_version":"3.0","data":{"name":"Ana"}}`, nil)
 	if _, ok := (CCv3Module{}).Claim(file); ok {
@@ -454,15 +478,22 @@ func jsonCard(t *testing.T, body string) probe.Inspection {
 
 func pngCard(t *testing.T, chunk, body string) probe.Inspection {
 	t.Helper()
+	return pngCardChunks(t, textChunk{name: chunk, body: body})
+}
+
+type textChunk struct{ name, body string }
+
+func pngCardChunks(t *testing.T, chunks ...textChunk) probe.Inspection {
+	t.Helper()
 	file := testPNG(t)
 	// The card sits in a text chunk before IEND, where a real card does.
 	end := len(file) - 12
-	withCard := slices.Concat(
-		file[:end],
-		pngChunk("tEXt", slices.Concat([]byte(chunk), []byte{0}, []byte(body))),
-		file[end:],
-	)
-	return inspect(t, withCard, "card.png")
+	withCards := slices.Clone(file[:end])
+	for _, chunk := range chunks {
+		withCards = append(withCards,
+			pngChunk("tEXt", slices.Concat([]byte(chunk.name), []byte{0}, []byte(chunk.body)))...)
+	}
+	return inspect(t, append(withCards, file[end:]...), "card.png")
 }
 
 func charxCard(t *testing.T, body string, pictures []string) probe.Inspection {

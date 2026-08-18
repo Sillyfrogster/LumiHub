@@ -102,6 +102,8 @@ func declaration(id string) format.Declaration {
 		Path:       []string{"spec"}, Values: []string{id},
 	}}
 	if id == V2 {
+		// A v3 card keeps a v2 copy of itself, so a file with both is a v3 card.
+		recognition[0].SupersededBy = []string{V3}
 		recognition = append(recognition, format.Recognition{
 			Kind: format.RecognitionSignature, LegacyOnly: true,
 			Containers: []probe.Container{probe.JSON, probe.PNG, probe.JPEG, probe.WebP, probe.GIF},

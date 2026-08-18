@@ -8,17 +8,14 @@ import (
 )
 
 func TestCCv2UsesTheSpecRepresentationWithoutShadowFields(t *testing.T) {
-	file := probe.Inspection{Payloads: []probe.Payload{{
-		ID: 0,
-		Root: object(`{
-			"spec":"chara_card_v2",
-			"data":{"description":"canonical"},
-			"description":"shadow",
-			"personality":"shadow only"
-		}`),
-	}}}
+	file := document(object(`{
+		"spec":"chara_card_v2",
+		"data":{"description":"canonical"},
+		"description":"shadow",
+		"personality":"shadow only"
+	}`))
 
-	claim, ok := CCv2(file)
+	claim, ok := (CCv2Module{}).Claim(file)
 	if !ok {
 		t.Fatal("CCv2 did not claim its own spec")
 	}
@@ -43,18 +40,27 @@ func TestCCv2UsesLegacyShapeOnlyWithoutARecognizedSpec(t *testing.T) {
 		"first_mes":"Hello"
 	}`)
 
-	if _, ok := CCv2(probe.Inspection{Payloads: []probe.Payload{{ID: 0, Root: legacy}}}); !ok {
+	if _, ok := (CCv2Module{}).Claim(document(legacy)); !ok {
 		t.Fatal("CCv2 did not make a compatibility claim for a legacy shape")
 	}
 
 	legacy["spec"] = json.RawMessage(`"chara_card_v3"`)
-	file := probe.Inspection{Payloads: []probe.Payload{{ID: 0, Root: legacy}}}
-	if _, ok := CCv2(file); ok {
+	file := document(legacy)
+	if _, ok := (CCv2Module{}).Claim(file); ok {
 		t.Fatal("CCv2 claimed legacy shadow fields beside a recognized CCv3 spec")
 	}
-	if _, ok := CCv3(file); !ok {
+	if _, ok := (CCv3Module{}).Claim(file); !ok {
 		t.Fatal("CCv3 did not claim its own spec")
 	}
+}
+
+// document puts a payload in a container the card standards allow.
+func document(root map[string]json.RawMessage) probe.Inspection {
+	return probe.Inspection{Payloads: []probe.Payload{{
+		ID:      0,
+		Locator: probe.Locator{Container: probe.JSON},
+		Root:    root,
+	}}}
 }
 
 func object(source string) map[string]json.RawMessage {

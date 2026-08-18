@@ -174,12 +174,17 @@ type Recognition struct {
 	Values     []string
 	Required   map[string]ValueType
 	LegacyOnly bool
+	// SupersededBy names values at the same Path that outrank this one.
+	SupersededBy []string
 }
 
 // ClaimByDeclaration applies only the recognition data beside a module. The
 // module keeps normalization code, but recognition has no hidden code path.
 func ClaimByDeclaration(file probe.Inspection, declaration Declaration) (Claim, bool) {
 	for _, recognition := range declaration.Recognition {
+		if supersededInFile(file, recognition) {
+			continue
+		}
 		for _, payload := range file.Payloads {
 			if len(recognition.Containers) > 0 &&
 				!slices.Contains(recognition.Containers, payload.Locator.Container) {
@@ -207,6 +212,24 @@ func ClaimByDeclaration(file probe.Inspection, declaration Declaration) (Claim, 
 		}
 	}
 	return Claim{}, false
+}
+
+// supersededInFile reports whether the file carries a value that outranks this recognition.
+func supersededInFile(file probe.Inspection, recognition Recognition) bool {
+	if len(recognition.SupersededBy) == 0 {
+		return false
+	}
+	for _, payload := range file.Payloads {
+		if len(recognition.Containers) > 0 &&
+			!slices.Contains(recognition.Containers, payload.Locator.Container) {
+			continue
+		}
+		value, ok := payloadValue(payload.Root, recognition.Path)
+		if ok && slices.Contains(recognition.SupersededBy, value) {
+			return true
+		}
+	}
+	return false
 }
 
 func payloadValue(root map[string]json.RawMessage, path []string) (string, bool) {
@@ -346,9 +369,17 @@ func ValidateDeclaration(d Declaration) error {
 			if len(recognition.Path) == 0 || len(recognition.Values) == 0 {
 				return errors.New("a discriminator needs a location and accepted values")
 			}
+			for _, superseding := range recognition.SupersededBy {
+				if slices.Contains(recognition.Values, superseding) {
+					return fmt.Errorf("value %q both matches and supersedes the discriminator", superseding)
+				}
+			}
 		case RecognitionSignature:
 			if len(recognition.Required) == 0 {
 				return errors.New("a structural signature needs required keys")
+			}
+			if len(recognition.SupersededBy) > 0 {
+				return errors.New("only a discriminator can name what supersedes it")
 			}
 			for key, valueType := range recognition.Required {
 				if key == "" || !valueType.known() {
