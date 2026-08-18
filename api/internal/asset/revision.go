@@ -13,23 +13,21 @@ import (
 
 // revisionRow is one preserved copy of an asset's bytes.
 type revisionRow struct {
-	Revision            int
-	BlobID              uuid.UUID
-	MediaType           string
-	Format              string
-	PassthroughPlatform *string
+	Revision  int
+	BlobID    uuid.UUID
+	MediaType string
+	Format    string
 }
 
 func insertRevision(ctx context.Context, tx pgx.Tx, id, assetID uuid.UUID, row revisionRow) error {
 	queries := db.New(tx)
 	params := db.InsertRevisionParams{
-		ID:                  uuidToPgtype(id),
-		AssetID:             uuidToPgtype(assetID),
-		Revision:            int32(row.Revision),
-		BlobID:              uuidToPgtype(row.BlobID),
-		MediaType:           row.MediaType,
-		Format:              row.Format,
-		PassthroughPlatform: textToNullable(row.PassthroughPlatform),
+		ID:        uuidToPgtype(id),
+		AssetID:   uuidToPgtype(assetID),
+		Revision:  int32(row.Revision),
+		BlobID:    uuidToPgtype(row.BlobID),
+		MediaType: row.MediaType,
+		Format:    row.Format,
 	}
 	if err := queries.InsertRevision(ctx, params); err != nil {
 		return fmt.Errorf("insert revision: %w", err)

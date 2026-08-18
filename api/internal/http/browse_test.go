@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Sillyfrogster/LumiHub/api/internal/block"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
 )
@@ -17,6 +18,9 @@ import (
 type browseModule struct{}
 
 func (browseModule) ID() string { return "browse_card" }
+func (browseModule) Declaration() format.Declaration {
+	return testReaderDeclaration("browse_card", "character")
+}
 func (browseModule) Claim(file probe.Inspection) (format.Claim, bool) {
 	if len(file.Payloads) == 0 {
 		return format.Claim{}, false
@@ -31,6 +35,10 @@ func (browseModule) Parse(_ context.Context, file probe.Inspection, _ format.Cla
 	return format.Parsed{
 		Kind: "character", Format: "browse_card",
 		Facets: []format.Facet{{Key: "tone", Value: tone}, {Key: "client_feature", Value: "lorebook"}},
+		Elements: []block.Element{
+			{Type: block.TypeProse, Role: block.RoleDescription, Content: block.Prose{Text: "Test description"}},
+			{Type: block.TypeTextSet, Role: block.RoleGreetings, Content: block.TextSet{Texts: []block.TextItem{{Text: "Hello"}}}},
+		},
 	}, nil
 }
 func (browseModule) BrowseDefinition() format.BrowseDefinition {
@@ -104,7 +112,7 @@ func TestBrowseReturnsOnlyCardContentAndTheReadersEffectiveCount(t *testing.T) {
 	}
 	if body.Items[0]["name"] != "Velvet Night" ||
 		body.Items[0]["creator"] != "verified.creator" ||
-		body.Items[0]["kind"] != "theme" || body.Items[0]["isNsfw"] != true {
+		body.Items[0]["kind"] != "character" || body.Items[0]["isNsfw"] != true {
 		t.Errorf("browse card = %#v", body.Items[0])
 	}
 	if cover, present := body.Items[0]["cover"]; !present || cover != nil {

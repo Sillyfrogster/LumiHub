@@ -358,22 +358,22 @@ func (e AssetImageRole) Valid() bool {
 
 // Defines values for AssetListEmptyState.
 const (
-	AssetListEmptyStateCatalog     AssetListEmptyState = "catalog"
-	AssetListEmptyStateLessThannil AssetListEmptyState = "<nil>"
-	AssetListEmptyStateNoMatches   AssetListEmptyState = "no_matches"
-	AssetListEmptyStateSuppressed  AssetListEmptyState = "suppressed"
+	Catalog     AssetListEmptyState = "catalog"
+	LessThannil AssetListEmptyState = "<nil>"
+	NoMatches   AssetListEmptyState = "no_matches"
+	Suppressed  AssetListEmptyState = "suppressed"
 )
 
 // Valid indicates whether the value is a known member of the AssetListEmptyState enum.
 func (e AssetListEmptyState) Valid() bool {
 	switch e {
-	case AssetListEmptyStateCatalog:
+	case Catalog:
 		return true
-	case AssetListEmptyStateLessThannil:
+	case LessThannil:
 		return true
-	case AssetListEmptyStateNoMatches:
+	case NoMatches:
 		return true
-	case AssetListEmptyStateSuppressed:
+	case Suppressed:
 		return true
 	default:
 		return false
@@ -440,30 +440,6 @@ func (e BrowseAssetOwnerState) Valid() bool {
 	case BrowseAssetOwnerStateUnlisted:
 		return true
 	case BrowseAssetOwnerStateWithheld:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for CompleteIngestRequestKind.
-const (
-	CompleteIngestRequestKindCharacter CompleteIngestRequestKind = "character"
-	CompleteIngestRequestKindLorebook  CompleteIngestRequestKind = "lorebook"
-	CompleteIngestRequestKindPreset    CompleteIngestRequestKind = "preset"
-	CompleteIngestRequestKindTheme     CompleteIngestRequestKind = "theme"
-)
-
-// Valid indicates whether the value is a known member of the CompleteIngestRequestKind enum.
-func (e CompleteIngestRequestKind) Valid() bool {
-	switch e {
-	case CompleteIngestRequestKindCharacter:
-		return true
-	case CompleteIngestRequestKindLorebook:
-		return true
-	case CompleteIngestRequestKindPreset:
-		return true
-	case CompleteIngestRequestKindTheme:
 		return true
 	default:
 		return false
@@ -596,7 +572,6 @@ func (e IngestFailureReason) Valid() bool {
 // Defines values for IngestOperationStatus.
 const (
 	IngestOperationStatusFailed     IngestOperationStatus = "failed"
-	IngestOperationStatusNeedsKind  IngestOperationStatus = "needs_kind"
 	IngestOperationStatusPending    IngestOperationStatus = "pending"
 	IngestOperationStatusProcessing IngestOperationStatus = "processing"
 	IngestOperationStatusSuccess    IngestOperationStatus = "success"
@@ -606,8 +581,6 @@ const (
 func (e IngestOperationStatus) Valid() bool {
 	switch e {
 	case IngestOperationStatusFailed:
-		return true
-	case IngestOperationStatusNeedsKind:
 		return true
 	case IngestOperationStatusPending:
 		return true
@@ -680,33 +653,6 @@ func (e MediaRole) Valid() bool {
 	case MediaRoleGallery:
 		return true
 	case MediaRolePerspectiveLayer:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for NeedsKindKind.
-const (
-	NeedsKindKindCharacter   NeedsKindKind = "character"
-	NeedsKindKindLessThannil NeedsKindKind = "<nil>"
-	NeedsKindKindLorebook    NeedsKindKind = "lorebook"
-	NeedsKindKindPreset      NeedsKindKind = "preset"
-	NeedsKindKindTheme       NeedsKindKind = "theme"
-)
-
-// Valid indicates whether the value is a known member of the NeedsKindKind enum.
-func (e NeedsKindKind) Valid() bool {
-	switch e {
-	case NeedsKindKindCharacter:
-		return true
-	case NeedsKindKindLessThannil:
-		return true
-	case NeedsKindKindLorebook:
-		return true
-	case NeedsKindKindPreset:
-		return true
-	case NeedsKindKindTheme:
 		return true
 	default:
 		return false
@@ -1011,16 +957,15 @@ type ArrangeAssetBlocksRequestBlocksWidth string
 
 // Asset defines model for Asset.
 type Asset struct {
-	Blurb               string             `json:"blurb"`
-	CreatedAt           time.Time          `json:"createdAt"`
-	Discovery           AssetDiscovery     `json:"discovery"`
-	Format              string             `json:"format"`
-	Id                  openapi_types.UUID `json:"id"`
-	IsNsfw              *bool              `json:"isNsfw"`
-	Kind                string             `json:"kind"`
-	Name                string             `json:"name"`
-	PassthroughPlatform *string            `json:"passthroughPlatform,omitempty"`
-	Tags                []string           `json:"tags"`
+	Blurb     string             `json:"blurb"`
+	CreatedAt time.Time          `json:"createdAt"`
+	Discovery AssetDiscovery     `json:"discovery"`
+	Format    string             `json:"format"`
+	Id        openapi_types.UUID `json:"id"`
+	IsNsfw    *bool              `json:"isNsfw"`
+	Kind      string             `json:"kind"`
+	Name      string             `json:"name"`
+	Tags      []string           `json:"tags"`
 }
 
 // AssetDiscovery defines model for Asset.Discovery.
@@ -1258,15 +1203,6 @@ type ChangeEmailRequest struct {
 	Email openapi_types.Email `json:"email"`
 }
 
-// CompleteIngestRequest defines model for CompleteIngestRequest.
-type CompleteIngestRequest struct {
-	Kind CompleteIngestRequestKind `json:"kind"`
-	Name string                    `json:"name"`
-}
-
-// CompleteIngestRequestKind defines model for CompleteIngestRequest.Kind.
-type CompleteIngestRequestKind string
-
 // CompletePasswordResetRequest defines model for CompletePasswordResetRequest.
 type CompletePasswordResetRequest struct {
 	Password string `json:"password"`
@@ -1379,12 +1315,11 @@ type IngestFailureReason string
 
 // IngestOperation defines model for IngestOperation.
 type IngestOperation struct {
-	Asset     *Asset                `json:"asset,omitempty"`
-	Failure   *IngestFailure        `json:"failure,omitempty"`
-	Id        openapi_types.UUID    `json:"id"`
-	NeedsKind *NeedsKind            `json:"needsKind,omitempty"`
-	Status    IngestOperationStatus `json:"status"`
-	Url       string                `json:"url"`
+	Asset   *Asset                `json:"asset,omitempty"`
+	Failure *IngestFailure        `json:"failure,omitempty"`
+	Id      openapi_types.UUID    `json:"id"`
+	Status  IngestOperationStatus `json:"status"`
+	Url     string                `json:"url"`
 }
 
 // IngestOperationStatus defines model for IngestOperation.Status.
@@ -1473,15 +1408,6 @@ type MediaList struct {
 type MoveAssetBlockContentRequest struct {
 	DestinationBlockId openapi_types.UUID `json:"destinationBlockId"`
 }
-
-// NeedsKind defines model for NeedsKind.
-type NeedsKind struct {
-	Kind *NeedsKindKind `json:"kind"`
-	Name string         `json:"name"`
-}
-
-// NeedsKindKind defines model for NeedsKind.Kind.
-type NeedsKindKind string
 
 // NsfwVisibilityRequest defines model for NsfwVisibilityRequest.
 type NsfwVisibilityRequest struct {
@@ -1778,9 +1704,6 @@ type SignUpJSONRequestBody = SignUpRequest
 // VerifyEmailJSONRequestBody defines body for VerifyEmail for application/json ContentType.
 type VerifyEmailJSONRequestBody = VerifyEmailRequest
 
-// CompleteIngestJSONRequestBody defines body for CompleteIngest for application/json ContentType.
-type CompleteIngestJSONRequestBody = CompleteIngestRequest
-
 // PollLinkRequestJSONRequestBody defines body for PollLinkRequest for application/json ContentType.
 type PollLinkRequestJSONRequestBody = PollLinkRequest
 
@@ -1900,9 +1823,6 @@ type ServerInterface interface {
 
 	// (GET /v1/ingests/{id})
 	GetIngest(c *gin.Context, id openapi_types.UUID)
-
-	// (PATCH /v1/ingests/{id})
-	CompleteIngest(c *gin.Context, id openapi_types.UUID)
 
 	// (GET /v1/instances)
 	ListInstances(c *gin.Context)
@@ -2880,31 +2800,6 @@ func (siw *ServerInterfaceWrapper) GetIngest(c *gin.Context) {
 	siw.Handler.GetIngest(c, id)
 }
 
-// CompleteIngest operation middleware
-func (siw *ServerInterfaceWrapper) CompleteIngest(c *gin.Context) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "id" -------------
-	var id openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
-	if err != nil {
-		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
-		return
-	}
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		middleware(c)
-		if c.IsAborted() {
-			return
-		}
-	}
-
-	siw.Handler.CompleteIngest(c, id)
-}
-
 // ListInstances operation middleware
 func (siw *ServerInterfaceWrapper) ListInstances(c *gin.Context) {
 
@@ -3155,5 +3050,4 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/v1/assets/:id/media", wrapper.AddMedia)
 	router.GET(options.BaseURL+"/media/:media_id/:variant/:derivative_version", wrapper.GetMediaVariant)
 	router.GET(options.BaseURL+"/v1/ingests/:id", wrapper.GetIngest)
-	router.PATCH(options.BaseURL+"/v1/ingests/:id", wrapper.CompleteIngest)
 }

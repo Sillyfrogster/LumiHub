@@ -19,8 +19,11 @@ type facetModule struct {
 }
 
 func (facetModule) ID() string { return "facets" }
+func (facetModule) Declaration() format.Declaration {
+	return testReaderDeclaration("facets", "character")
+}
 func (m facetModule) Parse(context.Context, probe.Inspection, format.Claim) (format.Parsed, error) {
-	return format.Parsed{Kind: "character", Format: "test", Facets: m.facets}, nil
+	return format.Parsed{Kind: "character", Format: "facets", Facets: m.facets}, nil
 }
 
 func TestListMatchesEveryRequestedFacet(t *testing.T) {

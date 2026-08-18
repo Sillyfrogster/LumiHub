@@ -373,7 +373,7 @@ func TestWithholdingFieldsPopulateTogether(t *testing.T) {
 	}
 }
 
-func TestFormatAndPassthroughPlatformBelongToARevision(t *testing.T) {
+func TestOriginAndRevisionFormatsHaveSeparateHomes(t *testing.T) {
 	pool := Connect(t)
 
 	assetColumns, err := tableColumns(pool, "assets")
@@ -385,7 +385,9 @@ func TestFormatAndPassthroughPlatformBelongToARevision(t *testing.T) {
 			t.Errorf("assets still has %s", column)
 		}
 	}
-	for _, column := range []string{"kind", "discovery", "withheld_at", "withheld_by", "withheld_reason", "deleted_at"} {
+	for _, column := range []string{
+		"kind", "discovery", "withheld_at", "withheld_by", "withheld_reason", "deleted_at", "origin_format",
+	} {
 		if !slices.Contains(assetColumns, column) {
 			t.Errorf("assets has no %s", column)
 		}
@@ -395,10 +397,11 @@ func TestFormatAndPassthroughPlatformBelongToARevision(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read revision columns: %v", err)
 	}
-	for _, column := range []string{"format", "passthrough_platform"} {
-		if !slices.Contains(revisionColumns, column) {
-			t.Errorf("asset_revisions has no %s", column)
-		}
+	if !slices.Contains(revisionColumns, "format") {
+		t.Error("asset_revisions has no format")
+	}
+	if slices.Contains(revisionColumns, "passthrough_platform") {
+		t.Error("asset_revisions still has passthrough_platform")
 	}
 	if slices.Contains(revisionColumns, "format_version") {
 		t.Error("asset_revisions still has format_version")

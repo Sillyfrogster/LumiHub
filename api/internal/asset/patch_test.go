@@ -23,8 +23,9 @@ func TestCreatorFilePatchPersistsAcrossARevisionAndOverridesTheNewSource(t *test
 	ownerID := revisionOwner(t, svc, "patch.owner")
 	created := ingestOne(t, svc, ownerID, "card.json", []byte(`{
 		"spec":"chara_card_v3","spec_version":"3.0",
-		"data":{"name":"Original name","creator_notes":"Original notes","description":"First source"}
+		"data":{"name":"Original name","creator_notes":"Original notes","description":"First source","first_mes":"Hello"}
 	}`))
+	publishImported(t, svc, ownerID, created)
 
 	if err := svc.SetFilePatch(context.Background(), FilePatchInput{
 		OwnerID: ownerID,
@@ -58,8 +59,9 @@ func TestReconciliationPatchStopsAtItsRevision(t *testing.T) {
 	svc, _ := newTestServiceWithRegistry(t, registry)
 	ownerID := revisionOwner(t, svc, "reconciliation.owner")
 	created := ingestOne(t, svc, ownerID, "card.json", []byte(`{
-		"spec":"chara_card_v3","spec_version":"3.0","data":{"description":"Historical source"}
+		"spec":"chara_card_v3","spec_version":"3.0","data":{"description":"Historical source","first_mes":"Hello"}
 	}`))
+	publishImported(t, svc, ownerID, created)
 	if err := svc.setReconciliationPatch(context.Background(), created.ID, created.CurrentRevisionID,
 		format.Patch{format.FieldDescription: "Reconciled value"}); err != nil {
 		t.Fatalf("set reconciliation patch: %v", err)
@@ -80,6 +82,7 @@ func TestUnsupportedExportTargetFallsBackToRaw(t *testing.T) {
 	ownerID := revisionOwner(t, svc, "raw.owner")
 	source := []byte{0, 255, 12, 42}
 	created := ingestOne(t, svc, ownerID, "opaque.lumitheme", source)
+	publishImported(t, svc, ownerID, created)
 
 	exported, err := svc.OpenExport(context.Background(), created.ID, nil, "not-a-target")
 	if err != nil {
@@ -105,8 +108,9 @@ func TestOpenExportCarriesMediaTheTargetCannotEmbed(t *testing.T) {
 	svc, _ := newTestServiceWithRegistry(t, registry)
 	ownerID := revisionOwner(t, svc, "export.media.owner")
 	created := ingestOne(t, svc, ownerID, "card.json", []byte(`{
-		"spec":"chara_card_v3","spec_version":"3.0","data":{"description":"Source"}
+		"spec":"chara_card_v3","spec_version":"3.0","data":{"description":"Source","first_mes":"Hello"}
 	}`))
+	publishImported(t, svc, ownerID, created)
 	picture := testPNG(t, 2, 2, color.White)
 	if _, err := svc.AddMedia(context.Background(), AddMediaInput{
 		OwnerID: ownerID, AssetID: created.ID, Role: MediaGallery, File: bytes.NewReader(picture),

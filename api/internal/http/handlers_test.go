@@ -20,6 +20,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+func testRegistry(t *testing.T) *format.Registry {
+	t.Helper()
+	registry := format.NewRegistry()
+	if err := registry.Register(opaqueTestModule{}); err != nil {
+		t.Fatalf("register test format: %v", err)
+	}
+	return registry
+}
+
 func newTestRouter(t *testing.T) *gin.Engine {
 	t.Helper()
 	return newTestRouterWithCeiling(t, 1<<20)
@@ -109,7 +118,7 @@ func newTestHandlersWithPool(
 	if err != nil {
 		t.Fatalf("storage: %v", err)
 	}
-	svc := asset.NewService(pool, format.NewRegistry(), blob)
+	svc := asset.NewService(pool, testRegistry(t), blob)
 	accounts := account.NewService(pool, sender, nil, "http://localhost:3000")
 	links := linking.NewService(pool, "http://localhost:3000")
 
@@ -135,7 +144,7 @@ func newTestRouterWithDiscordAndOutbox(
 	if err != nil {
 		t.Fatalf("storage: %v", err)
 	}
-	assets := asset.NewService(pool, format.NewRegistry(), blob)
+	assets := asset.NewService(pool, testRegistry(t), blob)
 	outbox := &verificationOutbox{}
 	accounts := account.NewService(
 		pool, outbox, provider, "http://localhost:3000",

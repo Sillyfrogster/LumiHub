@@ -17,7 +17,7 @@ var (
 )
 
 type Resolution struct {
-	Module Module
+	Module Reader
 	Claim  Claim
 }
 
@@ -30,12 +30,96 @@ func NewRegistry() *Registry {
 	return &Registry{modules: make(map[string]Module)}
 }
 
+func (r *Registry) Empty() bool { return len(r.modules) == 0 }
+
 func (r *Registry) Register(m Module) error {
 	if _, taken := r.modules[m.ID()]; taken {
 		return fmt.Errorf("format module %q is already registered", m.ID())
 	}
 	r.modules[m.ID()] = m
 	return nil
+}
+
+// ValidateDeclarations checks the static contract every registry consumer
+// reads without invoking module code.
+func (r *Registry) ValidateDeclarations() error {
+	ids := make([]string, 0, len(r.modules))
+	for id := range r.modules {
+		ids = append(ids, id)
+	}
+	slices.Sort(ids)
+	for _, id := range ids {
+		module := r.modules[id]
+		declaration := module.Declaration()
+		if declaration.ID != id {
+			return fmt.Errorf("module %q declares identity %q: %w", id, declaration.ID, ErrInvariant)
+		}
+		if err := ValidateDeclaration(declaration); err != nil {
+			return fmt.Errorf("module %q declaration: %w", id, err)
+		}
+		if declaration.Direction.Read {
+			if _, ok := module.(Reader); !ok {
+				return fmt.Errorf("module %q declares read support without a reader: %w", id, ErrInvariant)
+			}
+		}
+		if declaration.Direction.Write {
+			if _, ok := module.(Exporter); !ok {
+				return fmt.Errorf("module %q declares write support without an exporter: %w", id, ErrInvariant)
+			}
+		}
+	}
+	for i, firstID := range ids {
+		first := r.modules[firstID].Declaration()
+		for _, secondID := range ids[i+1:] {
+			second := r.modules[secondID].Declaration()
+			if signaturesOverlap(first.Recognition, second.Recognition) {
+				return fmt.Errorf(
+					"modules %q and %q have overlapping structural signatures: %w",
+					firstID, secondID, ErrInvariant,
+				)
+			}
+		}
+	}
+	return nil
+}
+
+func signaturesOverlap(first, second []Recognition) bool {
+	for _, a := range first {
+		if a.Kind != RecognitionSignature {
+			continue
+		}
+		for _, b := range second {
+			if b.Kind != RecognitionSignature || incompatibleContainers(a.Containers, b.Containers) {
+				continue
+			}
+			compatible := true
+			for key, aType := range a.Required {
+				if bType, present := b.Required[key]; present {
+					if aType == bType {
+						continue
+					}
+					compatible = false
+					break
+				}
+			}
+			if compatible {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func incompatibleContainers(first, second []probe.Container) bool {
+	if len(first) == 0 || len(second) == 0 {
+		return false
+	}
+	for _, container := range first {
+		if slices.Contains(second, container) {
+			return false
+		}
+	}
+	return true
 }
 
 func (r *Registry) ByID(id string) (Module, bool) {
@@ -56,6 +140,10 @@ func (r *Registry) CanEdit(id string) bool {
 func (r *Registry) ResolveExporter(id, target string) (Exporter, string, bool) {
 	module, ok := r.modules[id]
 	if !ok {
+		return nil, RawTarget, false
+	}
+	declaration := module.Declaration()
+	if !declaration.Direction.Write {
 		return nil, RawTarget, false
 	}
 	exporter, ok := module.(Exporter)
@@ -102,20 +190,26 @@ func (r *Registry) BrowseDefinitions() []RegisteredBrowseDefinition {
 func (r *Registry) Resolve(file probe.Inspection) (Resolution, bool, error) {
 	var candidates []Resolution
 	for _, module := range r.modules {
-		claim, ok := module.Claim(file)
+		declaration := module.Declaration()
+		if !declaration.Direction.Read {
+			continue
+		}
+		reader, ok := module.(Reader)
 		if !ok {
 			continue
 		}
-		if err := validateClaim(file, module, claim); err != nil {
+		claim, ok := reader.Claim(file)
+		if !ok {
+			continue
+		}
+		if err := validateClaim(file, reader, claim); err != nil {
 			return Resolution{}, false, fmt.Errorf("module %q: %w", module.ID(), err)
 		}
-		candidates = append(candidates, Resolution{Module: module, Claim: claim})
+		candidates = append(candidates, Resolution{Module: reader, Claim: claim})
 	}
 	if len(candidates) == 0 {
-		for _, payload := range file.Payloads {
-			if spec, ok := payload.String("spec"); ok && spec != "" {
-				return Resolution{}, false, fmt.Errorf("payload names %q: %w", spec, ErrUnsupportedFormat)
-			}
+		if err := r.unsupportedDiscriminator(file); err != nil {
+			return Resolution{}, false, err
 		}
 		return Resolution{}, false, nil
 	}
@@ -153,7 +247,74 @@ func (r *Registry) Resolve(file probe.Inspection) (Resolution, bool, error) {
 	return winners[0], true, nil
 }
 
-func validateClaim(file probe.Inspection, module Module, claim Claim) error {
+func (r *Registry) unsupportedDiscriminator(file probe.Inspection) error {
+	type observation struct {
+		kind    string
+		path    string
+		value   string
+		formats []string
+	}
+	observations := make(map[string]*observation)
+	ids := make([]string, 0, len(r.modules))
+	for id := range r.modules {
+		ids = append(ids, id)
+	}
+	slices.Sort(ids)
+	for _, id := range ids {
+		declaration := r.modules[id].Declaration()
+		for _, recognition := range declaration.Recognition {
+			if recognition.Kind != RecognitionDiscriminator {
+				continue
+			}
+			for _, payload := range file.Payloads {
+				if len(recognition.Containers) > 0 &&
+					!slices.Contains(recognition.Containers, payload.Locator.Container) {
+					continue
+				}
+				value, present := payloadValue(payload.Root, recognition.Path)
+				if !present || slices.Contains(recognition.Values, value) {
+					continue
+				}
+				path := slices.Concat(recognition.Path)
+				joined := ""
+				for i, part := range path {
+					if i > 0 {
+						joined += "."
+					}
+					joined += part
+				}
+				key := declaration.Kind + "\x00" + joined + "\x00" + value
+				found := observations[key]
+				if found == nil {
+					found = &observation{kind: declaration.Kind, path: joined, value: value}
+					observations[key] = found
+				}
+				found.formats = append(found.formats, declaration.ID)
+			}
+		}
+	}
+	if len(observations) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(observations))
+	for key := range observations {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+	found := observations[keys[0]]
+	if len(found.formats) == 1 {
+		return fmt.Errorf(
+			"format %q recognises discriminator %q but cannot read value %q: %w",
+			found.formats[0], found.path, found.value, ErrUnsupportedFormat,
+		)
+	}
+	return fmt.Errorf(
+		"formats for kind %q recognise discriminator %q but cannot read value %q: %w",
+		found.kind, found.path, found.value, ErrUnsupportedFormat,
+	)
+}
+
+func validateClaim(file probe.Inspection, module Reader, claim Claim) error {
 	if claim.strength != compatibility && claim.strength != authoritative {
 		return fmt.Errorf("strength %d: %w", claim.strength, ErrInvalidClaim)
 	}

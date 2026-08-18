@@ -30,13 +30,16 @@ func (d Discovery) Valid() bool {
 // Asset is a catalog entry. Format specific content lives in the stored
 // revision, not here.
 type Asset struct {
-	ID                  uuid.UUID
-	Kind                string
-	Format              string
-	PassthroughPlatform *string
-	Name                string
-	Blurb               string
-	Tags                []string
+	ID             uuid.UUID
+	Kind           string
+	Format         string
+	OriginFormat   *string
+	AssetVersion   string
+	CreditedAuthor string
+	Nickname       string
+	Name           string
+	Blurb          string
+	Tags           []string
 	// IsNSFW is nil while a draft has not been asked the adult content
 	// question, so nothing answers it for the creator.
 	IsNSFW            *bool
@@ -91,23 +94,16 @@ type IngestStatus string
 const (
 	IngestPending    IngestStatus = "pending"
 	IngestProcessing IngestStatus = "processing"
-	IngestNeedsKind  IngestStatus = "needs_kind"
 	IngestFailed     IngestStatus = "failed"
 	IngestSuccess    IngestStatus = "success"
 )
 
 // IngestOperation is the durable progress of one accepted upload.
 type IngestOperation struct {
-	ID        uuid.UUID
-	Status    IngestStatus
-	NeedsKind *NeedsKind
-	Failure   *IngestFailure
-	Asset     *Asset
-}
-
-type NeedsKind struct {
-	Kind *string
-	Name string
+	ID      uuid.UUID
+	Status  IngestStatus
+	Failure *IngestFailure
+	Asset   *Asset
 }
 
 type IngestFailure struct {

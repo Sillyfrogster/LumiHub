@@ -25,7 +25,8 @@ const maxRangeRead = 64 * 1024
 var (
 	ErrMalformedInput  = errors.New("malformed input")
 	ErrSafetyViolation = errors.New("archive safety violation")
-	errRangeRead       = errors.New("blob range read failed")
+	// ErrRangeRead marks a failure in the backing blob store rather than bad source bytes.
+	ErrRangeRead = errors.New("blob range read failed")
 )
 
 type Limits struct {
@@ -74,6 +75,9 @@ type Inspection struct {
 	source blobSource
 }
 
+// ByteSize returns the exact size of the inspected source container.
+func (i Inspection) ByteSize() int64 { return i.source.size }
+
 type blobSource struct {
 	store RangeStore
 	id    uuid.UUID
@@ -87,7 +91,8 @@ type Image struct {
 	Locator Locator
 }
 
-var errNoSuchImage = errors.New("the probe located no such image")
+// ErrImageUnavailable marks an optional image that cannot be reopened from the source.
+var ErrImageUnavailable = errors.New("the probe located no such image")
 
 // OpenImage streams one located image through the same bounded range reads the
 // inspection itself used.
@@ -101,7 +106,7 @@ func (i Inspection) OpenImage(ctx context.Context, id uint32) (io.ReadCloser, er
 		}
 	}
 	if !ok {
-		return nil, fmt.Errorf("image %d: %w", id, errNoSuchImage)
+		return nil, fmt.Errorf("image %d: %w", id, ErrImageUnavailable)
 	}
 	reader := &rangeReaderAt{ctx: ctx, store: i.source.store, id: i.source.id, size: i.source.size}
 	if found.Locator.Container != ZIP {
@@ -121,7 +126,7 @@ func (i Inspection) OpenImage(ctx context.Context, id uint32) (io.ReadCloser, er
 		}
 		return opened, nil
 	}
-	return nil, fmt.Errorf("archive entry %q: %w", found.Locator.Name, errNoSuchImage)
+	return nil, fmt.Errorf("archive entry %q: %w", found.Locator.Name, ErrImageUnavailable)
 }
 
 // imageExtensions name the raster formats the media layer can decode. An
@@ -165,9 +170,10 @@ type Locator struct {
 }
 
 type Payload struct {
-	ID      uint32
-	Locator Locator
-	Root    map[string]json.RawMessage
+	ID       uint32
+	Locator  Locator
+	Root     map[string]json.RawMessage
+	ByteSize int64
 }
 
 func (p Payload) String(name string) (string, bool) {
@@ -261,7 +267,7 @@ func InspectWithLimits(
 		if err != nil {
 			return Inspection{}, classifyContainerError(fmt.Errorf("inspect JSON: %w", err))
 		}
-		result.addPayload(Locator{Container: JSON, Name: "root"}, root)
+		result.addPayload(Locator{Container: JSON, Name: "root"}, root, size)
 	}
 	if _, raster := inlineMediaTypes[result.Container]; raster {
 		result.addImage(Locator{Container: result.Container})
@@ -270,7 +276,7 @@ func InspectWithLimits(
 }
 
 func classifyContainerError(err error) error {
-	if errors.Is(err, ErrSafetyViolation) || errors.Is(err, errRangeRead) {
+	if errors.Is(err, ErrSafetyViolation) || errors.Is(err, ErrRangeRead) {
 		return err
 	}
 	return fmt.Errorf("%w: %v", ErrMalformedInput, err)
@@ -345,10 +351,10 @@ func inspectPNG(reader *rangeReaderAt, result *Inspection) error {
 			if _, err := reader.ReadAt(data, offset+8); err != nil {
 				return fmt.Errorf("read PNG text chunk at byte %d: %w", offset, err)
 			}
-			name, root, ok := textPayload(data)
+			name, root, payloadBytes, ok := textPayload(data)
 			chunk.Name = name
 			if ok {
-				result.addPayload(Locator{Container: PNG, Name: name, Offset: offset}, root)
+				result.addPayload(Locator{Container: PNG, Name: name, Offset: offset}, root, payloadBytes)
 			}
 		}
 		result.PNGChunks = append(result.PNGChunks, chunk)
@@ -430,7 +436,10 @@ func inspectZIP(reader *rangeReaderAt, result *Inspection, limits Limits) error 
 		if closeErr != nil {
 			return fmt.Errorf("close ZIP entry %q: %w", entry.Name, closeErr)
 		}
-		result.addPayload(Locator{Container: ZIP, Name: entry.Name, Offset: offset}, root)
+		result.addPayload(
+			Locator{Container: ZIP, Name: entry.Name, Offset: offset},
+			root, int64(entry.UncompressedSize64),
+		)
 	}
 	return nil
 }
@@ -451,11 +460,12 @@ func (i *Inspection) addImage(locator Locator) {
 	i.Images = append(i.Images, Image{ID: uint32(len(i.Images)), Locator: locator})
 }
 
-func (i *Inspection) addPayload(locator Locator, root map[string]json.RawMessage) {
+func (i *Inspection) addPayload(locator Locator, root map[string]json.RawMessage, byteSize int64) {
 	i.Payloads = append(i.Payloads, Payload{
-		ID:      uint32(len(i.Payloads)),
-		Locator: locator,
-		Root:    root,
+		ID:       uint32(len(i.Payloads)),
+		Locator:  locator,
+		Root:     root,
+		ByteSize: byteSize,
 	})
 }
 
@@ -478,22 +488,22 @@ func decodeObject(reader io.Reader) (map[string]json.RawMessage, error) {
 	return root, nil
 }
 
-func textPayload(data []byte) (string, map[string]json.RawMessage, bool) {
+func textPayload(data []byte) (string, map[string]json.RawMessage, int64, bool) {
 	separator := bytes.IndexByte(data, 0)
 	if separator < 1 {
-		return "", nil, false
+		return "", nil, 0, false
 	}
 	name := string(data[:separator])
 	text := data[separator+1:]
 	if root, ok := object(text); ok {
-		return name, root, true
+		return name, root, int64(len(text)), true
 	}
 	decoded, err := base64.StdEncoding.DecodeString(string(text))
 	if err != nil {
-		return name, nil, false
+		return name, nil, 0, false
 	}
 	root, ok := object(decoded)
-	return name, root, ok
+	return name, root, int64(len(decoded)), ok
 }
 
 func object(data []byte) (map[string]json.RawMessage, bool) {
@@ -524,16 +534,16 @@ func (r *rangeReaderAt) ReadAt(p []byte, offset int64) (int, error) {
 		length := min(wanted-read, maxRangeRead)
 		part, err := r.store.ReadRange(r.ctx, r.id, offset+read, length)
 		if err != nil {
-			return int(read), fmt.Errorf("%w: %w", errRangeRead, err)
+			return int(read), fmt.Errorf("%w: %w", ErrRangeRead, err)
 		}
 		n, copyErr := io.ReadFull(part, p[read:read+length])
 		closeErr := part.Close()
 		read += int64(n)
 		if copyErr != nil {
-			return int(read), fmt.Errorf("%w: %v", errRangeRead, copyErr)
+			return int(read), fmt.Errorf("%w: %v", ErrRangeRead, copyErr)
 		}
 		if closeErr != nil {
-			return int(read), fmt.Errorf("%w: %v", errRangeRead, closeErr)
+			return int(read), fmt.Errorf("%w: %v", ErrRangeRead, closeErr)
 		}
 	}
 	if wanted < int64(len(p)) {

@@ -12,6 +12,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/Sillyfrogster/LumiHub/api/internal/block"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	"github.com/Sillyfrogster/LumiHub/api/internal/media"
 	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
@@ -94,6 +95,88 @@ func browseDefinition(targets []format.BrowseOption) format.BrowseDefinition {
 	}
 }
 
+func declaration(id string) format.Declaration {
+	recognition := []format.Recognition{{
+		Kind:       format.RecognitionDiscriminator,
+		Containers: []probe.Container{probe.JSON, probe.PNG, probe.JPEG, probe.WebP, probe.GIF},
+		Path:       []string{"spec"}, Values: []string{id},
+	}}
+	if id == V2 {
+		recognition = append(recognition, format.Recognition{
+			Kind: format.RecognitionSignature, LegacyOnly: true,
+			Containers: []probe.Container{probe.JSON, probe.PNG, probe.JPEG, probe.WebP, probe.GIF},
+			Required: map[string]format.ValueType{
+				"name": format.ValueString, "description": format.ValueString,
+				"personality": format.ValueString, "scenario": format.ValueString,
+				"first_mes": format.ValueString,
+			},
+		})
+	}
+	if id == CharX {
+		recognition = []format.Recognition{{
+			Kind: format.RecognitionDiscriminator, Containers: []probe.Container{probe.ZIP},
+			Path: []string{"spec"}, Values: []string{V3},
+		}}
+	}
+	roles := make(map[block.Role]format.DirectionalRoleSupport)
+	for _, role := range []block.Role{
+		block.RoleDescription, block.RolePersonality, block.RoleScenario,
+		block.RoleGreetings, block.RoleGroupGreetings, block.RoleExampleDialogue,
+		block.RoleSystemPrompt, block.RolePostHistoryInstructions,
+		block.RoleCreatorNotes, block.RoleLorebookEntries,
+		block.RoleGallery, block.RoleExpressions,
+	} {
+		roles[role] = format.DirectionalRoleSupport{
+			Read:  format.RoleSupport{Grade: format.SupportFull},
+			Write: format.RoleSupport{Grade: format.SupportFull},
+		}
+	}
+	if id == V2 {
+		for _, role := range []block.Role{
+			block.RoleGroupGreetings, block.RoleGallery, block.RoleExpressions,
+		} {
+			roles[role] = format.DirectionalRoleSupport{
+				Read:  format.RoleSupport{Grade: format.SupportNone},
+				Write: format.RoleSupport{Grade: format.SupportNone},
+			}
+		}
+	}
+	if id == V3 {
+		for _, role := range []block.Role{block.RoleGallery, block.RoleExpressions} {
+			roles[role] = format.DirectionalRoleSupport{
+				Read:  format.RoleSupport{Grade: format.SupportNone},
+				Write: format.RoleSupport{Grade: format.SupportFull},
+			}
+		}
+	}
+	consumedKeys := []string{
+		"name", "nickname", "character_version", "creator", "description",
+		"personality", "scenario", "first_mes", "alternate_greetings",
+		"mes_example", "system_prompt", "post_history_instructions",
+		"creator_notes", "character_book",
+	}
+	if id != V2 {
+		consumedKeys = append(consumedKeys, "group_only_greetings")
+	}
+	if id == CharX {
+		consumedKeys = append(consumedKeys, "assets")
+	}
+	return format.Declaration{
+		ID: id, Kind: Kind, Direction: format.Direction{Read: true, Write: true},
+		Recognition: recognition, Roles: roles,
+		Limits: format.ContentLimits{
+			PayloadBytes: block.MaxPayloadBytes, CollectionItems: block.MaxCollectionItems,
+			ItemBytes: block.MaxItemBytes,
+		},
+		ConsumedKeys: consumedKeys,
+		Boilerplate: []format.Boilerplate{
+			{Namespace: "extensions", Path: []string{"depth_prompt", "prompt"}},
+		},
+		Preservation:  format.PreservationDeclaration{Namespaces: []string{"card", "extensions"}},
+		TestedOrigins: []string{id, "illarin"},
+	}
+}
+
 // card is one card's spec-defined body, whatever container carried it.
 type card struct {
 	fields map[string]json.RawMessage
@@ -101,17 +184,17 @@ type card struct {
 
 // readCard checks the payload's version against the one this module implements
 // and reads the card body out of it.
-func readCard(file probe.Inspection, claim format.Claim, implemented int) (card, error) {
+func readCard(file probe.Inspection, claim format.Claim, implemented int, moduleID string) (card, error) {
 	payload, ok := claim.Payload(file)
 	if !ok {
-		return card{}, fmt.Errorf("the claimed payload is missing")
+		return card{}, fmt.Errorf("%s payload: the claimed payload is missing", moduleID)
 	}
 	if err := readableVersion(payload, implemented); err != nil {
-		return card{}, err
+		return card{}, fmt.Errorf("%s spec_version: %w", moduleID, err)
 	}
 	fields, ok := Fields(file, claim)
 	if !ok {
-		return card{}, fmt.Errorf("the card has no readable body")
+		return card{}, fmt.Errorf("%s data: missing or not an object", moduleID)
 	}
 	return card{fields: fields}, nil
 }
@@ -140,17 +223,240 @@ func readableVersion(payload probe.Payload, implemented int) error {
 
 // parsed is what ingest stores. Only the format id and which pictures count
 // differ between the three standards.
-func (c card) parsed(formatID string, pictures []format.Media) format.Parsed {
-	return format.Parsed{
+func (c card) parsed(formatID string, pictures []format.Media) (format.Parsed, error) {
+	for _, required := range []string{"description", "first_mes"} {
+		if raw, present := c.fields[required]; present {
+			var value string
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return format.Parsed{}, fmt.Errorf(
+					"%s could not read %s: expected a string", formatID, required,
+				)
+			}
+		}
+	}
+	parsed := format.Parsed{
 		Kind:      Kind,
 		Format:    formatID,
-		Name:      c.name(),
 		Blurb:     c.blurb(),
 		Tags:      c.tags(),
 		Facets:    c.facets(),
 		Media:     pictures,
 		CreatedAt: c.createdAt(),
+		Header: format.Header{
+			Name: c.name(), AssetVersion: c.text("character_version"),
+			CreditedAuthor: c.text("creator"), Nickname: c.text("nickname"),
+		},
+		Elements: c.elements(formatID),
 	}
+	parsed.Remainder = c.remainder(formatID)
+	return parsed, nil
+}
+
+func (c card) remainder(formatID string) []format.Remainder {
+	consumed := make(map[string]bool)
+	_, bookLocation, bookRemainder, bookOK := c.lorebook()
+	for _, field := range []string{
+		"name", "nickname", "character_version", "creator", "description",
+		"personality", "scenario", "first_mes", "mes_example", "system_prompt",
+		"post_history_instructions", "creator_notes",
+	} {
+		if raw, ok := c.fields[field]; ok {
+			var value string
+			consumed[field] = json.Unmarshal(raw, &value) == nil
+		}
+	}
+	listFields := []string{"alternate_greetings"}
+	if formatID != V2 {
+		listFields = append(listFields, "group_only_greetings")
+	}
+	for _, field := range listFields {
+		if raw, ok := c.fields[field]; ok {
+			var value []string
+			consumed[field] = json.Unmarshal(raw, &value) == nil
+		}
+	}
+	if bookOK && bookLocation == "card" {
+		consumed["character_book"] = true
+	}
+
+	cardRemainder := make(map[string]json.RawMessage)
+	for key, raw := range c.fields {
+		if key == "extensions" || consumed[key] {
+			continue
+		}
+		cardRemainder[key] = raw
+	}
+	if bookLocation == "card" && len(bookRemainder) > 0 {
+		cardRemainder["character_book"] = bookRemainder
+	}
+	remainder := make([]format.Remainder, 0, 2)
+	if len(cardRemainder) > 0 {
+		payload, _ := json.Marshal(cardRemainder)
+		remainder = append(remainder, format.Remainder{Namespace: "card", Payload: payload})
+	}
+	extensions := c.extensions()
+	if bookOK && bookLocation == "extensions" {
+		delete(extensions, "character_book")
+		if len(bookRemainder) > 0 {
+			extensions["character_book"] = bookRemainder
+		}
+	}
+	if len(extensions) > 0 {
+		payload, _ := json.Marshal(extensions)
+		remainder = append(remainder, format.Remainder{Namespace: "extensions", Payload: payload})
+	}
+	return remainder
+}
+
+func (c card) elements(formatID string) []block.Element {
+	elements := []block.Element{
+		{Type: block.TypeProse, Role: block.RoleDescription, Content: block.Prose{Text: c.text("description")}},
+		{Type: block.TypeProse, Role: block.RolePersonality, Content: block.Prose{Text: c.text("personality")}},
+		{Type: block.TypeProse, Role: block.RoleScenario, Content: block.Prose{Text: c.text("scenario")}},
+		{Type: block.TypeTextSet, Role: block.RoleGreetings, Content: block.TextSet{Texts: c.greetings("first_mes", "alternate_greetings")}},
+		{Type: block.TypeDialogueSample, Role: block.RoleExampleDialogue, Content: block.DialogueSample{Turns: dialogueTurns(c.text("mes_example"))}},
+	}
+	optionalProse := []struct {
+		field string
+		role  block.Role
+	}{
+		{"system_prompt", block.RoleSystemPrompt},
+		{"post_history_instructions", block.RolePostHistoryInstructions},
+		{"creator_notes", block.RoleCreatorNotes},
+	}
+	for _, item := range optionalProse {
+		if text := c.text(item.field); text != "" {
+			elements = append(elements, block.Element{
+				Type: block.TypeProse, Role: item.role, Content: block.Prose{Text: text},
+			})
+		}
+	}
+	if greetings := c.greetings("", "group_only_greetings"); formatID != V2 && len(greetings) > 0 {
+		elements = append(elements, block.Element{
+			Type: block.TypeTextSet, Role: block.RoleGroupGreetings,
+			Content: block.TextSet{Texts: greetings},
+		})
+	}
+	if book, _, _, ok := c.lorebook(); ok {
+		elements = append(elements, block.Element{
+			Type: block.TypeEntryTable, Role: block.RoleLorebookEntries, Content: book,
+		})
+	}
+	return elements
+}
+
+func (c card) greetings(primary, alternates string) []block.TextItem {
+	items := make([]block.TextItem, 0)
+	if primary != "" {
+		items = append(items, block.TextItem{Text: c.text(primary)})
+	}
+	var values []string
+	if raw, ok := c.fields[alternates]; ok {
+		_ = json.Unmarshal(raw, &values)
+	}
+	for _, value := range values {
+		items = append(items, block.TextItem{Text: value})
+	}
+	return items
+}
+
+func dialogueTurns(sample string) []block.DialogueTurn {
+	lines := strings.Split(strings.ReplaceAll(sample, "\r\n", "\n"), "\n")
+	turns := make([]block.DialogueTurn, 0, len(lines))
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || line == "<START>" {
+			continue
+		}
+		speaker, text, found := strings.Cut(line, ":")
+		if !found {
+			speaker = ""
+			text = line
+		}
+		turns = append(turns, block.DialogueTurn{
+			Speaker: strings.TrimSpace(speaker), Text: strings.TrimSpace(text),
+		})
+	}
+	return turns
+}
+
+func (c card) lorebook() (block.EntryTable, string, json.RawMessage, bool) {
+	raw := c.fields["character_book"]
+	location := "card"
+	if len(raw) == 0 {
+		raw = c.extensions()["character_book"]
+		location = "extensions"
+	}
+	var source map[string]json.RawMessage
+	if len(raw) == 0 || json.Unmarshal(raw, &source) != nil {
+		return block.EntryTable{}, "", nil, false
+	}
+	var entryPayloads []json.RawMessage
+	if entriesRaw, present := source["entries"]; !present || json.Unmarshal(entriesRaw, &entryPayloads) != nil {
+		return block.EntryTable{}, "", nil, false
+	}
+	delete(source, "entries")
+	entries := make([]block.Entry, 0, len(entryPayloads))
+	entryRemainders := make([]json.RawMessage, len(entryPayloads))
+	hasEntryRemainder := false
+	for index, payload := range entryPayloads {
+		var fields map[string]json.RawMessage
+		if json.Unmarshal(payload, &fields) != nil || fields == nil {
+			entryRemainders[index] = payload
+			hasEntryRemainder = true
+			continue
+		}
+		item := block.Entry{Enabled: true}
+		consumeLorebookField(fields, "name", &item.Name)
+		consumeLorebookField(fields, "keys", &item.Keys)
+		consumeLorebookField(fields, "secondary_keys", &item.SecondaryKeys)
+		consumeLorebookField(fields, "selective", &item.Selective)
+		consumeLorebookField(fields, "case_sensitive", &item.CaseSensitive)
+		consumeLorebookField(fields, "constant", &item.Constant)
+		consumeLorebookField(fields, "enabled", &item.Enabled)
+		consumeLorebookField(fields, "insertion_order", &item.Order)
+		consumeLorebookField(fields, "content", &item.Text)
+		var position string
+		if consumeLorebookField(fields, "position", &position) {
+			switch position {
+			case "", "before_char", "before_character":
+				if position != "" {
+					item.Position = block.BeforeCharacter
+				}
+			case "after_char", "after_character":
+				item.Position = block.AfterCharacter
+			default:
+				fields["position"], _ = json.Marshal(position)
+			}
+		}
+		entries = append(entries, item)
+		if len(fields) > 0 {
+			entryRemainders[index], _ = json.Marshal(fields)
+			hasEntryRemainder = true
+		}
+	}
+	if hasEntryRemainder {
+		for index := range entryRemainders {
+			if len(entryRemainders[index]) == 0 {
+				entryRemainders[index] = json.RawMessage("null")
+			}
+		}
+		source["entries"], _ = json.Marshal(entryRemainders)
+	}
+	var remainder json.RawMessage
+	if len(source) > 0 {
+		remainder, _ = json.Marshal(source)
+	}
+	return block.EntryTable{Entries: entries}, location, remainder, true
+}
+
+func consumeLorebookField[T any](fields map[string]json.RawMessage, name string, target *T) bool {
+	raw, present := fields[name]
+	if !present || json.Unmarshal(raw, target) != nil {
+		return false
+	}
+	delete(fields, name)
+	return true
 }
 
 func (c card) text(name string) string {
@@ -288,6 +594,6 @@ func truncate(text string, limit int) string {
 
 // Modules returns every character card module, so the server registers the set
 // rather than remembering to add each one.
-func Modules() []format.Module {
-	return []format.Module{CCv2Module{}, CCv3Module{}, CharXModule{}}
+func Modules() []format.Reader {
+	return []format.Reader{CCv2Module{}, CCv3Module{}, CharXModule{}}
 }

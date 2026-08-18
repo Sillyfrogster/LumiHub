@@ -81,7 +81,7 @@ func TestAssetPageCarriesItsCoverGalleryExpressionTagsAndBlurb(t *testing.T) {
 
 	page := fetchAssetPage(t, r, "/v1/assets/"+assetID)
 
-	if page.ID != assetID || page.Name != "The Quiet Archivist" || page.Kind != "theme" {
+	if page.ID != assetID || page.Name != "The Quiet Archivist" || page.Kind != "character" {
 		t.Fatalf("asset page identity = %+v", page)
 	}
 	if page.Blurb != "She closes the book on a ribbon." {

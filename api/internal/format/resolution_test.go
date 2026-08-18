@@ -16,6 +16,14 @@ type claimingModule struct {
 }
 
 func (m claimingModule) ID() string { return m.id }
+func (m claimingModule) Declaration() Declaration {
+	declaration := testReaderDeclaration(m.id, "character")
+	declaration.Recognition = []Recognition{{
+		Kind: RecognitionDiscriminator, Path: []string{"spec"}, Values: []string{m.spec},
+		Containers: []probe.Container{probe.PNG},
+	}}
+	return declaration
+}
 func (m claimingModule) Parse(context.Context, probe.Inspection, Claim) (Parsed, error) {
 	return Parsed{Format: m.id}, nil
 }
@@ -39,12 +47,17 @@ func TestResolveReturnsNoModuleWhenNothingClaimsTheFile(t *testing.T) {
 		t.Fatalf("Resolve: %v", err)
 	}
 	if ok {
-		t.Fatal("an unclaimed file resolved to a module; passthrough must be the absence of a claim")
+		t.Fatal("an unclaimed file resolved to a module")
 	}
 }
 
 func TestResolveRejectsAPayloadThatNamesAnUnsupportedFormat(t *testing.T) {
 	registry := NewRegistry()
+	if err := registry.Register(claimingModule{
+		id: "chara_card_v3", spec: "chara_card_v3", authoritative: true,
+	}); err != nil {
+		t.Fatalf("Register: %v", err)
+	}
 
 	_, ok, err := registry.Resolve(probedPayload("future_card", "card"))
 	if ok {
@@ -118,6 +131,9 @@ func TestResolveUsesThePayloadDiscriminatorRatherThanItsLocator(t *testing.T) {
 type forcedAuthoritativeModule struct{ id string }
 
 func (m forcedAuthoritativeModule) ID() string { return m.id }
+func (m forcedAuthoritativeModule) Declaration() Declaration {
+	return testReaderDeclaration(m.id, "character")
+}
 func (m forcedAuthoritativeModule) Claim(file probe.Inspection) (Claim, bool) {
 	return Claim{
 		payloadID: file.Payloads[0].ID,

@@ -1,6 +1,8 @@
 package block
 
 import (
+	"encoding/json"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -46,5 +48,36 @@ func TestOnlyImagesTakeAnItemSize(t *testing.T) {
 	}
 	if err := ValidateStructure(holder); err == nil {
 		t.Errorf("prose took an image size")
+	}
+}
+
+func TestEverySavePathSharesTheCollectionLimit(t *testing.T) {
+	texts := make([]TextItem, MaxCollectionItems+1)
+	holder := Block{
+		ID: uuid.New(), Definition: Messages, Layout: Stack2, Width: Full,
+		Elements: []Element{{
+			ID: uuid.New(), Type: TypeTextSet, Role: RoleGreetings, Slot: "top",
+			Options: Options{Display: DisplayRich}, Content: TextSet{Texts: texts},
+		}},
+	}
+	err := ValidateStructure(holder)
+	if err == nil || !strings.Contains(err.Error(), "5001") || !strings.Contains(err.Error(), "5000") {
+		t.Fatalf("limit error = %v, want the actual and allowed counts", err)
+	}
+}
+
+func TestEverySavePathSharesThePayloadLimit(t *testing.T) {
+	text := strings.Repeat("x", MaxPayloadBytes)
+	element := Element{
+		Type: TypeProse, Role: RoleDescription, Content: Prose{Text: text},
+	}
+	encoded, err := json.Marshal(element.Content)
+	if err != nil {
+		t.Fatalf("marshal fixture: %v", err)
+	}
+	err = ValidateContentLimits([]Element{element})
+	if err == nil || !strings.Contains(err.Error(), strconv.Itoa(len(encoded))) ||
+		!strings.Contains(err.Error(), strconv.Itoa(MaxPayloadBytes)) {
+		t.Fatalf("limit error = %v, want actual %d and limit %d", err, len(encoded), MaxPayloadBytes)
 	}
 }

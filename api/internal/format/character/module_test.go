@@ -4,11 +4,16 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"reflect"
 	"slices"
+	"strings"
 	"testing"
 
+	"github.com/Sillyfrogster/LumiHub/api/internal/block"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	"github.com/Sillyfrogster/LumiHub/api/internal/media"
 	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
@@ -17,18 +22,109 @@ import (
 
 func TestEveryModuleDeclaresTheCharacterKindAndItsExportTargets(t *testing.T) {
 	for _, module := range Modules() {
-		declarer, ok := module.(format.BrowseDeclarer)
-		if !ok {
-			t.Fatalf("module %q declares no browse definition", module.ID())
+		declaration := module.Declaration()
+		if declaration.Kind != Kind {
+			t.Errorf("module %q kind = %q, want %q", module.ID(), declaration.Kind, Kind)
 		}
-		definition := declarer.BrowseDefinition()
-		if definition.Kind != Kind {
-			t.Errorf("module %q kind = %q, want %q", module.ID(), definition.Kind, Kind)
+		if !declaration.Direction.Read || !declaration.Direction.Write {
+			t.Errorf("module %q direction = %+v, want read and write", module.ID(), declaration.Direction)
 		}
-		if len(definition.ExportTargets) == 0 {
-			t.Errorf("module %q declares no export target", module.ID())
+		if err := format.ValidateDeclaration(declaration); err != nil {
+			t.Errorf("module %q declaration: %v", module.ID(), err)
 		}
 	}
+}
+
+func TestCharacterDeclarationsTellTheTruthAboutVersionedRoles(t *testing.T) {
+	v2 := CCv2Module{}.Declaration()
+	for _, role := range []block.Role{
+		block.RoleGroupGreetings, block.RoleGallery, block.RoleExpressions,
+	} {
+		if support := v2.Roles[role]; support.Read.Grade != format.SupportNone ||
+			support.Write.Grade != format.SupportNone {
+			t.Errorf("CCv2 %s support = %+v, want none in both directions", role, support)
+		}
+	}
+	v3 := CCv3Module{}.Declaration()
+	for _, role := range []block.Role{block.RoleGallery, block.RoleExpressions} {
+		if support := v3.Roles[role]; support.Read.Grade != format.SupportNone ||
+			support.Write.Grade != format.SupportFull {
+			t.Errorf("CCv3 %s support = %+v, want read none and write full", role, support)
+		}
+	}
+	if len(v2.Slots) != 0 || len(v3.Slots) != 0 || len((CharXModule{}).Declaration().Slots) != 0 {
+		t.Error("character header bindings were declared as named format slots")
+	}
+	if slices.Contains(v2.ConsumedKeys, "group_only_greetings") ||
+		slices.Contains(v2.ConsumedKeys, "assets") || slices.Contains(v3.ConsumedKeys, "assets") ||
+		!slices.Contains((CharXModule{}).Declaration().ConsumedKeys, "assets") {
+		t.Error("declared consumed keys do not match the versioned character readers")
+	}
+}
+
+func TestDeclarationRejectsARoleOutsideTheSharedVocabulary(t *testing.T) {
+	declaration := CCv3Module{}.Declaration()
+	declaration.Roles[block.Role("invented_role")] = format.DirectionalRoleSupport{
+		Read:  format.RoleSupport{Grade: format.SupportFull},
+		Write: format.RoleSupport{Grade: format.SupportFull},
+	}
+	if err := format.ValidateDeclaration(declaration); err == nil ||
+		!strings.Contains(err.Error(), "invented_role") {
+		t.Fatalf("validation error = %v, want the unknown role", err)
+	}
+}
+
+func TestCharacterReaderReturnsHeaderFieldsAndRoleTaggedElements(t *testing.T) {
+	file := jsonCard(t, `{
+		"spec":"chara_card_v3","spec_version":"3.0",
+		"data":{
+			"name":"Ana","nickname":"Archivist","character_version":"main","creator":"A. Writer",
+			"description":"Keeps the quiet archive.","personality":"Patient","scenario":"After closing",
+			"first_mes":"Welcome back.","alternate_greetings":["You found me."],
+			"group_only_greetings":["All of you made it."],
+			"mes_example":"<START>\n{{char}}: Mind the dust.\n{{user}}: I will.",
+			"system_prompt":"Stay in character.","post_history_instructions":"Answer softly.",
+			"creator_notes":"Made for quiet scenes."
+		}
+	}`)
+
+	parsed := resolveAndParse(t, file)
+	if parsed.Header.Name != "Ana" || parsed.Header.Nickname != "Archivist" ||
+		parsed.Header.AssetVersion != "main" || parsed.Header.CreditedAuthor != "A. Writer" {
+		t.Fatalf("header = %+v", parsed.Header)
+	}
+	want := map[block.Role]block.Content{
+		block.RoleDescription:             block.Prose{Text: "Keeps the quiet archive."},
+		block.RolePersonality:             block.Prose{Text: "Patient"},
+		block.RoleScenario:                block.Prose{Text: "After closing"},
+		block.RoleGreetings:               block.TextSet{Texts: []block.TextItem{{Text: "Welcome back."}, {Text: "You found me."}}},
+		block.RoleGroupGreetings:          block.TextSet{Texts: []block.TextItem{{Text: "All of you made it."}}},
+		block.RoleSystemPrompt:            block.Prose{Text: "Stay in character."},
+		block.RolePostHistoryInstructions: block.Prose{Text: "Answer softly."},
+		block.RoleCreatorNotes:            block.Prose{Text: "Made for quiet scenes."},
+	}
+	for role, content := range want {
+		got, ok := elementContent(parsed.Elements, role)
+		if !ok {
+			t.Errorf("no %s element in %+v", role, parsed.Elements)
+			continue
+		}
+		if !reflect.DeepEqual(got, content) {
+			t.Errorf("%s content = %#v, want %#v", role, got, content)
+		}
+	}
+	if _, ok := elementContent(parsed.Elements, block.RoleExampleDialogue); !ok {
+		t.Error("no example_dialogue element")
+	}
+}
+
+func elementContent(elements []block.Element, role block.Role) (block.Content, bool) {
+	for _, element := range elements {
+		if element.Role == role {
+			return element.Content, true
+		}
+	}
+	return nil, false
 }
 
 func TestKindComesFromTheModuleForEveryCharacterFormat(t *testing.T) {
@@ -51,8 +147,8 @@ func TestKindComesFromTheModuleForEveryCharacterFormat(t *testing.T) {
 			if parsed.Kind != Kind {
 				t.Errorf("kind = %q, want %q", parsed.Kind, Kind)
 			}
-			if parsed.Name != "Ana" {
-				t.Errorf("name = %q, want Ana", parsed.Name)
+			if parsed.Header.Name != "Ana" {
+				t.Errorf("name = %q, want Ana", parsed.Header.Name)
 			}
 		})
 	}
@@ -150,6 +246,35 @@ func TestCharXNamesEachArchivedPictureByWhatTheCardCallsIt(t *testing.T) {
 			t.Errorf("media %d role = %q, want %q", i, parsed.Media[i].Role, role)
 		}
 	}
+	var cardRemainder []byte
+	for _, remainder := range parsed.Remainder {
+		if remainder.Namespace == "card" {
+			cardRemainder = remainder.Payload
+		}
+	}
+	if !bytes.Contains(cardRemainder, []byte(`"assets"`)) ||
+		!bytes.Contains(cardRemainder, []byte(`"user_icon"`)) ||
+		!bytes.Contains(cardRemainder, []byte(`"remote"`)) {
+		t.Fatalf("CharX asset remainder = %s, want the complete source structure", cardRemainder)
+	}
+}
+
+func TestCCv2DoesNotConsumeV3OnlyGroupGreetingsOrAssets(t *testing.T) {
+	file := jsonCard(t, `{
+		"spec":"chara_card_v2","spec_version":"2.0",
+		"data":{"name":"Ana","description":"Quiet","first_mes":"Hello",
+			"group_only_greetings":["For the group"],
+			"assets":[{"type":"emotion","uri":"remote://happy","name":"happy"}]}
+	}`)
+	parsed := resolveAndParse(t, file)
+	if _, ok := elementContent(parsed.Elements, block.RoleGroupGreetings); ok {
+		t.Error("CCv2 materialized a V3-only group greeting")
+	}
+	if len(parsed.Remainder) != 1 ||
+		!bytes.Contains(parsed.Remainder[0].Payload, []byte(`"group_only_greetings"`)) ||
+		!bytes.Contains(parsed.Remainder[0].Payload, []byte(`"assets"`)) {
+		t.Fatalf("CCv2 remainder = %+v", parsed.Remainder)
+	}
 }
 
 func TestAVersionPastTheOneWeImplementIsRefusedRatherThanGuessedAt(t *testing.T) {
@@ -165,8 +290,96 @@ func TestAVersionPastTheOneWeImplementIsRefusedRatherThanGuessedAt(t *testing.T)
 		"data":{"name":"Ana","something_new":{"added":true}}
 	}`)
 	parsed := resolveAndParse(t, additive)
-	if parsed.Name != "Ana" {
+	if parsed.Header.Name != "Ana" {
 		t.Errorf("an additive later minor version was refused: %+v", parsed)
+	}
+}
+
+func TestARequiredRoleWithTheWrongTypeRefusesTheCardAndNamesThePart(t *testing.T) {
+	file := jsonCard(t, `{
+		"spec":"chara_card_v3","spec_version":"3.0",
+		"data":{"name":"Ana","description":17,"first_mes":"Hello"}
+	}`)
+	_, err := CCv3Module{}.Parse(context.Background(), file, claimFor(t, CCv3Module{}, file))
+	if err == nil || !strings.Contains(err.Error(), "chara_card_v3") ||
+		!strings.Contains(err.Error(), "description") || !strings.Contains(err.Error(), "string") {
+		t.Fatalf("parse error = %v, want the module, required role and reason", err)
+	}
+}
+
+func TestARecognizedCardWithNoReadableDataNamesTheModuleAndPart(t *testing.T) {
+	file := jsonCard(t, `{"spec":"chara_card_v3","spec_version":"3.0","data":17}`)
+	_, err := CCv3Module{}.Parse(context.Background(), file, claimFor(t, CCv3Module{}, file))
+	if err == nil || !strings.Contains(err.Error(), V3) || !strings.Contains(err.Error(), "data") ||
+		!strings.Contains(err.Error(), "object") {
+		t.Fatalf("parse error = %v, want module, data and reason", err)
+	}
+}
+
+func TestAnOptionalValueWithTheWrongTypeDegradesIntoTheRemainder(t *testing.T) {
+	file := jsonCard(t, `{
+		"spec":"chara_card_v3","spec_version":"3.0",
+		"data":{
+			"name":"Ana","description":"Quiet","first_mes":"Hello",
+			"creator_notes":{"unexpected":true},"future_structure":{"kept":"whole"}
+		}
+	}`)
+	parsed := resolveAndParse(t, file)
+	if _, ok := elementContent(parsed.Elements, block.RoleCreatorNotes); ok {
+		t.Error("the unreadable creator notes became an element")
+	}
+	if len(parsed.Remainder) != 1 || parsed.Remainder[0].Namespace != "card" ||
+		!bytes.Contains(parsed.Remainder[0].Payload, []byte(`"creator_notes"`)) ||
+		!bytes.Contains(parsed.Remainder[0].Payload, []byte(`"future_structure"`)) {
+		t.Fatalf("remainder = %+v", parsed.Remainder)
+	}
+}
+
+func TestBadLorebookValuesCostOnlyThoseValues(t *testing.T) {
+	entries := make([]map[string]any, 285)
+	for index := range entries {
+		entries[index] = map[string]any{
+			"name": "Entry", "keys": []string{"key"}, "enabled": true,
+			"insertion_order": index, "content": fmt.Sprintf("entry %d", index),
+		}
+	}
+	entries[4]["keys"] = "wrong"
+	entries[100]["insertion_order"] = "wrong"
+	entries[250]["enabled"] = "wrong"
+	body, err := json.Marshal(map[string]any{
+		"spec": "chara_card_v3", "spec_version": "3.0",
+		"data": map[string]any{
+			"description": "Quiet", "first_mes": "Hello",
+			"character_book": map[string]any{"entries": entries},
+		},
+	})
+	if err != nil {
+		t.Fatalf("marshal card: %v", err)
+	}
+	parsed := resolveAndParse(t, jsonCard(t, string(body)))
+	content, ok := elementContent(parsed.Elements, block.RoleLorebookEntries)
+	if !ok {
+		t.Fatal("the readable lorebook did not become an element")
+	}
+	book := content.(block.EntryTable)
+	if len(book.Entries) != 285 {
+		t.Fatalf("entries = %d, want all 285", len(book.Entries))
+	}
+	if book.Entries[3].Text != "entry 3" || book.Entries[281].Text != "entry 281" {
+		t.Fatal("valid entries around the bad values changed")
+	}
+	if len(book.Entries[4].Keys) != 0 || book.Entries[100].Order != 0 || !book.Entries[250].Enabled {
+		t.Fatalf("bad values were not degraded locally: %+v, %+v, %+v",
+			book.Entries[4], book.Entries[100], book.Entries[250])
+	}
+	var preserved []byte
+	for _, remainder := range parsed.Remainder {
+		if remainder.Namespace == "card" {
+			preserved = remainder.Payload
+		}
+	}
+	if bytes.Count(preserved, []byte(`"wrong"`)) != 3 {
+		t.Fatalf("preserved lorebook values = %s, want the three unread values", preserved)
 	}
 }
 
@@ -211,7 +424,7 @@ func resolveAndParse(t *testing.T, file probe.Inspection) format.Parsed {
 	return parsed
 }
 
-func claimFor(t *testing.T, module format.Module, file probe.Inspection) format.Claim {
+func claimFor(t *testing.T, module format.Reader, file probe.Inspection) format.Claim {
 	t.Helper()
 	claim, ok := module.Claim(file)
 	if !ok {

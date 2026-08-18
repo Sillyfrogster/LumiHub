@@ -14,16 +14,20 @@ import (
 
 func assetToInsertParams(a Asset, ownerID uuid.UUID, madeAt *time.Time) db.InsertAssetParams {
 	return db.InsertAssetParams{
-		Lifecycle: string(a.Lifecycle),
-		ID:        pgtype.UUID{Bytes: a.ID, Valid: true},
-		Kind:      a.Kind,
-		OwnerID:   pgtype.UUID{Bytes: ownerID, Valid: true},
-		Name:      a.Name,
-		Blurb:     a.Blurb,
-		Tags:      a.Tags,
-		IsNsfw:    boolToNullable(a.IsNSFW),
-		Discovery: string(a.Discovery),
-		CreatedAt: timeToNullable(madeAt),
+		Lifecycle:      string(a.Lifecycle),
+		AssetVersion:   a.AssetVersion,
+		CreditedAuthor: a.CreditedAuthor,
+		Nickname:       a.Nickname,
+		OriginFormat:   textToNullable(a.OriginFormat),
+		ID:             pgtype.UUID{Bytes: a.ID, Valid: true},
+		Kind:           a.Kind,
+		OwnerID:        pgtype.UUID{Bytes: ownerID, Valid: true},
+		Name:           a.Name,
+		Blurb:          a.Blurb,
+		Tags:           a.Tags,
+		IsNsfw:         boolToNullable(a.IsNSFW),
+		Discovery:      string(a.Discovery),
+		CreatedAt:      timeToNullable(madeAt),
 	}
 }
 

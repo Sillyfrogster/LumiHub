@@ -9,6 +9,7 @@ func TestLinkedInstanceExportRecordsItsAuthorizationClass(t *testing.T) {
 	svc, pool := newTestService(t)
 	ownerID := revisionOwner(t, svc, "linked.download.owner")
 	created := ingestOne(t, svc, ownerID, "theme.lumitheme", []byte("theme"))
+	publishImported(t, svc, ownerID, created)
 
 	download, err := svc.DownloadExportForLinkedInstance(
 		context.Background(), created.ID, "unsupported-target",

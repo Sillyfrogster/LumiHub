@@ -3,12 +3,16 @@ package asset
 import (
 	"bytes"
 	"context"
-	"errors"
+	"encoding/json"
+	"strconv"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/Sillyfrogster/LumiHub/api/internal/block"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
+	"github.com/Sillyfrogster/LumiHub/api/internal/format/character"
 	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
 	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
 	"github.com/Sillyfrogster/LumiHub/api/internal/testdb"
@@ -21,7 +25,58 @@ type leasedModule struct {
 	calls   atomic.Int32
 }
 
-func TestNeedsKindExpiresAfterSevenDaysAndReleasesItsBlob(t *testing.T) {
+func TestImportPayloadLimitNamesTheLimitAndActualBytes(t *testing.T) {
+	pool := testdb.Connect(t)
+	ownerID := uuid.New()
+	if _, err := pool.Exec(context.Background(),
+		`insert into users (id, username) values ($1, 'payload.limit.owner')`, ownerID); err != nil {
+		t.Fatalf("insert owner: %v", err)
+	}
+	blobs, err := storage.NewStore(pool, t.TempDir())
+	if err != nil {
+		t.Fatalf("storage: %v", err)
+	}
+	registry := format.NewRegistry()
+	for _, module := range character.Modules() {
+		if err := registry.Register(module); err != nil {
+			t.Fatalf("register %s: %v", module.ID(), err)
+		}
+	}
+	service := NewService(pool, registry, blobs)
+	payload, err := json.Marshal(map[string]any{
+		"spec": "chara_card_v3", "spec_version": "3.0",
+		"data": map[string]any{
+			"description": strings.Repeat("x", block.MaxPayloadBytes), "first_mes": "Hello",
+		},
+	})
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+	operation, err := service.AcceptIngest(context.Background(), IngestInput{
+		OwnerID: ownerID, Filename: "too-large.json", File: bytes.NewReader(payload),
+	})
+	if err != nil {
+		t.Fatalf("AcceptIngest: %v", err)
+	}
+	if processed, err := service.ProcessNextIngest(context.Background()); err != nil || !processed {
+		t.Fatalf("ProcessNextIngest = %v, %v", processed, err)
+	}
+	got, err := service.GetIngest(context.Background(), ownerID, operation.ID)
+	if err != nil {
+		t.Fatalf("GetIngest: %v", err)
+	}
+	if got.Failure == nil || got.Failure.Reason != string(format.FailureLimitExceeded) ||
+		!strings.Contains(got.Failure.Message, strconv.Itoa(block.MaxPayloadBytes)) ||
+		!strings.Contains(got.Failure.Message, strconv.Itoa(len(payload))) {
+		t.Fatalf("failure = %+v, want limit %d and actual %d", got.Failure, block.MaxPayloadBytes, len(payload))
+	}
+	var assets int
+	if err := pool.QueryRow(context.Background(), `select count(*) from assets`).Scan(&assets); err != nil || assets != 0 {
+		t.Fatalf("assets = %d, %v; over-limit import must store none", assets, err)
+	}
+}
+
+func TestUnrecognisedImportFailsTerminallyAndReleasesItsBlobReference(t *testing.T) {
 	pool := testdb.Connect(t)
 	ownerID := uuid.New()
 	if _, err := pool.Exec(context.Background(),
@@ -39,44 +94,33 @@ func TestNeedsKindExpiresAfterSevenDaysAndReleasesItsBlob(t *testing.T) {
 	if err != nil {
 		t.Fatalf("accept ingest: %v", err)
 	}
-	var clock atomic.Value
-	clock.Store(time.Now().Add(time.Second))
-	service.now = func() time.Time { return clock.Load().(time.Time) }
 	if processed, err := service.ProcessNextIngest(context.Background()); err != nil || !processed {
 		t.Fatalf("process ingest = %v, %v; want true, nil", processed, err)
 	}
 
-	clock.Store(clock.Load().(time.Time).Add(7*24*time.Hour + time.Second))
-	if processed, err := service.ProcessNextIngest(context.Background()); err != nil || processed {
-		t.Fatalf("expiry pass = %v, %v; want false, nil", processed, err)
+	got, err := service.GetIngest(context.Background(), ownerID, operation.ID)
+	if err != nil {
+		t.Fatalf("GetIngest: %v", err)
 	}
-	var operations int
-	if err := pool.QueryRow(context.Background(),
-		`select count(*) from ingest_operations where id = $1`, operation.ID).Scan(&operations); err != nil {
-		t.Fatalf("count operations: %v", err)
+	if got.Status != IngestFailed || got.Failure == nil ||
+		got.Failure.Reason != string(format.FailureUnsupportedFormat) {
+		t.Fatalf("operation = %+v, want terminal unsupported_format", got)
 	}
-	if operations != 0 {
-		t.Fatalf("expired operation count = %d, want 0", operations)
-	}
-	_, err = service.GetIngest(context.Background(), ownerID, operation.ID)
-	if !errors.Is(err, ErrIngestNotFound) {
-		t.Fatalf("expired operation error = %v, want ErrIngestNotFound", err)
-	}
-	var referenced int
+	var blobReferences int
 	if err := pool.QueryRow(context.Background(), `
-		select count(*)
-		  from blobs blob
-		 where exists (select 1 from ingest_operations where blob_id = blob.id)
-		    or exists (select 1 from asset_revisions where blob_id = blob.id)
-	`).Scan(&referenced); err != nil {
+		select count(*) from ingest_operations where id = $1 and blob_id is not null
+	`, operation.ID).Scan(&blobReferences); err != nil {
 		t.Fatalf("count references: %v", err)
 	}
-	if referenced != 0 {
-		t.Fatalf("expired blob references = %d, want 0", referenced)
+	if blobReferences != 0 {
+		t.Fatalf("failed ingest blob references = %d, want 0", blobReferences)
 	}
 }
 
 func (*leasedModule) ID() string { return "leased" }
+func (*leasedModule) Declaration() format.Declaration {
+	return testReaderDeclaration("leased", "character")
+}
 func (*leasedModule) Claim(file probe.Inspection) (format.Claim, bool) {
 	if len(file.Payloads) == 0 {
 		return format.Claim{}, false
@@ -88,7 +132,7 @@ func (m *leasedModule) Parse(context.Context, probe.Inspection, format.Claim) (f
 		close(m.started)
 		<-m.release
 	}
-	return format.Parsed{Kind: "character", Format: "test"}, nil
+	return format.Parsed{Kind: "character", Format: "leased"}, nil
 }
 
 func TestExpiredLeaseIsReclaimedAndFinalizationIsIdempotent(t *testing.T) {

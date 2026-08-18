@@ -14,6 +14,8 @@ type CCv2Module struct{}
 
 func (CCv2Module) ID() string { return V2 }
 
+func (CCv2Module) Declaration() format.Declaration { return declaration(V2) }
+
 func (m CCv2Module) BrowseDefinition() format.BrowseDefinition {
 	return browseDefinition(m.ExportTargets())
 }
@@ -26,16 +28,18 @@ func (CCv2Module) Export(_ context.Context, request format.ExportRequest) (forma
 	return exportCard(request, V2, "chara")
 }
 
-func (CCv2Module) Claim(file probe.Inspection) (format.Claim, bool) { return CCv2(file) }
+func (m CCv2Module) Claim(file probe.Inspection) (format.Claim, bool) {
+	return format.ClaimByDeclaration(file, m.Declaration())
+}
 
 func (m CCv2Module) Parse(
 	_ context.Context,
 	file probe.Inspection,
 	claim format.Claim,
 ) (format.Parsed, error) {
-	read, err := readCard(file, claim, 2)
+	read, err := readCard(file, claim, 2, m.ID())
 	if err != nil {
 		return format.Parsed{}, err
 	}
-	return read.parsed(m.ID(), documentImage(file)), nil
+	return read.parsed(m.ID(), documentImage(file))
 }

@@ -1,6 +1,7 @@
 package block
 
 import (
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -8,8 +9,103 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	MaxPayloadBytes    = 8 << 20
+	MaxCollectionItems = 5000
+	MaxItemBytes       = 8 << 20
+)
+
+// ValidateContentLimits applies the catalog ceiling on every route that saves
+// element content, including import and hand editing.
+func ValidateContentLimits(elements []Element) error {
+	for _, element := range elements {
+		count := elementItemCount(element.Content)
+		if count > MaxCollectionItems {
+			return fmt.Errorf(
+				"%s has %d items; the limit is %d", element.Role.Label(), count, MaxCollectionItems,
+			)
+		}
+		for index, item := range elementItems(element.Content) {
+			encoded, err := json.Marshal(item)
+			if err != nil {
+				return fmt.Errorf("measure %s item %d: %w", element.Role.Label(), index+1, err)
+			}
+			if len(encoded) > MaxItemBytes {
+				return fmt.Errorf(
+					"%s item %d has %d bytes; the limit is %d",
+					element.Role.Label(), index+1, len(encoded), MaxItemBytes,
+				)
+			}
+		}
+		payload, err := json.Marshal(element.Content)
+		if err != nil {
+			return fmt.Errorf("measure %s: %w", element.Role.Label(), err)
+		}
+		if len(payload) > MaxPayloadBytes {
+			return fmt.Errorf(
+				"%s payload has %d bytes; the limit is %d",
+				element.Role.Label(), len(payload), MaxPayloadBytes,
+			)
+		}
+	}
+	return nil
+}
+
+func elementItems(content Content) []any {
+	items := make([]any, 0, elementItemCount(content))
+	switch value := content.(type) {
+	case TextSet:
+		for _, item := range value.Texts {
+			items = append(items, item)
+		}
+	case DialogueSample:
+		for _, item := range value.Turns {
+			items = append(items, item)
+		}
+	case ImageSet:
+		for _, item := range value.Images {
+			items = append(items, item)
+		}
+	case FieldList:
+		for _, item := range value.Fields {
+			items = append(items, item)
+		}
+	case LinkList:
+		for _, item := range value.Links {
+			items = append(items, item)
+		}
+	case EntryTable:
+		for _, item := range value.Entries {
+			items = append(items, item)
+		}
+	}
+	return items
+}
+
+func elementItemCount(content Content) int {
+	switch value := content.(type) {
+	case TextSet:
+		return len(value.Texts)
+	case DialogueSample:
+		return len(value.Turns)
+	case ImageSet:
+		return len(value.Images)
+	case FieldList:
+		return len(value.Fields)
+	case LinkList:
+		return len(value.Links)
+	case EntryTable:
+		return len(value.Entries)
+	default:
+		return 0
+	}
+}
+
 // ValidateStructure checks whether a block can be read without special cases.
 func ValidateStructure(holder Block) error {
+	if err := ValidateContentLimits(holder.Elements); err != nil {
+		return err
+	}
 	available := holder.Layout.Slots()
 	if len(available) == 0 {
 		return fmt.Errorf("choose a known layout before saving")

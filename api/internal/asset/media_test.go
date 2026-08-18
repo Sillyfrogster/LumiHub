@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -16,10 +17,23 @@ import (
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	mediaproc "github.com/Sillyfrogster/LumiHub/api/internal/media"
+	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
 	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
 	"github.com/Sillyfrogster/LumiHub/api/internal/testdb"
 	"github.com/google/uuid"
 )
+
+func TestOnlySourceLocalImageReadErrorsDegrade(t *testing.T) {
+	if !localImageReadFailure(zip.ErrChecksum) {
+		t.Error("a corrupt optional ZIP image did not degrade locally")
+	}
+	if localImageReadFailure(fmt.Errorf("read store: %w", probe.ErrRangeRead)) {
+		t.Error("an infrastructure range-read failure degraded as corrupt optional media")
+	}
+	if localImageReadFailure(context.Canceled) {
+		t.Error("cancellation degraded as corrupt optional media")
+	}
+}
 
 func TestCreatorAddedMediaKeepsNativeDimensionsAndPreGeneratesVariants(t *testing.T) {
 	svc, pool := newTestService(t)
@@ -319,7 +333,7 @@ func TestConcurrentCacheMissesShareOneBoundedRender(t *testing.T) {
 	settings := DefaultIngestSettings()
 	settings.MediaWorkers = 1
 	svc := NewServiceWithMediaProcessor(
-		pool, format.NewRegistry(), store, settings, processor,
+		pool, registryWithModule(t, opaqueTestModule{}), store, settings, processor,
 	)
 	ownerID := uuid.New()
 	created, err := svc.Create(context.Background(), CreateInput{

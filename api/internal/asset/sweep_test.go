@@ -35,7 +35,7 @@ func TestSweepRecordsACanonicalFileLeftBeforeItsBlobTransactionCommitted(t *test
 	if err := os.WriteFile(path, content, 0o644); err != nil {
 		t.Fatalf("write canonical orphan: %v", err)
 	}
-	service := NewService(pool, format.NewRegistry(), store)
+	service := NewService(pool, registryWithModule(t, opaqueTestModule{}), store)
 
 	result, err := service.Sweep(ctx)
 	if err != nil {
@@ -82,7 +82,7 @@ func TestSweepRemovesATombstonedCanonicalOrphanInsteadOfRecordingIt(t *testing.T
 	if _, err := pool.Exec(ctx, `delete from blobs where id = $1`, stored.ID); err != nil {
 		t.Fatalf("leave canonical orphan: %v", err)
 	}
-	service := NewService(pool, format.NewRegistry(), store)
+	service := NewService(pool, registryWithModule(t, opaqueTestModule{}), store)
 
 	result, err := service.Sweep(ctx)
 	if err != nil {
@@ -105,7 +105,7 @@ func TestSweeperRunsWithoutAnExternalCaller(t *testing.T) {
 	if err != nil {
 		t.Fatalf("storage: %v", err)
 	}
-	service := NewService(pool, format.NewRegistry(), store)
+	service := NewService(pool, registryWithModule(t, opaqueTestModule{}), store)
 	stored, err := store.Put(ctx, bytes.NewReader([]byte("background orphan")))
 	if err != nil {
 		t.Fatalf("put orphan: %v", err)
@@ -143,7 +143,7 @@ func TestSweepCommitsExpiredReferenceRemovalBeforeDeletingBytes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("storage: %v", err)
 	}
-	service := NewService(pool, format.NewRegistry(), store)
+	service := NewService(pool, registryWithModule(t, opaqueTestModule{}), store)
 	now := time.Date(2026, 8, 14, 12, 0, 0, 0, time.UTC)
 	service.now = func() time.Time { return now }
 	ownerID := uuid.New()
@@ -188,7 +188,7 @@ func TestSweepMarksThenDeletesOnlyBlobsWithoutLiveOrRecoverableReferences(t *tes
 	if err != nil {
 		t.Fatalf("storage: %v", err)
 	}
-	service := NewService(pool, format.NewRegistry(), store)
+	service := NewService(pool, registryWithModule(t, opaqueTestModule{}), store)
 	now := time.Date(2026, 8, 14, 12, 0, 0, 0, time.UTC)
 	service.now = func() time.Time { return now }
 	ownerID := uuid.New()
@@ -236,34 +236,14 @@ func TestSweepMarksThenDeletesOnlyBlobsWithoutLiveOrRecoverableReferences(t *tes
 	`, rejected.ID); err != nil {
 		t.Fatalf("reject ingest: %v", err)
 	}
-	abandoned, err := service.AcceptIngest(ctx, IngestInput{
-		OwnerID: ownerID, Filename: "unknown.bin", File: bytes.NewReader([]byte("abandoned")),
-	})
-	if err != nil {
-		t.Fatalf("accept abandoned ingest: %v", err)
-	}
-	var abandonedBlob uuid.UUID
-	if err := pool.QueryRow(ctx,
-		`select blob_id from ingest_operations where id = $1`, abandoned.ID,
-	).Scan(&abandonedBlob); err != nil {
-		t.Fatalf("read abandoned blob: %v", err)
-	}
-	if _, err := pool.Exec(ctx, `
-		update ingest_operations
-		   set status = 'needs_kind', expires_at = $2
-		 where id = $1
-	`, abandoned.ID, now); err != nil {
-		t.Fatalf("abandon ingest: %v", err)
-	}
-
 	first, err := service.Sweep(ctx)
 	if err != nil {
 		t.Fatalf("first sweep: %v", err)
 	}
-	if first.Marked != 3 || first.Deleted != 0 {
-		t.Fatalf("first sweep = %+v, want three marked and none deleted", first)
+	if first.Marked != 2 || first.Deleted != 0 {
+		t.Fatalf("first sweep = %+v, want two marked and none deleted", first)
 	}
-	for _, id := range []uuid.UUID{recoverableBlob, orphan.ID, rejectedBlob, abandonedBlob} {
+	for _, id := range []uuid.UUID{recoverableBlob, orphan.ID, rejectedBlob} {
 		opened, err := store.Open(ctx, id)
 		if err != nil {
 			t.Fatalf("blob %s disappeared on the mark pass: %v", id, err)
@@ -276,13 +256,13 @@ func TestSweepMarksThenDeletesOnlyBlobsWithoutLiveOrRecoverableReferences(t *tes
 	if err != nil {
 		t.Fatalf("second sweep: %v", err)
 	}
-	if second.Deleted != 3 {
-		t.Fatalf("second sweep = %+v, want three deleted", second)
+	if second.Deleted != 2 {
+		t.Fatalf("second sweep = %+v, want two deleted", second)
 	}
 	if _, err := store.Open(ctx, recoverableBlob); err != nil {
 		t.Fatalf("recoverable blob was swept: %v", err)
 	}
-	for _, id := range []uuid.UUID{orphan.ID, rejectedBlob, abandonedBlob} {
+	for _, id := range []uuid.UUID{orphan.ID, rejectedBlob} {
 		if _, err := store.Open(ctx, id); !errors.Is(err, storage.ErrBlobNotFound) {
 			t.Fatalf("collected blob %s error = %v, want ErrBlobNotFound", id, err)
 		}
@@ -379,7 +359,7 @@ func TestSweepCollectsAnAssetAfterItsRecoveryWindow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("storage: %v", err)
 	}
-	service := NewService(pool, format.NewRegistry(), store)
+	service := NewService(pool, registryWithModule(t, opaqueTestModule{}), store)
 	now := time.Date(2026, 8, 14, 12, 0, 0, 0, time.UTC)
 	service.now = func() time.Time { return now }
 	ownerID := uuid.New()

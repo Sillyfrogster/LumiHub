@@ -29,13 +29,6 @@ func (s *Service) Sweep(ctx context.Context) (SweepResult, error) {
 	if err := s.resumePurges(ctx); err != nil {
 		return SweepResult{}, err
 	}
-	if _, err := s.pool.Exec(ctx, `
-		delete from ingest_operations
-		 where status = 'needs_kind' and expires_at <= $1
-	`, now); err != nil {
-		return SweepResult{}, fmt.Errorf("expire abandoned ingests: %w", err)
-	}
-
 	marked, err := s.pool.Exec(ctx, `
 		insert into blob_sweep_marks (blob_id, marked_at)
 		select blob.id, $1
@@ -271,8 +264,7 @@ func liveBlobReferenceExpression(blobID, at string) string {
 	return `exists (
 		select 1 from ingest_operations operation
 		 where operation.blob_id = ` + blobID + `
-		   and (operation.status in ('pending', 'processing')
-		        or (operation.status = 'needs_kind' and operation.expires_at > ` + at + `))
+		   and operation.status in ('pending', 'processing')
 		union all
 		select 1 from asset_revisions revision
 		  join assets asset on asset.id = revision.asset_id

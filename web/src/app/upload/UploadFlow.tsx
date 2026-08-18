@@ -2,6 +2,7 @@
 
 import { AlertCircle, Check, FileArchive, Upload } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   type ChangeEvent,
   type FormEvent,
@@ -10,6 +11,7 @@ import {
   useState,
 } from "react";
 import type { components } from "@/lib/api/schema";
+import { assetHref } from "@/lib/asset-url";
 import { useAuth } from "@/lib/auth";
 import styles from "./UploadPage.module.css";
 
@@ -33,6 +35,7 @@ function operationPath(url: string) {
 }
 
 export function UploadFlow() {
+  const router = useRouter();
   const { account } = useAuth();
   const fileInput = useRef<HTMLInputElement>(null);
   const operationHeading = useRef<HTMLHeadingElement>(null);
@@ -93,6 +96,12 @@ export function UploadFlow() {
   }, [operation]);
 
   useEffect(() => {
+    if (operation?.status === "success" && operation.asset) {
+      router.replace(assetHref(operation.asset.id, operation.asset.name));
+    }
+  }, [operation, router]);
+
+  useEffect(() => {
     if (
       operation &&
       operation.status !== "pending" &&
@@ -143,25 +152,6 @@ export function UploadFlow() {
         body,
       },
       "LumiHub could not accept this upload.",
-    );
-  }
-
-  async function completeKind(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!operation) return;
-    const form = new FormData(event.currentTarget);
-    await requestOperation(
-      operationPath(operation.url),
-      {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({
-          kind: String(form.get("kind") ?? ""),
-          name: String(form.get("name") ?? "").trim(),
-        }),
-      },
-      "LumiHub could not save those details.",
     );
   }
 
@@ -226,57 +216,6 @@ export function UploadFlow() {
           Verification puts every public file behind an address you control.
         </p>
         <Link href="/verify-email">Verify email</Link>
-      </section>
-    );
-  }
-
-  if (operation?.status === "needs_kind" && operation.needsKind) {
-    return (
-      <section className={styles.operation} aria-labelledby="kind-heading">
-        <div className={styles.operationIcon}>
-          <FileArchive size={28} strokeWidth={1.3} aria-hidden="true" />
-        </div>
-        <div className={styles.operationCopy}>
-          <h2 ref={operationHeading} id="kind-heading" tabIndex={-1}>
-            Tell us where this belongs
-          </h2>
-          <p>
-            The file is safe to keep, but its format does not say what kind of
-            creation it holds.
-          </p>
-        </div>
-        <form className={styles.kindForm} onSubmit={completeKind}>
-          <label>
-            Kind
-            <select name="kind" required defaultValue="">
-              <option value="" disabled>
-                Choose a kind
-              </option>
-              {Object.entries(KIND_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Catalog name
-            <input
-              name="name"
-              required
-              defaultValue={operation.needsKind.name}
-              autoComplete="off"
-            />
-          </label>
-          <button type="submit" disabled={pending}>
-            {pending ? "Saving…" : "Finish ingest"}
-          </button>
-        </form>
-        {message ? (
-          <p className={styles.error} role="alert">
-            {message}
-          </p>
-        ) : null}
       </section>
     );
   }

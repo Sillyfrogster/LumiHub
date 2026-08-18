@@ -55,7 +55,7 @@ func TestCreatorCanDeleteAndRestoreAnAssetDuringItsRecoveryWindow(t *testing.T) 
 		t.Fatalf("decode deleted listing: %v", err)
 	}
 	if len(recovery.Items) != 1 || recovery.Items[0].ID != assetID ||
-		recovery.Items[0].Name != "Recoverable garden" || recovery.Items[0].Kind != "theme" {
+		recovery.Items[0].Name != "Recoverable garden" || recovery.Items[0].Kind != "character" {
 		t.Fatalf("deleted listing = %+v, want the deleted asset", recovery.Items)
 	}
 	if !recovery.Items[0].RecoverableUntil.After(recovery.Items[0].DeletedAt) {

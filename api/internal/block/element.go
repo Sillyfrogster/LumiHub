@@ -59,6 +59,19 @@ const (
 	RoleLorebookEntries Role = "lorebook_entries"
 )
 
+// Known reports whether the role belongs to the shared semantic vocabulary.
+func (r Role) Known() bool {
+	switch r {
+	case RoleDescription, RolePersonality, RoleScenario, RoleGreetings,
+		RoleGroupGreetings, RoleExampleDialogue, RoleSystemPrompt,
+		RolePostHistoryInstructions, RoleCreatorNotes, RoleGallery,
+		RoleExpressions, RoleLorebookEntries:
+		return true
+	default:
+		return false
+	}
+}
+
 // Cardinality says how many elements one role may have on an asset.
 type Cardinality int
 

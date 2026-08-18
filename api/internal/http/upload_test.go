@@ -33,7 +33,7 @@ func writeMetadataPart(t *testing.T, form *multipart.Writer, metadata map[string
 	t.Helper()
 	fields := make(map[string]any, len(metadata))
 	for key, value := range metadata {
-		if key != "filename" {
+		if key != "filename" && !strings.HasPrefix(key, "_") {
 			fields[key] = value
 		}
 	}

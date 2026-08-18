@@ -659,7 +659,7 @@ export interface paths {
     delete?: never;
     options?: never;
     head?: never;
-    patch: operations["completeIngest"];
+    patch?: never;
     trace?: never;
   };
 }
@@ -982,7 +982,6 @@ export interface components {
       /** Format: uuid */
       id: string;
       kind: string;
-      passthroughPlatform?: string | null;
       format: string;
       name: string;
       blurb: string;
@@ -1205,21 +1204,10 @@ export interface components {
       /** Format: uuid */
       id: string;
       /** @enum {string} */
-      status: "pending" | "processing" | "needs_kind" | "failed" | "success";
+      status: "pending" | "processing" | "failed" | "success";
       url: string;
       asset?: components["schemas"]["Asset"] | null;
-      needsKind?: components["schemas"]["NeedsKind"];
       failure?: components["schemas"]["IngestFailure"];
-    };
-    NeedsKind: {
-      /** @enum {string|null} */
-      kind: "character" | "lorebook" | "preset" | "theme" | null;
-      name: string;
-    };
-    CompleteIngestRequest: {
-      /** @enum {string} */
-      kind: "character" | "lorebook" | "preset" | "theme";
-      name: string;
     };
     IngestFailure: {
       /** @enum {string} */
@@ -3199,61 +3187,6 @@ export interface operations {
         content?: never;
       };
       /** @description No such ingest operation for this creator */
-      404: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
-  completeIngest: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["CompleteIngestRequest"];
-      };
-    };
-    responses: {
-      /** @description The ingest operation queued again with its passthrough kind */
-      202: {
-        headers: {
-          Location?: string;
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["IngestOperation"];
-        };
-      };
-      /** @description The kind or name is invalid */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description No account is signed in */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description The signed-in account has not verified its email */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description No such ingest operation awaiting a kind */
       404: {
         headers: {
           [name: string]: unknown;

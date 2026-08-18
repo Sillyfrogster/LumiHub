@@ -96,13 +96,9 @@ func listAssets(ctx context.Context, q db.DBTX, f ListFilter) ([]Asset, error) {
 	facetKeys, facetValues := facetPairs(f.Facets)
 
 	params := db.ListAssetsParams{
-		Column1:             f.Kind,
-		Column2:             f.PlatformSet,
-		PassthroughPlatform: textToNullable(f.Platform),
-		Column4:             nullableTags(f.Tags),
-		Column5:             facetKeys,
-		Column6:             facetValues,
-		Limit:               int32(f.Limit),
+		Column1: f.Kind, Column2: f.PlatformSet, Format: valueOrEmpty(f.Platform),
+		Column4: nullableTags(f.Tags), Column5: facetKeys, Column6: facetValues,
+		Limit: int32(f.Limit),
 	}
 	if f.Before != nil {
 		params.Before = timeToNullable(&f.Before.MadeAt)
@@ -120,18 +116,24 @@ func listAssets(ctx context.Context, q db.DBTX, f ListFilter) ([]Asset, error) {
 			ID:   uuidFromPgtype(row.ID),
 			Kind: row.Kind,
 			// An asset built from nothing has no file, so no origin format.
-			Format:              row.Format.String,
-			PassthroughPlatform: textToPointer(row.PassthroughPlatform),
-			Name:                row.Name,
-			Blurb:               row.Blurb,
-			Tags:                row.Tags,
-			IsNSFW:              &row.IsNsfw,
-			Discovery:           Discovery(row.Discovery),
-			CurrentRevisionID:   uuidFromPgtype(row.CurrentRevisionID),
-			CreatedAt:           timeFromPgtype(row.CreatedAt),
+			Format:            row.Format.String,
+			Name:              row.Name,
+			Blurb:             row.Blurb,
+			Tags:              row.Tags,
+			IsNSFW:            &row.IsNsfw,
+			Discovery:         Discovery(row.Discovery),
+			CurrentRevisionID: uuidFromPgtype(row.CurrentRevisionID),
+			CreatedAt:         timeFromPgtype(row.CreatedAt),
 		}
 	}
 	return out, nil
+}
+
+func valueOrEmpty(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 func (s *Service) browseAssets(
@@ -444,9 +446,10 @@ func assetByID(ctx context.Context, q db.DBTX, id uuid.UUID) (Asset, error) {
 	}
 	return Asset{
 		ID: uuidFromPgtype(row.ID), Kind: row.Kind, Format: row.Format,
-		PassthroughPlatform: textToPointer(row.PassthroughPlatform),
-		Name:                row.Name, Blurb: row.Blurb, Tags: row.Tags,
-		IsNSFW: &row.IsNsfw, Discovery: Discovery(row.Discovery),
+		OriginFormat: textToPointer(row.OriginFormat), AssetVersion: row.AssetVersion,
+		CreditedAuthor: row.CreditedAuthor, Nickname: row.Nickname,
+		Name: row.Name, Blurb: row.Blurb, Tags: row.Tags,
+		IsNSFW: &row.IsNsfw, Discovery: Discovery(row.Discovery), Lifecycle: Lifecycle(row.Lifecycle),
 		CurrentRevisionID: uuidFromPgtype(row.CurrentRevisionID),
 		CreatedAt:         timeFromPgtype(row.CreatedAt),
 	}, nil

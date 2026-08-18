@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -19,7 +20,9 @@ import (
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/account"
 	"github.com/Sillyfrogster/LumiHub/api/internal/asset"
+	"github.com/Sillyfrogster/LumiHub/api/internal/block"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
+	"github.com/Sillyfrogster/LumiHub/api/internal/format/character"
 	"github.com/Sillyfrogster/LumiHub/api/internal/linking"
 	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
 	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
@@ -31,7 +34,57 @@ import (
 
 type parseFailureModule struct{}
 
+type opaqueTestModule struct{}
+
+type neverClaimsModule struct{}
+
+func testReaderDeclaration(id, kind string) format.Declaration {
+	return format.Declaration{
+		ID: id, Kind: kind, Direction: format.Direction{Read: true},
+		Recognition: []format.Recognition{{
+			Kind: format.RecognitionSignature, Containers: []probe.Container{probe.JSON},
+			Required: map[string]format.ValueType{"payload": format.ValueBoolean},
+		}},
+		Limits: format.ContentLimits{
+			PayloadBytes: block.MaxPayloadBytes, CollectionItems: block.MaxCollectionItems,
+			ItemBytes: block.MaxItemBytes,
+		},
+		ConsumedKeys:  []string{"payload"},
+		Preservation:  format.PreservationDeclaration{Namespaces: []string{"test"}},
+		TestedOrigins: []string{id},
+	}
+}
+
+func (neverClaimsModule) ID() string { return "never" }
+func (neverClaimsModule) Declaration() format.Declaration {
+	return testReaderDeclaration("never", "character")
+}
+func (neverClaimsModule) Claim(probe.Inspection) (format.Claim, bool) { return format.Claim{}, false }
+func (neverClaimsModule) Parse(context.Context, probe.Inspection, format.Claim) (format.Parsed, error) {
+	return format.Parsed{}, errors.New("unreachable")
+}
+
+func (opaqueTestModule) ID() string { return "test_opaque" }
+func (opaqueTestModule) Declaration() format.Declaration {
+	return testReaderDeclaration("test_opaque", "character")
+}
+func (opaqueTestModule) Claim(file probe.Inspection) (format.Claim, bool) {
+	return format.WholeFileCompatibilityClaim(file), true
+}
+func (opaqueTestModule) Parse(context.Context, probe.Inspection, format.Claim) (format.Parsed, error) {
+	return format.Parsed{
+		Kind: "character", Format: "test_opaque",
+		Elements: []block.Element{
+			{Type: block.TypeProse, Role: block.RoleDescription, Content: block.Prose{Text: "Test description"}},
+			{Type: block.TypeTextSet, Role: block.RoleGreetings, Content: block.TextSet{Texts: []block.TextItem{{Text: "Hello"}}}},
+		},
+	}, nil
+}
+
 func (parseFailureModule) ID() string { return "claimed" }
+func (parseFailureModule) Declaration() format.Declaration {
+	return testReaderDeclaration("claimed", "character")
+}
 func (parseFailureModule) Claim(file probe.Inspection) (format.Claim, bool) {
 	if len(file.Payloads) == 0 {
 		return format.Claim{}, false
@@ -44,6 +97,9 @@ type typedParseFailureModule struct {
 }
 
 func (typedParseFailureModule) ID() string { return "typed_failure" }
+func (typedParseFailureModule) Declaration() format.Declaration {
+	return testReaderDeclaration("typed_failure", "character")
+}
 func (typedParseFailureModule) Claim(file probe.Inspection) (format.Claim, bool) {
 	if len(file.Payloads) == 0 {
 		return format.Claim{}, false
@@ -118,9 +174,24 @@ func uploadAndFinish(
 	if processed, err := assets.ProcessNextIngest(context.Background()); err != nil || !processed {
 		t.Fatalf("process ingest = %v, %v; want true, nil", processed, err)
 	}
-	return send(t, r, authorized(
+	finished := send(t, r, authorized(
 		httptest.NewRequest(http.MethodGet, accepted.Header().Get("Location"), nil), session,
 	))
+	if keep, _ := metadata["_keepDraft"].(bool); !keep {
+		var operation struct {
+			Status string `json:"status"`
+			Asset  *struct {
+				ID string `json:"id"`
+			} `json:"asset"`
+		}
+		if json.Unmarshal(finished.Body.Bytes(), &operation) == nil &&
+			operation.Status == "success" && operation.Asset != nil {
+			_ = send(t, r, authorized(httptest.NewRequest(
+				http.MethodPost, "/v1/assets/"+operation.Asset.ID+"/publish", nil,
+			), session))
+		}
+	}
+	return finished
 }
 
 func newVerifiedIngestRouter(
@@ -169,6 +240,11 @@ func newVerifiedIngestRouterWithStore(
 	if decorate != nil {
 		blobs = decorate(blobs)
 	}
+	if registry.Empty() {
+		if err := registry.Register(opaqueTestModule{}); err != nil {
+			t.Fatalf("register test format: %v", err)
+		}
+	}
 	assets := asset.NewServiceWithIngestSettings(pool, registry, blobs, settings)
 	outbox := &verificationOutbox{}
 	accounts := account.NewService(pool, outbox, nil, "http://localhost:3000")
@@ -212,55 +288,236 @@ func TestCreatorCanPollTheirPendingIngest(t *testing.T) {
 	}
 }
 
-func TestLumithemeIngestFinishesAsAHintedPassthroughAsset(t *testing.T) {
-	r, session, assets := newVerifiedIngestRouter(t, format.NewRegistry())
-	metadata := exampleMetadata("Evening Theme")
-	metadata["filename"] = "evening.lumitheme"
-	upload := send(t, r, authorized(
-		uploadRequest(t, metadata, []byte("theme bytes")), session,
+func TestCharacterUploadLandsOnABuiltDraftPage(t *testing.T) {
+	registry := format.NewRegistry()
+	for _, module := range character.Modules() {
+		if err := registry.Register(module); err != nil {
+			t.Fatalf("register %s: %v", module.ID(), err)
+		}
+	}
+	r, session, assets, pool := newVerifiedIngestRouterWithPool(t, registry)
+	metadata := exampleMetadata("Ana")
+	metadata["filename"] = "ana.json"
+	metadata["_keepDraft"] = true
+	card := []byte(`{
+		"spec":"chara_card_v3","spec_version":"3.0",
+		"data":{
+			"name":"Ana","nickname":"Archivist","character_version":"main","creator":"A. Writer",
+			"description":"Keeps the archive.","personality":"Patient",
+			"scenario":"After closing","first_mes":"Welcome back.",
+			"group_only_greetings":["All of you made it."],
+			"system_prompt":"Stay in character.","future_structure":{"kept":"whole"}
+		}
+	}`)
+	finished := uploadAndFinish(t, r, session, assets, metadata, card)
+	assetID := assetIDFromIngest(t, finished)
+
+	pageResponse := send(t, r, authorized(
+		httptest.NewRequest(http.MethodGet, "/v1/assets/"+assetID, nil), session,
 	))
-
-	processed, err := assets.ProcessNextIngest(context.Background())
-	if err != nil {
-		t.Fatalf("process ingest: %v", err)
+	if pageResponse.Code != http.StatusOK {
+		t.Fatalf("page status = %d, want 200: %s", pageResponse.Code, pageResponse.Body.String())
 	}
-	if !processed {
-		t.Fatal("the pending ingest was not processed")
+	var page startedAsset
+	if err := json.Unmarshal(pageResponse.Body.Bytes(), &page); err != nil {
+		t.Fatalf("decode imported page: %v", err)
 	}
-
-	poll := httptest.NewRequest(http.MethodGet, upload.Header().Get("Location"), nil)
-	rec := send(t, r, authorized(poll, session))
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200. body: %s", rec.Code, rec.Body.String())
+	if page.Lifecycle != "draft" {
+		t.Errorf("lifecycle = %q, want draft", page.Lifecycle)
 	}
-	var operation struct {
-		Status string `json:"status"`
-		Asset  *struct {
-			Kind                string  `json:"kind"`
-			PassthroughPlatform *string `json:"passthroughPlatform"`
-			Name                string  `json:"name"`
-		} `json:"asset"`
+	if len(page.Blocks) != 3 {
+		t.Fatalf("blocks = %d, want character core, messages and model instructions", len(page.Blocks))
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &operation); err != nil {
-		t.Fatalf("decode operation: %v", err)
+	core := blockNamed(t, page.Blocks, "character_core")
+	if core.Layout != "stack-3" || core.Width != "two_thirds" {
+		t.Errorf("character core = %s at %s", core.Layout, core.Width)
 	}
-	if operation.Status != "success" || operation.Asset == nil {
-		t.Fatalf("operation = %#v, want a successful asset", operation)
+	if string(core.Elements[0].Content) != `{"text":"Keeps the archive."}` {
+		t.Errorf("description = %s", core.Elements[0].Content)
 	}
-	if operation.Asset.Kind != "theme" {
-		t.Errorf("kind = %q, want theme", operation.Asset.Kind)
+	messages := blockNamed(t, page.Blocks, "messages")
+	if messages.Layout != "stack-3" || len(messages.Elements) != 3 {
+		t.Errorf("messages = %+v, want three roles in stack-3", messages)
 	}
-	if operation.Asset.PassthroughPlatform == nil || *operation.Asset.PassthroughPlatform != "lumiverse" {
-		t.Errorf("passthrough platform = %v, want lumiverse", operation.Asset.PassthroughPlatform)
+	instructions := blockNamed(t, page.Blocks, "model_instructions")
+	if instructions.Width != "half" || len(instructions.Elements) != 1 ||
+		instructions.Elements[0].Role != "system_prompt" {
+		t.Errorf("model instructions = %+v", instructions)
 	}
-	if operation.Asset.Name != "Evening Theme" {
-		t.Errorf("name = %q, want the confirmed catalog name", operation.Asset.Name)
+	var origin, version, author, nickname string
+	if err := pool.QueryRow(context.Background(), `
+		select origin_format, asset_version, credited_author, nickname
+		  from assets where id = $1
+	`, assetID).Scan(&origin, &version, &author, &nickname); err != nil {
+		t.Fatalf("read imported header: %v", err)
+	}
+	if origin != character.V3 || version != "main" || author != "A. Writer" || nickname != "Archivist" {
+		t.Errorf("origin and header = %q, %q, %q, %q", origin, version, author, nickname)
+	}
+	var preserved []byte
+	if err := pool.QueryRow(context.Background(), `
+		select payload from asset_preserved_data where asset_id = $1 and namespace = 'card'
+	`, assetID).Scan(&preserved); err != nil {
+		t.Fatalf("read preserved remainder: %v", err)
+	}
+	if !bytes.Contains(preserved, []byte(`"future_structure"`)) {
+		t.Errorf("preserved remainder = %s", preserved)
 	}
 }
 
-func TestUnknownUploadAsksForKindAndFilenameDerivedName(t *testing.T) {
-	r, session, assets := newVerifiedIngestRouter(t, format.NewRegistry())
-	metadata := exampleMetadata("Ignored initial name")
+func TestEveryCharacterReaderBuildsTheCatalogPage(t *testing.T) {
+	cardBody := func(spec, description string) []byte {
+		version := "3.0"
+		if spec == character.V2 {
+			version = "2.0"
+		}
+		return []byte(fmt.Sprintf(`{
+			"spec":%q,"spec_version":%q,
+			"data":{"name":"Ana","description":%q,"first_mes":"Hello"}
+		}`, spec, version, description))
+	}
+	tests := []struct {
+		name, filename, origin, description string
+		file                                []byte
+	}{
+		{name: "CCv2", filename: "ana-v2.json", origin: character.V2,
+			description: "From V2", file: cardBody(character.V2, "From V2")},
+		{name: "CCv3", filename: "ana-v3.json", origin: character.V3,
+			description: "From V3", file: cardBody(character.V3, "From V3")},
+		{name: "CharX", filename: "ana.charx", origin: character.CharX,
+			description: "From CharX", file: zipCharacterCard(t, cardBody(character.V3, "From CharX"))},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			registry := format.NewRegistry()
+			for _, module := range character.Modules() {
+				if err := registry.Register(module); err != nil {
+					t.Fatalf("register %s: %v", module.ID(), err)
+				}
+			}
+			r, session, assets, pool := newVerifiedIngestRouterWithPool(t, registry)
+			metadata := exampleMetadata("Ana")
+			metadata["filename"] = test.filename
+			metadata["_keepDraft"] = true
+			assetID := assetIDFromIngest(t, uploadAndFinish(t, r, session, assets, metadata, test.file))
+			response := send(t, r, authorized(httptest.NewRequest(
+				http.MethodGet, "/v1/assets/"+assetID, nil,
+			), session))
+			var page startedAsset
+			if response.Code != http.StatusOK || json.Unmarshal(response.Body.Bytes(), &page) != nil {
+				t.Fatalf("page = %d: %s", response.Code, response.Body.String())
+			}
+			if page.Lifecycle != "draft" || len(page.Blocks) != 2 {
+				t.Fatalf("page = lifecycle %q, blocks %+v", page.Lifecycle, page.Blocks)
+			}
+			core := blockNamed(t, page.Blocks, "character_core")
+			if core.Layout != "stack-3" || core.Width != "two_thirds" ||
+				string(core.Elements[0].Content) != fmt.Sprintf(`{"text":%q}`, test.description) {
+				t.Errorf("character core = %+v", core)
+			}
+			messages := blockNamed(t, page.Blocks, "messages")
+			if messages.Layout != "stack-2" || messages.Width != "full" || len(messages.Elements) != 2 {
+				t.Errorf("messages = %+v", messages)
+			}
+			var origin string
+			if err := pool.QueryRow(context.Background(),
+				`select origin_format from assets where id = $1`, assetID,
+			).Scan(&origin); err != nil || origin != test.origin {
+				t.Errorf("origin = %q, %v; want %q", origin, err, test.origin)
+			}
+		})
+	}
+}
+
+func TestAnUnreadableOptionalCharXImageDoesNotRejectTheCharacter(t *testing.T) {
+	registry := format.NewRegistry()
+	for _, module := range character.Modules() {
+		if err := registry.Register(module); err != nil {
+			t.Fatalf("register %s: %v", module.ID(), err)
+		}
+	}
+	r, session, assets, pool := newVerifiedIngestRouterWithPool(t, registry)
+	card := []byte(`{
+		"spec":"chara_card_v3","spec_version":"3.0",
+		"data":{"name":"Ana","description":"Quiet","first_mes":"Hello",
+			"assets":[{"type":"emotion","uri":"embeded://assets/bad.png","name":"bad","ext":"png"}]}
+	}`)
+	file := zipCharacterCardWithFiles(t, card, map[string][]byte{
+		"assets/bad.png": []byte("not an image"),
+	})
+	marker := []byte("not an image")
+	position := bytes.Index(file, marker)
+	if position < 0 {
+		t.Fatal("stored image bytes are missing from the CharX fixture")
+	}
+	file[position] ^= 0xff
+	metadata := exampleMetadata("Ana")
+	metadata["filename"] = "ana.charx"
+	metadata["_keepDraft"] = true
+	assetID := assetIDFromIngest(t, uploadAndFinish(t, r, session, assets, metadata, file))
+
+	var mediaCount int
+	if err := pool.QueryRow(context.Background(),
+		`select count(*) from asset_media where asset_id = $1`, assetID,
+	).Scan(&mediaCount); err != nil {
+		t.Fatalf("count extracted media: %v", err)
+	}
+	if mediaCount != 0 {
+		t.Errorf("extracted media = %d, want the unreadable optional image skipped", mediaCount)
+	}
+	var preserved []byte
+	if err := pool.QueryRow(context.Background(), `
+		select payload from asset_preserved_data where asset_id = $1 and namespace = 'card'
+	`, assetID).Scan(&preserved); err != nil {
+		t.Fatalf("read preserved assets: %v", err)
+	}
+	var cardRemainder map[string]json.RawMessage
+	if err := json.Unmarshal(preserved, &cardRemainder); err != nil {
+		t.Fatalf("decode preserved card data: %v", err)
+	}
+	assetsRemainder, ok := cardRemainder["assets"]
+	if !ok || !bytes.Contains(assetsRemainder, []byte("bad.png")) {
+		t.Fatalf("preserved card data = %s", preserved)
+	}
+}
+
+func zipCharacterCard(t *testing.T, card []byte) []byte {
+	return zipCharacterCardWithFiles(t, card, nil)
+}
+
+func zipCharacterCardWithFiles(t *testing.T, card []byte, files map[string][]byte) []byte {
+	t.Helper()
+	var data bytes.Buffer
+	archive := zip.NewWriter(&data)
+	part, err := archive.Create("card.json")
+	if err != nil {
+		t.Fatalf("create card.json: %v", err)
+	}
+	if _, err := part.Write(card); err != nil {
+		t.Fatalf("write card.json: %v", err)
+	}
+	for name, content := range files {
+		part, err := archive.CreateHeader(&zip.FileHeader{Name: name, Method: zip.Store})
+		if err != nil {
+			t.Fatalf("create %s: %v", name, err)
+		}
+		if _, err := part.Write(content); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+	if err := archive.Close(); err != nil {
+		t.Fatalf("close CharX: %v", err)
+	}
+	return data.Bytes()
+}
+
+func TestUnknownUploadIsRefusedAndNothingIsStored(t *testing.T) {
+	registry := format.NewRegistry()
+	if err := registry.Register(neverClaimsModule{}); err != nil {
+		t.Fatalf("register non-claiming module: %v", err)
+	}
+	r, session, assets := newVerifiedIngestRouter(t, registry)
+	metadata := exampleMetadata("Unknown")
 	metadata["filename"] = "velvet-night.bundle"
 	upload := send(t, r, authorized(
 		uploadRequest(t, metadata, []byte("unrecognised bytes")), session,
@@ -269,75 +526,26 @@ func TestUnknownUploadAsksForKindAndFilenameDerivedName(t *testing.T) {
 		t.Fatalf("process ingest = %v, %v; want true, nil", processed, err)
 	}
 
-	pollPath := upload.Header().Get("Location")
 	poll := send(t, r, authorized(
-		httptest.NewRequest(http.MethodGet, pollPath, nil), session,
-	))
-	var waiting struct {
-		Status    string         `json:"status"`
-		NeedsKind map[string]any `json:"needsKind"`
-	}
-	if err := json.Unmarshal(poll.Body.Bytes(), &waiting); err != nil {
-		t.Fatalf("decode needs_kind operation: %v", err)
-	}
-	if waiting.Status != "needs_kind" {
-		t.Fatalf("status = %q, want needs_kind. body: %s", waiting.Status, poll.Body.String())
-	}
-	if len(waiting.NeedsKind) != 2 || waiting.NeedsKind["kind"] != nil ||
-		waiting.NeedsKind["name"] != "velvet-night" {
-		t.Fatalf("needsKind = %#v, want only an empty kind and filename-derived name", waiting.NeedsKind)
-	}
-
-	completed := send(t, r, authorizedJSONRequest(t, http.MethodPatch, pollPath,
-		`{"kind":"preset","name":"Velvet Night"}`, session))
-	if completed.Code != http.StatusAccepted {
-		t.Fatalf("complete status = %d, want 202. body: %s", completed.Code, completed.Body.String())
-	}
-	if processed, err := assets.ProcessNextIngest(context.Background()); err != nil || !processed {
-		t.Fatalf("resume ingest = %v, %v; want true, nil", processed, err)
-	}
-
-	finished := send(t, r, authorized(
-		httptest.NewRequest(http.MethodGet, pollPath, nil), session,
+		httptest.NewRequest(http.MethodGet, upload.Header().Get("Location"), nil), session,
 	))
 	var operation struct {
-		Status string `json:"status"`
-		Asset  *struct {
-			Kind string `json:"kind"`
-			Name string `json:"name"`
-		} `json:"asset"`
+		Status  string `json:"status"`
+		Asset   any    `json:"asset"`
+		Failure *struct {
+			Reason  string `json:"reason"`
+			Message string `json:"message"`
+		} `json:"failure"`
 	}
-	if err := json.Unmarshal(finished.Body.Bytes(), &operation); err != nil {
-		t.Fatalf("decode completed operation: %v", err)
+	if err := json.Unmarshal(poll.Body.Bytes(), &operation); err != nil {
+		t.Fatalf("decode refused operation: %v", err)
 	}
-	if operation.Status != "success" || operation.Asset == nil ||
-		operation.Asset.Kind != "preset" || operation.Asset.Name != "Velvet Night" {
-		t.Fatalf("operation = %#v, want the completed preset", operation)
+	if operation.Status != "failed" || operation.Asset != nil || operation.Failure == nil {
+		t.Fatalf("operation = %#v, want a refusal with no asset", operation)
 	}
-}
-
-func TestNeedsKindCompletionAcceptsOnlyKindAndName(t *testing.T) {
-	r, session, assets := newVerifiedIngestRouter(t, format.NewRegistry())
-	metadata := exampleMetadata("Ignored")
-	metadata["filename"] = "unknown.bundle"
-	upload := send(t, r, authorized(
-		uploadRequest(t, metadata, []byte("unrecognised bytes")), session,
-	))
-	if processed, err := assets.ProcessNextIngest(context.Background()); err != nil || !processed {
-		t.Fatalf("process ingest = %v, %v; want true, nil", processed, err)
-	}
-
-	for _, body := range []string{
-		`{"kind":"theme","name":"Unknown","extra":true}`,
-		`{"kind":"theme","name":"Unknown"} {}`,
-	} {
-		completed := send(t, r, authorizedJSONRequest(
-			t, http.MethodPatch, upload.Header().Get("Location"), body, session,
-		))
-		if completed.Code != http.StatusBadRequest {
-			t.Fatalf("PATCH body %q status = %d, want 400. body: %s",
-				body, completed.Code, completed.Body.String())
-		}
+	if operation.Failure.Reason != "unsupported_format" ||
+		!strings.Contains(operation.Failure.Message, "start from nothing") {
+		t.Errorf("failure = %+v", operation.Failure)
 	}
 }
 
@@ -390,8 +598,12 @@ func TestTerminalIngestFailuresStayDistinct(t *testing.T) {
 	}{
 		{
 			name: "unsupported format",
-			registry: func(*testing.T) *format.Registry {
-				return format.NewRegistry()
+			registry: func(t *testing.T) *format.Registry {
+				registry := format.NewRegistry()
+				if err := registry.Register(neverClaimsModule{}); err != nil {
+					t.Fatalf("register non-claiming module: %v", err)
+				}
+				return registry
 			},
 			file:       []byte(`{"spec":"future_card"}`),
 			wantReason: "unsupported_format",
@@ -529,6 +741,9 @@ type catalogModule struct{}
 type invalidFinalizationModule struct{}
 
 func (invalidFinalizationModule) ID() string { return "invalid_finalization" }
+func (invalidFinalizationModule) Declaration() format.Declaration {
+	return testReaderDeclaration("invalid_finalization", "not-a-kind")
+}
 func (invalidFinalizationModule) Claim(file probe.Inspection) (format.Claim, bool) {
 	if len(file.Payloads) == 0 {
 		return format.Claim{}, false
@@ -540,6 +755,9 @@ func (invalidFinalizationModule) Parse(context.Context, probe.Inspection, format
 }
 
 func (catalogModule) ID() string { return "catalog" }
+func (catalogModule) Declaration() format.Declaration {
+	return testReaderDeclaration("catalog", "character")
+}
 func (catalogModule) Claim(file probe.Inspection) (format.Claim, bool) {
 	if len(file.Payloads) == 0 {
 		return format.Claim{}, false
@@ -549,13 +767,20 @@ func (catalogModule) Claim(file probe.Inspection) (format.Claim, bool) {
 func (catalogModule) Parse(context.Context, probe.Inspection, format.Claim) (format.Parsed, error) {
 	nsfw := true
 	return format.Parsed{
-		Kind: "character", Format: "catalog", Name: "Moonlit Visitor",
+		Kind: "character", Format: "catalog", Header: format.Header{Name: "Moonlit Visitor"},
 		Blurb: "A quiet visitor from the edge of the wood.",
 		Tags:  []string{"folklore", "gentle"}, IsNSFW: &nsfw,
+		Elements: []block.Element{
+			{Type: block.TypeProse, Role: block.RoleDescription, Content: block.Prose{Text: "A quiet visitor."}},
+			{Type: block.TypeTextSet, Role: block.RoleGreetings, Content: block.TextSet{Texts: []block.TextItem{{Text: "Good evening."}}}},
+		},
 	}, nil
 }
 
 func (*internalFailureModule) ID() string { return "internal_failure" }
+func (*internalFailureModule) Declaration() format.Declaration {
+	return testReaderDeclaration("internal_failure", "character")
+}
 func (*internalFailureModule) Claim(file probe.Inspection) (format.Claim, bool) {
 	if len(file.Payloads) == 0 {
 		return format.Claim{}, false
@@ -567,7 +792,7 @@ func (m *internalFailureModule) Parse(context.Context, probe.Inspection, format.
 		m.failuresLeft--
 		return format.Parsed{}, format.InternalFailure(errors.New("temporary module failure"))
 	}
-	return format.Parsed{Kind: "character", Format: "test"}, nil
+	return format.Parsed{Kind: "character", Format: "internal_failure"}, nil
 }
 
 func TestOnlyInternalFailuresRetry(t *testing.T) {
@@ -654,7 +879,7 @@ func TestExhaustedInternalFailureIsReported(t *testing.T) {
 	}
 }
 
-func TestFinalizationFailuresUseBoundedInternalRetries(t *testing.T) {
+func TestAClaimedKindWithoutABlockCatalogIsRefused(t *testing.T) {
 	settings := asset.DefaultIngestSettings()
 	settings.RetryBase = 0
 	settings.MaxAttempts = 2
@@ -669,29 +894,24 @@ func TestFinalizationFailuresUseBoundedInternalRetries(t *testing.T) {
 		uploadRequest(t, metadata, []byte(`{"payload":true}`)), session,
 	))
 
-	for attempt, wantStatus := range []string{"pending", "failed"} {
-		if processed, err := assets.ProcessNextIngest(context.Background()); err != nil || !processed {
-			t.Fatalf("process %d = %v, %v; want true, nil", attempt+1, processed, err)
-		}
-		poll := send(t, r, authorized(
-			httptest.NewRequest(http.MethodGet, upload.Header().Get("Location"), nil), session,
-		))
-		var operation struct {
-			Status  string `json:"status"`
-			Failure *struct {
-				Reason string `json:"reason"`
-			} `json:"failure"`
-		}
-		if err := json.Unmarshal(poll.Body.Bytes(), &operation); err != nil {
-			t.Fatalf("decode operation: %v", err)
-		}
-		if operation.Status != wantStatus {
-			t.Fatalf("status after attempt %d = %q, want %q", attempt+1, operation.Status, wantStatus)
-		}
-		if wantStatus == "failed" &&
-			(operation.Failure == nil || operation.Failure.Reason != "internal_failure") {
-			t.Fatalf("failure = %#v, want internal_failure", operation.Failure)
-		}
+	if processed, err := assets.ProcessNextIngest(context.Background()); err != nil || !processed {
+		t.Fatalf("process = %v, %v; want true, nil", processed, err)
+	}
+	poll := send(t, r, authorized(
+		httptest.NewRequest(http.MethodGet, upload.Header().Get("Location"), nil), session,
+	))
+	var operation struct {
+		Status  string `json:"status"`
+		Failure *struct {
+			Reason string `json:"reason"`
+		} `json:"failure"`
+	}
+	if err := json.Unmarshal(poll.Body.Bytes(), &operation); err != nil {
+		t.Fatalf("decode operation: %v", err)
+	}
+	if operation.Status != "failed" || operation.Failure == nil ||
+		operation.Failure.Reason != "unsupported_format" {
+		t.Fatalf("operation = %#v, want an unsupported-format refusal", operation)
 	}
 }
 
@@ -733,6 +953,12 @@ func TestCatalogMetadataSeedsFromParseWithoutChangingTheFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse asset id: %v", err)
 	}
+	published := send(t, r, authorized(httptest.NewRequest(
+		http.MethodPost, "/v1/assets/"+operation.Asset.ID+"/publish", nil,
+	), session))
+	if published.Code != http.StatusOK {
+		t.Fatalf("publish imported asset = %d: %s", published.Code, published.Body.String())
+	}
 	stored, err := assets.OpenSource(context.Background(), assetID)
 	if err != nil {
 		t.Fatalf("open source: %v", err)
@@ -753,6 +979,9 @@ type blockingModule struct {
 }
 
 func (*blockingModule) ID() string { return "blocking" }
+func (*blockingModule) Declaration() format.Declaration {
+	return testReaderDeclaration("blocking", "character")
+}
 func (*blockingModule) Claim(file probe.Inspection) (format.Claim, bool) {
 	if len(file.Payloads) == 0 {
 		return format.Claim{}, false
@@ -865,6 +1094,12 @@ func TestARevisionUploadReplacesTheBytesAndKeepsTheCatalogEntry(t *testing.T) {
 		t.Fatalf("process ingest: %v", err)
 	}
 	created := pollIngestAsset(t, r, session, upload.Header().Get("Location"))
+	published := send(t, r, authorized(httptest.NewRequest(
+		http.MethodPost, "/v1/assets/"+created.ID+"/publish", nil,
+	), session))
+	if published.Code != http.StatusOK {
+		t.Fatalf("publish initial import = %d: %s", published.Code, published.Body.String())
+	}
 	firstFile := servedSourcePath(t, r, created.ID)
 
 	revision := send(t, r, authorized(

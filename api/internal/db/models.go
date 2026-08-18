@@ -28,6 +28,11 @@ type Asset struct {
 	DeletedAt         pgtype.Timestamptz
 	RecoverableUntil  pgtype.Timestamptz
 	Lifecycle         string
+	AssetVersion      string
+	CreditedAuthor    string
+	Nickname          string
+	OriginFormat      pgtype.Text
+	ContentGeneration int32
 }
 
 type AssetBlock struct {
@@ -60,15 +65,23 @@ type AssetMedium struct {
 	IsCurrent   bool
 }
 
+type AssetPreservedDatum struct {
+	ID        pgtype.UUID
+	AssetID   pgtype.UUID
+	OwnerKind string
+	OwnerID   pgtype.UUID
+	Namespace string
+	Payload   []byte
+}
+
 type AssetRevision struct {
-	ID                  pgtype.UUID
-	AssetID             pgtype.UUID
-	Revision            int32
-	MediaType           string
-	CreatedAt           pgtype.Timestamptz
-	BlobID              pgtype.UUID
-	Format              string
-	PassthroughPlatform pgtype.Text
+	ID        pgtype.UUID
+	AssetID   pgtype.UUID
+	Revision  int32
+	MediaType string
+	CreatedAt pgtype.Timestamptz
+	BlobID    pgtype.UUID
+	Format    string
 }
 
 type Blob struct {
@@ -121,7 +134,6 @@ type IngestOperation struct {
 	BlobID         pgtype.UUID
 	Filename       string
 	Status         string
-	Kind           pgtype.Text
 	Name           pgtype.Text
 	Blurb          pgtype.Text
 	Tags           []string
@@ -133,10 +145,10 @@ type IngestOperation struct {
 	AvailableAt    pgtype.Timestamptz
 	LeaseToken     pgtype.UUID
 	LeaseExpiresAt pgtype.Timestamptz
-	ExpiresAt      pgtype.Timestamptz
 	CreatedAt      pgtype.Timestamptz
 	UpdatedAt      pgtype.Timestamptz
 	TargetAssetID  pgtype.UUID
+	FailureMessage pgtype.Text
 }
 
 type LinkCodeAttempt struct {

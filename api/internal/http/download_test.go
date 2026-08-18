@@ -347,7 +347,7 @@ func TestOwnerCanPatchAFileFieldAndDownloadADeclaredTarget(t *testing.T) {
 	metadata["filename"] = "ana.json"
 	source := []byte(`{
 		"spec":"chara_card_v3","spec_version":"3.0",
-		"data":{"name":"Ana","description":"Before","extensions": { "third_party": { "keep": true, "order": [3,1,2] } }}
+		"data":{"name":"Ana","description":"Before","first_mes":"Hello","extensions": { "third_party": { "keep": true, "order": [3,1,2] } }}
 	}`)
 	var sourceCard struct {
 		Data struct {
@@ -509,8 +509,12 @@ func TestProbeVerifiedRasterSourcesMayRenderInline(t *testing.T) {
 	}
 }
 
-func TestFilenameExtensionAndDeclaredTypeCannotMakeSVGInline(t *testing.T) {
-	r, session, assets := newVerifiedIngestRouter(t, format.NewRegistry())
+func TestFilenameExtensionAndDeclaredTypeCannotMakeAnUnknownSVGImportable(t *testing.T) {
+	registry := format.NewRegistry()
+	if err := registry.Register(neverClaimsModule{}); err != nil {
+		t.Fatalf("register non-claiming module: %v", err)
+	}
+	r, session, assets := newVerifiedIngestRouter(t, registry)
 	body := &bytes.Buffer{}
 	form := multipart.NewWriter(body)
 	writeMetadataPart(t, form, exampleMetadata("Claimed image"))
@@ -537,38 +541,25 @@ func TestFilenameExtensionAndDeclaredTypeCannotMakeSVGInline(t *testing.T) {
 		t.Fatalf("process ingest = %v, %v; want true, nil", processed, err)
 	}
 
-	completed := send(t, r, authorizedJSONRequest(
+	removedCompletion := send(t, r, authorizedJSONRequest(
 		t, http.MethodPatch, accepted.Header().Get("Location"),
 		`{"kind":"theme","name":"Claimed image"}`, session,
 	))
-	if completed.Code != http.StatusAccepted {
-		t.Fatalf("complete status = %d, want 202", completed.Code)
-	}
-	if processed, err := assets.ProcessNextIngest(request.Context()); err != nil || !processed {
-		t.Fatalf("resume ingest = %v, %v; want true, nil", processed, err)
+	if removedCompletion.Code != http.StatusNotFound {
+		t.Fatalf("removed completion route status = %d, want 404", removedCompletion.Code)
 	}
 	poll := send(t, r, authorized(
 		httptest.NewRequest(http.MethodGet, accepted.Header().Get("Location"), nil), session,
 	))
 	var operation struct {
-		Asset *struct {
-			ID string `json:"id"`
-		} `json:"asset"`
+		Failure *struct {
+			Reason string `json:"reason"`
+		} `json:"failure"`
 	}
 	if err := json.Unmarshal(poll.Body.Bytes(), &operation); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if operation.Asset == nil {
-		t.Fatal("completed ingest has no asset")
-	}
-
-	download := send(t, r, httptest.NewRequest(
-		http.MethodGet, "/download/"+operation.Asset.ID, nil,
-	))
-	if got := download.Header().Get("Content-Type"); got != "application/octet-stream" {
-		t.Errorf("Content-Type = %q, want application/octet-stream", got)
-	}
-	if got := download.Header().Get("Content-Disposition"); got != "attachment" {
-		t.Errorf("Content-Disposition = %q, want attachment", got)
+	if operation.Failure == nil || operation.Failure.Reason != "unsupported_format" {
+		t.Fatalf("failure = %#v, want unsupported_format", operation.Failure)
 	}
 }

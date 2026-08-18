@@ -13,6 +13,8 @@ type CCv3Module struct{}
 
 func (CCv3Module) ID() string { return V3 }
 
+func (CCv3Module) Declaration() format.Declaration { return declaration(V3) }
+
 func (m CCv3Module) BrowseDefinition() format.BrowseDefinition {
 	return browseDefinition(m.ExportTargets())
 }
@@ -25,16 +27,18 @@ func (CCv3Module) Export(_ context.Context, request format.ExportRequest) (forma
 	return exportCard(request, V3, "ccv3")
 }
 
-func (CCv3Module) Claim(file probe.Inspection) (format.Claim, bool) { return CCv3(file) }
+func (m CCv3Module) Claim(file probe.Inspection) (format.Claim, bool) {
+	return format.ClaimByDeclaration(file, m.Declaration())
+}
 
 func (m CCv3Module) Parse(
 	_ context.Context,
 	file probe.Inspection,
 	claim format.Claim,
 ) (format.Parsed, error) {
-	read, err := readCard(file, claim, 3)
+	read, err := readCard(file, claim, 3, m.ID())
 	if err != nil {
 		return format.Parsed{}, err
 	}
-	return read.parsed(m.ID(), documentImage(file)), nil
+	return read.parsed(m.ID(), documentImage(file))
 }

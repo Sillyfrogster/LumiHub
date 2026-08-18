@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sillyfrogster/LumiHub/api/internal/block"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
 	"github.com/Sillyfrogster/LumiHub/api/internal/testdb"
@@ -30,7 +31,7 @@ func TestPurgeCommitsTheTombstoneAndBrokenReferencesBeforeDeletingBytes(t *testi
 	if err != nil {
 		t.Fatalf("storage: %v", err)
 	}
-	service := NewService(pool, format.NewRegistry(), failingDeleteStore{Store: store})
+	service := NewService(pool, registryWithModule(t, opaqueTestModule{}), failingDeleteStore{Store: store})
 	ownerID := uuid.New()
 	actorID := uuid.New()
 	if _, err := pool.Exec(ctx, `
@@ -98,7 +99,7 @@ func TestPurgeAndIngestFinalizationSerializeOnTheDigest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("storage: %v", err)
 	}
-	service := NewService(pool, format.NewRegistry(), store)
+	service := NewService(pool, registryWithModule(t, opaqueTestModule{}), store)
 	ownerID := uuid.New()
 	actorID := uuid.New()
 	if _, err := pool.Exec(ctx, `
@@ -123,8 +124,12 @@ func TestPurgeAndIngestFinalizationSerializeOnTheDigest(t *testing.T) {
 	var digest [32]byte
 	copy(digest[:], digestBytes)
 	prepared := preparedIngest{
-		Kind: "theme", Format: "unknown", Name: "Race", Tags: []string{},
+		Kind: "character", Format: "unknown", Name: "Race", Tags: []string{},
 		Discovery: DiscoveryListed, MediaType: "application/octet-stream",
+	}
+	prepared.Blocks, err = block.Place(prepared.Kind, nil)
+	if err != nil {
+		t.Fatalf("place fixture: %v", err)
 	}
 
 	start := make(chan struct{})
@@ -174,7 +179,7 @@ func TestPurgeDeletesSharedBytesBreaksReferencesAndRecordsATombstone(t *testing.
 	if err != nil {
 		t.Fatalf("storage: %v", err)
 	}
-	service := NewService(pool, format.NewRegistry(), store)
+	service := NewService(pool, registryWithModule(t, opaqueTestModule{}), store)
 	now := time.Date(2026, 8, 14, 15, 0, 0, 0, time.UTC)
 	service.now = func() time.Time { return now }
 	ownerID := uuid.New()

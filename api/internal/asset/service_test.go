@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sillyfrogster/LumiHub/api/internal/block"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
 	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
@@ -18,7 +19,43 @@ import (
 
 func newTestService(t *testing.T) (*Service, *pgxpool.Pool) {
 	t.Helper()
-	return newTestServiceWithRegistry(t, format.NewRegistry())
+	return newTestServiceWithRegistry(t, registryWithModule(t, opaqueTestModule{}))
+}
+
+type opaqueTestModule struct{}
+
+func testReaderDeclaration(id, kind string) format.Declaration {
+	return format.Declaration{
+		ID: id, Kind: kind, Direction: format.Direction{Read: true},
+		Recognition: []format.Recognition{{
+			Kind: format.RecognitionSignature, Containers: []probe.Container{probe.JSON},
+			Required: map[string]format.ValueType{"payload": format.ValueBoolean},
+		}},
+		Limits: format.ContentLimits{
+			PayloadBytes: block.MaxPayloadBytes, CollectionItems: block.MaxCollectionItems,
+			ItemBytes: block.MaxItemBytes,
+		},
+		ConsumedKeys:  []string{"payload"},
+		Preservation:  format.PreservationDeclaration{Namespaces: []string{"test"}},
+		TestedOrigins: []string{id},
+	}
+}
+
+func (opaqueTestModule) ID() string { return "test_opaque" }
+func (opaqueTestModule) Declaration() format.Declaration {
+	return testReaderDeclaration("test_opaque", "character")
+}
+func (opaqueTestModule) Claim(file probe.Inspection) (format.Claim, bool) {
+	return format.WholeFileCompatibilityClaim(file), true
+}
+func (opaqueTestModule) Parse(context.Context, probe.Inspection, format.Claim) (format.Parsed, error) {
+	return format.Parsed{
+		Kind: "character", Format: "test_opaque",
+		Elements: []block.Element{
+			{Type: block.TypeProse, Role: block.RoleDescription, Content: block.Prose{Text: "Test description"}},
+			{Type: block.TypeTextSet, Role: block.RoleGreetings, Content: block.TextSet{Texts: []block.TextItem{{Text: "Hello"}}}},
+		},
+	}, nil
 }
 
 type claimsFirstPayload struct{}
@@ -28,6 +65,18 @@ func (claimsFirstPayload) Claim(file probe.Inspection) (format.Claim, bool) {
 		return format.Claim{}, false
 	}
 	return format.CompatibilityClaim(file.Payloads[0]), true
+}
+
+type limitedModule struct{ claimsFirstPayload }
+
+func (limitedModule) ID() string { return "limited" }
+func (limitedModule) Declaration() format.Declaration {
+	declaration := testReaderDeclaration("limited", "character")
+	declaration.Limits.PayloadBytes = 10
+	return declaration
+}
+func (limitedModule) Parse(context.Context, probe.Inspection, format.Claim) (format.Parsed, error) {
+	return format.Parsed{Kind: "character", Format: "limited"}, nil
 }
 
 func registryWithModule(t *testing.T, module format.Module) *format.Registry {
@@ -49,10 +98,12 @@ func newTestServiceWithRegistry(t *testing.T, registry *format.Registry) (*Servi
 	return NewService(pool, registry, blob), pool
 }
 
-func TestCreateStoresUploaderMetadataForAnUnparseableFile(t *testing.T) {
-	svc, pool := newTestService(t)
+func TestCreateRefusesAnUnrecognisedFileWithoutWritingAnAsset(t *testing.T) {
+	pool := testdb.Connect(t)
+	blob, _ := storage.NewStore(pool, t.TempDir())
+	svc := NewService(pool, format.NewRegistry(), blob)
 
-	got, err := svc.Create(context.Background(), CreateInput{
+	_, err := svc.Create(context.Background(), CreateInput{
 		OwnerID:   uuid.New(),
 		Kind:      "character",
 		Filename:  "mystery.bin",
@@ -62,61 +113,34 @@ func TestCreateStoresUploaderMetadataForAnUnparseableFile(t *testing.T) {
 		Tags:      []string{"fantasy"},
 		Discovery: "listed",
 	})
-	if err != nil {
-		t.Fatalf("Create: %v", err)
+	if !errors.Is(err, format.ErrUnsupportedFormat) {
+		t.Fatalf("Create error = %v, want ErrUnsupportedFormat", err)
 	}
+	var assets int
+	if err := pool.QueryRow(context.Background(), `select count(*) from assets`).Scan(&assets); err != nil {
+		t.Fatalf("count assets: %v", err)
+	}
+	if assets != 0 {
+		t.Fatalf("asset count = %d, want 0", assets)
+	}
+}
 
-	if got.Format != "unknown" {
-		t.Errorf("Format = %q, want unknown", got.Format)
+func TestCreateUsesTheModulesPayloadLimit(t *testing.T) {
+	svc, pool := newTestServiceWithRegistry(t, registryWithModule(t, limitedModule{}))
+	_, err := svc.Create(context.Background(), CreateInput{
+		OwnerID: uuid.New(), Filename: "large.json",
+		File: bytes.NewReader([]byte(`{"content":"well past ten bytes"}`)),
+	})
+	reason, classified := format.FailureOf(err)
+	if !classified || reason != format.FailureLimitExceeded {
+		t.Fatalf("Create error = %v, want limit_exceeded", err)
 	}
-	if got.Name != "Uploader chose this name" {
-		t.Errorf("Name = %q, the uploader's value must win", got.Name)
+	var count int
+	if err := pool.QueryRow(context.Background(), `select count(*) from assets`).Scan(&count); err != nil {
+		t.Fatalf("count assets: %v", err)
 	}
-	if got.CurrentRevisionID == uuid.Nil {
-		t.Error("CurrentRevisionID must be set, callers never compute MAX(revision)")
-	}
-
-	var name, blurb, format string
-	var tags []string
-	var currentRevision uuid.UUID
-	err = pool.QueryRow(context.Background(),
-		`select asset.name, asset.blurb, revision.format, asset.tags, asset.current_revision_id
-		   from assets asset
-		   join asset_revisions revision on revision.id = asset.current_revision_id
-		  where asset.id = $1`,
-		got.ID).Scan(&name, &blurb, &format, &tags, &currentRevision)
-	if err != nil {
-		t.Fatalf("asset row was not written: %v", err)
-	}
-	if name != "Uploader chose this name" {
-		t.Errorf("stored name = %q, the uploader's value must win", name)
-	}
-	if blurb != "A short catalog pitch" {
-		t.Errorf("stored blurb = %q", blurb)
-	}
-	if format != "unknown" {
-		t.Errorf("stored format = %q, want unknown", format)
-	}
-	if len(tags) != 1 || tags[0] != "fantasy" {
-		t.Errorf("stored tags = %v, want [fantasy]", tags)
-	}
-	if currentRevision != got.CurrentRevisionID {
-		t.Errorf("stored current_revision_id = %v, want %v", currentRevision, got.CurrentRevisionID)
-	}
-
-	var revision int
-	var byteSize int64
-	err = pool.QueryRow(context.Background(),
-		`select r.revision, b.byte_size
-		   from asset_revisions r
-		   join blobs b on b.id = r.blob_id
-		  where r.id = $1`,
-		got.CurrentRevisionID).Scan(&revision, &byteSize)
-	if err != nil {
-		t.Fatalf("revision row was not written: %v", err)
-	}
-	if revision != 1 || byteSize != 3 {
-		t.Errorf("revision = %d, byte_size = %d, want 1 and 3", revision, byteSize)
+	if count != 0 {
+		t.Fatalf("asset count = %d, want 0", count)
 	}
 }
 
@@ -149,6 +173,9 @@ type recognizedModule struct {
 }
 
 func (recognizedModule) ID() string { return "recognized" }
+func (recognizedModule) Declaration() format.Declaration {
+	return testReaderDeclaration("recognized", "character")
+}
 func (m recognizedModule) Parse(context.Context, probe.Inspection, format.Claim) (format.Parsed, error) {
 	return m.parsed, nil
 }
@@ -175,25 +202,13 @@ func TestCreateDerivesKindFromARecognizedFormat(t *testing.T) {
 	}
 }
 
-func TestRecognizedFormatCannotCarryAPassthroughPlatform(t *testing.T) {
-	platform := "lumiverse"
-	svc := serviceWithRecognizedModule(t, format.Parsed{
-		Kind: "character", Format: "recognized", PassthroughPlatform: &platform,
-	})
-
-	_, err := svc.Create(context.Background(), CreateInput{
-		OwnerID: uuid.New(), Kind: "character", Filename: "card.bin",
-		File: bytes.NewReader([]byte("{}")), Name: "Card",
-	})
-	if err == nil {
-		t.Fatal("recognized format stored a passthrough platform label")
-	}
-}
-
 /** Always fails, so the test can prove nothing is left behind */
 type failingModule struct{ claimsFirstPayload }
 
 func (failingModule) ID() string { return "failing" }
+func (failingModule) Declaration() format.Declaration {
+	return testReaderDeclaration("failing", "character")
+}
 func (failingModule) Parse(context.Context, probe.Inspection, format.Claim) (format.Parsed, error) {
 	return format.Parsed{}, errors.New("cannot parse")
 }
@@ -202,10 +217,13 @@ func (failingModule) Parse(context.Context, probe.Inspection, format.Claim) (for
 type badFacetModule struct{ claimsFirstPayload }
 
 func (badFacetModule) ID() string { return "badfacet" }
+func (badFacetModule) Declaration() format.Declaration {
+	return testReaderDeclaration("badfacet", "character")
+}
 func (badFacetModule) Parse(context.Context, probe.Inspection, format.Claim) (format.Parsed, error) {
 	return format.Parsed{
 		Kind:   "character",
-		Format: "test",
+		Format: "badfacet",
 		Facets: []format.Facet{{Key: "bad", Value: "\x00"}},
 	}, nil
 }
@@ -245,6 +263,9 @@ type datedModule struct {
 }
 
 func (datedModule) ID() string { return "dated" }
+func (datedModule) Declaration() format.Declaration {
+	return testReaderDeclaration("dated", "character")
+}
 func (m datedModule) Parse(context.Context, probe.Inspection, format.Claim) (format.Parsed, error) {
 	return format.Parsed{Kind: "character", Format: "dated", CreatedAt: &m.made}, nil
 }
@@ -349,7 +370,7 @@ func TestOpenSourceTellsMissingAssetFromBrokenStorage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("storage: %v", err)
 	}
-	svc := NewService(pool, format.NewRegistry(), blob)
+	svc := NewService(pool, registryWithModule(t, opaqueTestModule{}), blob)
 
 	created, err := svc.Create(context.Background(), CreateInput{
 		OwnerID: uuid.New(), Kind: "character", Filename: "a.bin",

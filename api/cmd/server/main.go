@@ -42,6 +42,9 @@ func main() {
 			log.Fatalf("format module: %v", err)
 		}
 	}
+	if err := registry.ValidateDeclarations(); err != nil {
+		log.Fatalf("format declarations: %v", err)
+	}
 
 	svc := asset.NewServiceWithProbeLimits(pool, registry, blob, cfg.ProbeLimits)
 	go svc.RunIngestWorkers(context.Background(), cfg.IngestWorkers, func(err error) {

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/Sillyfrogster/LumiHub/api/internal/block"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	mediaproc "github.com/Sillyfrogster/LumiHub/api/internal/media"
 	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
@@ -70,11 +71,26 @@ type MediaRequest struct {
 }
 
 type preparedMedia struct {
-	ID     uuid.UUID
-	BlobID uuid.UUID
-	Role   MediaRole
-	Width  int
-	Height int
+	ID          uuid.UUID
+	BlobID      uuid.UUID
+	Role        MediaRole
+	ElementRole block.Role
+	Name        string
+	Width       int
+	Height      int
+}
+
+type sourceErrorReader struct {
+	reader io.Reader
+	err    error
+}
+
+func (r *sourceErrorReader) Read(payload []byte) (int, error) {
+	count, err := r.reader.Read(payload)
+	if err != nil && !errors.Is(err, io.EOF) {
+		r.err = err
+	}
+	return count, err
 }
 
 // AddMedia stores one creator-managed image under a new media ID.
@@ -235,23 +251,68 @@ func (s *Service) prepareExtractedMedia(
 		}
 		source, err := file.OpenImage(ctx, item.ImageID)
 		if err != nil {
+			if errors.Is(err, probe.ErrImageUnavailable) {
+				continue
+			}
 			return nil, fmt.Errorf("open extracted media: %w", err)
 		}
-		stored, err := s.store.Put(ctx, source)
-		source.Close()
+		tracked := &sourceErrorReader{reader: source}
+		stored, err := s.store.Put(ctx, tracked)
+		closeErr := source.Close()
+		if localImageReadFailure(tracked.err) || localImageReadFailure(closeErr) {
+			continue
+		}
+		if tracked.err != nil {
+			return nil, fmt.Errorf("read extracted media: %w", tracked.err)
+		}
+		if closeErr != nil {
+			return nil, fmt.Errorf("close extracted media: %w", closeErr)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("store extracted media: %w", err)
 		}
 		image, err := s.prepareMedia(ctx, stored)
 		if err != nil {
+			if errors.Is(err, mediaproc.ErrUnsupportedImage) {
+				continue
+			}
 			return nil, err
 		}
 		prepared = append(prepared, preparedMedia{
 			ID: uuid.New(), BlobID: stored.ID, Role: role,
+			ElementRole: item.ElementRole, Name: item.Name,
 			Width: image.Width, Height: image.Height,
 		})
 	}
 	return prepared, nil
+}
+
+func localImageReadFailure(err error) bool {
+	return err != nil && !errors.Is(err, probe.ErrRangeRead) && !errors.Is(err, context.Canceled)
+}
+
+func elementsForExtractedMedia(media []preparedMedia) []block.Element {
+	grouped := make(map[block.Role][]block.ImageItem)
+	order := make([]block.Role, 0, 2)
+	for _, item := range media {
+		if item.ElementRole == "" {
+			continue
+		}
+		if _, seen := grouped[item.ElementRole]; !seen {
+			order = append(order, item.ElementRole)
+		}
+		grouped[item.ElementRole] = append(grouped[item.ElementRole], block.ImageItem{
+			MediaID: item.ID, Name: item.Name,
+		})
+	}
+	elements := make([]block.Element, 0, len(order))
+	for _, role := range order {
+		elements = append(elements, block.Element{
+			Type: block.TypeImageSet, Role: role,
+			Content: block.ImageSet{Images: grouped[role]},
+		})
+	}
+	return elements
 }
 
 func insertAssetMedia(

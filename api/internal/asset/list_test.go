@@ -39,11 +39,15 @@ func TestListFiltersByKind(t *testing.T) {
 	create(t, svc, "a-character", "character", "listed")
 	create(t, svc, "a-theme", "theme", "listed")
 
-	got, err := svc.List(context.Background(), ListFilter{Kind: "theme", Limit: 50})
+	got, err := svc.List(context.Background(), ListFilter{Kind: "character", Limit: 50})
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
-	if len(got) != 1 || got[0].Name != "a-theme" {
-		t.Fatalf("kind filter returned %d assets, want just the theme", len(got))
+	if len(got) != 2 {
+		t.Fatalf("kind filter returned %d assets, want both module-declared characters", len(got))
+	}
+	none, err := svc.List(context.Background(), ListFilter{Kind: "theme", Limit: 50})
+	if err != nil || len(none) != 0 {
+		t.Fatalf("theme filter = %d assets, %v; uploader input must not override the module kind", len(none), err)
 	}
 }

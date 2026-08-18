@@ -901,29 +901,6 @@ paths:
         "401": { description: No account is signed in }
         "403": { description: The signed-in account has not verified its email }
         "404": { description: No such ingest operation for this creator }
-    patch:
-      operationId: completeIngest
-      security: [{ sessionCookie: [] }]
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/CompleteIngestRequest" }
-      responses:
-        "202":
-          description: The ingest operation queued again with its passthrough kind
-          headers:
-            Location:
-              schema: { type: string }
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/IngestOperation" }
-        "400": { description: The kind or name is invalid }
-        "401": { description: No account is signed in }
-        "403": { description: The signed-in account has not verified its email }
-        "404": { description: No such ingest operation awaiting a kind }
 components:
   securitySchemes:
     sessionCookie:
@@ -1402,7 +1379,6 @@ components:
       properties:
         id: { type: string, format: uuid }
         kind: { type: string }
-        passthroughPlatform: { type: [string, "null"] }
         format: { type: string }
         name: { type: string }
         blurb: { type: string }
@@ -1704,30 +1680,14 @@ components:
       required: [id, status, url]
       properties:
         id: { type: string, format: uuid }
-        status: { type: string, enum: [pending, processing, needs_kind, failed, success] }
+        status: { type: string, enum: [pending, processing, failed, success] }
         url: { type: string }
         asset:
           anyOf:
             - { $ref: "#/components/schemas/Asset" }
             - { type: "null" }
-        needsKind:
-          $ref: "#/components/schemas/NeedsKind"
         failure:
           $ref: "#/components/schemas/IngestFailure"
-    NeedsKind:
-      type: object
-      additionalProperties: false
-      required: [kind, name]
-      properties:
-        kind: { type: [string, "null"], enum: [character, lorebook, preset, theme, null] }
-        name: { type: string }
-    CompleteIngestRequest:
-      type: object
-      additionalProperties: false
-      required: [kind, name]
-      properties:
-        kind: { type: string, enum: [character, lorebook, preset, theme] }
-        name: { type: string, minLength: 1 }
     IngestFailure:
       type: object
       required: [reason, message]

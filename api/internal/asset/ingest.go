@@ -2,13 +2,14 @@ package asset
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"path/filepath"
-	"strings"
+	"slices"
 	"sync"
 	"time"
 
+	"github.com/Sillyfrogster/LumiHub/api/internal/block"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
 	"github.com/google/uuid"
@@ -67,7 +68,6 @@ type ingestJob struct {
 	BlobID     uuid.UUID
 	LeaseToken uuid.UUID
 	Filename   string
-	Kind       *string
 	Name       *string
 	Blurb      *string
 	Tags       []string
@@ -86,28 +86,111 @@ type revisionTarget struct {
 }
 
 type preparedIngest struct {
-	Kind                string
-	Format              string
-	PassthroughPlatform *string
-	Name                string
-	Blurb               string
-	Tags                []string
-	IsNSFW              bool
-	Discovery           Discovery
-	Facets              []format.Facet
-	Media               []preparedMedia
-	CreatedAt           *time.Time
-	MediaType           string
+	Kind      string
+	Format    string
+	Name      string
+	Blurb     string
+	Tags      []string
+	IsNSFW    bool
+	Discovery Discovery
+	Facets    []format.Facet
+	Blocks    []block.Block
+	Header    format.Header
+	Remainder []format.Remainder
+	Media     []preparedMedia
+	CreatedAt *time.Time
+	MediaType string
+}
+
+type preparedImport struct {
+	Parsed    format.Parsed
+	Blocks    []block.Block
+	Media     []preparedMedia
+	MediaType string
+}
+
+// readImport runs the one format-module pipeline shared by immediate creation
+// and queued ingest. Callers choose lifecycle and transaction boundaries.
+func (s *Service) readImport(
+	ctx context.Context,
+	inspected probe.Inspection,
+	expectedKind string,
+) (preparedImport, error) {
+	resolution, claimed, err := s.reg.Resolve(inspected)
+	if err != nil {
+		return preparedImport{}, err
+	}
+	if !claimed {
+		return preparedImport{}, format.ErrUnsupportedFormat
+	}
+
+	declaration := resolution.Module.Declaration()
+	payload, ok := resolution.Claim.Payload(inspected)
+	if !ok {
+		return preparedImport{}, format.ErrInvalidClaim
+	}
+	payloadBytes := payload.ByteSize
+	if payloadBytes == 0 {
+		if encoded, marshalErr := json.Marshal(payload.Root); marshalErr == nil {
+			payloadBytes = int64(len(encoded))
+		}
+	}
+	if declaration.Limits.PayloadBytes > 0 && payloadBytes > int64(declaration.Limits.PayloadBytes) {
+		return preparedImport{}, format.LimitExceeded(fmt.Errorf(
+			"%s reads payloads up to %d bytes; this payload has %d bytes",
+			resolution.Module.ID(), declaration.Limits.PayloadBytes, payloadBytes,
+		))
+	}
+
+	parsed, err := resolution.Module.Parse(ctx, inspected, resolution.Claim)
+	if err != nil {
+		if _, classified := format.FailureOf(err); classified {
+			return preparedImport{}, err
+		}
+		return preparedImport{}, format.MalformedInput(err)
+	}
+	if parsed.Kind != declaration.Kind {
+		return preparedImport{}, format.InternalFailure(fmt.Errorf(
+			"module %q parsed kind %q instead of declared kind %q",
+			resolution.Module.ID(), parsed.Kind, declaration.Kind,
+		))
+	}
+	if parsed.Format != declaration.ID {
+		return preparedImport{}, format.InternalFailure(fmt.Errorf(
+			"module %q parsed format %q instead of its declared identity",
+			resolution.Module.ID(), parsed.Format,
+		))
+	}
+	if expectedKind != "" && parsed.Kind != expectedKind {
+		return preparedImport{}, errWrongKind
+	}
+	if _, ok := block.Catalog(parsed.Kind); !ok {
+		return preparedImport{}, ErrKindNotBuildable
+	}
+
+	preparedMedia, err := s.prepareExtractedMedia(ctx, inspected, parsed.Media)
+	if err != nil {
+		return preparedImport{}, err
+	}
+	elements := append(slices.Clone(parsed.Elements), elementsForExtractedMedia(preparedMedia)...)
+	if err := block.ValidateContentLimits(elements); err != nil {
+		return preparedImport{}, format.LimitExceeded(err)
+	}
+	blocks, err := block.Place(parsed.Kind, elements)
+	if err != nil {
+		return preparedImport{}, fmt.Errorf("place imported content: %w", err)
+	}
+	mediaType := inspected.InlineMediaType()
+	if mediaType == "" {
+		mediaType = "application/octet-stream"
+	}
+	return preparedImport{
+		Parsed: parsed, Blocks: blocks, Media: preparedMedia, MediaType: mediaType,
+	}, nil
 }
 
 // ProcessNextIngest leases and processes one available operation.
 func (s *Service) ProcessNextIngest(ctx context.Context) (bool, error) {
-	if _, err := s.pool.Exec(ctx, `
-		delete from ingest_operations
-		 where status = 'needs_kind' and expires_at <= $1
-	`, s.now()); err != nil {
-		return false, fmt.Errorf("expire needs_kind ingests: %w", err)
-	}
 	job, ok, err := s.leaseNextIngest(ctx)
 	if err != nil || !ok {
 		return ok, err
@@ -125,44 +208,38 @@ func (s *Service) ProcessNextIngest(ctx context.Context) (bool, error) {
 		}
 		return true, s.finishIngestFailure(ctx, job, format.FailureInternal)
 	}
-	resolution, claimed, err := s.reg.Resolve(inspected)
+	expectedKind := ""
+	if job.Target != nil {
+		expectedKind = job.Target.Kind
+	}
+	read, err := s.readImport(ctx, inspected, expectedKind)
 	if err != nil {
-		if errors.Is(err, format.ErrUnsupportedFormat) {
+		if err == format.ErrUnsupportedFormat {
 			return true, s.finishIngestFailure(ctx, job, format.FailureUnsupportedFormat)
 		}
-		return true, s.finishIngestFailure(ctx, job, format.FailureInternal)
-	}
-
-	parsed := format.Parsed{Format: "unknown"}
-	if claimed {
-		parsed, err = resolution.Module.Parse(ctx, inspected, resolution.Claim)
-		if err != nil {
-			reason := format.FailureMalformedInput
-			if classified, ok := format.FailureOf(err); ok {
-				reason = classified
-			}
-			return true, s.finishIngestFailure(ctx, job, reason)
+		reason := mediaIngestFailure(err)
+		if errors.Is(err, errWrongKind) {
+			reason = format.FailureWrongKind
 		}
+		if errors.Is(err, format.ErrUnsupportedFormat) || errors.Is(err, ErrKindNotBuildable) {
+			reason = format.FailureUnsupportedFormat
+		}
+		if classified, ok := format.FailureOf(err); ok {
+			reason = classified
+		}
+		return true, s.finishIngestFailure(ctx, job, reason, err.Error())
 	}
 
-	prepared, needsKind, err := prepareIngest(job, parsed, claimed)
+	prepared, err := prepareIngest(job, read.Parsed)
 	if errors.Is(err, errWrongKind) {
 		return true, s.finishIngestFailure(ctx, job, format.FailureWrongKind)
 	}
 	if err != nil {
 		return true, s.finishIngestFailure(ctx, job, format.FailureInternal)
 	}
-	if needsKind {
-		return true, s.pauseForKind(ctx, job)
-	}
-	prepared.MediaType = inspected.InlineMediaType()
-	if prepared.MediaType == "" {
-		prepared.MediaType = "application/octet-stream"
-	}
-	prepared.Media, err = s.prepareExtractedMedia(ctx, inspected, parsed.Media)
-	if err != nil {
-		return true, s.finishIngestFailure(ctx, job, mediaIngestFailure(err))
-	}
+	prepared.Blocks = read.Blocks
+	prepared.Media = read.Media
+	prepared.MediaType = read.MediaType
 	if err := s.finalizeIngest(ctx, job, prepared); err != nil {
 		if errors.Is(err, errIngestLeaseLost) {
 			return true, nil
@@ -196,7 +273,7 @@ func (s *Service) leaseNextIngest(ctx context.Context) (ingestJob, bool, error) 
 		  from candidate
 		 where operation.id = candidate.id
 		returning operation.id, operation.owner_id, operation.blob_id,
-		          operation.filename, operation.kind, operation.name, operation.blurb,
+		          operation.filename, operation.name, operation.blurb,
 		          operation.tags, operation.is_nsfw, operation.discovery,
 		          operation.attempts,
 		          (select byte_size from blobs where id = operation.blob_id),
@@ -205,11 +282,11 @@ func (s *Service) leaseNextIngest(ctx context.Context) (ingestJob, bool, error) 
 	`, now, leaseToken, leaseExpires)
 
 	var job ingestJob
-	var kind, name, blurb, targetKind pgtype.Text
+	var name, blurb, targetKind pgtype.Text
 	var isNSFW pgtype.Bool
 	var targetAssetID pgtype.UUID
 	err := row.Scan(
-		&job.ID, &job.OwnerID, &job.BlobID, &job.Filename, &kind, &name, &blurb,
+		&job.ID, &job.OwnerID, &job.BlobID, &job.Filename, &name, &blurb,
 		&job.Tags, &isNSFW, &job.Discovery, &job.Attempts, &job.ByteSize,
 		&targetAssetID, &targetKind,
 	)
@@ -228,7 +305,6 @@ func (s *Service) leaseNextIngest(ctx context.Context) (ingestJob, bool, error) 
 			AssetID: uuidFromPgtype(targetAssetID), Kind: targetKind.String,
 		}
 	}
-	job.Kind = textToPointer(kind)
 	job.Name = textToPointer(name)
 	job.Blurb = textToPointer(blurb)
 	if isNSFW.Valid {
@@ -237,38 +313,16 @@ func (s *Service) leaseNextIngest(ctx context.Context) (ingestJob, bool, error) 
 	return job, true, nil
 }
 
-func prepareIngest(job ingestJob, parsed format.Parsed, claimed bool) (preparedIngest, bool, error) {
+func prepareIngest(job ingestJob, parsed format.Parsed) (preparedIngest, error) {
 	kind := parsed.Kind
-	platform := (*string)(nil)
-	if claimed {
-		if kind == "" {
-			return preparedIngest{}, false, errors.New("claimed format did not declare a kind")
-		}
-		if parsed.PassthroughPlatform != nil {
-			return preparedIngest{}, false, errors.New("claimed format returned a passthrough platform")
-		}
-		if job.Target != nil && kind != job.Target.Kind {
-			return preparedIngest{}, false, errWrongKind
-		}
-	} else if job.Target != nil {
-		// A revision LumiHub cannot read is still a revision of this asset,
-		// so it takes the kind the asset already has.
-		kind = job.Target.Kind
-		if hint, ok := passthroughHint(job.Filename); ok {
-			platform = &hint.platform
-		}
-	} else if job.Kind != nil {
-		kind = *job.Kind
-	} else {
-		hint, ok := passthroughHint(job.Filename)
-		if !ok {
-			return preparedIngest{}, true, nil
-		}
-		kind = hint.kind
-		platform = &hint.platform
+	if kind == "" {
+		return preparedIngest{}, errors.New("claimed format did not declare a kind")
+	}
+	if job.Target != nil && kind != job.Target.Kind {
+		return preparedIngest{}, errWrongKind
 	}
 
-	name := parsed.Name
+	name := parsed.Header.Name
 	if job.Name != nil {
 		name = *job.Name
 	}
@@ -291,89 +345,27 @@ func prepareIngest(job ingestJob, parsed format.Parsed, claimed bool) (preparedI
 		isNSFW = *job.IsNSFW
 	}
 	return preparedIngest{
-		Kind: kind, Format: parsed.Format, PassthroughPlatform: platform,
+		Kind: kind, Format: parsed.Format,
 		Name: name, Blurb: blurb, Tags: tags, IsNSFW: isNSFW,
-		Discovery: job.Discovery, Facets: parsed.Facets, CreatedAt: parsed.CreatedAt,
-	}, false, nil
-}
-
-// CompleteIngest supplies the two fields an unrecognised passthrough needs.
-func (s *Service) CompleteIngest(
-	ctx context.Context,
-	ownerID, id uuid.UUID,
-	kind, name string,
-) (IngestOperation, error) {
-	if !validKind(kind) || strings.TrimSpace(name) == "" {
-		return IngestOperation{}, errors.New("kind and name are required")
-	}
-	now := s.now()
-	result, err := s.pool.Exec(ctx, `
-		update ingest_operations
-		   set status = 'pending', kind = $3, name = $4, expires_at = null,
-		       available_at = $5, updated_at = $5
-		 where id = $1 and owner_id = $2 and status = 'needs_kind'
-		   and expires_at > $5
-	`, id, ownerID, kind, strings.TrimSpace(name), now)
-	if err != nil {
-		return IngestOperation{}, fmt.Errorf("complete ingest kind: %w", err)
-	}
-	if result.RowsAffected() == 0 {
-		return IngestOperation{}, ErrIngestNotFound
-	}
-	return IngestOperation{ID: id, Status: IngestPending}, nil
-}
-
-func validKind(kind string) bool {
-	switch kind {
-	case "character", "lorebook", "preset", "theme":
-		return true
-	default:
-		return false
-	}
-}
-
-type passthroughExtensionHint struct {
-	kind     string
-	platform string
-}
-
-var passthroughExtensionHints = map[string]passthroughExtensionHint{
-	".lumitheme": {kind: "theme", platform: "lumiverse"},
-}
-
-func passthroughHint(filename string) (passthroughExtensionHint, bool) {
-	hint, ok := passthroughExtensionHints[strings.ToLower(filepath.Ext(filename))]
-	return hint, ok
-}
-
-func (s *Service) pauseForKind(ctx context.Context, job ingestJob) error {
-	_, err := s.pool.Exec(ctx, `
-		update ingest_operations
-		   set status = 'needs_kind', name = $3, lease_token = null,
-		       lease_expires_at = null, expires_at = $4, updated_at = $5
-		 where id = $1 and lease_token = $2 and status = 'processing'
-	`, job.ID, job.LeaseToken, filenameStem(job.Filename), s.now().Add(s.ingest.NeedsKindTTL), s.now())
-	if err != nil {
-		return fmt.Errorf("pause ingest for kind: %w", err)
-	}
-	return nil
-}
-
-func filenameStem(filename string) string {
-	base := filepath.Base(filename)
-	extension := filepath.Ext(base)
-	return strings.TrimSuffix(base, extension)
+		Discovery: job.Discovery, Facets: parsed.Facets,
+		Header: parsed.Header, Remainder: parsed.Remainder, CreatedAt: parsed.CreatedAt,
+	}, nil
 }
 
 func (s *Service) finishIngestFailure(
 	ctx context.Context,
 	job ingestJob,
 	reason format.FailureReason,
+	detail ...string,
 ) error {
 	if reason == format.FailureInternal && job.Attempts < s.ingest.MaxAttempts {
 		return s.retryIngest(ctx, job)
 	}
-	return s.failIngest(ctx, job, string(reason))
+	message := ""
+	if len(detail) > 0 {
+		message = detail[0]
+	}
+	return s.failIngest(ctx, job, string(reason), message)
 }
 
 func (s *Service) retryIngest(ctx context.Context, job ingestJob) error {
@@ -397,14 +389,14 @@ func (s *Service) retryIngest(ctx context.Context, job ingestJob) error {
 	return nil
 }
 
-func (s *Service) failIngest(ctx context.Context, job ingestJob, reason string) error {
+func (s *Service) failIngest(ctx context.Context, job ingestJob, reason, message string) error {
 	now := s.now()
 	result, err := s.pool.Exec(ctx, `
 		update ingest_operations
-		   set status = 'failed', failure_reason = $3, blob_id = null,
-		       lease_token = null, lease_expires_at = null, updated_at = $4
+		   set status = 'failed', failure_reason = $3, failure_message = nullif($4, ''),
+		       blob_id = null, lease_token = null, lease_expires_at = null, updated_at = $5
 		 where id = $1 and lease_token = $2 and status = 'processing'
-	`, job.ID, job.LeaseToken, reason, now)
+	`, job.ID, job.LeaseToken, reason, message, now)
 	if err != nil {
 		return fmt.Errorf("fail ingest: %w", err)
 	}
@@ -471,22 +463,77 @@ func writeIngestResult(
 	job ingestJob,
 	prepared preparedIngest,
 ) (uuid.UUID, error) {
+	blocks := prepared.Blocks
 	if job.Target != nil {
-		return job.Target.AssetID, appendRevision(ctx, tx, job, prepared)
+		if err := appendRevision(ctx, tx, job, prepared); err != nil {
+			return uuid.Nil, err
+		}
+		if _, err := tx.Exec(ctx, `delete from asset_blocks where asset_id = $1`, job.Target.AssetID); err != nil {
+			return uuid.Nil, fmt.Errorf("replace imported blocks: %w", err)
+		}
+		if err := insertBlocks(ctx, tx, job.Target.AssetID, blocks); err != nil {
+			return uuid.Nil, err
+		}
+		if err := replacePreservedData(ctx, tx, job.Target.AssetID, prepared.Remainder); err != nil {
+			return uuid.Nil, err
+		}
+		if _, err := tx.Exec(ctx, `
+			update assets
+			   set origin_format = $2, asset_version = $3, credited_author = $4,
+			       nickname = $5, content_generation = content_generation + 1,
+			       updated_at = now()
+			 where id = $1
+		`, job.Target.AssetID, prepared.Format, prepared.Header.AssetVersion,
+			prepared.Header.CreditedAuthor, prepared.Header.Nickname); err != nil {
+			return uuid.Nil, fmt.Errorf("move asset origin: %w", err)
+		}
+		return job.Target.AssetID, nil
 	}
 	assetID := uuid.New()
 	isNSFW := prepared.IsNSFW
 	a := Asset{
 		ID: assetID, Kind: prepared.Kind, Format: prepared.Format,
-		PassthroughPlatform: prepared.PassthroughPlatform,
-		Name:                prepared.Name, Blurb: prepared.Blurb, Tags: prepared.Tags,
+		OriginFormat:   &prepared.Format,
+		AssetVersion:   prepared.Header.AssetVersion,
+		CreditedAuthor: prepared.Header.CreditedAuthor, Nickname: prepared.Header.Nickname,
+		Name: prepared.Name, Blurb: prepared.Blurb, Tags: prepared.Tags,
 		IsNSFW: &isNSFW, Discovery: prepared.Discovery,
-		Lifecycle: LifecyclePublished,
+		Lifecycle: LifecycleDraft,
 	}
 	if _, err := insertAsset(ctx, tx, a, job.OwnerID, prepared.CreatedAt); err != nil {
 		return uuid.Nil, err
 	}
+	if err := insertBlocks(ctx, tx, assetID, blocks); err != nil {
+		return uuid.Nil, err
+	}
+	if err := replacePreservedData(ctx, tx, assetID, prepared.Remainder); err != nil {
+		return uuid.Nil, err
+	}
 	return assetID, writeRevision(ctx, tx, assetID, 1, job, prepared)
+}
+
+func replacePreservedData(
+	ctx context.Context,
+	tx pgx.Tx,
+	assetID uuid.UUID,
+	remainder []format.Remainder,
+) error {
+	if _, err := tx.Exec(ctx, `delete from asset_preserved_data where asset_id = $1`, assetID); err != nil {
+		return fmt.Errorf("replace preserved data: %w", err)
+	}
+	for _, item := range remainder {
+		if item.Namespace == "" || len(item.Payload) == 0 {
+			return errors.New("preserved data needs a namespace and payload")
+		}
+		if _, err := tx.Exec(ctx, `
+			insert into asset_preserved_data
+			  (id, asset_id, owner_kind, owner_id, namespace, payload)
+			values ($1, $2, 'asset', $2, $3, $4)
+		`, uuid.New(), assetID, item.Namespace, item.Payload); err != nil {
+			return fmt.Errorf("preserve %s: %w", item.Namespace, err)
+		}
+	}
+	return nil
 }
 
 // appendRevision adds a set of source bytes to an asset that already exists.
@@ -531,7 +578,7 @@ func writeRevision(
 	revisionID := uuid.New()
 	if err := insertRevision(ctx, tx, revisionID, assetID, revisionRow{
 		Revision: number, BlobID: job.BlobID, MediaType: prepared.MediaType,
-		Format: prepared.Format, PassthroughPlatform: prepared.PassthroughPlatform,
+		Format: prepared.Format,
 	}); err != nil {
 		return err
 	}

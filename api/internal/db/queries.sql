@@ -1,8 +1,10 @@
 -- name: InsertAsset :one
 -- indexed_at is left to its default so nothing a caller sends can reach it.
 insert into assets
-  (id, kind, owner_id, name, blurb, tags, is_nsfw, discovery, lifecycle, created_at)
+  (id, kind, owner_id, name, blurb, tags, is_nsfw, discovery, lifecycle,
+   asset_version, credited_author, nickname, origin_format, created_at)
 values ($1, $2, $3, $4, $5, $6, sqlc.narg('is_nsfw')::boolean, $7, $8,
+        $9, $10, $11, sqlc.narg('origin_format')::text,
         coalesce(sqlc.narg('created_at')::timestamptz, now()))
 returning created_at;
 
@@ -19,8 +21,8 @@ select id, definition, title, position, hidden, layout, width, elements
 
 -- name: InsertRevision :exec
 insert into asset_revisions
-  (id, asset_id, revision, blob_id, media_type, format, passthrough_platform)
-values ($1, $2, $3, $4, $5, $6, $7);
+  (id, asset_id, revision, blob_id, media_type, format)
+values ($1, $2, $3, $4, $5, $6);
 
 -- name: InsertFacet :exec
 insert into asset_facets (revision_id, key, value)
@@ -34,7 +36,8 @@ update assets set current_revision_id = $2, updated_at = now() where id = $1;
 with facet_pairs as (
   select unnest($5::text[]) as k, unnest($6::text[]) as v
 )
-select a.id, a.kind, revision.passthrough_platform, revision.format,
+select a.id, a.kind, revision.format, a.origin_format,
+       a.asset_version, a.credited_author, a.nickname, a.lifecycle,
        a.name, a.blurb, a.tags,
        -- Only a draft leaves the question unanswered and no draft reaches a
        -- listing. If one ever did, the safe reading is the one that blurs it.
@@ -47,7 +50,7 @@ select a.id, a.kind, revision.passthrough_platform, revision.format,
    and a.withheld_at is null
    and a.deleted_at is null
    and ($1 = '' or a.kind = $1)
-   and (not $2::boolean or revision.passthrough_platform is not distinct from $3)
+   and (not $2::boolean or revision.format is not distinct from $3)
    and ($4::text[] is null or a.tags @> $4)
    and (array_length($5::text[], 1) is null or (
          select count(*) from asset_facets af
@@ -97,9 +100,7 @@ select a.id, a.name, coalesce(owner.username, 'unknown') as creator,
         or sqlc.arg('nsfw_visibility')::text <> 'hidden' or not a.is_nsfw)
    and (sqlc.arg('platform')::text = ''
         or sqlc.arg('platform')::text = 'raw'
-        or revision.format = any(sqlc.arg('formats')::text[])
-        or (revision.format = 'unknown'
-            and revision.passthrough_platform = sqlc.arg('platform')::text))
+        or revision.format = any(sqlc.arg('formats')::text[]))
    and (cardinality(sqlc.arg('facet_keys')::text[]) = 0 or not exists (
         select 1
           from (select unnest(sqlc.arg('facet_keys')::text[]) as key,
@@ -152,9 +153,7 @@ select count(*)
         or sqlc.arg('nsfw_visibility')::text <> 'hidden' or not a.is_nsfw)
    and (sqlc.arg('platform')::text = ''
         or sqlc.arg('platform')::text = 'raw'
-        or revision.format = any(sqlc.arg('formats')::text[])
-        or (revision.format = 'unknown'
-            and revision.passthrough_platform = sqlc.arg('platform')::text))
+        or revision.format = any(sqlc.arg('formats')::text[]))
    and (cardinality(sqlc.arg('facet_keys')::text[]) = 0 or not exists (
         select 1
           from (select unnest(sqlc.arg('facet_keys')::text[]) as key,
@@ -193,9 +192,7 @@ select count(*)
    and (sqlc.arg('kind')::text = '' or a.kind = sqlc.arg('kind')::text)
    and (sqlc.arg('platform')::text = ''
         or sqlc.arg('platform')::text = 'raw'
-        or revision.format = any(sqlc.arg('formats')::text[])
-        or (revision.format = 'unknown'
-            and revision.passthrough_platform = sqlc.arg('platform')::text))
+        or revision.format = any(sqlc.arg('formats')::text[]))
    and (cardinality(sqlc.arg('facet_keys')::text[]) = 0 or not exists (
         select 1
           from (select unnest(sqlc.arg('facet_keys')::text[]) as key,
@@ -270,10 +267,11 @@ select a.id as asset_id, r.id as revision_id, r.blob_id, r.media_type, a.owner_i
    and (a.withheld_at is null or a.owner_id = sqlc.narg('viewer_id')::uuid);
 
 -- name: AssetByID :one
-select a.id, a.kind, revision.passthrough_platform, revision.format,
+select a.id, a.kind, revision.format, a.origin_format,
+       a.asset_version, a.credited_author, a.nickname, a.lifecycle,
        a.name, a.blurb, a.tags,
-       -- An upload always carries an answer. Only a draft built from nothing
-       -- leaves the question open, and no draft reaches this query.
+       -- Imported drafts carry an answer. The fallback protects older rows
+       -- that predate this invariant.
        coalesce(a.is_nsfw, true)::boolean as is_nsfw, a.discovery,
        a.current_revision_id, a.created_at
   from assets a

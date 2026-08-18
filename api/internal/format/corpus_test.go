@@ -26,18 +26,21 @@ func (s corpusStore) ReadRange(_ context.Context, _ uuid.UUID, offset, length in
 // in the modules, so it is caught here rather than by a creator whose upload
 // fails.
 func TestLocalCorpusRunsThroughEveryModule(t *testing.T) {
-	root := filepath.Clean("../../../.ai/probe-corpus")
-	if _, err := os.Stat(root); os.IsNotExist(err) {
-		t.Skip("local probe corpus is not present")
-	} else if err != nil {
-		t.Fatal("read local probe corpus")
-	}
-
 	registry := format.NewRegistry()
 	for _, module := range character.Modules() {
 		if err := registry.Register(module); err != nil {
 			t.Fatalf("register %q: %v", module.ID(), err)
 		}
+	}
+	if err := registry.ValidateDeclarations(); err != nil {
+		t.Fatalf("module declarations: %v", err)
+	}
+
+	root := filepath.Clean("../../../.ai/probe-corpus")
+	if _, err := os.Stat(root); os.IsNotExist(err) {
+		t.Skip("local probe corpus is not present")
+	} else if err != nil {
+		t.Fatal("read local probe corpus")
 	}
 
 	checked, claimed := 0, 0

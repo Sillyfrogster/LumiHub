@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Sillyfrogster/LumiHub/api/internal/block"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	"github.com/Sillyfrogster/LumiHub/api/internal/media"
 	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
@@ -21,6 +22,8 @@ const embeddedPrefix = "embeded://"
 type CharXModule struct{}
 
 func (CharXModule) ID() string { return CharX }
+
+func (CharXModule) Declaration() format.Declaration { return declaration(CharX) }
 
 func (CharXModule) OwnedSpecs() []string { return []string{V3} }
 
@@ -41,18 +44,20 @@ func (CharXModule) Export(_ context.Context, request format.ExportRequest) (form
 	return exportCharX(request)
 }
 
-func (CharXModule) Claim(file probe.Inspection) (format.Claim, bool) { return CharXClaim(file) }
+func (m CharXModule) Claim(file probe.Inspection) (format.Claim, bool) {
+	return format.ClaimByDeclaration(file, m.Declaration())
+}
 
 func (m CharXModule) Parse(
 	_ context.Context,
 	file probe.Inspection,
 	claim format.Claim,
 ) (format.Parsed, error) {
-	read, err := readCard(file, claim, 3)
+	read, err := readCard(file, claim, 3, m.ID())
 	if err != nil {
 		return format.Parsed{}, err
 	}
-	return read.parsed(m.ID(), archivedImages(read, file)), nil
+	return read.parsed(m.ID(), archivedImages(read, file))
 }
 
 type cardAsset struct {
@@ -87,7 +92,15 @@ func archivedImages(read card, file probe.Inspection) []format.Media {
 		if role == media.Avatar {
 			hasAvatar = true
 		}
-		found = append(found, format.Media{Role: role, ImageID: image})
+		elementRole := block.Role("")
+		if role == media.Expression {
+			elementRole = block.RoleExpressions
+		} else if role == media.Gallery {
+			elementRole = block.RoleGallery
+		}
+		found = append(found, format.Media{
+			Role: role, ImageID: image, ElementRole: elementRole, Name: asset.Name,
+		})
 	}
 	return found
 }

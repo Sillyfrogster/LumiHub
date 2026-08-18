@@ -671,32 +671,6 @@ func (h *Handlers) GetIngest(c *gin.Context, id types.UUID) {
 	c.JSON(http.StatusOK, toAPIIngest(operation))
 }
 
-func (h *Handlers) CompleteIngest(c *gin.Context, id types.UUID) {
-	owner, ok := h.uploadOwner(c)
-	if !ok {
-		return
-	}
-	var request CompleteIngestRequest
-	if err := decodeOneJSON(c.Request.Body, &request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Send only a kind and name as JSON."})
-		return
-	}
-	operation, err := h.assets.CompleteIngest(
-		c.Request.Context(), owner.ID, uuid.UUID(id), string(request.Kind), request.Name,
-	)
-	if errors.Is(err, asset.ErrIngestNotFound) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "no such ingest operation"})
-		return
-	}
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Choose a kind and give the asset a name."})
-		return
-	}
-	location := "/v1/ingests/" + operation.ID.String()
-	c.Header("Location", location)
-	c.JSON(http.StatusAccepted, toAPIIngest(operation))
-}
-
 func toAPIIngest(operation asset.IngestOperation) gin.H {
 	response := gin.H{
 		"id":     operation.ID,
@@ -708,12 +682,6 @@ func toAPIIngest(operation asset.IngestOperation) gin.H {
 		response["failure"] = gin.H{
 			"reason":  operation.Failure.Reason,
 			"message": operation.Failure.Message,
-		}
-	}
-	if operation.NeedsKind != nil {
-		response["needsKind"] = gin.H{
-			"kind": operation.NeedsKind.Kind,
-			"name": operation.NeedsKind.Name,
 		}
 	}
 	return response
@@ -753,15 +721,8 @@ func parseFacets(raw []string) []format.Facet {
 
 func toAPI(a asset.Asset) Asset {
 	return Asset{
-		Id:                  types.UUID(a.ID),
-		Kind:                a.Kind,
-		PassthroughPlatform: a.PassthroughPlatform,
-		Format:              a.Format,
-		Name:                a.Name,
-		Blurb:               a.Blurb,
-		Tags:                a.Tags,
-		IsNsfw:              a.IsNSFW,
-		Discovery:           AssetDiscovery(a.Discovery),
-		CreatedAt:           a.CreatedAt,
+		Id: types.UUID(a.ID), Kind: a.Kind, Format: a.Format,
+		Name: a.Name, Blurb: a.Blurb, Tags: a.Tags, IsNsfw: a.IsNSFW,
+		Discovery: AssetDiscovery(a.Discovery), CreatedAt: a.CreatedAt,
 	}
 }

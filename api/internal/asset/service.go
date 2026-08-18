@@ -51,7 +51,6 @@ type Service struct {
 type IngestSettings struct {
 	ProbeLimits   probe.Limits
 	LeaseDuration time.Duration
-	NeedsKindTTL  time.Duration
 	RetryBase     time.Duration
 	MaxAttempts   int
 	MediaWorkers  int
@@ -68,7 +67,6 @@ func DefaultIngestSettings() IngestSettings {
 	return IngestSettings{
 		ProbeLimits:   probe.DefaultLimits(),
 		LeaseDuration: 30 * time.Second,
-		NeedsKindTTL:  7 * 24 * time.Hour,
 		RetryBase:     time.Second,
 		MaxAttempts:   3,
 		MediaWorkers:  2,
@@ -138,8 +136,8 @@ func (s *Service) AcceptIngest(ctx context.Context, in IngestInput) (IngestOpera
 	}
 	_, err = s.pool.Exec(ctx, `
 		insert into ingest_operations
-			(id, owner_id, blob_id, filename, status, kind, name, blurb, tags, is_nsfw, discovery)
-		values ($1, $2, $3, $4, 'pending', null, $5, $6, $7, $8, $9)
+			(id, owner_id, blob_id, filename, status, name, blurb, tags, is_nsfw, discovery)
+		values ($1, $2, $3, $4, 'pending', $5, $6, $7, $8, $9)
 	`, id, in.OwnerID, stored.ID, in.Filename, in.Name, in.Blurb, tags, in.IsNSFW, discovery)
 	if err != nil {
 		return IngestOperation{}, fmt.Errorf("record ingest: %w", err)
@@ -151,13 +149,12 @@ func (s *Service) AcceptIngest(ctx context.Context, in IngestInput) (IngestOpera
 func (s *Service) GetIngest(ctx context.Context, ownerID, id uuid.UUID) (IngestOperation, error) {
 	var status IngestStatus
 	var assetID pgtype.UUID
-	var name pgtype.Text
-	var expiresAt pgtype.Timestamptz
 	var failureReason pgtype.Text
+	var failureMessage pgtype.Text
 	err := s.pool.QueryRow(ctx, `
-		select status, asset_id, name, expires_at, failure_reason
+		select status, asset_id, failure_reason, failure_message
 		  from ingest_operations where id = $1 and owner_id = $2
-	`, id, ownerID).Scan(&status, &assetID, &name, &expiresAt, &failureReason)
+	`, id, ownerID).Scan(&status, &assetID, &failureReason, &failureMessage)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return IngestOperation{}, ErrIngestNotFound
 	}
@@ -165,18 +162,14 @@ func (s *Service) GetIngest(ctx context.Context, ownerID, id uuid.UUID) (IngestO
 		return IngestOperation{}, fmt.Errorf("read ingest: %w", err)
 	}
 	operation := IngestOperation{ID: id, Status: status}
-	if status == IngestNeedsKind {
-		if expiresAt.Valid && !expiresAt.Time.After(s.now()) {
-			_, _ = s.pool.Exec(ctx,
-				`delete from ingest_operations where id = $1 and status = 'needs_kind'`, id)
-			return IngestOperation{}, ErrIngestNotFound
-		}
-		operation.NeedsKind = &NeedsKind{Name: name.String}
-	}
 	if status == IngestFailed && failureReason.Valid {
+		message := ingestFailureMessage(failureReason.String)
+		if failureMessage.Valid {
+			message = failureMessage.String
+		}
 		operation.Failure = &IngestFailure{
 			Reason:  failureReason.String,
-			Message: ingestFailureMessage(failureReason.String),
+			Message: message,
 		}
 	}
 	if assetID.Valid {
@@ -194,11 +187,13 @@ func ingestFailureMessage(reason string) string {
 	case "malformed_input":
 		return "The file is malformed and could not be read."
 	case "unsupported_format":
-		return "The file names a format LumiHub does not support."
+		return "No supported format recognised this file. LumiHub can import CCv2, CCv3 and CharX character cards; choose one of those, or start from nothing and build a character here."
 	case "unsupported_version":
 		return "The file uses a version LumiHub cannot read safely."
 	case "safety_violation":
 		return "The file breaks an archive safety rule."
+	case "limit_exceeded":
+		return "The file is over a content limit."
 	case "wrong_kind":
 		return "This file is a different kind of thing than the asset it would update."
 	default:
@@ -261,50 +256,27 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Asset, error) {
 	if err != nil {
 		return Asset{}, fmt.Errorf("probe upload: %w", err)
 	}
-	resolution, claimed, err := s.reg.Resolve(inspected)
+	read, err := s.readImport(ctx, inspected, "")
 	if err != nil {
-		return Asset{}, fmt.Errorf("resolve upload format: %w", err)
+		return Asset{}, fmt.Errorf("read upload: %w", err)
 	}
-	parsed := format.Parsed{Format: "unknown"}
-	if claimed {
-		parsed, err = resolution.Module.Parse(ctx, inspected, resolution.Claim)
-		if err != nil {
-			return Asset{}, fmt.Errorf("parse upload: %w", err)
-		}
-	}
-
+	parsed := read.Parsed
 	kind := parsed.Kind
-	passthroughPlatform := (*string)(nil)
-	if !claimed {
-		kind = in.Kind
-		if kind == "" {
-			return Asset{}, errors.New("a passthrough upload needs a kind")
-		}
-		passthroughPlatform = parsed.PassthroughPlatform
-	} else {
-		if kind == "" {
-			return Asset{}, fmt.Errorf("format module %q did not declare a kind", resolution.Module.ID())
-		}
-		if parsed.PassthroughPlatform != nil {
-			return Asset{}, fmt.Errorf("format module %q returned a passthrough platform", resolution.Module.ID())
-		}
-	}
 	discovery := in.Discovery
 	if discovery == "" {
 		discovery = DiscoveryListed
 	}
 
 	a := Asset{
-		ID:                  assetID,
-		Kind:                kind,
-		Format:              parsed.Format,
-		PassthroughPlatform: passthroughPlatform,
-		Name:                orElse(in.Name, parsed.Name),
-		Blurb:               orElse(in.Blurb, parsed.Blurb),
-		Tags:                in.Tags,
-		IsNSFW:              &in.IsNSFW,
-		Discovery:           discovery,
-		Lifecycle:           LifecyclePublished,
+		ID: assetID, Kind: kind, Format: parsed.Format, OriginFormat: &parsed.Format,
+		AssetVersion: parsed.Header.AssetVersion, CreditedAuthor: parsed.Header.CreditedAuthor,
+		Nickname:  parsed.Header.Nickname,
+		Name:      orElse(in.Name, parsed.Header.Name),
+		Blurb:     orElse(in.Blurb, parsed.Blurb),
+		Tags:      in.Tags,
+		IsNSFW:    &in.IsNSFW,
+		Discovery: discovery,
+		Lifecycle: LifecyclePublished,
 	}
 	if len(a.Tags) == 0 {
 		a.Tags = parsed.Tags
@@ -312,10 +284,8 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Asset, error) {
 	if a.Tags == nil {
 		a.Tags = []string{}
 	}
-	extractedMedia, err := s.prepareExtractedMedia(ctx, inspected, parsed.Media)
-	if err != nil {
-		return Asset{}, fmt.Errorf("prepare extracted media: %w", err)
-	}
+	extractedMedia := read.Media
+	blocks := read.Blocks
 
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -329,11 +299,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Asset, error) {
 	}
 	a.CreatedAt = made
 	if err := insertRevision(ctx, tx, revisionID, a.ID, revisionRow{
-		Revision:            1,
-		BlobID:              stored.ID,
-		MediaType:           "application/octet-stream",
-		Format:              a.Format,
-		PassthroughPlatform: a.PassthroughPlatform,
+		Revision: 1, BlobID: stored.ID, MediaType: "application/octet-stream", Format: a.Format,
 	}); err != nil {
 		return Asset{}, err
 	}
@@ -341,6 +307,12 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Asset, error) {
 		return Asset{}, err
 	}
 	if err := insertAssetMedia(ctx, tx, a.ID, extractedMedia); err != nil {
+		return Asset{}, err
+	}
+	if err := insertBlocks(ctx, tx, a.ID, blocks); err != nil {
+		return Asset{}, err
+	}
+	if err := replacePreservedData(ctx, tx, a.ID, parsed.Remainder); err != nil {
 		return Asset{}, err
 	}
 	if err := setCurrentRevision(ctx, tx, a.ID, revisionID); err != nil {

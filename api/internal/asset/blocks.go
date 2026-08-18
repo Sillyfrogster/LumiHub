@@ -429,6 +429,9 @@ func lockEditableAsset(
 func insertBlocks(ctx context.Context, tx pgx.Tx, assetID uuid.UUID, blocks []block.Block) error {
 	queries := db.New(tx)
 	for _, b := range blocks {
+		if err := block.ValidateStructure(b); err != nil {
+			return fmt.Errorf("validate %s block: %w", b.Definition, err)
+		}
 		elements, err := json.Marshal(b.Elements)
 		if err != nil {
 			return fmt.Errorf("write %s elements: %w", b.Definition, err)

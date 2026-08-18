@@ -33,11 +33,14 @@ func TestACardKeepsItsExactBytesWhileItsPictureIsExtracted(t *testing.T) {
 		"spec":"chara_card_v2","spec_version":"2.0",
 		"data":{
 			"name":"Ana",
+			"description":"A quiet archivist.",
+			"first_mes":"Hello.",
 			"creator_notes":"A quiet archivist.",
 			"extensions":{"depth_prompt":{"depth":4},"third_party":{"kept":true}}
 		}
 	}`)
 	created := ingestOne(t, svc, ownerID, "ana.png", card)
+	publishImported(t, svc, ownerID, created)
 	if created.Kind != "character" || created.Format != character.V2 {
 		t.Fatalf("asset = kind %q format %q", created.Kind, created.Format)
 	}
