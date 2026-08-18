@@ -34,13 +34,21 @@ type startedBlock struct {
 }
 
 type startedAsset struct {
-	ID        string         `json:"id"`
-	Kind      string         `json:"kind"`
-	Name      string         `json:"name"`
-	Lifecycle string         `json:"lifecycle"`
-	IsOwner   bool           `json:"isOwner"`
-	IsNSFW    *bool          `json:"isNsfw"`
-	Blocks    []startedBlock `json:"blocks"`
+	ID        string `json:"id"`
+	Kind      string `json:"kind"`
+	Name      string `json:"name"`
+	Blurb     string `json:"blurb"`
+	Lifecycle string `json:"lifecycle"`
+	IsOwner   bool   `json:"isOwner"`
+	IsNSFW    *bool  `json:"isNsfw"`
+	Preview   *string
+	Media     []struct {
+		ID        string `json:"id"`
+		DetailURL string `json:"detailUrl"`
+		ThumbURL  string `json:"thumbUrl"`
+	} `json:"media"`
+	Readiness []readinessItem `json:"readiness"`
+	Blocks    []startedBlock  `json:"blocks"`
 }
 
 func startCharacter(t *testing.T, r http.Handler, session *http.Cookie) startedAsset {
@@ -176,7 +184,6 @@ func TestADraftIsInNoBrowseOrSearchResult(t *testing.T) {
 	for _, path := range []string{
 		"/v1/assets",
 		"/v1/assets?kind=character",
-		"/v1/assets?creator=verified.creator",
 		"/v1/assets?q=character",
 	} {
 		listing := send(t, r, authorized(httptest.NewRequest(http.MethodGet, path, nil), session))

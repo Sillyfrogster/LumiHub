@@ -543,6 +543,55 @@ paths:
         "401": { description: No account is signed in }
         "403": { description: The signed-in account has not verified its email }
         "404": { description: No recoverable asset belongs to the creator }
+  /v1/assets/{id}/identity:
+    put:
+      operationId: setAssetIdentity
+      description: >-
+        Save the header fields that sit above an asset's blocks. The adult
+        content answer may be null only while the asset is a draft, so nothing
+        answers it on the creator's behalf. An edit is live when it saves.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AssetIdentityRequest" }
+      responses:
+        "204": { description: The header is saved }
+        "400": { description: The name is too long, or a published asset was sent no adult content answer }
+        "401": { description: No account is signed in }
+        "403": { description: The signed-in account has not verified its email }
+        "404": { description: The asset does not belong to the creator }
+        "409": { description: The asset is withheld and cannot be changed }
+  /v1/assets/{id}/publish:
+    post:
+      operationId: publishAsset
+      description: >-
+        Publish a draft. Publishing is one-way: unlisted is the reversible
+        retreat and deletion is the exit. A draft that does not meet the floor
+        is refused with the whole readiness list rather than the first thing
+        missing.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The asset as its page now reads, published
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssetDetail" }
+        "401": { description: No account is signed in }
+        "403": { description: The signed-in account has not verified its email }
+        "404": { description: The draft does not belong to the creator }
+        "409":
+          description: >-
+            The draft is not ready, the asset is already published, or it is
+            withheld
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PublishRefusal" }
   /v1/assets/{id}/discovery:
     put:
       operationId: setAssetDiscovery
@@ -717,6 +766,13 @@ paths:
             type: string
             enum: [grid, grid_blurred, detail, detail_blurred, thumb, thumb_blurred, og, og_blurred]
         - { name: derivative_version, in: path, required: true, schema: { type: integer, minimum: 1 } }
+        - name: expires
+          in: query
+          description: >-
+            When the signature runs out. A draft's images are served against a
+            short-lived signature at the same address they keep once published.
+          schema: { type: string }
+        - { name: signature, in: query, schema: { type: string } }
       responses:
         "200":
           description: A named media variant
@@ -1155,10 +1211,18 @@ components:
             reader's preference, so a blurred reader is never handed a clear one.
           items: { $ref: "#/components/schemas/AssetImage" }
         preview:
-          description: The composed social preview for link unfurling.
+          description: >-
+            The composed social preview for link unfurling. Null on a draft,
+            which nothing unfurls.
           anyOf:
             - { type: string }
             - { type: "null" }
+        readiness:
+          description: >-
+            What publication is waiting on. Present only while the owner is
+            reading their own draft.
+          type: array
+          items: { $ref: "#/components/schemas/ReadinessItem" }
         visibility: { type: string, enum: [hidden, blurred, shown] }
         withhold:
           $ref: "#/components/schemas/AssetWithhold"
@@ -1168,6 +1232,38 @@ components:
       required: [discovery]
       properties:
         discovery: { type: string, enum: [listed, unlisted] }
+    AssetIdentityRequest:
+      type: object
+      additionalProperties: false
+      required: [name, isNsfw]
+      properties:
+        name: { type: string }
+        isNsfw:
+          description: >-
+            Null is the unanswered state, which only a draft may be in.
+          type: [boolean, "null"]
+    ReadinessItem:
+      type: object
+      required: [id, label, detail, met]
+      description: One thing publication waits on, and whether the asset carries it.
+      properties:
+        id: { type: string }
+        label: { type: string }
+        detail: { type: string }
+        met: { type: boolean }
+        blockId:
+          description: The block a creator fills this in. Absent for a header field.
+          type: string
+          format: uuid
+    PublishRefusal:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+        readiness:
+          description: The whole floor, so a refusal names every missing item at once.
+          type: array
+          items: { $ref: "#/components/schemas/ReadinessItem" }
     FileFieldPatch:
       type: object
       additionalProperties: false
@@ -1264,10 +1360,14 @@ components:
         name: { type: string }
         creator: { type: string }
         kind: { type: string, enum: [character, lorebook, preset, theme] }
-        isNsfw: { type: boolean }
+        isNsfw:
+          description: >-
+            Null on a draft whose creator has not answered the adult content
+            question.
+          type: [boolean, "null"]
         ownerState:
           type: string
-          enum: [unlisted, withheld]
+          enum: [draft, unlisted, withheld]
           description: Present only on the owner's own listing.
         withhold:
           $ref: "#/components/schemas/AssetWithhold"

@@ -33,7 +33,7 @@ func (s *Service) SetDiscovery(
 		return nil
 	}
 
-	withheldAt, err := queries.AssetWithheldAtForOwner(ctx, db.AssetWithheldAtForOwnerParams{
+	state, err := queries.AssetStateForOwner(ctx, db.AssetStateForOwnerParams{
 		ID:      uuidToPgtype(id),
 		OwnerID: uuidToPgtype(ownerID),
 	})
@@ -43,8 +43,11 @@ func (s *Service) SetDiscovery(
 	if err != nil {
 		return fmt.Errorf("check asset discovery: %w", err)
 	}
-	if withheldAt.Valid {
+	if state.WithheldAt.Valid {
 		return ErrAssetFrozen
+	}
+	if Lifecycle(state.Lifecycle) == LifecycleDraft {
+		return ErrAssetIsDraft
 	}
 	return ErrNotFound
 }

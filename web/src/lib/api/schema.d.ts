@@ -464,6 +464,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/assets/{id}/identity": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Save the header fields that sit above an asset's blocks. The adult content answer may be null only while the asset is a draft, so nothing answers it on the creator's behalf. An edit is live when it saves. */
+    put: operations["setAssetIdentity"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/assets/{id}/publish": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Publish a draft. Publishing is one-way: unlisted is the reversible retreat and deletion is the exit. A draft that does not meet the floor is refused with the whole readiness list rather than the first thing missing. */
+    post: operations["publishAsset"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/assets/{id}/discovery": {
     parameters: {
       query?: never;
@@ -841,8 +875,10 @@ export interface components {
       blocks: components["schemas"]["AssetBlock"][];
       /** @description The asset's images, cover first. Variant URLs already reflect the reader's preference, so a blurred reader is never handed a clear one. */
       media: components["schemas"]["AssetImage"][];
-      /** @description The composed social preview for link unfurling. */
+      /** @description The composed social preview for link unfurling. Null on a draft, which nothing unfurls. */
       preview: string | null;
+      /** @description What publication is waiting on. Present only while the owner is reading their own draft. */
+      readiness?: components["schemas"]["ReadinessItem"][];
       /** @enum {string} */
       visibility: "hidden" | "blurred" | "shown";
       withhold?: components["schemas"]["AssetWithhold"];
@@ -850,6 +886,28 @@ export interface components {
     AssetDiscoveryRequest: {
       /** @enum {string} */
       discovery: "listed" | "unlisted";
+    };
+    AssetIdentityRequest: {
+      name: string;
+      /** @description Null is the unanswered state, which only a draft may be in. */
+      isNsfw: boolean | null;
+    };
+    /** @description One thing publication waits on, and whether the asset carries it. */
+    ReadinessItem: {
+      id: string;
+      label: string;
+      detail: string;
+      met: boolean;
+      /**
+       * Format: uuid
+       * @description The block a creator fills this in. Absent for a header field.
+       */
+      blockId?: string;
+    };
+    PublishRefusal: {
+      error: string;
+      /** @description The whole floor, so a refusal names every missing item at once. */
+      readiness?: components["schemas"]["ReadinessItem"][];
     };
     FileFieldPatch: {
       description?: string;
@@ -925,12 +983,13 @@ export interface components {
       creator: string;
       /** @enum {string} */
       kind: "character" | "lorebook" | "preset" | "theme";
-      isNsfw: boolean;
+      /** @description Null on a draft whose creator has not answered the adult content question. */
+      isNsfw: boolean | null;
       /**
        * @description Present only on the owner's own listing.
        * @enum {string}
        */
-      ownerState?: "unlisted" | "withheld";
+      ownerState?: "draft" | "unlisted" | "withheld";
       withhold?: components["schemas"]["AssetWithhold"];
       cover: components["schemas"]["BrowseCover"] | null;
     };
@@ -2204,6 +2263,117 @@ export interface operations {
       };
     };
   };
+  setAssetIdentity: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AssetIdentityRequest"];
+      };
+    };
+    responses: {
+      /** @description The header is saved */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The name is too long */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The signed-in account has not verified its email */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The asset does not belong to the creator */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The asset is withheld and cannot be changed */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  publishAsset: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The asset as its page now reads, published */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AssetDetail"];
+        };
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The signed-in account has not verified its email */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The draft does not belong to the creator */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The draft is not ready, the asset is already published, or it is withheld */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PublishRefusal"];
+        };
+      };
+    };
+  };
   setAssetDiscovery: {
     parameters: {
       query?: never;
@@ -2561,7 +2731,11 @@ export interface operations {
   };
   getMediaVariant: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description When the signature runs out. A draft's images are served against a short-lived signature at the same address they keep once published. */
+        expires?: string;
+        signature?: string;
+      };
       header?: never;
       path: {
         media_id: string;

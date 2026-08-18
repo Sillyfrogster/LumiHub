@@ -178,16 +178,16 @@ func (e AssetDetailKind) Valid() bool {
 
 // Defines values for AssetDetailLifecycle.
 const (
-	Draft     AssetDetailLifecycle = "draft"
-	Published AssetDetailLifecycle = "published"
+	AssetDetailLifecycleDraft     AssetDetailLifecycle = "draft"
+	AssetDetailLifecyclePublished AssetDetailLifecycle = "published"
 )
 
 // Valid indicates whether the value is a known member of the AssetDetailLifecycle enum.
 func (e AssetDetailLifecycle) Valid() bool {
 	switch e {
-	case Draft:
+	case AssetDetailLifecycleDraft:
 		return true
-	case Published:
+	case AssetDetailLifecyclePublished:
 		return true
 	default:
 		return false
@@ -373,6 +373,7 @@ func (e BrowseAssetKind) Valid() bool {
 
 // Defines values for BrowseAssetOwnerState.
 const (
+	BrowseAssetOwnerStateDraft    BrowseAssetOwnerState = "draft"
 	BrowseAssetOwnerStateUnlisted BrowseAssetOwnerState = "unlisted"
 	BrowseAssetOwnerStateWithheld BrowseAssetOwnerState = "withheld"
 )
@@ -380,6 +381,8 @@ const (
 // Valid indicates whether the value is a known member of the BrowseAssetOwnerState enum.
 func (e BrowseAssetOwnerState) Valid() bool {
 	switch e {
+	case BrowseAssetOwnerStateDraft:
+		return true
 	case BrowseAssetOwnerStateUnlisted:
 		return true
 	case BrowseAssetOwnerStateWithheld:
@@ -876,8 +879,11 @@ type AssetDetail struct {
 	Media []AssetImage `json:"media"`
 	Name  string       `json:"name"`
 
-	// Preview The composed social preview for link unfurling.
-	Preview    *string               `json:"preview"`
+	// Preview The composed social preview for link unfurling. Null on a draft, which nothing unfurls.
+	Preview *string `json:"preview"`
+
+	// Readiness What publication is waiting on. Present only while the owner is reading their own draft.
+	Readiness  *[]ReadinessItem      `json:"readiness,omitempty"`
 	Tags       []AssetTag            `json:"tags"`
 	Visibility AssetDetailVisibility `json:"visibility"`
 	Withhold   *AssetWithhold        `json:"withhold,omitempty"`
@@ -926,6 +932,13 @@ type AssetElementDisplay string
 
 // AssetElementType defines model for AssetElement.Type.
 type AssetElementType string
+
+// AssetIdentityRequest defines model for AssetIdentityRequest.
+type AssetIdentityRequest struct {
+	// IsNsfw Null is the unanswered state, which only a draft may be in.
+	IsNsfw *bool  `json:"isNsfw"`
+	Name   string `json:"name"`
+}
 
 // AssetImage defines model for AssetImage.
 type AssetImage struct {
@@ -980,9 +993,11 @@ type BrowseAsset struct {
 	Cover   *BrowseCover       `json:"cover"`
 	Creator string             `json:"creator"`
 	Id      openapi_types.UUID `json:"id"`
-	IsNsfw  bool               `json:"isNsfw"`
-	Kind    BrowseAssetKind    `json:"kind"`
-	Name    string             `json:"name"`
+
+	// IsNsfw Null on a draft whose creator has not answered the adult content question.
+	IsNsfw *bool           `json:"isNsfw"`
+	Kind   BrowseAssetKind `json:"kind"`
+	Name   string          `json:"name"`
 
 	// OwnerState Present only on the owner's own listing.
 	OwnerState *BrowseAssetOwnerState `json:"ownerState,omitempty"`
@@ -1240,6 +1255,24 @@ type ProseContent struct {
 	Text string `json:"text"`
 }
 
+// PublishRefusal defines model for PublishRefusal.
+type PublishRefusal struct {
+	Error string `json:"error"`
+
+	// Readiness The whole floor, so a refusal names every missing item at once.
+	Readiness *[]ReadinessItem `json:"readiness,omitempty"`
+}
+
+// ReadinessItem One thing publication waits on, and whether the asset carries it.
+type ReadinessItem struct {
+	// BlockId The block a creator fills this in. Absent for a header field.
+	BlockId *openapi_types.UUID `json:"blockId,omitempty"`
+	Detail  string              `json:"detail"`
+	Id      string              `json:"id"`
+	Label   string              `json:"label"`
+	Met     bool                `json:"met"`
+}
+
 // RenameHandleRequest defines model for RenameHandleRequest.
 type RenameHandleRequest struct {
 	Handle string `json:"handle"`
@@ -1321,6 +1354,13 @@ type VerifyEmailRequest struct {
 // WithholdAssetRequest defines model for WithholdAssetRequest.
 type WithholdAssetRequest struct {
 	Reason string `json:"reason"`
+}
+
+// GetMediaVariantParams defines parameters for GetMediaVariant.
+type GetMediaVariantParams struct {
+	// Expires When the signature runs out. A draft's images are served against a short-lived signature at the same address they keep once published.
+	Expires   *string `form:"expires,omitempty" json:"expires,omitempty"`
+	Signature *string `form:"signature,omitempty" json:"signature,omitempty"`
 }
 
 // GetMediaVariantParamsVariant defines parameters for GetMediaVariant.
@@ -1423,6 +1463,9 @@ type SetAssetDiscoveryJSONRequestBody = AssetDiscoveryRequest
 // SetFilePatchJSONRequestBody defines body for SetFilePatch for application/json ContentType.
 type SetFilePatchJSONRequestBody = FileFieldPatch
 
+// SetAssetIdentityJSONRequestBody defines body for SetAssetIdentity for application/json ContentType.
+type SetAssetIdentityJSONRequestBody = AssetIdentityRequest
+
 // AddMediaMultipartRequestBody defines body for AddMedia for multipart/form-data ContentType.
 type AddMediaMultipartRequestBody AddMediaMultipartBody
 
@@ -1466,7 +1509,7 @@ type ServerInterface interface {
 	DownloadExport(c *gin.Context, id openapi_types.UUID, target string)
 
 	// (GET /media/{media_id}/{variant}/{derivative_version})
-	GetMediaVariant(c *gin.Context, mediaId openapi_types.UUID, variant GetMediaVariantParamsVariant, derivativeVersion int)
+	GetMediaVariant(c *gin.Context, mediaId openapi_types.UUID, variant GetMediaVariantParamsVariant, derivativeVersion int, params GetMediaVariantParams)
 
 	// (DELETE /v1/account/discord)
 	DetachDiscord(c *gin.Context)
@@ -1504,11 +1547,17 @@ type ServerInterface interface {
 	// (PUT /v1/assets/{id}/file-patch)
 	SetFilePatch(c *gin.Context, id openapi_types.UUID)
 
+	// (PUT /v1/assets/{id}/identity)
+	SetAssetIdentity(c *gin.Context, id openapi_types.UUID)
+
 	// (GET /v1/assets/{id}/media)
 	ListMedia(c *gin.Context, id openapi_types.UUID)
 
 	// (POST /v1/assets/{id}/media)
 	AddMedia(c *gin.Context, id openapi_types.UUID)
+
+	// (POST /v1/assets/{id}/publish)
+	PublishAsset(c *gin.Context, id openapi_types.UUID)
 
 	// (POST /v1/assets/{id}/restore)
 	RestoreAsset(c *gin.Context, id openapi_types.UUID)
@@ -1684,6 +1733,25 @@ func (siw *ServerInterfaceWrapper) GetMediaVariant(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetMediaVariantParams
+
+	// ------------- Optional query parameter "expires" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "expires", c.Request.URL.Query(), &params.Expires, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter expires: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "signature" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "signature", c.Request.URL.Query(), &params.Signature, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter signature: %w", err), http.StatusBadRequest)
+		return
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -1691,7 +1759,7 @@ func (siw *ServerInterfaceWrapper) GetMediaVariant(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.GetMediaVariant(c, mediaId, variant, derivativeVersion)
+	siw.Handler.GetMediaVariant(c, mediaId, variant, derivativeVersion, params)
 }
 
 // DetachDiscord operation middleware
@@ -2008,6 +2076,31 @@ func (siw *ServerInterfaceWrapper) SetFilePatch(c *gin.Context) {
 	siw.Handler.SetFilePatch(c, id)
 }
 
+// SetAssetIdentity operation middleware
+func (siw *ServerInterfaceWrapper) SetAssetIdentity(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.SetAssetIdentity(c, id)
+}
+
 // ListMedia operation middleware
 func (siw *ServerInterfaceWrapper) ListMedia(c *gin.Context) {
 
@@ -2056,6 +2149,31 @@ func (siw *ServerInterfaceWrapper) AddMedia(c *gin.Context) {
 	}
 
 	siw.Handler.AddMedia(c, id)
+}
+
+// PublishAsset operation middleware
+func (siw *ServerInterfaceWrapper) PublishAsset(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.PublishAsset(c, id)
 }
 
 // RestoreAsset operation middleware
@@ -2603,6 +2721,8 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.PUT(options.BaseURL+"/v1/assets/:id/blocks/:blockId", wrapper.SaveAssetBlock)
 	router.PUT(options.BaseURL+"/v1/assets/:id/file-patch", wrapper.SetFilePatch)
 	router.POST(options.BaseURL+"/v1/assets/:id/restore", wrapper.RestoreAsset)
+	router.PUT(options.BaseURL+"/v1/assets/:id/identity", wrapper.SetAssetIdentity)
+	router.POST(options.BaseURL+"/v1/assets/:id/publish", wrapper.PublishAsset)
 	router.PUT(options.BaseURL+"/v1/assets/:id/discovery", wrapper.SetAssetDiscovery)
 	router.GET(options.BaseURL+"/v1/profiles/:handle/deleted", wrapper.ListDeletedAssets)
 	router.DELETE(options.BaseURL+"/v1/assets/:id/withhold", wrapper.ClearAssetWithhold)

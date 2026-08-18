@@ -50,6 +50,7 @@ func (s *Service) RecordDownload(ctx context.Context, event DownloadEvent) error
 		select asset.id, $2, $3, $4, asset.discovery
 		  from assets asset
 		 where asset.id = $1
+		   and asset.lifecycle = 'published'
 		   and asset.deleted_at is null
 		   and (asset.withheld_at is null or $4 = 'owner')
 	`, event.AssetID, event.RevisionID, event.ExportTarget, event.AuthorizationClass)

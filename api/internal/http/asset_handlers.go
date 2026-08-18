@@ -495,6 +495,10 @@ func (h *Handlers) SetAssetDiscovery(c *gin.Context, id types.UUID) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "no such asset"})
 	case errors.Is(err, asset.ErrAssetFrozen):
 		c.JSON(http.StatusConflict, gin.H{"error": "A withheld asset cannot be changed."})
+	case errors.Is(err, asset.ErrAssetIsDraft):
+		c.JSON(http.StatusConflict, gin.H{
+			"error": "Discovery applies once the asset is published.",
+		})
 	case err != nil:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not save discovery."})
 	default:
@@ -582,6 +586,7 @@ func toAPIDetail(found asset.Detail, visibility asset.ContentVisibility) (AssetD
 		Blocks:     blocks,
 		Media:      media,
 		Preview:    found.Preview,
+		Readiness:  toAPIReadiness(found.Readiness),
 		Visibility: AssetDetailVisibility(visibility),
 		Withhold:   toAPIWithhold(found.Withhold),
 	}, nil

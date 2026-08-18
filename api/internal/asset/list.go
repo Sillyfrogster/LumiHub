@@ -52,11 +52,15 @@ type BrowseCover struct {
 }
 
 type BrowseItem struct {
-	ID         uuid.UUID
-	Name       string
-	Creator    string
-	Kind       string
-	IsNSFW     bool
+	ID      uuid.UUID
+	Name    string
+	Creator string
+	Kind    string
+	// IsNSFW is nil on a draft whose creator has not answered the adult
+	// content question, so a card states that rather than reading as a no.
+	IsNSFW *bool
+	// OwnerState is what the owner's own listing marks a card with, and is
+	// empty everywhere else.
 	OwnerState string
 	Cover      *BrowseCover
 	Withhold   *Withhold
@@ -130,16 +134,14 @@ func listAssets(ctx context.Context, q db.DBTX, f ListFilter) ([]Asset, error) {
 	return out, nil
 }
 
-func browseAssets(
+func (s *Service) browseAssets(
 	ctx context.Context,
-	q db.DBTX,
-	registry *format.Registry,
 	f ListFilter,
 	visibility ContentVisibility,
 ) (BrowsePage, error) {
-	queries := db.New(q)
+	queries := db.New(s.pool)
 	search := parseBrowseQuery(f.Query)
-	definitions := registry.BrowseDefinitions()
+	definitions := s.reg.BrowseDefinitions()
 	facetDefinitions := browseFacetDefinitions(definitions, f.Kind, f.Platform)
 	f.Facets = declaredFacetSelections(f.Facets, facetDefinitions)
 	platforms := browsePlatforms(definitions)
@@ -170,12 +172,15 @@ func browseAssets(
 
 	page := BrowsePage{Items: make([]BrowseItem, 0, min(len(rows), f.Limit))}
 	for _, row := range rows[:min(len(rows), f.Limit)] {
+		draft := Lifecycle(row.Lifecycle) == LifecycleDraft
 		item := BrowseItem{
 			ID: uuidFromPgtype(row.ID), Name: row.Name, Creator: row.Creator,
-			Kind: row.Kind, IsNSFW: row.IsNsfw,
+			Kind: row.Kind, IsNSFW: boolFromPgtype(row.IsNsfw),
 		}
 		if ownProfile {
 			switch {
+			case draft:
+				item.OwnerState = "draft"
 			case row.WithheldAt.Valid:
 				item.OwnerState = "withheld"
 				item.Withhold = &Withhold{
@@ -188,10 +193,11 @@ func browseAssets(
 			}
 		}
 		if row.CoverID.Valid && row.CoverWidth.Valid && row.CoverHeight.Valid {
+			flagged := item.IsNSFW != nil && *item.IsNSFW
 			item.Cover = &BrowseCover{
-				URL: variantURL(
+				URL: s.variantURL(
 					uuidFromPgtype(row.CoverID), "grid",
-					visibility != ContentShown && row.IsNsfw,
+					visibility != ContentShown && flagged, draft,
 				),
 				Width: int(row.CoverWidth.Int32), Height: int(row.CoverHeight.Int32),
 			}

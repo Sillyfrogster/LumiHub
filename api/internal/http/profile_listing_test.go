@@ -18,6 +18,7 @@ import (
 type profileListingResponse struct {
 	Items []struct {
 		Name       string  `json:"name"`
+		IsNsfw     *bool   `json:"isNsfw"`
 		OwnerState *string `json:"ownerState"`
 		Withhold   *struct {
 			Reason string    `json:"reason"`

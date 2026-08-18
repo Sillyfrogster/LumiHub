@@ -262,22 +262,27 @@ func (q *Queries) AssetPageMedia(ctx context.Context, id pgtype.UUID) ([]AssetPa
 	return items, nil
 }
 
-const assetWithheldAtForOwner = `-- name: AssetWithheldAtForOwner :one
-select withheld_at
+const assetStateForOwner = `-- name: AssetStateForOwner :one
+select withheld_at, lifecycle
   from assets
  where id = $1 and owner_id = $2 and deleted_at is null
 `
 
-type AssetWithheldAtForOwnerParams struct {
+type AssetStateForOwnerParams struct {
 	ID      pgtype.UUID
 	OwnerID pgtype.UUID
 }
 
-func (q *Queries) AssetWithheldAtForOwner(ctx context.Context, arg AssetWithheldAtForOwnerParams) (pgtype.Timestamptz, error) {
-	row := q.db.QueryRow(ctx, assetWithheldAtForOwner, arg.ID, arg.OwnerID)
-	var withheld_at pgtype.Timestamptz
-	err := row.Scan(&withheld_at)
-	return withheld_at, err
+type AssetStateForOwnerRow struct {
+	WithheldAt pgtype.Timestamptz
+	Lifecycle  string
+}
+
+func (q *Queries) AssetStateForOwner(ctx context.Context, arg AssetStateForOwnerParams) (AssetStateForOwnerRow, error) {
+	row := q.db.QueryRow(ctx, assetStateForOwner, arg.ID, arg.OwnerID)
+	var i AssetStateForOwnerRow
+	err := row.Scan(&i.WithheldAt, &i.Lifecycle)
+	return i, err
 }
 
 const blobLocation = `-- name: BlobLocation :one
@@ -298,7 +303,7 @@ func (q *Queries) BlobLocation(ctx context.Context, id pgtype.UUID) (BlobLocatio
 
 const browseAssets = `-- name: BrowseAssets :many
 select a.id, a.name, coalesce(owner.username, 'unknown') as creator,
-       a.kind, coalesce(a.is_nsfw, true)::boolean as is_nsfw, a.created_at,
+       a.kind, a.is_nsfw, a.created_at, a.lifecycle,
        cover.id as cover_id, cover.width as cover_width, cover.height as cover_height,
        a.discovery, a.withheld_at, a.withheld_reason, actor.username as withheld_by
   from assets a
@@ -310,20 +315,22 @@ select a.id, a.name, coalesce(owner.username, 'unknown') as creator,
    and cover.is_current
    and cover.width is not null and cover.height is not null
    and cover.blob_id is not null
- where a.lifecycle = 'published'
+ where (a.lifecycle = 'published'
+        or ($1::boolean
+            and a.owner_id = $2::uuid))
    and a.deleted_at is null
    and (
-       ($1::uuid is null
+       ($2::uuid is null
         and a.discovery = 'listed' and a.withheld_at is null)
        or
-       (a.owner_id = $1::uuid
-        and ($2::boolean
+       (a.owner_id = $2::uuid
+        and ($1::boolean
              or (a.discovery = 'listed' and a.withheld_at is null)))
    )
-   and ($1::uuid is null or $2::boolean
+   and ($2::uuid is null or $1::boolean
         or $3::boolean or not a.is_nsfw)
    and ($4::text = '' or a.kind = $4::text)
-   and ($2::boolean
+   and ($1::boolean
         or $5::text <> 'hidden' or not a.is_nsfw)
    and ($6::text = ''
         or $6::text = 'raw'
@@ -360,8 +367,8 @@ select a.id, a.name, coalesce(owner.username, 'unknown') as creator,
 `
 
 type BrowseAssetsParams struct {
-	CreatorID         pgtype.UUID
 	OwnProfile        bool
+	CreatorID         pgtype.UUID
 	CreatorAllowsNsfw bool
 	Kind              string
 	NsfwVisibility    string
@@ -382,8 +389,9 @@ type BrowseAssetsRow struct {
 	Name           string
 	Creator        string
 	Kind           string
-	IsNsfw         bool
+	IsNsfw         pgtype.Bool
 	CreatedAt      pgtype.Timestamptz
+	Lifecycle      string
 	CoverID        pgtype.UUID
 	CoverWidth     pgtype.Int4
 	CoverHeight    pgtype.Int4
@@ -393,10 +401,12 @@ type BrowseAssetsRow struct {
 	WithheldBy     pgtype.Text
 }
 
+// A creator's own listing is the one place a draft appears, so the adult
+// content answer comes back as it is stored, unanswered included.
 func (q *Queries) BrowseAssets(ctx context.Context, arg BrowseAssetsParams) ([]BrowseAssetsRow, error) {
 	rows, err := q.db.Query(ctx, browseAssets,
-		arg.CreatorID,
 		arg.OwnProfile,
+		arg.CreatorID,
 		arg.CreatorAllowsNsfw,
 		arg.Kind,
 		arg.NsfwVisibility,
@@ -425,6 +435,7 @@ func (q *Queries) BrowseAssets(ctx context.Context, arg BrowseAssetsParams) ([]B
 			&i.Kind,
 			&i.IsNsfw,
 			&i.CreatedAt,
+			&i.Lifecycle,
 			&i.CoverID,
 			&i.CoverWidth,
 			&i.CoverHeight,
@@ -488,20 +499,22 @@ select count(*)
   from assets a
   left join asset_revisions revision on revision.id = a.current_revision_id
   left join users owner on owner.id = a.owner_id
- where a.lifecycle = 'published'
+ where (a.lifecycle = 'published'
+        or ($1::boolean
+            and a.owner_id = $2::uuid))
    and a.deleted_at is null
    and (
-       ($1::uuid is null
+       ($2::uuid is null
         and a.discovery = 'listed' and a.withheld_at is null)
        or
-       (a.owner_id = $1::uuid
-        and ($2::boolean
+       (a.owner_id = $2::uuid
+        and ($1::boolean
              or (a.discovery = 'listed' and a.withheld_at is null)))
    )
-   and ($1::uuid is null or $2::boolean
+   and ($2::uuid is null or $1::boolean
         or $3::boolean or not a.is_nsfw)
    and ($4::text = '' or a.kind = $4::text)
-   and ($2::boolean
+   and ($1::boolean
         or $5::text <> 'hidden' or not a.is_nsfw)
    and ($6::text = ''
         or $6::text = 'raw'
@@ -533,8 +546,8 @@ select count(*)
 `
 
 type CountBrowseAssetsParams struct {
-	CreatorID         pgtype.UUID
 	OwnProfile        bool
+	CreatorID         pgtype.UUID
 	CreatorAllowsNsfw bool
 	Kind              string
 	NsfwVisibility    string
@@ -549,8 +562,8 @@ type CountBrowseAssetsParams struct {
 
 func (q *Queries) CountBrowseAssets(ctx context.Context, arg CountBrowseAssetsParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countBrowseAssets,
-		arg.CreatorID,
 		arg.OwnProfile,
+		arg.CreatorID,
 		arg.CreatorAllowsNsfw,
 		arg.Kind,
 		arg.NsfwVisibility,
@@ -647,6 +660,7 @@ select a.id as asset_id, r.id as revision_id, r.blob_id, r.media_type, a.owner_i
   join asset_revisions r on r.id = a.current_revision_id
  where a.id = $1
    and r.blob_id is not null
+   and a.lifecycle = 'published'
    and a.deleted_at is null
    and (a.withheld_at is null or a.owner_id = $2::uuid)
 `
@@ -664,6 +678,7 @@ type CurrentRevisionLocationRow struct {
 	OwnerID    pgtype.UUID
 }
 
+// A draft has no download for anyone, its owner included.
 func (q *Queries) CurrentRevisionLocation(ctx context.Context, arg CurrentRevisionLocationParams) (CurrentRevisionLocationRow, error) {
 	row := q.db.QueryRow(ctx, currentRevisionLocation, arg.ID, arg.ViewerID)
 	var i CurrentRevisionLocationRow
@@ -1595,7 +1610,7 @@ func (q *Queries) RevokeLinkedInstance(ctx context.Context, arg RevokeLinkedInst
 const setAssetDiscovery = `-- name: SetAssetDiscovery :execrows
 update assets
    set discovery = $3, updated_at = now()
- where id = $1 and owner_id = $2
+ where id = $1 and owner_id = $2 and lifecycle = 'published'
    and withheld_at is null and deleted_at is null
 `
 
@@ -2203,7 +2218,8 @@ const withholdAsset = `-- name: WithholdAsset :execrows
 update assets
    set withheld_at = now(), withheld_by = $2, withheld_reason = $3,
        updated_at = now()
- where id = $1 and withheld_at is null and deleted_at is null
+ where id = $1 and lifecycle = 'published'
+   and withheld_at is null and deleted_at is null
 `
 
 type WithholdAssetParams struct {

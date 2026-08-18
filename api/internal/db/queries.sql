@@ -63,8 +63,10 @@ select a.id, a.kind, revision.passthrough_platform, revision.format,
  limit $7;
 
 -- name: BrowseAssets :many
+-- A creator's own listing is the one place a draft appears, so the adult
+-- content answer comes back as it is stored, unanswered included.
 select a.id, a.name, coalesce(owner.username, 'unknown') as creator,
-       a.kind, coalesce(a.is_nsfw, true)::boolean as is_nsfw, a.created_at,
+       a.kind, a.is_nsfw, a.created_at, a.lifecycle,
        cover.id as cover_id, cover.width as cover_width, cover.height as cover_height,
        a.discovery, a.withheld_at, a.withheld_reason, actor.username as withheld_by
   from assets a
@@ -76,7 +78,9 @@ select a.id, a.name, coalesce(owner.username, 'unknown') as creator,
    and cover.is_current
    and cover.width is not null and cover.height is not null
    and cover.blob_id is not null
- where a.lifecycle = 'published'
+ where (a.lifecycle = 'published'
+        or (sqlc.arg('own_profile')::boolean
+            and a.owner_id = sqlc.narg('creator_id')::uuid))
    and a.deleted_at is null
    and (
        (sqlc.narg('creator_id')::uuid is null
@@ -129,7 +133,9 @@ select count(*)
   from assets a
   left join asset_revisions revision on revision.id = a.current_revision_id
   left join users owner on owner.id = a.owner_id
- where a.lifecycle = 'published'
+ where (a.lifecycle = 'published'
+        or (sqlc.arg('own_profile')::boolean
+            and a.owner_id = sqlc.narg('creator_id')::uuid))
    and a.deleted_at is null
    and (
        (sqlc.narg('creator_id')::uuid is null
@@ -252,11 +258,13 @@ select media.id, media.role, media.width, media.height,
           media.created_at desc, media.id desc;
 
 -- name: CurrentRevisionLocation :one
+-- A draft has no download for anyone, its owner included.
 select a.id as asset_id, r.id as revision_id, r.blob_id, r.media_type, a.owner_id
   from assets a
   join asset_revisions r on r.id = a.current_revision_id
  where a.id = $1
    and r.blob_id is not null
+   and a.lifecycle = 'published'
    and a.deleted_at is null
    and (a.withheld_at is null or a.owner_id = sqlc.narg('viewer_id')::uuid);
 
@@ -274,11 +282,11 @@ select a.id, a.kind, revision.passthrough_platform, revision.format,
 -- name: SetAssetDiscovery :execrows
 update assets
    set discovery = $3, updated_at = now()
- where id = $1 and owner_id = $2
+ where id = $1 and owner_id = $2 and lifecycle = 'published'
    and withheld_at is null and deleted_at is null;
 
--- name: AssetWithheldAtForOwner :one
-select withheld_at
+-- name: AssetStateForOwner :one
+select withheld_at, lifecycle
   from assets
  where id = $1 and owner_id = $2 and deleted_at is null;
 
@@ -286,7 +294,8 @@ select withheld_at
 update assets
    set withheld_at = now(), withheld_by = $2, withheld_reason = $3,
        updated_at = now()
- where id = $1 and withheld_at is null and deleted_at is null;
+ where id = $1 and lifecycle = 'published'
+   and withheld_at is null and deleted_at is null;
 
 -- name: ClearAssetWithhold :execrows
 update assets

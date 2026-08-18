@@ -117,6 +117,7 @@ func (s *Service) exportSource(ctx context.Context, assetID uuid.UUID, viewerID 
 		  join asset_revisions revision on revision.id = asset.current_revision_id
 		  join blobs blob on blob.id = revision.blob_id
 		 where asset.id = $1 and asset.deleted_at is null
+		   and asset.lifecycle = 'published'
 		   and (asset.withheld_at is null or asset.owner_id = $2)
 	`, assetID, viewerID).Scan(
 		&source.revisionID, &source.blobID, &source.formatID, &source.mediaType, &digest,

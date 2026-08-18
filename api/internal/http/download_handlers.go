@@ -69,6 +69,7 @@ func (h *Handlers) GetMediaVariant(
 	mediaID types.UUID,
 	variant GetMediaVariantParamsVariant,
 	derivativeVersion int,
+	params GetMediaVariantParams,
 ) {
 	viewerID, ok := h.viewerID(c)
 	if !ok {
@@ -78,9 +79,14 @@ func (h *Handlers) GetMediaVariant(
 		c.JSON(http.StatusNotFound, gin.H{"error": "no such media variant"})
 		return
 	}
-	download, err := h.assets.MediaVariant(
-		c.Request.Context(), uuid.UUID(mediaID), string(variant), uint32(derivativeVersion), viewerID,
-	)
+	download, err := h.assets.MediaVariant(c.Request.Context(), asset.MediaRequest{
+		MediaID:   uuid.UUID(mediaID),
+		Variant:   string(variant),
+		Version:   uint32(derivativeVersion),
+		ViewerID:  viewerID,
+		Expires:   valueOrEmpty(params.Expires),
+		Signature: valueOrEmpty(params.Signature),
+	})
 	if errors.Is(err, asset.ErrMediaNotFound) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "no such media variant"})
 		return
@@ -89,12 +95,25 @@ func (h *Handlers) GetMediaVariant(
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not read the image"})
 		return
 	}
-	c.Header("Cache-Control", "public, max-age=31536000, immutable")
+	// A public image can never resolve to different bytes, so it is cached
+	// hard. A draft's image is served against a signature that runs out.
+	cache := "public, max-age=31536000, immutable"
+	if download.Private {
+		cache = "private, no-store"
+	}
+	c.Header("Cache-Control", cache)
 	c.Header("Content-Disposition", "inline")
 	c.Header("Content-Type", download.MediaType)
 	c.Header("X-Content-Type-Options", "nosniff")
 	c.Header("X-Accel-Redirect", download.InternalRedirect)
 	c.Status(http.StatusOK)
+}
+
+func valueOrEmpty(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 func toAPIMedia(found asset.Media) Media {

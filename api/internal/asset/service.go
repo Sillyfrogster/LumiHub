@@ -11,6 +11,7 @@ import (
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	mediaproc "github.com/Sillyfrogster/LumiHub/api/internal/media"
 	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
+	"github.com/Sillyfrogster/LumiHub/api/internal/signing"
 	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -25,6 +26,9 @@ var (
 	ErrInvalidDiscovery = errors.New("invalid discovery state")
 	ErrAssetFrozen      = errors.New("asset is frozen")
 	ErrInvalidBlock     = errors.New("invalid block")
+	// ErrAssetIsDraft is an operation only a published asset has. Discovery
+	// is the one a creator meets.
+	ErrAssetIsDraft = errors.New("the asset is still a draft")
 	// ErrKindNotBuildable is a kind with no block catalog, which is refused
 	// rather than answered with a page that has nothing on it.
 	ErrKindNotBuildable = errors.New("that kind cannot be built yet")
@@ -40,6 +44,7 @@ type Service struct {
 	mediaSlots  chan struct{}
 	mediaFlight singleflight.Group
 	ingest      IngestSettings
+	signer      signing.Key
 	now         func() time.Time
 }
 
@@ -111,7 +116,7 @@ func NewServiceWithMediaProcessor(
 	return &Service{
 		pool: pool, reg: reg, store: store, media: processor,
 		mediaSlots: make(chan struct{}, workers),
-		ingest:     settings, now: time.Now,
+		ingest:     settings, signer: signing.NewKey(), now: time.Now,
 	}
 }
 
@@ -392,7 +397,7 @@ func (s *Service) Browse(
 	if visibility != ContentHidden && visibility != ContentShown {
 		visibility = ContentBlurred
 	}
-	return browseAssets(ctx, s.pool, s.reg, f, visibility)
+	return s.browseAssets(ctx, f, visibility)
 }
 
 // OpenSource opens the stored upload exactly as it arrived.

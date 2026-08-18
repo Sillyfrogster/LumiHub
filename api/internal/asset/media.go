@@ -51,6 +51,22 @@ type AddMediaInput struct {
 type MediaDownload struct {
 	InternalRedirect string
 	MediaType        string
+	// Private is a draft's image, which is short-lived and must not be cached
+	// the way a public one is.
+	Private bool
+}
+
+// MediaRequest is one image request. It names the image and the size wanted,
+// and carries whatever the caller presented for it.
+type MediaRequest struct {
+	MediaID  uuid.UUID
+	Variant  string
+	Version  uint32
+	ViewerID *uuid.UUID
+	// Expires and Signature carry the signature a draft's image is served
+	// against. A published image needs neither.
+	Expires   string
+	Signature string
 }
 
 type preparedMedia struct {
@@ -132,6 +148,7 @@ func (s *Service) ListMedia(ctx context.Context, assetID uuid.UUID, viewerID *uu
 		`select id
 		   from assets
 		  where id = $1 and deleted_at is null
+		    and (lifecycle = 'published' or owner_id = $2)
 		    and (withheld_at is null or owner_id = $2)`, assetID, viewerID,
 	).Scan(&foundAssetID)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -278,35 +295,40 @@ func mediaIngestFailure(err error) format.FailureReason {
 	}
 }
 
-// MediaVariant returns a cached image and safely regenerates a missing one.
-func (s *Service) MediaVariant(
-	ctx context.Context,
-	mediaID uuid.UUID,
-	variant string,
-	version uint32,
-	viewerID *uuid.UUID,
-) (MediaDownload, error) {
-	_, ordinary := mediaproc.VariantByName(variant)
-	_, composed := mediaproc.SocialPreviewByName(variant)
-	if (!ordinary && !composed) || version != mediaproc.DerivativeVersion {
+// MediaVariant returns a cached image and safely regenerates a missing one. A
+// draft's image is at the same address as a published one and is served only
+// against a signature Go wrote.
+func (s *Service) MediaVariant(ctx context.Context, in MediaRequest) (MediaDownload, error) {
+	_, ordinary := mediaproc.VariantByName(in.Variant)
+	_, composed := mediaproc.SocialPreviewByName(in.Variant)
+	if (!ordinary && !composed) || in.Version != mediaproc.DerivativeVersion {
 		return MediaDownload{}, ErrMediaNotFound
 	}
+	variant, version := in.Variant, in.Version
 	var blobID uuid.UUID
 	var digestBytes []byte
+	var lifecycle string
 	err := s.pool.QueryRow(ctx, `
-		select media.blob_id, blob.sha256
+		select media.blob_id, blob.sha256, asset.lifecycle
 		  from asset_media media
 		  join assets asset on asset.id = media.asset_id
 		  join blobs blob on blob.id = media.blob_id
 		 where media.id = $1
 		   and asset.deleted_at is null
 		   and (asset.withheld_at is null or asset.owner_id = $2)
-	`, mediaID, viewerID).Scan(&blobID, &digestBytes)
+	`, in.MediaID, in.ViewerID).Scan(&blobID, &digestBytes, &lifecycle)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return MediaDownload{}, ErrMediaNotFound
 	}
 	if err != nil {
 		return MediaDownload{}, fmt.Errorf("find media: %w", err)
+	}
+	private := Lifecycle(lifecycle) == LifecycleDraft
+	if private {
+		path := fmt.Sprintf("/media/%s/%s/%d", in.MediaID, variant, version)
+		if !s.signer.Valid(path, in.Expires, in.Signature, s.now()) {
+			return MediaDownload{}, ErrMediaNotFound
+		}
 	}
 	if len(digestBytes) != sha256.Size {
 		return MediaDownload{}, fmt.Errorf("media blob has a %d-byte digest", len(digestBytes))
@@ -336,7 +358,11 @@ func (s *Service) MediaVariant(
 	if err != nil {
 		return MediaDownload{}, fmt.Errorf("resolve media variant: %w", err)
 	}
-	return MediaDownload{InternalRedirect: redirect, MediaType: s.media.DerivativeType()}, nil
+	return MediaDownload{
+		InternalRedirect: redirect,
+		MediaType:        s.media.DerivativeType(),
+		Private:          private,
+	}, nil
 }
 
 func (s *Service) regenerateMediaVariant(
