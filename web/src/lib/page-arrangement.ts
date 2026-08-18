@@ -7,6 +7,13 @@ export const WIDTH_COLUMNS = {
 
 export type BlockWidth = keyof typeof WIDTH_COLUMNS;
 
+export const WIDTH_LABELS: Record<BlockWidth, string> = {
+  full: "Full",
+  two_thirds: "Two thirds",
+  half: "Half",
+  third: "A third",
+};
+
 export const LAYOUTS = {
   single: { slots: ["main"], minimumColumns: 4 },
   duo: { slots: ["left", "right"], minimumColumns: 8 },
@@ -17,6 +24,47 @@ export const LAYOUTS = {
 } as const;
 
 export type BlockLayout = keyof typeof LAYOUTS;
+
+export const LAYOUT_LABELS: Record<BlockLayout, string> = {
+  single: "Single",
+  duo: "Duo",
+  "main-aside": "Main and aside",
+  trio: "Trio",
+  "stack-2": "Stack 2",
+  "stack-3": "Stack 3",
+};
+
+export function layoutChoiceIssue(
+  layout: BlockLayout,
+  width: BlockWidth,
+  elementLabels: readonly string[],
+): string | null {
+  const choice = LAYOUTS[layout];
+  if (elementLabels.length > choice.slots.length) {
+    const stranded = elementLabels.slice(choice.slots.length);
+    return `${LAYOUT_LABELS[layout]} has no room for ${stranded.join(", ")}. Move or remove ${stranded.length === 1 ? "it" : "them"} first.`;
+  }
+  if (WIDTH_COLUMNS[width] < choice.minimumColumns) {
+    return `${LAYOUT_LABELS[layout]} needs ${widthLabelForColumns(choice.minimumColumns)} width. Widen this section first.`;
+  }
+  return null;
+}
+
+export function widthChoiceIssue(
+  layout: BlockLayout,
+  width: BlockWidth,
+): string | null {
+  const minimumColumns = LAYOUTS[layout].minimumColumns;
+  if (WIDTH_COLUMNS[width] >= minimumColumns) return null;
+  return `${LAYOUT_LABELS[layout]} needs ${widthLabelForColumns(minimumColumns)} width. Choose another layout before narrowing this section.`;
+}
+
+function widthLabelForColumns(columns: number): string {
+  const width = (Object.entries(WIDTH_COLUMNS) as [BlockWidth, number][]).find(
+    ([, value]) => value === columns,
+  )?.[0];
+  return width ? WIDTH_LABELS[width] : `${columns} columns`;
+}
 
 export type PackedBlock<T> = {
   block: T;

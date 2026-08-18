@@ -174,10 +174,10 @@
 
 .contentLayout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
-  gap: clamp(36px, 5vw, 72px);
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: clamp(32px, 4vw, 56px);
   align-items: start;
-  max-width: 1160px;
+  max-width: 1240px;
   margin-inline: auto;
 }
 

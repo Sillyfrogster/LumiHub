@@ -8,6 +8,8 @@ import {
   type SaveAssetBlockRequest,
   saveAssetBlock,
 } from "@/lib/api/query";
+import { LAYOUTS } from "@/lib/page-arrangement";
+import { LayoutPicker, WidthPicker } from "./ArrangementPickers";
 import styles from "./BlockSheet.module.css";
 
 type TextItem = { name?: string; text: string };
@@ -30,8 +32,11 @@ export function BlockSheet({
   const [elements, setElements] = useState(() =>
     structuredClone(block.elements),
   );
+  const [layout, setLayout] = useState(block.layout);
+  const [width, setWidth] = useState(block.width);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
+  const [arrangementMessage, setArrangementMessage] = useState("");
 
   useEffect(() => {
     dialog.current?.showModal();
@@ -55,6 +60,8 @@ export function BlockSheet({
     try {
       const saved = await saveAssetBlock(assetId, block.id, {
         title: useDefaultTitle ? null : title,
+        layout,
+        width,
         elements: elements.map(toSaveElement),
       });
       onSaved(saved);
@@ -132,6 +139,57 @@ export function BlockSheet({
                 Use default name
               </button>
             )}
+          </section>
+
+          <section
+            className={styles.arrangement}
+            aria-labelledby="section-arrangement"
+          >
+            <div className={styles.arrangementHeading}>
+              <div>
+                <h3 id="section-arrangement">Page arrangement</h3>
+                <p>
+                  Layout arranges this section’s content. Width places the
+                  section on the desktop page.
+                </p>
+              </div>
+              <div className={styles.arrangementActions}>
+                <LayoutPicker
+                  layout={layout}
+                  width={width}
+                  allowedLayouts={block.allowedLayouts}
+                  elementLabels={elements.map(
+                    (element) => element.label || "Content",
+                  )}
+                  pending={pending}
+                  inline
+                  onIssue={setArrangementMessage}
+                  onSelect={(choice) => {
+                    const slots = LAYOUTS[choice].slots;
+                    setLayout(choice);
+                    setElements((current) =>
+                      current.map((element, index) => ({
+                        ...element,
+                        slot: slots[index] ?? element.slot,
+                      })),
+                    );
+                  }}
+                />
+                <WidthPicker
+                  width={width}
+                  layout={layout}
+                  pending={pending}
+                  inline
+                  onIssue={setArrangementMessage}
+                  onSelect={setWidth}
+                />
+              </div>
+            </div>
+            {arrangementMessage ? (
+              <p className={styles.arrangementError} role="alert">
+                {arrangementMessage}
+              </p>
+            ) : null}
           </section>
 
           <div className={styles.elements}>

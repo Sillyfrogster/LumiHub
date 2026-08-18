@@ -1,0 +1,233 @@
+.picker {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.picker[open] {
+  z-index: 2;
+}
+
+.trigger {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--body);
+  cursor: pointer;
+  font-size: 0.74rem;
+  font-weight: 700;
+  list-style: none;
+  transition:
+    border-color 160ms var(--ease),
+    color 160ms var(--ease),
+    background 160ms var(--ease);
+}
+
+.trigger::-webkit-details-marker {
+  display: none;
+}
+
+.trigger:hover,
+.picker[open] .trigger {
+  border-color: var(--faint);
+  background: var(--surface-quiet);
+  color: var(--ink);
+}
+
+.trigger[aria-disabled="true"] {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.chevron {
+  transition: transform 180ms var(--ease);
+}
+
+.picker[open] .chevron {
+  transform: rotate(180deg);
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(330px, calc(100vw - 40px));
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-lift);
+}
+
+.layoutMenu {
+  right: auto;
+  left: 0;
+}
+
+.inline[open] {
+  flex-basis: 100%;
+}
+
+.inline .menu {
+  position: static;
+  margin-top: 8px;
+}
+
+.menuHeading {
+  padding: 7px 9px 11px;
+}
+
+.menuHeading strong,
+.menuHeading span {
+  display: block;
+}
+
+.menuHeading strong {
+  color: var(--ink);
+  font-size: 0.78rem;
+}
+
+.menuHeading span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.option {
+  display: grid;
+  min-height: 58px;
+  grid-template-columns: 62px minmax(0, 1fr) 18px;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 9px;
+  border-radius: var(--radius-md);
+  text-align: left;
+}
+
+.option:hover,
+.option[aria-pressed="true"] {
+  background: var(--surface-quiet);
+}
+
+.option:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.optionCopy strong,
+.optionCopy small {
+  display: block;
+}
+
+.optionCopy strong {
+  color: var(--ink);
+  font-size: 0.76rem;
+}
+
+.optionCopy small {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.check {
+  color: var(--accent);
+}
+
+.widthBars {
+  display: grid;
+  width: 62px;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.widthBars > span {
+  height: 11px;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+.widthBars > .filledBar {
+  background: var(--accent);
+}
+
+.trigger .widthBars {
+  width: 48px;
+}
+
+.trigger .widthBars > span {
+  height: 9px;
+}
+
+.layoutGlyph {
+  display: grid;
+  width: 62px;
+  height: 30px;
+  gap: 3px;
+}
+
+.layoutGlyph > span {
+  border: 1px solid var(--line-check);
+  border-radius: 3px;
+  background: var(--surface-frame);
+}
+
+.single {
+  grid-template-columns: 1fr;
+}
+
+.duo {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.mainaside {
+  grid-template-columns: 2fr 1fr;
+}
+
+.trio {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.stack2,
+.stack3 {
+  grid-template-columns: 1fr;
+}
+
+@container block (max-width: 420px) {
+  .triggerLabel,
+  .chevron {
+    display: none;
+  }
+
+  .trigger {
+    width: 44px;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .trigger .widthBars {
+    width: 34px;
+  }
+
+  .trigger > svg:first-child {
+    display: none;
+  }
+}
+
+@media (max-width: 780px) {
+  .widthPicker {
+    display: none;
+  }
+}

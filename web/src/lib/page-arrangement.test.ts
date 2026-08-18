@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
-  LAYOUTS,
-  WIDTH_COLUMNS,
   contentItemCount,
+  LAYOUTS,
+  layoutChoiceIssue,
   packBlockRows,
+  WIDTH_COLUMNS,
+  widthChoiceIssue,
 } from "./page-arrangement";
 
 type TestBlock = {
@@ -121,6 +123,28 @@ describe("page arrangement", () => {
         }),
       ),
     ).toEqual([[["a", 12]], [["b", 12]]]);
+  });
+
+  test("layout and width refusals name the first fix", () => {
+    expect(
+      layoutChoiceIssue("trio", "half", [
+        "Description",
+        "Personality",
+        "Scenario",
+      ]),
+    ).toBe("Trio needs Full width. Widen this section first.");
+    expect(widthChoiceIssue("trio", "half")).toBe(
+      "Trio needs Full width. Choose another layout before narrowing this section.",
+    );
+    expect(
+      layoutChoiceIssue("stack-2", "full", [
+        "Greetings",
+        "Example dialogue",
+        "Group-only greetings",
+      ]),
+    ).toBe(
+      "Stack 2 has no room for Group-only greetings. Move or remove it first.",
+    );
   });
 });
 
