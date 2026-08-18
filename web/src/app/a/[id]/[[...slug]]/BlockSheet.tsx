@@ -20,11 +20,13 @@ export function BlockSheet({
   block,
   onDismiss,
   onSaved,
+  onRemoved,
 }: {
   assetId: string;
   block: AssetBlock;
   onDismiss: () => void;
   onSaved: (block: AssetBlock) => void;
+  onRemoved: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [title, setTitle] = useState(block.titleIsDefault ? "" : block.title);
@@ -64,7 +66,8 @@ export function BlockSheet({
         width,
         elements: elements.map(toSaveElement),
       });
-      onSaved(saved);
+      if (saved) onSaved(saved);
+      else onRemoved();
       close();
     } catch (error) {
       setMessage(

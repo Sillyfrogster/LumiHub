@@ -22,8 +22,22 @@ type BlockUpdate struct {
 
 // SavedBlock is the saved row and the kind catalog that describes it.
 type SavedBlock struct {
-	Kind  string
-	Block block.Block
+	Kind    string
+	Block   block.Block
+	Removed bool
+}
+
+// BlockArrangement is one row in the page outline.
+type BlockArrangement struct {
+	ID     uuid.UUID
+	Hidden bool
+	Width  block.Width
+}
+
+// SavedBlocks is the whole saved page and the kind catalog that describes it.
+type SavedBlocks struct {
+	Kind   string
+	Blocks []block.Block
 }
 
 // SaveBlock rewrites one block row and leaves every other block untouched.
@@ -84,6 +98,25 @@ func (s *Service) SaveBlock(
 	if err := block.ValidateBuilderConstraints(kind, before, blocks); err != nil {
 		return SavedBlock{}, fmt.Errorf("%w: %v", ErrInvalidBlock, err)
 	}
+	definition, _ := saved.Definition.Definition(kind)
+	if saved.Empty() && !definition.Required {
+		remaining := make([]block.Block, 0, len(blocks)-1)
+		for _, holder := range blocks {
+			if holder.ID != saved.ID {
+				remaining = append(remaining, holder)
+			}
+		}
+		if err := block.ValidateBuilderConstraints(kind, before, remaining); err != nil {
+			return SavedBlock{}, fmt.Errorf("%w: %v", ErrInvalidBlock, err)
+		}
+		if err := deleteBlockAndClosePositions(ctx, tx, assetID, saved.ID, remaining); err != nil {
+			return SavedBlock{}, err
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return SavedBlock{}, err
+		}
+		return SavedBlock{Kind: kind, Block: *saved, Removed: true}, nil
+	}
 
 	elements, err := json.Marshal(saved.Elements)
 	if err != nil {
@@ -104,6 +137,164 @@ func (s *Service) SaveBlock(
 		return SavedBlock{}, err
 	}
 	return SavedBlock{Kind: kind, Block: *saved}, nil
+}
+
+// ArrangeBlocks rewrites page order, visibility and width as one change.
+func (s *Service) ArrangeBlocks(
+	ctx context.Context,
+	ownerID uuid.UUID,
+	assetID uuid.UUID,
+	arrangement []BlockArrangement,
+) (SavedBlocks, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return SavedBlocks{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	kind, err := lockEditableAsset(ctx, tx, ownerID, assetID)
+	if err != nil {
+		return SavedBlocks{}, err
+	}
+	blocks, err := readBlocks(ctx, tx, assetID)
+	if err != nil {
+		return SavedBlocks{}, err
+	}
+	if len(arrangement) != len(blocks) {
+		return SavedBlocks{}, fmt.Errorf("%w: include every section once before saving the arrangement", ErrInvalidBlock)
+	}
+	byID := make(map[uuid.UUID]block.Block, len(blocks))
+	for _, holder := range blocks {
+		byID[holder.ID] = holder
+	}
+	after := make([]block.Block, len(arrangement))
+	seen := make(map[uuid.UUID]struct{}, len(arrangement))
+	for position, choice := range arrangement {
+		holder, ok := byID[choice.ID]
+		if !ok {
+			return SavedBlocks{}, fmt.Errorf("%w: the arrangement includes a section that is not on this page", ErrInvalidBlock)
+		}
+		if _, duplicate := seen[choice.ID]; duplicate {
+			return SavedBlocks{}, fmt.Errorf("%w: include each section once before saving the arrangement", ErrInvalidBlock)
+		}
+		seen[choice.ID] = struct{}{}
+		definition, _ := holder.Definition.Definition(kind)
+		if choice.Hidden && definition.Required && !definition.Hideable {
+			return SavedBlocks{}, fmt.Errorf("%w: %s is always shown and cannot be hidden", ErrInvalidBlock, definition.Title)
+		}
+		holder.Position = position
+		holder.Hidden = choice.Hidden
+		holder.Width = choice.Width
+		after[position] = holder
+	}
+	if err := block.ValidateBuilderConstraints(kind, blocks, after); err != nil {
+		return SavedBlocks{}, fmt.Errorf("%w: %v", ErrInvalidBlock, err)
+	}
+	for _, holder := range after {
+		if _, err := tx.Exec(ctx, `
+			update asset_blocks
+			   set position = $3, hidden = $4, width = $5
+			 where id = $1 and asset_id = $2
+		`, holder.ID, assetID, holder.Position, holder.Hidden, holder.Width); err != nil {
+			return SavedBlocks{}, fmt.Errorf("save block arrangement: %w", err)
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return SavedBlocks{}, err
+	}
+	return SavedBlocks{Kind: kind, Blocks: after}, nil
+}
+
+// RemoveBlock deletes one optional block and closes the gap in page order.
+func (s *Service) RemoveBlock(
+	ctx context.Context,
+	ownerID uuid.UUID,
+	assetID uuid.UUID,
+	blockID uuid.UUID,
+) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	kind, err := lockEditableAsset(ctx, tx, ownerID, assetID)
+	if err != nil {
+		return err
+	}
+	blocks, err := readBlocks(ctx, tx, assetID)
+	if err != nil {
+		return err
+	}
+	remaining := make([]block.Block, 0, len(blocks)-1)
+	found := false
+	for _, holder := range blocks {
+		if holder.ID != blockID {
+			remaining = append(remaining, holder)
+			continue
+		}
+		found = true
+		definition, _ := holder.Definition.Definition(kind)
+		if definition.Required {
+			return fmt.Errorf("%w: %s is required and cannot be removed", ErrInvalidBlock, definition.Title)
+		}
+	}
+	if !found {
+		return ErrNotFound
+	}
+	if err := block.ValidateBuilderConstraints(kind, blocks, remaining); err != nil {
+		return fmt.Errorf("%w: %v", ErrInvalidBlock, err)
+	}
+	if err := deleteBlockAndClosePositions(ctx, tx, assetID, blockID, remaining); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func deleteBlockAndClosePositions(
+	ctx context.Context,
+	tx pgx.Tx,
+	assetID uuid.UUID,
+	blockID uuid.UUID,
+	remaining []block.Block,
+) error {
+	if _, err := tx.Exec(ctx, `delete from asset_blocks where id = $1 and asset_id = $2`, blockID, assetID); err != nil {
+		return fmt.Errorf("remove block: %w", err)
+	}
+	for position := range remaining {
+		if _, err := tx.Exec(ctx, `
+			update asset_blocks set position = $3 where id = $1 and asset_id = $2
+		`, remaining[position].ID, assetID, position); err != nil {
+			return fmt.Errorf("close block positions: %w", err)
+		}
+	}
+	return nil
+}
+
+func lockEditableAsset(
+	ctx context.Context,
+	tx pgx.Tx,
+	ownerID uuid.UUID,
+	assetID uuid.UUID,
+) (string, error) {
+	var kind string
+	var withheld bool
+	err := tx.QueryRow(ctx, `
+		select kind, withheld_at is not null
+		  from assets
+		 where id = $1 and owner_id = $2 and deleted_at is null
+		 for update
+	`, assetID, ownerID).Scan(&kind, &withheld)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	if err != nil {
+		return "", fmt.Errorf("read block owner: %w", err)
+	}
+	if withheld {
+		return "", ErrAssetFrozen
+	}
+	return kind, nil
 }
 
 // insertBlocks writes an asset's blocks, one row each.

@@ -42,6 +42,10 @@ func (h *Handlers) SaveAssetBlock(c *gin.Context, id types.UUID, blockID types.U
 	case err != nil:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not save the block."})
 	default:
+		if saved.Removed {
+			c.Status(http.StatusNoContent)
+			return
+		}
 		blocks, conversionErr := toAPIBlocks(saved.Kind, []block.Block{saved.Block})
 		if conversionErr != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not read the saved block."})

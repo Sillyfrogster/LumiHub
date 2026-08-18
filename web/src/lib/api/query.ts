@@ -8,6 +8,8 @@ export type AssetBlock = components["schemas"]["AssetBlock"];
 export type AssetElement = components["schemas"]["AssetElement"];
 export type SaveAssetBlockRequest =
   components["schemas"]["SaveAssetBlockRequest"];
+export type ArrangeAssetBlocksRequest =
+  components["schemas"]["ArrangeAssetBlocksRequest"];
 export type AssetTag = components["schemas"]["AssetTag"];
 export type ReadinessItem = components["schemas"]["ReadinessItem"];
 export type Profile = components["schemas"]["Profile"];
@@ -136,11 +138,15 @@ export async function saveAssetBlock(
   assetId: string,
   blockId: string,
   block: SaveAssetBlockRequest,
-): Promise<AssetBlock> {
-  const { data, error } = await api.PUT("/v1/assets/{id}/blocks/{blockId}", {
-    params: { path: { id: assetId, blockId } },
-    body: block,
-  });
+): Promise<AssetBlock | null> {
+  const { data, error, response } = await api.PUT(
+    "/v1/assets/{id}/blocks/{blockId}",
+    {
+      params: { path: { id: assetId, blockId } },
+      body: block,
+    },
+  );
+  if (response.status === 204) return null;
   if (error || !data) {
     const detail = error as { error?: unknown } | undefined;
     const message =
@@ -150,6 +156,41 @@ export async function saveAssetBlock(
     throw new Error(message);
   }
   return data;
+}
+
+/** Saves the full page outline as one arrangement. */
+export async function arrangeAssetBlocks(
+  assetId: string,
+  arrangement: ArrangeAssetBlocksRequest,
+): Promise<AssetBlock[]> {
+  const { data, error } = await api.PUT("/v1/assets/{id}/blocks", {
+    params: { path: { id: assetId } },
+    body: arrangement,
+  });
+  if (error || !data) {
+    const detail = error as { error?: unknown } | undefined;
+    throw new Error(
+      typeof detail?.error === "string"
+        ? detail.error.replace(/^invalid block:\s*/i, "")
+        : "The section order could not be saved. Try again.",
+    );
+  }
+  return data;
+}
+
+/** Removes one optional section and all of the elements it holds. */
+export async function removeAssetBlock(assetId: string, blockId: string) {
+  const { error } = await api.DELETE("/v1/assets/{id}/blocks/{blockId}", {
+    params: { path: { id: assetId, blockId } },
+  });
+  if (error) {
+    const detail = error as { error?: unknown } | undefined;
+    throw new Error(
+      typeof detail?.error === "string"
+        ? detail.error.replace(/^invalid block:\s*/i, "")
+        : "The section could not be removed. Try again.",
+    );
+  }
 }
 
 /**

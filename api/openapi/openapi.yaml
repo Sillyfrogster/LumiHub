@@ -504,12 +504,55 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/AssetBlock" }
+        "204": { description: An optional block saved empty and returned to absent }
         "400": { description: The block is malformed or breaks a builder constraint }
         "401": { description: No account is signed in }
         "403": { description: The signed-in account has not verified its email }
         "404": { description: The asset or block does not belong to the creator }
         "409": { description: The asset is withheld and cannot be changed }
         "422": { description: The uploaded bytes have been purged and cannot return }
+    delete:
+      operationId: removeAssetBlock
+      description: >-
+        Remove one optional block and its elements. Required blocks are refused.
+        Remaining positions are rewritten into one gapless page order.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: blockId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: The block and everything in it were removed }
+        "401": { description: No account is signed in }
+        "403": { description: The signed-in account has not verified its email }
+        "404": { description: The asset or block does not belong to the creator }
+        "409": { description: The asset is withheld and cannot be changed }
+  /v1/assets/{id}/blocks:
+    put:
+      operationId: arrangeAssetBlocks
+      description: >-
+        Rewrite the whole page order and save visibility and width choices in
+        the same transaction. Every current block must appear exactly once.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ArrangeAssetBlocksRequest" }
+      responses:
+        "200":
+          description: Every block in its saved page order
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AssetBlock" }
+        "400": { description: The arrangement is incomplete, duplicated or not allowed }
+        "401": { description: No account is signed in }
+        "403": { description: The signed-in account has not verified its email }
+        "404": { description: The asset does not belong to the creator }
+        "409": { description: The asset is withheld and cannot be changed }
   /v1/assets/{id}/file-patch:
     put:
       operationId: setFilePatch
@@ -1070,6 +1113,21 @@ components:
         elements:
           type: array
           items: { $ref: "#/components/schemas/SaveAssetElement" }
+    ArrangeAssetBlocksRequest:
+      type: object
+      additionalProperties: false
+      required: [blocks]
+      properties:
+        blocks:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [id, hidden, width]
+            properties:
+              id: { type: string, format: uuid }
+              hidden: { type: boolean }
+              width: { type: string, enum: [full, two_thirds, half, third] }
     SaveAssetElement:
       type: object
       additionalProperties: false

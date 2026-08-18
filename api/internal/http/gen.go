@@ -62,6 +62,30 @@ func (e AddMediaRequestRole) Valid() bool {
 	}
 }
 
+// Defines values for ArrangeAssetBlocksRequestBlocksWidth.
+const (
+	ArrangeAssetBlocksRequestBlocksWidthFull      ArrangeAssetBlocksRequestBlocksWidth = "full"
+	ArrangeAssetBlocksRequestBlocksWidthHalf      ArrangeAssetBlocksRequestBlocksWidth = "half"
+	ArrangeAssetBlocksRequestBlocksWidthThird     ArrangeAssetBlocksRequestBlocksWidth = "third"
+	ArrangeAssetBlocksRequestBlocksWidthTwoThirds ArrangeAssetBlocksRequestBlocksWidth = "two_thirds"
+)
+
+// Valid indicates whether the value is a known member of the ArrangeAssetBlocksRequestBlocksWidth enum.
+func (e ArrangeAssetBlocksRequestBlocksWidth) Valid() bool {
+	switch e {
+	case ArrangeAssetBlocksRequestBlocksWidthFull:
+		return true
+	case ArrangeAssetBlocksRequestBlocksWidthHalf:
+		return true
+	case ArrangeAssetBlocksRequestBlocksWidthThird:
+		return true
+	case ArrangeAssetBlocksRequestBlocksWidthTwoThirds:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AssetDiscovery.
 const (
 	AssetDiscoveryListed   AssetDiscovery = "listed"
@@ -894,6 +918,18 @@ type AddMediaRequest struct {
 // AddMediaRequestRole defines model for AddMediaRequest.Role.
 type AddMediaRequestRole string
 
+// ArrangeAssetBlocksRequest defines model for ArrangeAssetBlocksRequest.
+type ArrangeAssetBlocksRequest struct {
+	Blocks []struct {
+		Hidden bool                                 `json:"hidden"`
+		Id     openapi_types.UUID                   `json:"id"`
+		Width  ArrangeAssetBlocksRequestBlocksWidth `json:"width"`
+	} `json:"blocks"`
+}
+
+// ArrangeAssetBlocksRequestBlocksWidth defines model for ArrangeAssetBlocksRequest.Blocks.Width.
+type ArrangeAssetBlocksRequestBlocksWidth string
+
 // Asset defines model for Asset.
 type Asset struct {
 	Blurb               string             `json:"blurb"`
@@ -1554,6 +1590,9 @@ type CreateAssetJSONRequestBody = StartAssetRequest
 // CreateAssetMultipartRequestBody defines body for CreateAsset for multipart/form-data ContentType.
 type CreateAssetMultipartRequestBody CreateAssetMultipartBody
 
+// ArrangeAssetBlocksJSONRequestBody defines body for ArrangeAssetBlocks for application/json ContentType.
+type ArrangeAssetBlocksJSONRequestBody = ArrangeAssetBlocksRequest
+
 // SaveAssetBlockJSONRequestBody defines body for SaveAssetBlock for application/json ContentType.
 type SaveAssetBlockJSONRequestBody = SaveAssetBlockRequest
 
@@ -1637,6 +1676,12 @@ type ServerInterface interface {
 
 	// (GET /v1/assets/{id})
 	GetAsset(c *gin.Context, id openapi_types.UUID, params GetAssetParams)
+
+	// (PUT /v1/assets/{id}/blocks)
+	ArrangeAssetBlocks(c *gin.Context, id openapi_types.UUID)
+
+	// (DELETE /v1/assets/{id}/blocks/{blockId})
+	RemoveAssetBlock(c *gin.Context, id openapi_types.UUID, blockId openapi_types.UUID)
 
 	// (PUT /v1/assets/{id}/blocks/{blockId})
 	SaveAssetBlock(c *gin.Context, id openapi_types.UUID, blockId openapi_types.UUID)
@@ -2090,6 +2135,65 @@ func (siw *ServerInterfaceWrapper) GetAsset(c *gin.Context) {
 	}
 
 	siw.Handler.GetAsset(c, id, params)
+}
+
+// ArrangeAssetBlocks operation middleware
+func (siw *ServerInterfaceWrapper) ArrangeAssetBlocks(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ArrangeAssetBlocks(c, id)
+}
+
+// RemoveAssetBlock operation middleware
+func (siw *ServerInterfaceWrapper) RemoveAssetBlock(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "blockId" -------------
+	var blockId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "blockId", c.Param("blockId"), &blockId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter blockId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RemoveAssetBlock(c, id, blockId)
 }
 
 // SaveAssetBlock operation middleware
@@ -2818,7 +2922,9 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.DELETE(options.BaseURL+"/v1/assets/:id", wrapper.DeleteAsset)
 	router.GET(options.BaseURL+"/v1/assets/:id", wrapper.GetAsset)
 	router.POST(options.BaseURL+"/v1/assets/:id/revisions", wrapper.AddAssetRevision)
+	router.DELETE(options.BaseURL+"/v1/assets/:id/blocks/:blockId", wrapper.RemoveAssetBlock)
 	router.PUT(options.BaseURL+"/v1/assets/:id/blocks/:blockId", wrapper.SaveAssetBlock)
+	router.PUT(options.BaseURL+"/v1/assets/:id/blocks", wrapper.ArrangeAssetBlocks)
 	router.PUT(options.BaseURL+"/v1/assets/:id/file-patch", wrapper.SetFilePatch)
 	router.POST(options.BaseURL+"/v1/assets/:id/restore", wrapper.RestoreAsset)
 	router.PUT(options.BaseURL+"/v1/assets/:id/identity", wrapper.SetAssetIdentity)

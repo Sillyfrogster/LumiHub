@@ -425,6 +425,24 @@ export interface paths {
     /** @description Save one block without rewriting any other block on the asset. Draft content may be empty, but it must still be structurally valid and obey the kind catalog's builder constraints. */
     put: operations["saveAssetBlock"];
     post?: never;
+    /** @description Remove one optional block and its elements. Required blocks are refused. Remaining positions are rewritten into one gapless page order. */
+    delete: operations["removeAssetBlock"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/assets/{id}/blocks": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Rewrite the whole page order and save visibility and width choices in the same transaction. Every current block must appear exactly once. */
+    put: operations["arrangeAssetBlocks"];
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -784,6 +802,15 @@ export interface components {
       /** @enum {string} */
       width: "full" | "two_thirds" | "half" | "third";
       elements: components["schemas"]["SaveAssetElement"][];
+    };
+    ArrangeAssetBlocksRequest: {
+      blocks: {
+        /** Format: uuid */
+        id: string;
+        hidden: boolean;
+        /** @enum {string} */
+        width: "full" | "two_thirds" | "half" | "third";
+      }[];
     };
     SaveAssetElement: {
       /** Format: uuid */
@@ -2134,6 +2161,13 @@ export interface operations {
           "application/json": components["schemas"]["AssetBlock"];
         };
       };
+      /** @description An optional block saved empty and returned to absent */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
       /** @description The block is malformed or breaks a builder constraint */
       400: {
         headers: {
@@ -2171,6 +2205,116 @@ export interface operations {
       };
       /** @description The uploaded bytes have been purged and cannot return */
       422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  removeAssetBlock: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+        blockId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The block and everything in it were removed */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The signed-in account has not verified its email */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The asset or block does not belong to the creator */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The asset is withheld and cannot be changed */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  arrangeAssetBlocks: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ArrangeAssetBlocksRequest"];
+      };
+    };
+    responses: {
+      /** @description Every block in its saved page order */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AssetBlock"][];
+        };
+      };
+      /** @description The arrangement is incomplete */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The signed-in account has not verified its email */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The asset does not belong to the creator */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The asset is withheld and cannot be changed */
+      409: {
         headers: {
           [name: string]: unknown;
         };
