@@ -151,6 +151,8 @@
 
 .naming input,
 .listItem input,
+.fieldRow input,
+.imageItems input,
 .listItem textarea,
 .prose textarea {
   width: 100%;
@@ -166,7 +168,9 @@
 }
 
 .naming input,
-.listItem input {
+.listItem input,
+.fieldRow input,
+.imageItems input {
   min-height: 46px;
   padding: 10px 13px;
 }
@@ -183,6 +187,8 @@
 
 .naming input:focus,
 .listItem input:focus,
+.fieldRow input:focus,
+.imageItems input:focus,
 .listItem textarea:focus,
 .prose textarea:focus {
   border-color: var(--accent);
@@ -253,7 +259,9 @@ button.defaultTitle:hover:not(:disabled),
   background: var(--surface-quiet);
 }
 
-.listItem label > span {
+.listItem label > span,
+.fieldRow label > span,
+.imageItems label > span {
   margin-top: 0;
 }
 
@@ -262,7 +270,9 @@ button.defaultTitle:hover:not(:disabled),
   margin-top: 14px;
 }
 
-.listItem small {
+.listItem small,
+.fieldRow small,
+.imageItems small {
   color: var(--muted);
   font-size: inherit;
   font-weight: 400;
@@ -438,5 +448,138 @@ button.defaultTitle:hover:not(:disabled),
 
   .elementHeading > button {
     align-self: flex-start;
+  }
+}
+
+.fieldRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  align-items: end;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-quiet);
+}
+
+.fieldRow .removeItem {
+  margin-top: 0;
+}
+
+.imageEditor {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.imageItems {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  list-style: none;
+}
+
+.imageItems > li {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  align-items: start;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-quiet);
+}
+
+.imageItems img,
+.imageMissing {
+  width: 96px;
+  height: 96px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunk);
+  object-fit: cover;
+}
+
+.imageItems label > span {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--body);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.imageMoves {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  grid-column: 2;
+}
+
+.imageMoves button {
+  min-height: 40px;
+  padding-inline: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--body);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.imageMoves button:disabled {
+  color: var(--faint);
+  cursor: not-allowed;
+}
+
+.imageMoves .removeItem {
+  margin-top: 0;
+  padding-inline: 0;
+  border: 0;
+  background: none;
+}
+
+.imageError {
+  color: #8a4444;
+  font-size: 0.78rem;
+}
+
+.fileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+label.addItem {
+  position: relative;
+  cursor: pointer;
+}
+
+.imageItems label > span {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--body);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+@media (max-width: 620px) {
+  .fieldRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .imageItems > li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .imageMoves {
+    grid-column: 1;
   }
 }

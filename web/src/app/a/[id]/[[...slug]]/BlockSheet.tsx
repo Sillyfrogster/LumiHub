@@ -1,10 +1,13 @@
 "use client";
 
-import { EyeOff, Plus, RotateCcw, Trash2, X } from "lucide-react";
+import { EyeOff, ImagePlus, Plus, RotateCcw, Trash2, X } from "lucide-react";
+import Image from "next/image";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import {
   type AssetBlock,
   type AssetElement,
+  type AssetImage,
+  addAssetImage,
   type SaveAssetBlockRequest,
   saveAssetBlock,
 } from "@/lib/api/query";
@@ -14,23 +17,30 @@ import styles from "./BlockSheet.module.css";
 
 type TextItem = { name?: string; text: string };
 type DialogueTurn = { speaker: string; text: string };
+type FieldItem = { name?: string; value: string };
+type LinkItem = { label?: string; url: string; note?: string };
+type ImageItem = { mediaId: string; name?: string };
 
 export function BlockSheet({
   assetId,
   block,
+  images,
   onDismiss,
   onSaved,
   onRemoved,
   onHide,
   onRemove,
+  onImageAdded,
 }: {
   assetId: string;
   block: AssetBlock;
+  images: AssetImage[];
   onDismiss: () => void;
   onSaved: (block: AssetBlock) => void;
   onRemoved: () => void;
   onHide: () => Promise<void>;
   onRemove: () => void;
+  onImageAdded: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [title, setTitle] = useState(block.titleIsDefault ? "" : block.title);
@@ -203,9 +213,12 @@ export function BlockSheet({
             {elements.map((element) => (
               <ElementEditor
                 key={element.id}
+                assetId={assetId}
                 element={element}
+                images={images}
                 pending={pending}
                 onChange={replaceElement}
+                onImageAdded={onImageAdded}
                 onRemove={
                   element.pinned
                     ? undefined
@@ -288,15 +301,21 @@ export function BlockSheet({
 }
 
 function ElementEditor({
+  assetId,
   element,
+  images,
   pending,
   onChange,
   onRemove,
+  onImageAdded,
 }: {
+  assetId: string;
   element: AssetElement;
+  images: AssetImage[];
   pending: boolean;
   onChange: (element: AssetElement) => void;
   onRemove?: () => void;
+  onImageAdded: () => void;
 }) {
   return (
     <section
@@ -315,19 +334,32 @@ function ElementEditor({
           </button>
         ) : null}
       </div>
-      <ElementFields element={element} pending={pending} onChange={onChange} />
+      <ElementFields
+        assetId={assetId}
+        element={element}
+        images={images}
+        pending={pending}
+        onChange={onChange}
+        onImageAdded={onImageAdded}
+      />
     </section>
   );
 }
 
 function ElementFields({
+  assetId,
   element,
+  images,
   pending,
   onChange,
+  onImageAdded,
 }: {
+  assetId: string;
   element: AssetElement;
+  images: AssetImage[];
   pending: boolean;
   onChange: (element: AssetElement) => void;
+  onImageAdded: () => void;
 }) {
   if (element.type === "prose" && "text" in element.content) {
     return (
@@ -382,17 +414,376 @@ function ElementFields({
     );
   }
 
+  if (element.type === "field_list" && "fields" in element.content) {
+    return (
+      <FieldEditor
+        fields={element.content.fields}
+        pending={pending}
+        onChange={(fields) =>
+          onChange({
+            ...element,
+            content: { fields },
+            isEmpty: fields.every((field) => field.value.trim() === ""),
+          })
+        }
+      />
+    );
+  }
+
+  if (element.type === "link_list" && "links" in element.content) {
+    return (
+      <LinkEditor
+        links={element.content.links}
+        pending={pending}
+        onChange={(links) =>
+          onChange({
+            ...element,
+            content: { links },
+            isEmpty: links.every((link) => link.url.trim() === ""),
+          })
+        }
+      />
+    );
+  }
+
   if (element.type === "image_set" && "images" in element.content) {
     return (
-      <p className={styles.readOnly}>
-        {element.content.images.length === 0
-          ? "No images are in this section yet."
-          : "Images in this section are managed from the gallery."}
-      </p>
+      <ImageEditor
+        assetId={assetId}
+        items={element.content.images}
+        images={images}
+        pending={pending}
+        onAdded={onImageAdded}
+        onChange={(added) =>
+          onChange({
+            ...element,
+            content: { images: added },
+            isEmpty: added.length === 0,
+          })
+        }
+      />
     );
   }
 
   return null;
+}
+
+function FieldEditor({
+  fields,
+  pending,
+  onChange,
+}: {
+  fields: FieldItem[];
+  pending: boolean;
+  onChange: (fields: FieldItem[]) => void;
+}) {
+  return (
+    <div className={styles.listEditor}>
+      {fields.map((field, index) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: Fields stay ordered and hold no local state.
+        <div className={styles.fieldRow} key={index}>
+          <label>
+            <span>Name</span>
+            <input
+              value={field.name ?? ""}
+              onChange={(event) =>
+                onChange(
+                  fields.map((current, fieldIndex) =>
+                    fieldIndex === index
+                      ? { ...current, name: event.target.value || undefined }
+                      : current,
+                  ),
+                )
+              }
+              disabled={pending}
+            />
+          </label>
+          <label>
+            <span>Value</span>
+            <input
+              value={field.value}
+              onChange={(event) =>
+                onChange(
+                  fields.map((current, fieldIndex) =>
+                    fieldIndex === index
+                      ? { ...current, value: event.target.value }
+                      : current,
+                  ),
+                )
+              }
+              disabled={pending}
+            />
+          </label>
+          <button
+            type="button"
+            className={styles.removeItem}
+            onClick={() =>
+              onChange(fields.filter((_, fieldIndex) => fieldIndex !== index))
+            }
+            disabled={pending}
+          >
+            <Trash2 size={14} aria-hidden="true" />
+            Remove field
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        className={styles.addItem}
+        onClick={() => onChange([...fields, { value: "" }])}
+        disabled={pending}
+      >
+        <Plus size={16} aria-hidden="true" />
+        Add field
+      </button>
+    </div>
+  );
+}
+
+function LinkEditor({
+  links,
+  pending,
+  onChange,
+}: {
+  links: LinkItem[];
+  pending: boolean;
+  onChange: (links: LinkItem[]) => void;
+}) {
+  return (
+    <div className={styles.listEditor}>
+      {links.map((link, index) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: Links stay ordered and hold no local state.
+        <div className={styles.listItem} key={index}>
+          <label>
+            <span>
+              Wording <small>optional</small>
+            </span>
+            <input
+              value={link.label ?? ""}
+              onChange={(event) =>
+                onChange(
+                  links.map((current, linkIndex) =>
+                    linkIndex === index
+                      ? { ...current, label: event.target.value || undefined }
+                      : current,
+                  ),
+                )
+              }
+              disabled={pending}
+            />
+          </label>
+          <label>
+            <span>Address</span>
+            <input
+              type="url"
+              inputMode="url"
+              placeholder="https://"
+              value={link.url}
+              onChange={(event) =>
+                onChange(
+                  links.map((current, linkIndex) =>
+                    linkIndex === index
+                      ? { ...current, url: event.target.value }
+                      : current,
+                  ),
+                )
+              }
+              disabled={pending}
+            />
+          </label>
+          <label className={styles.itemText}>
+            <span>
+              Note <small>optional</small>
+            </span>
+            <input
+              value={link.note ?? ""}
+              onChange={(event) =>
+                onChange(
+                  links.map((current, linkIndex) =>
+                    linkIndex === index
+                      ? { ...current, note: event.target.value || undefined }
+                      : current,
+                  ),
+                )
+              }
+              disabled={pending}
+            />
+          </label>
+          <button
+            type="button"
+            className={styles.removeItem}
+            onClick={() =>
+              onChange(links.filter((_, linkIndex) => linkIndex !== index))
+            }
+            disabled={pending}
+          >
+            <Trash2 size={14} aria-hidden="true" />
+            Remove link
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        className={styles.addItem}
+        onClick={() => onChange([...links, { url: "" }])}
+        disabled={pending}
+      >
+        <Plus size={16} aria-hidden="true" />
+        Add link
+      </button>
+    </div>
+  );
+}
+
+function ImageEditor({
+  assetId,
+  items,
+  images,
+  pending,
+  onChange,
+  onAdded,
+}: {
+  assetId: string;
+  items: ImageItem[];
+  images: AssetImage[];
+  pending: boolean;
+  onChange: (items: ImageItem[]) => void;
+  onAdded: () => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [previews, setPreviews] = useState<Record<string, string>>({});
+  const file = useRef<HTMLInputElement>(null);
+
+  async function upload(chosen: File | null) {
+    if (!chosen || uploading) return;
+    setUploading(true);
+    setMessage("");
+    try {
+      const mediaId = await addAssetImage(assetId, chosen);
+      setPreviews((current) => ({
+        ...current,
+        [mediaId]: URL.createObjectURL(chosen),
+      }));
+      onChange([...items, { mediaId }]);
+      onAdded();
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "The image could not be added. Try again.",
+      );
+    } finally {
+      setUploading(false);
+      if (file.current) file.current.value = "";
+    }
+  }
+
+  return (
+    <div className={styles.imageEditor}>
+      {items.length > 0 ? (
+        <ol className={styles.imageItems}>
+          {items.map((item, index) => {
+            const stored = images.find(
+              (candidate) => candidate.id === item.mediaId,
+            );
+            const source = previews[item.mediaId] ?? stored?.thumbUrl;
+            return (
+              <li key={item.mediaId}>
+                {source ? (
+                  <Image
+                    src={source}
+                    alt=""
+                    width={stored?.width ?? 200}
+                    height={stored?.height ?? 200}
+                    sizes="120px"
+                    unoptimized
+                  />
+                ) : (
+                  <span className={styles.imageMissing} />
+                )}
+                <label>
+                  <span>
+                    Name <small>optional</small>
+                  </span>
+                  <input
+                    value={item.name ?? ""}
+                    onChange={(event) =>
+                      onChange(
+                        items.map((current, itemIndex) =>
+                          itemIndex === index
+                            ? {
+                                ...current,
+                                name: event.target.value || undefined,
+                              }
+                            : current,
+                        ),
+                      )
+                    }
+                    disabled={pending}
+                  />
+                </label>
+                <div className={styles.imageMoves}>
+                  <button
+                    type="button"
+                    disabled={pending || index === 0}
+                    onClick={() => onChange(swap(items, index, index - 1))}
+                  >
+                    Earlier
+                  </button>
+                  <button
+                    type="button"
+                    disabled={pending || index === items.length - 1}
+                    onClick={() => onChange(swap(items, index, index + 1))}
+                  >
+                    Later
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.removeItem}
+                    disabled={pending}
+                    onClick={() =>
+                      onChange(
+                        items.filter((_, itemIndex) => itemIndex !== index),
+                      )
+                    }
+                  >
+                    <Trash2 size={14} aria-hidden="true" />
+                    Remove
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      ) : (
+        <p className={styles.readOnly}>No images are in this section yet.</p>
+      )}
+      {message ? (
+        <p className={styles.imageError} role="alert">
+          {message}
+        </p>
+      ) : null}
+      <label className={styles.addItem}>
+        <ImagePlus size={16} aria-hidden="true" />
+        {uploading ? "Adding…" : "Add image"}
+        <input
+          ref={file}
+          type="file"
+          accept="image/*"
+          className={styles.fileInput}
+          disabled={pending || uploading}
+          onChange={(event) => void upload(event.target.files?.[0] ?? null)}
+        />
+      </label>
+    </div>
+  );
+}
+
+function swap(items: ImageItem[], from: number, to: number): ImageItem[] {
+  const next = [...items];
+  [next[from], next[to]] = [next[to], next[from]];
+  return next;
 }
 
 function ListEditor({
@@ -554,6 +945,7 @@ function toSaveElement(
     role: element.role,
     slot: element.slot,
     display: element.display,
+    itemSize: element.itemSize,
     content: element.content,
   };
 }
@@ -567,7 +959,11 @@ function elementHint(type: AssetElement["type"]): string {
     case "dialogue_sample":
       return "Keep each speaker and message together, in reading order.";
     case "image_set":
-      return "This collection is presented here without exposing its stored data.";
+      return "Images sit in the order you put them in, and each may carry a name.";
+    case "field_list":
+      return "Each row is a short name and the value beside it.";
+    case "link_list":
+      return "Addresses have to start with http or https.";
   }
 }
 

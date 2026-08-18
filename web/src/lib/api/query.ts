@@ -10,6 +10,8 @@ export type SaveAssetBlockRequest =
   components["schemas"]["SaveAssetBlockRequest"];
 export type ArrangeAssetBlocksRequest =
   components["schemas"]["ArrangeAssetBlocksRequest"];
+export type AddableSection = components["schemas"]["AddableSection"];
+export type ElementType = components["schemas"]["ElementType"];
 export type AssetTag = components["schemas"]["AssetTag"];
 export type ReadinessItem = components["schemas"]["ReadinessItem"];
 export type Profile = components["schemas"]["Profile"];
@@ -156,6 +158,57 @@ export async function saveAssetBlock(
     throw new Error(message);
   }
   return data;
+}
+
+/** Adds one section to the foot of the page, holding the element chosen for it. */
+export async function addAssetBlock(
+  assetId: string,
+  definition: string,
+  elementType: ElementType,
+): Promise<AssetBlock> {
+  const { data, error } = await api.POST("/v1/assets/{id}/blocks", {
+    params: { path: { id: assetId } },
+    body: { definition, elementType },
+  });
+  if (error || !data) {
+    const detail = error as { error?: unknown } | undefined;
+    throw new Error(
+      typeof detail?.error === "string"
+        ? detail.error.replace(/^invalid block:\s*/i, "")
+        : "The section could not be added. Try again.",
+    );
+  }
+  return data;
+}
+
+/**
+ * Stores one image against the asset and answers with its new id. The page
+ * reads the image back from the asset once the section holding it is saved.
+ */
+export async function addAssetImage(
+  assetId: string,
+  file: File,
+): Promise<string> {
+  const body = new FormData();
+  body.append("metadata", JSON.stringify({ role: "gallery" }));
+  body.append("file", file, file.name);
+  const response = await fetch(`/api/v1/assets/${assetId}/media`, {
+    method: "POST",
+    credentials: "same-origin",
+    body,
+  });
+  if (!response.ok) {
+    throw new Error(
+      response.status === 413
+        ? "That image is larger than Illarin accepts."
+        : "The image could not be added. Try again.",
+    );
+  }
+  const added = (await response.json()) as { id?: unknown };
+  if (typeof added.id !== "string") {
+    throw new Error("The image could not be added. Try again.");
+  }
+  return added.id;
 }
 
 /** Saves the full page outline as one arrangement. */

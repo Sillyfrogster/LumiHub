@@ -141,6 +141,8 @@ export default async function AssetPage({
               <AssetBlocks
                 assetId={asset.id}
                 blocks={asset.blocks}
+                images={asset.media}
+                addableSections={asset.addableSections ?? []}
                 isOwner={asset.isOwner}
               />
             </section>

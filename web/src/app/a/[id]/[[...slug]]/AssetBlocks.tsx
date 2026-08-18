@@ -1,16 +1,22 @@
 "use client";
 
 import { Eye, ListTree, PencilLine, Undo2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { type CSSProperties, useEffect, useState } from "react";
 import {
+  type AddableSection,
   type AssetBlock,
+  type AssetImage,
+  addAssetBlock,
   arrangeAssetBlocks,
+  type ElementType,
   moveAssetBlockContent,
   removeAssetBlock,
   type SaveAssetBlockRequest,
   saveAssetBlock,
 } from "@/lib/api/query";
 import { packBlockRows } from "@/lib/page-arrangement";
+import { AddSectionTray } from "./AddSectionTray";
 import { WidthPicker } from "./ArrangementPickers";
 import {
   ArrangeSections,
@@ -39,12 +45,17 @@ const LAYOUT_CLASS: Record<AssetBlock["layout"], string> = {
 export function AssetBlocks({
   assetId,
   blocks,
+  images,
+  addableSections,
   isOwner,
 }: {
   assetId: string;
   blocks: AssetBlock[];
+  images: AssetImage[];
+  addableSections: AddableSection[];
   isOwner: boolean;
 }) {
+  const router = useRouter();
   const [currentBlocks, setCurrentBlocks] = useState(blocks);
   const [editing, setEditing] = useState<string | null>(null);
   const [savingWidth, setSavingWidth] = useState<string | null>(null);
@@ -53,8 +64,16 @@ export function AssetBlocks({
   const [readerView, setReaderView] = useState(false);
   const [removing, setRemoving] = useState<AssetBlock | null>(null);
   const [blockActionPending, setBlockActionPending] = useState(false);
+  const [added, setAdded] = useState<string | null>(null);
 
   useEffect(() => setCurrentBlocks(blocks), [blocks]);
+
+  // Setting the hash is what scrolls to the new section and marks it.
+  useEffect(() => {
+    if (!added) return;
+    window.location.hash = `block-${added}`;
+    setAdded(null);
+  }, [added]);
 
   const editingVisible = isOwner && !readerView;
   const packable = editingVisible
@@ -63,6 +82,15 @@ export function AssetBlocks({
   const rows = packBlockRows(packable, { showHidden: editingVisible });
 
   const editedBlock = currentBlocks.find((block) => block.id === editing);
+
+  function addSection(definition: string, elementType: ElementType) {
+    void runBlockAction(async () => {
+      const section = await addAssetBlock(assetId, definition, elementType);
+      setCurrentBlocks((current) => [...current, section]);
+      setArranging(false);
+      setAdded(section.id);
+    });
+  }
 
   async function runBlockAction(action: () => Promise<void>) {
     if (blockActionPending) return;
@@ -267,6 +295,7 @@ export function AssetBlocks({
                             <ElementBody
                               element={element}
                               isOwner={editingVisible}
+                              images={images}
                             />
                           </div>
                         ))}
@@ -279,11 +308,21 @@ export function AssetBlocks({
           )}
         </>
       )}
+      {editingVisible ? (
+        <AddSectionTray
+          sections={addableSections}
+          blocks={currentBlocks}
+          pending={blockActionPending}
+          onAdd={addSection}
+        />
+      ) : null}
       {editedBlock ? (
         <BlockSheet
           assetId={assetId}
           block={editedBlock}
+          images={images}
           onDismiss={() => setEditing(null)}
+          onImageAdded={() => router.refresh()}
           onSaved={(saved) =>
             setCurrentBlocks((current) =>
               current.map((block) => (block.id === saved.id ? saved : block)),
@@ -369,6 +408,7 @@ function blockSaveRequest(
       role: element.role,
       slot: element.slot,
       display: element.display,
+      itemSize: element.itemSize,
       content: element.content,
     })),
   };
