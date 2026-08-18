@@ -1,9 +1,11 @@
 package http
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -15,6 +17,7 @@ import (
 	"github.com/Sillyfrogster/LumiHub/api/internal/format/character"
 	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 // aCardCarryingThirdPartyNamespaces is the file this ticket exists for: real
@@ -344,4 +347,53 @@ func TestAnOverLimitFileIsRefusedAndNamesWhereTheWeightIs(t *testing.T) {
 	if strings.Contains(listed.Body.String(), "Heavy") {
 		t.Error("a refused file left an asset behind")
 	}
+}
+
+// The round trip, end to end: a card carrying third-party namespaces is
+// uploaded, an unrelated block is edited, and an export in the same format
+// brings every preserved key back byte for byte.
+func TestAnExportInTheSameFormatBringsEveryPreservedKeyBack(t *testing.T) {
+	r, session, assets := newCharacterIngestRouter(t)
+	metadata := exampleMetadata("Ana")
+	metadata["filename"] = "ana.json"
+	assetID := assetIDFromIngest(t, uploadAndFinish(
+		t, r, session, assets, metadata, []byte(aCardCarryingThirdPartyNamespaces),
+	))
+
+	page := fetchStartedAsset(t, r, session, assetID)
+	core := editableBlock(blockNamed(t, page.Blocks, "character_core"))
+	core.Elements[0].Content = json.RawMessage(`{"text":"Keeps the archive, and the ledger."}`)
+	saved := saveBlock(t, r, session, assetID, blockNamed(t, page.Blocks, "character_core").ID, core)
+	if saved.Code != http.StatusOK {
+		t.Fatalf("save the description: status = %d: %s", saved.Code, saved.Body.String())
+	}
+
+	export, err := assets.OpenExport(context.Background(), uuid.MustParse(assetID), nil, "sillytavern")
+	if err != nil {
+		t.Fatalf("export the card: %v", err)
+	}
+	defer export.Artifact.Close()
+	written, err := io.ReadAll(export.Artifact)
+	if err != nil {
+		t.Fatalf("read the exported card: %v", err)
+	}
+
+	exported := cardBodyOf(t, written)
+	source := cardBodyOf(t, []byte(aCardCarryingThirdPartyNamespaces))
+	for _, key := range []string{"tags", "extensions", "character_book"} {
+		if !bytes.Equal(exported[key], source[key]) {
+			t.Errorf("%s came back as %s, want %s", key, exported[key], source[key])
+		}
+	}
+}
+
+func cardBodyOf(t *testing.T, card []byte) map[string]json.RawMessage {
+	t.Helper()
+	var read struct {
+		Data map[string]json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal(card, &read); err != nil {
+		t.Fatalf("read a card: %v", err)
+	}
+	return read.Data
 }
