@@ -1027,7 +1027,7 @@ components:
         made.
       required:
         [id, definition, title, titleIsDefault, position, hidden, layout, width,
-         required, hideable, isEmpty, elements]
+         allowedLayouts, required, hideable, isEmpty, elements]
       properties:
         id: { type: string, format: uuid }
         definition: { type: string }
@@ -1041,6 +1041,10 @@ components:
           type: string
           enum: [single, duo, main-aside, trio, stack-2, stack-3]
         width: { type: string, enum: [full, two_thirds, half, third] }
+        allowedLayouts:
+          type: array
+          description: The layouts this block's current definition offers.
+          items: { type: string, enum: [single, duo, main-aside, trio, stack-2, stack-3] }
         required: { type: boolean }
         hideable: { type: boolean }
         isEmpty:
@@ -1054,11 +1058,15 @@ components:
     SaveAssetBlockRequest:
       type: object
       additionalProperties: false
-      required: [title, elements]
+      required: [title, layout, width, elements]
       properties:
         title:
           type: [string, "null"]
           description: Null keeps the definition's current default wording.
+        layout:
+          type: string
+          enum: [single, duo, main-aside, trio, stack-2, stack-3]
+        width: { type: string, enum: [full, two_thirds, half, third] }
         elements:
           type: array
           items: { $ref: "#/components/schemas/SaveAssetElement" }

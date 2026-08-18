@@ -1,0 +1,158 @@
+import { describe, expect, test } from "bun:test";
+import {
+  LAYOUTS,
+  WIDTH_COLUMNS,
+  contentItemCount,
+  packBlockRows,
+} from "./page-arrangement";
+
+type TestBlock = {
+  id: string;
+  width: keyof typeof WIDTH_COLUMNS;
+  hidden: boolean;
+};
+
+function block(
+  id: string,
+  width: TestBlock["width"],
+  hidden = false,
+): TestBlock {
+  return { id, width, hidden };
+}
+
+function spans(rows: ReturnType<typeof packBlockRows<TestBlock>>) {
+  return rows.map((row) => row.map((item) => [item.block.id, item.columns]));
+}
+
+describe("page arrangement", () => {
+  test("the four named widths are twelve, eight, six and four columns", () => {
+    expect(WIDTH_COLUMNS).toEqual({
+      full: 12,
+      two_thirds: 8,
+      half: 6,
+      third: 4,
+    });
+  });
+
+  test("the six layouts have finite named slots and minimum widths", () => {
+    expect(LAYOUTS).toEqual({
+      single: { slots: ["main"], minimumColumns: 4 },
+      duo: { slots: ["left", "right"], minimumColumns: 8 },
+      "main-aside": { slots: ["main", "aside"], minimumColumns: 8 },
+      trio: { slots: ["left", "middle", "right"], minimumColumns: 12 },
+      "stack-2": { slots: ["top", "bottom"], minimumColumns: 4 },
+      "stack-3": { slots: ["top", "middle", "bottom"], minimumColumns: 4 },
+    });
+  });
+
+  test("blocks stay in page order and start a new row when they do not fit", () => {
+    expect(
+      spans(
+        packBlockRows(
+          [block("a", "two_thirds"), block("b", "half"), block("c", "third")],
+          { showHidden: true },
+        ),
+      ),
+    ).toEqual([
+      [["a", 12]],
+      [
+        ["b", 6],
+        ["c", 6],
+      ],
+    ]);
+  });
+
+  test("the last block absorbs the remainder and a lone block fills its row", () => {
+    expect(
+      spans(
+        packBlockRows(
+          [block("a", "third"), block("b", "half"), block("c", "third")],
+          { showHidden: true },
+        ),
+      ),
+    ).toEqual([
+      [
+        ["a", 4],
+        ["b", 8],
+      ],
+      [["c", 12]],
+    ]);
+  });
+
+  test("a hidden block leaves reader packing and stays in owner packing", () => {
+    const blocks = [block("hidden", "half", true), block("shown", "half")];
+
+    expect(spans(packBlockRows(blocks, { showHidden: false }))).toEqual([
+      [["shown", 12]],
+    ]);
+    expect(spans(packBlockRows(blocks, { showHidden: true }))).toEqual([
+      [
+        ["hidden", 6],
+        ["shown", 6],
+      ],
+    ]);
+  });
+
+  test("every combination fills every completed row", () => {
+    const widths = Object.keys(WIDTH_COLUMNS) as TestBlock["width"][];
+    for (const first of widths) {
+      for (const second of widths) {
+        for (const third of widths) {
+          const rows = packBlockRows(
+            [block("a", first), block("b", second), block("c", third)],
+            { showHidden: true },
+          );
+          for (const row of rows) {
+            expect(row.reduce((total, item) => total + item.columns, 0)).toBe(
+              12,
+            );
+          }
+        }
+      }
+    }
+  });
+
+  test("narrow packing ignores declared widths", () => {
+    expect(
+      spans(
+        packBlockRows([block("a", "third"), block("b", "half")], {
+          showHidden: true,
+          narrow: true,
+        }),
+      ),
+    ).toEqual([[["a", 12]], [["b", 12]]]);
+  });
+});
+
+describe("remove confirmation counts", () => {
+  test("counts each element through its public content shape", () => {
+    expect(
+      contentItemCount({ type: "prose", content: { text: "One body" } }),
+    ).toBe(1);
+    expect(
+      contentItemCount({
+        type: "text_set",
+        content: { texts: [{ text: "First" }, { text: "Second" }] },
+      }),
+    ).toBe(2);
+    expect(
+      contentItemCount({
+        type: "dialogue_sample",
+        content: { turns: [{ speaker: "A", text: "Hello" }] },
+      }),
+    ).toBe(1);
+    expect(
+      contentItemCount({
+        type: "image_set",
+        content: { images: [{ mediaId: "one" }, { mediaId: "two" }] },
+      }),
+    ).toBe(2);
+  });
+
+  test("empty content counts as nothing lost", () => {
+    expect(contentItemCount({ type: "prose", content: { text: "" } })).toBe(0);
+    expect(contentItemCount({ type: "text_set", content: { texts: [] } })).toBe(
+      0,
+    );
+  });
+});

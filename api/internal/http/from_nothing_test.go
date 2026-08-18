@@ -9,17 +9,18 @@ import (
 )
 
 type startedBlock struct {
-	ID             string `json:"id"`
-	Definition     string `json:"definition"`
-	Title          string `json:"title"`
-	TitleIsDefault bool   `json:"titleIsDefault"`
-	Position       int    `json:"position"`
-	Hidden         bool   `json:"hidden"`
-	Layout         string `json:"layout"`
-	Width          string `json:"width"`
-	Required       bool   `json:"required"`
-	Hideable       bool   `json:"hideable"`
-	IsEmpty        bool   `json:"isEmpty"`
+	ID             string   `json:"id"`
+	Definition     string   `json:"definition"`
+	Title          string   `json:"title"`
+	TitleIsDefault bool     `json:"titleIsDefault"`
+	Position       int      `json:"position"`
+	Hidden         bool     `json:"hidden"`
+	Layout         string   `json:"layout"`
+	Width          string   `json:"width"`
+	AllowedLayouts []string `json:"allowedLayouts"`
+	Required       bool     `json:"required"`
+	Hideable       bool     `json:"hideable"`
+	IsEmpty        bool     `json:"isEmpty"`
 	Elements       []struct {
 		ID      string          `json:"id"`
 		Type    string          `json:"type"`
@@ -106,6 +107,9 @@ func TestACharacterBuiltFromNothingLandsOnItsTwoRequiredSections(t *testing.T) {
 	}
 	if core.Layout != "stack-3" || core.Width != "two_thirds" {
 		t.Errorf("character core = %q at %q, want stack-3 at two thirds", core.Layout, core.Width)
+	}
+	if strings.Join(core.AllowedLayouts, ",") != "stack-3,trio" {
+		t.Errorf("character core layouts = %v, want stack-3 and trio", core.AllowedLayouts)
 	}
 	wantRoles := []string{"description", "personality", "scenario"}
 	if len(core.Elements) != 3 {

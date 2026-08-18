@@ -28,6 +28,7 @@ func toAPIBlocks(kind string, blocks []block.Block) ([]AssetBlock, error) {
 			Hidden:         b.Hidden,
 			Layout:         AssetBlockLayout(b.Layout),
 			Width:          AssetBlockWidth(b.Width),
+			AllowedLayouts: apiLayouts(definition.Layouts),
 			Required:       definition.Required,
 			// Every optional block is hideable, because it can be removed.
 			Hideable: !definition.Required || definition.Hideable,
@@ -36,6 +37,14 @@ func toAPIBlocks(kind string, blocks []block.Block) ([]AssetBlock, error) {
 		})
 	}
 	return out, nil
+}
+
+func apiLayouts(layouts []block.Layout) []AssetBlockAllowedLayouts {
+	out := make([]AssetBlockAllowedLayouts, len(layouts))
+	for i, layout := range layouts {
+		out[i] = AssetBlockAllowedLayouts(layout)
+	}
+	return out
 }
 
 func toAPIElements(kind string, holder block.Block) ([]AssetElement, error) {

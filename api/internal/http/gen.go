@@ -80,30 +80,60 @@ func (e AssetDiscovery) Valid() bool {
 	}
 }
 
+// Defines values for AssetBlockAllowedLayouts.
+const (
+	AssetBlockAllowedLayoutsDuo       AssetBlockAllowedLayouts = "duo"
+	AssetBlockAllowedLayoutsMainAside AssetBlockAllowedLayouts = "main-aside"
+	AssetBlockAllowedLayoutsSingle    AssetBlockAllowedLayouts = "single"
+	AssetBlockAllowedLayoutsStack2    AssetBlockAllowedLayouts = "stack-2"
+	AssetBlockAllowedLayoutsStack3    AssetBlockAllowedLayouts = "stack-3"
+	AssetBlockAllowedLayoutsTrio      AssetBlockAllowedLayouts = "trio"
+)
+
+// Valid indicates whether the value is a known member of the AssetBlockAllowedLayouts enum.
+func (e AssetBlockAllowedLayouts) Valid() bool {
+	switch e {
+	case AssetBlockAllowedLayoutsDuo:
+		return true
+	case AssetBlockAllowedLayoutsMainAside:
+		return true
+	case AssetBlockAllowedLayoutsSingle:
+		return true
+	case AssetBlockAllowedLayoutsStack2:
+		return true
+	case AssetBlockAllowedLayoutsStack3:
+		return true
+	case AssetBlockAllowedLayoutsTrio:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AssetBlockLayout.
 const (
-	Duo       AssetBlockLayout = "duo"
-	MainAside AssetBlockLayout = "main-aside"
-	Single    AssetBlockLayout = "single"
-	Stack2    AssetBlockLayout = "stack-2"
-	Stack3    AssetBlockLayout = "stack-3"
-	Trio      AssetBlockLayout = "trio"
+	AssetBlockLayoutDuo       AssetBlockLayout = "duo"
+	AssetBlockLayoutMainAside AssetBlockLayout = "main-aside"
+	AssetBlockLayoutSingle    AssetBlockLayout = "single"
+	AssetBlockLayoutStack2    AssetBlockLayout = "stack-2"
+	AssetBlockLayoutStack3    AssetBlockLayout = "stack-3"
+	AssetBlockLayoutTrio      AssetBlockLayout = "trio"
 )
 
 // Valid indicates whether the value is a known member of the AssetBlockLayout enum.
 func (e AssetBlockLayout) Valid() bool {
 	switch e {
-	case Duo:
+	case AssetBlockLayoutDuo:
 		return true
-	case MainAside:
+	case AssetBlockLayoutMainAside:
 		return true
-	case Single:
+	case AssetBlockLayoutSingle:
 		return true
-	case Stack2:
+	case AssetBlockLayoutStack2:
 		return true
-	case Stack3:
+	case AssetBlockLayoutStack3:
 		return true
-	case Trio:
+	case AssetBlockLayoutTrio:
 		return true
 	default:
 		return false
@@ -112,22 +142,22 @@ func (e AssetBlockLayout) Valid() bool {
 
 // Defines values for AssetBlockWidth.
 const (
-	Full      AssetBlockWidth = "full"
-	Half      AssetBlockWidth = "half"
-	Third     AssetBlockWidth = "third"
-	TwoThirds AssetBlockWidth = "two_thirds"
+	AssetBlockWidthFull      AssetBlockWidth = "full"
+	AssetBlockWidthHalf      AssetBlockWidth = "half"
+	AssetBlockWidthThird     AssetBlockWidth = "third"
+	AssetBlockWidthTwoThirds AssetBlockWidth = "two_thirds"
 )
 
 // Valid indicates whether the value is a known member of the AssetBlockWidth enum.
 func (e AssetBlockWidth) Valid() bool {
 	switch e {
-	case Full:
+	case AssetBlockWidthFull:
 		return true
-	case Half:
+	case AssetBlockWidthHalf:
 		return true
-	case Third:
+	case AssetBlockWidthThird:
 		return true
-	case TwoThirds:
+	case AssetBlockWidthTwoThirds:
 		return true
 	default:
 		return false
@@ -608,6 +638,60 @@ func (e NsfwVisibilityRequestVisibility) Valid() bool {
 	}
 }
 
+// Defines values for SaveAssetBlockRequestLayout.
+const (
+	SaveAssetBlockRequestLayoutDuo       SaveAssetBlockRequestLayout = "duo"
+	SaveAssetBlockRequestLayoutMainAside SaveAssetBlockRequestLayout = "main-aside"
+	SaveAssetBlockRequestLayoutSingle    SaveAssetBlockRequestLayout = "single"
+	SaveAssetBlockRequestLayoutStack2    SaveAssetBlockRequestLayout = "stack-2"
+	SaveAssetBlockRequestLayoutStack3    SaveAssetBlockRequestLayout = "stack-3"
+	SaveAssetBlockRequestLayoutTrio      SaveAssetBlockRequestLayout = "trio"
+)
+
+// Valid indicates whether the value is a known member of the SaveAssetBlockRequestLayout enum.
+func (e SaveAssetBlockRequestLayout) Valid() bool {
+	switch e {
+	case SaveAssetBlockRequestLayoutDuo:
+		return true
+	case SaveAssetBlockRequestLayoutMainAside:
+		return true
+	case SaveAssetBlockRequestLayoutSingle:
+		return true
+	case SaveAssetBlockRequestLayoutStack2:
+		return true
+	case SaveAssetBlockRequestLayoutStack3:
+		return true
+	case SaveAssetBlockRequestLayoutTrio:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SaveAssetBlockRequestWidth.
+const (
+	SaveAssetBlockRequestWidthFull      SaveAssetBlockRequestWidth = "full"
+	SaveAssetBlockRequestWidthHalf      SaveAssetBlockRequestWidth = "half"
+	SaveAssetBlockRequestWidthThird     SaveAssetBlockRequestWidth = "third"
+	SaveAssetBlockRequestWidthTwoThirds SaveAssetBlockRequestWidth = "two_thirds"
+)
+
+// Valid indicates whether the value is a known member of the SaveAssetBlockRequestWidth enum.
+func (e SaveAssetBlockRequestWidth) Valid() bool {
+	switch e {
+	case SaveAssetBlockRequestWidthFull:
+		return true
+	case SaveAssetBlockRequestWidthHalf:
+		return true
+	case SaveAssetBlockRequestWidthThird:
+		return true
+	case SaveAssetBlockRequestWidthTwoThirds:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SaveAssetElementDisplay.
 const (
 	SaveAssetElementDisplayRich     SaveAssetElementDisplay = "rich"
@@ -829,11 +913,13 @@ type AssetDiscovery string
 
 // AssetBlock A titled container. Required, hideable, the layouts it allows and its default width are read from the kind catalog at render time, so this is what the catalog says today rather than what was true when the block was made.
 type AssetBlock struct {
-	Definition string             `json:"definition"`
-	Elements   []AssetElement     `json:"elements"`
-	Hidden     bool               `json:"hidden"`
-	Hideable   bool               `json:"hideable"`
-	Id         openapi_types.UUID `json:"id"`
+	// AllowedLayouts The layouts this block's current definition offers.
+	AllowedLayouts []AssetBlockAllowedLayouts `json:"allowedLayouts"`
+	Definition     string                     `json:"definition"`
+	Elements       []AssetElement             `json:"elements"`
+	Hidden         bool                       `json:"hidden"`
+	Hideable       bool                       `json:"hideable"`
+	Id             openapi_types.UUID         `json:"id"`
 
 	// IsEmpty Whether every element in the block carries nothing. Computed for display and never stored.
 	IsEmpty  bool             `json:"isEmpty"`
@@ -846,6 +932,9 @@ type AssetBlock struct {
 	TitleIsDefault bool            `json:"titleIsDefault"`
 	Width          AssetBlockWidth `json:"width"`
 }
+
+// AssetBlockAllowedLayouts defines model for AssetBlock.AllowedLayouts.
+type AssetBlockAllowedLayouts string
 
 // AssetBlockLayout defines model for AssetBlock.Layout.
 type AssetBlockLayout string
@@ -1283,11 +1372,19 @@ type RenameHandleRequest struct {
 
 // SaveAssetBlockRequest defines model for SaveAssetBlockRequest.
 type SaveAssetBlockRequest struct {
-	Elements []SaveAssetElement `json:"elements"`
+	Elements []SaveAssetElement          `json:"elements"`
+	Layout   SaveAssetBlockRequestLayout `json:"layout"`
 
 	// Title Null keeps the definition's current default wording.
-	Title *string `json:"title"`
+	Title *string                    `json:"title"`
+	Width SaveAssetBlockRequestWidth `json:"width"`
 }
+
+// SaveAssetBlockRequestLayout defines model for SaveAssetBlockRequest.Layout.
+type SaveAssetBlockRequestLayout string
+
+// SaveAssetBlockRequestWidth defines model for SaveAssetBlockRequest.Width.
+type SaveAssetBlockRequestWidth string
 
 // SaveAssetElement defines model for SaveAssetElement.
 type SaveAssetElement struct {

@@ -6,6 +6,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/Sillyfrogster/LumiHub/api/internal/block"
+	"github.com/google/uuid"
 )
 
 type saveBlockElement struct {
@@ -19,6 +22,8 @@ type saveBlockElement struct {
 
 type saveBlockBody struct {
 	Title    *string            `json:"title"`
+	Layout   string             `json:"layout"`
+	Width    string             `json:"width"`
 	Elements []saveBlockElement `json:"elements"`
 }
 
@@ -30,7 +35,11 @@ func editableBlock(block startedBlock) saveBlockBody {
 			Slot: element.Slot, Display: element.Display, Content: element.Content,
 		}
 	}
-	return saveBlockBody{Elements: elements}
+	return saveBlockBody{
+		Layout:   block.Layout,
+		Width:    block.Width,
+		Elements: elements,
+	}
 }
 
 func saveBlock(
@@ -324,7 +333,7 @@ func TestMalformedElementIdentityNamesTheRequiredShape(t *testing.T) {
 	}
 }
 
-func TestBlockSaveDoesNotAcceptLaterArrangementActions(t *testing.T) {
+func TestBlockSaveDoesNotAcceptUnrelatedArrangementActions(t *testing.T) {
 	r, session := newVerifiedTestRouter(t)
 	started := startCharacter(t, r, session)
 	messagesBlock := blockNamed(t, started.Blocks, "messages")
@@ -348,6 +357,147 @@ func TestBlockSaveDoesNotAcceptLaterArrangementActions(t *testing.T) {
 		t.Fatalf("later arrangement fields status = %d, want 400: %s", response.Code, response.Body.String())
 	}
 	for _, want := range []string{"title", "elements"} {
+		if !strings.Contains(response.Body.String(), want) {
+			t.Errorf("refusal %q does not name %q", response.Body.String(), want)
+		}
+	}
+}
+
+func TestACreatorCanNarrowARequiredBlock(t *testing.T) {
+	r, session := newVerifiedTestRouter(t)
+	started := startCharacter(t, r, session)
+	coreBlock := blockNamed(t, started.Blocks, "character_core")
+	core := editableBlock(coreBlock)
+	core.Width = "half"
+
+	response := saveBlock(t, r, session, started.ID, coreBlock.ID, core)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("narrow required block status = %d, want 200: %s", response.Code, response.Body.String())
+	}
+	saved := blockNamed(t, fetchStartedAsset(t, r, session, started.ID).Blocks, "character_core")
+	if saved.Width != "half" || saved.Layout != "stack-3" {
+		t.Errorf("saved arrangement = %s at %s, want stack-3 at half", saved.Layout, saved.Width)
+	}
+}
+
+func TestChoosingALayoutThatNeedsMoreWidthNamesTheFirstFix(t *testing.T) {
+	r, session := newVerifiedTestRouter(t)
+	started := startCharacter(t, r, session)
+	coreBlock := blockNamed(t, started.Blocks, "character_core")
+	core := editableBlock(coreBlock)
+	core.Layout = "trio"
+	for i, slot := range []string{"left", "middle", "right"} {
+		core.Elements[i].Slot = slot
+	}
+
+	response := saveBlock(t, r, session, started.ID, coreBlock.ID, core)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("trio at two thirds status = %d, want 400: %s", response.Code, response.Body.String())
+	}
+	for _, want := range []string{"trio", "full width", "Widen it first"} {
+		if !strings.Contains(response.Body.String(), want) {
+			t.Errorf("refusal %q does not name %q", response.Body.String(), want)
+		}
+	}
+}
+
+func TestNarrowingBelowTheCurrentLayoutNamesTheFirstFix(t *testing.T) {
+	r, session := newVerifiedTestRouter(t)
+	started := startCharacter(t, r, session)
+	coreBlock := blockNamed(t, started.Blocks, "character_core")
+	core := editableBlock(coreBlock)
+	core.Layout = "trio"
+	core.Width = "full"
+	for i, slot := range []string{"left", "middle", "right"} {
+		core.Elements[i].Slot = slot
+	}
+	response := saveBlock(t, r, session, started.ID, coreBlock.ID, core)
+	if response.Code != http.StatusOK {
+		t.Fatalf("prepare trio status = %d, want 200: %s", response.Code, response.Body.String())
+	}
+
+	core.Width = "half"
+	response = saveBlock(t, r, session, started.ID, coreBlock.ID, core)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("narrow trio status = %d, want 400: %s", response.Code, response.Body.String())
+	}
+	for _, want := range []string{"trio", "full width", "Choose another layout before narrowing it"} {
+		if !strings.Contains(response.Body.String(), want) {
+			t.Errorf("refusal %q does not name %q", response.Body.String(), want)
+		}
+	}
+}
+
+func TestALayoutTheDefinitionDoesNotOfferNamesTheAvailableChoices(t *testing.T) {
+	r, session := newVerifiedTestRouter(t)
+	started := startCharacter(t, r, session)
+	messagesBlock := blockNamed(t, started.Blocks, "messages")
+	messages := editableBlock(messagesBlock)
+	messages.Layout = "duo"
+	for i, slot := range []string{"left", "right"} {
+		messages.Elements[i].Slot = slot
+	}
+
+	response := saveBlock(t, r, session, started.ID, messagesBlock.ID, messages)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("unoffered layout status = %d, want 400: %s", response.Code, response.Body.String())
+	}
+	for _, want := range []string{"Messages", "stack-2", "stack-3"} {
+		if !strings.Contains(response.Body.String(), want) {
+			t.Errorf("refusal %q does not name %q", response.Body.String(), want)
+		}
+	}
+}
+
+func TestSwitchingThreeMessagesBackToStackTwoNamesTheStrandedElement(t *testing.T) {
+	_, r, session, _, pool := newVerifiedTestRoutersWithPool(
+		t, 1<<20, DefaultDeadlines(),
+	)
+	started := startCharacter(t, r, session)
+	messagesBlock := blockNamed(t, started.Blocks, "messages")
+
+	var stored []block.Element
+	var encoded []byte
+	if err := pool.QueryRow(t.Context(), `
+		select elements from asset_blocks where id = $1
+	`, messagesBlock.ID).Scan(&encoded); err != nil {
+		t.Fatalf("read messages elements: %v", err)
+	}
+	if err := json.Unmarshal(encoded, &stored); err != nil {
+		t.Fatalf("decode messages elements: %v", err)
+	}
+	stored = append(stored, block.Element{
+		ID: uuid.New(), Type: block.TypeTextSet, Role: block.RoleGroupGreetings,
+		Slot: "bottom", Options: block.Options{Display: block.DisplayRich},
+		Content: block.TextSet{Texts: []block.TextItem{{Text: "Only for the whole party."}}},
+	})
+	stored[0].Slot = "top"
+	stored[1].Slot = "middle"
+	encoded, err := json.Marshal(stored)
+	if err != nil {
+		t.Fatalf("encode messages elements: %v", err)
+	}
+	if _, err := pool.Exec(t.Context(), `
+		update asset_blocks set layout = 'stack-3', elements = $2 where id = $1
+	`, messagesBlock.ID, encoded); err != nil {
+		t.Fatalf("prepare three messages: %v", err)
+	}
+
+	savedAsset := fetchStartedAsset(t, r, session, started.ID)
+	messagesBlock = blockNamed(t, savedAsset.Blocks, "messages")
+	messages := editableBlock(messagesBlock)
+	messages.Layout = "stack-2"
+
+	response := saveBlock(t, r, session, started.ID, messagesBlock.ID, messages)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("three messages in stack-2 status = %d, want 400: %s", response.Code, response.Body.String())
+	}
+	for _, want := range []string{"Group-only greetings", "stack-2", "Move or remove"} {
 		if !strings.Contains(response.Body.String(), want) {
 			t.Errorf("refusal %q does not name %q", response.Body.String(), want)
 		}

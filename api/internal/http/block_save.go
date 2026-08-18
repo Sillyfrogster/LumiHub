@@ -20,7 +20,7 @@ func (h *Handlers) SaveAssetBlock(c *gin.Context, id types.UUID, blockID types.U
 	var request SaveAssetBlockRequest
 	if err := decodeOneJSON(c.Request.Body, &request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Send valid JSON with only a title and elements. Every element id must be a UUID; display must be rich or verbatim.",
+			"error": "Send valid JSON with a title, layout, width and elements. Every element id must be a UUID; display must be rich or verbatim.",
 		})
 		return
 	}
@@ -83,6 +83,8 @@ func blockUpdate(request SaveAssetBlockRequest) (asset.BlockUpdate, error) {
 	}
 	return asset.BlockUpdate{
 		Title:    request.Title,
+		Layout:   block.Layout(request.Layout),
+		Width:    block.Width(request.Width),
 		Elements: elements,
 	}, nil
 }

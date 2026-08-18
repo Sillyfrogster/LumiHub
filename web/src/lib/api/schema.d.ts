@@ -761,6 +761,15 @@ export interface components {
       layout: "single" | "duo" | "main-aside" | "trio" | "stack-2" | "stack-3";
       /** @enum {string} */
       width: "full" | "two_thirds" | "half" | "third";
+      /** @description The layouts this block's current definition offers. */
+      allowedLayouts: (
+        | "single"
+        | "duo"
+        | "main-aside"
+        | "trio"
+        | "stack-2"
+        | "stack-3"
+      )[];
       required: boolean;
       hideable: boolean;
       /** @description Whether every element in the block carries nothing. Computed for display and never stored. */
@@ -770,6 +779,10 @@ export interface components {
     SaveAssetBlockRequest: {
       /** @description Null keeps the definition's current default wording. */
       title: string | null;
+      /** @enum {string} */
+      layout: "single" | "duo" | "main-aside" | "trio" | "stack-2" | "stack-3";
+      /** @enum {string} */
+      width: "full" | "two_thirds" | "half" | "third";
       elements: components["schemas"]["SaveAssetElement"][];
     };
     SaveAssetElement: {

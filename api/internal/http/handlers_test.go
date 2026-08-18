@@ -182,10 +182,22 @@ func newVerifiedTestRoutersWithService(
 	maxUploadBytes int64,
 	deadlines Deadlines,
 ) (*gin.Engine, *gin.Engine, *http.Cookie, *asset.Service) {
+	setupRouter, router, session, assets, _ := newVerifiedTestRoutersWithPool(
+		t, maxUploadBytes, deadlines,
+	)
+	return setupRouter, router, session, assets
+}
+
+func newVerifiedTestRoutersWithPool(
+	t *testing.T,
+	maxUploadBytes int64,
+	deadlines Deadlines,
+) (*gin.Engine, *gin.Engine, *http.Cookie, *asset.Service, *pgxpool.Pool) {
 	t.Helper()
 	outbox := &verificationOutbox{}
-	handlers := newTestHandlers(t, maxUploadBytes, outbox)
-	setupRouter := registerTestRouter(t, handlers, DefaultDeadlines())
+	setupRouter, pool, handlers := newTestRouterWithSenderPoolAndHandlers(
+		t, maxUploadBytes, DefaultDeadlines(), outbox,
+	)
 	session := signUp(t, setupRouter, "verified@example.com", "verified.creator")
 	verificationURL, err := url.Parse(outbox.messages[0].link)
 	if err != nil {
@@ -196,7 +208,7 @@ func newVerifiedTestRoutersWithService(
 	if rec.Code != http.StatusOK {
 		t.Fatalf("verify test account: %d %s", rec.Code, rec.Body.String())
 	}
-	return setupRouter, registerTestRouter(t, handlers, deadlines), session, handlers.assets
+	return setupRouter, registerTestRouter(t, handlers, deadlines), session, handlers.assets, pool
 }
 
 func authorized(req *http.Request, session *http.Cookie) *http.Request {

@@ -14,6 +14,21 @@ func ValidateStructure(holder Block) error {
 	if len(available) == 0 {
 		return fmt.Errorf("choose a known layout before saving")
 	}
+	if len(holder.Elements) > len(available) {
+		stranded := make([]string, 0, len(holder.Elements)-len(available))
+		for i, element := range holder.Elements[len(available):] {
+			name := element.Role.Label()
+			if name == "" {
+				name = fmt.Sprintf("Element %d", len(available)+i+1)
+			}
+			stranded = append(stranded, name)
+		}
+		return fmt.Errorf(
+			"%s has no room for %s in %s. Move or remove %s before changing the layout",
+			holder.Definition, strings.Join(stranded, ", "), holder.Layout,
+			strings.ToLower(strings.Join(stranded, ", ")),
+		)
+	}
 	occupied := make(map[Slot]Role, len(holder.Elements))
 	identities := make(map[uuid.UUID]string, len(holder.Elements))
 	for i, element := range holder.Elements {
@@ -71,6 +86,52 @@ func ValidateStructure(holder Block) error {
 
 // ValidateBuilderConstraints checks the kind catalog's rules across an asset.
 func ValidateBuilderConstraints(kind string, before []Block, after []Block) error {
+	beforeByID := make(map[uuid.UUID]Block, len(before))
+	for _, holder := range before {
+		beforeByID[holder.ID] = holder
+	}
+	for _, holder := range after {
+		definition, ok := holder.Definition.Definition(kind)
+		if !ok {
+			return fmt.Errorf("%s is not part of the %s catalog", holder.Definition, kind)
+		}
+		if !slices.Contains(definition.Layouts, holder.Layout) {
+			available := make([]string, len(definition.Layouts))
+			for i, layout := range definition.Layouts {
+				available[i] = string(layout)
+			}
+			return fmt.Errorf(
+				"%s can use %s. Choose one of those layouts before saving",
+				definition.Title, strings.Join(available, " or "),
+			)
+		}
+		if holder.Width.Columns() == 0 {
+			return fmt.Errorf("choose full, two thirds, half or a third before saving")
+		}
+		minimum := holder.Layout.MinimumWidth()
+		if holder.Width.Columns() >= minimum.Columns() {
+			continue
+		}
+		original := beforeByID[holder.ID]
+		switch {
+		case original.Layout != holder.Layout && original.Width == holder.Width:
+			return fmt.Errorf(
+				"%s needs %s, and this section is %s. Widen it first",
+				holder.Layout, minimum.label(), holder.Width.label(),
+			)
+		case original.Layout == holder.Layout && original.Width != holder.Width:
+			return fmt.Errorf(
+				"%s needs %s, and this section is %s. Choose another layout before narrowing it",
+				holder.Layout, minimum.label(), holder.Width.label(),
+			)
+		default:
+			return fmt.Errorf(
+				"%s needs %s, and this section is %s. Change one before saving",
+				holder.Layout, minimum.label(), holder.Width.label(),
+			)
+		}
+	}
+
 	roleCount := make(map[Role]int)
 	elementIDs := make(map[uuid.UUID]string)
 	existingIDs := make(map[uuid.UUID]struct{})
