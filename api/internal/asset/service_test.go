@@ -53,7 +53,7 @@ func (opaqueTestModule) Parse(context.Context, probe.Inspection, format.Claim) (
 		Kind: "character", Format: "test_opaque",
 		Elements: []block.Element{
 			{Type: block.TypeProse, Role: block.RoleDescription, Content: block.Prose{Text: "Test description"}},
-			{Type: block.TypeTextSet, Role: block.RoleGreetings, Content: block.TextSet{Texts: []block.TextItem{{Text: "Hello"}}}},
+			{Type: block.TypeTextSet, Role: block.RoleGreetings, Content: block.TextSet{Texts: []block.TextItem{{ID: block.NewItemID(), Text: "Hello"}}}},
 		},
 	}, nil
 }

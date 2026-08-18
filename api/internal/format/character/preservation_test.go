@@ -220,3 +220,35 @@ func namespaces(parsed format.Parsed) map[string][]byte {
 	}
 	return found
 }
+
+// Every item a reader produces carries an id from the moment it is read, not
+// from the first time a creator saves over it. Preserved data keys against
+// these ids, and two items sharing the nil id would be one owner.
+func TestEveryImportedItemArrivesWithAnIDOfItsOwn(t *testing.T) {
+	file := jsonCard(t, `{
+		"spec":"chara_card_v3","spec_version":"3.0",
+		"data":{"name":"Ana","description":"Quiet","first_mes":"Welcome back.",
+			"alternate_greetings":["You again.","Still here?"],
+			"group_only_greetings":["All of you made it."],
+			"mes_example":"<START>\nAna: Sit down.\nYou: I brought the ledger.",
+			"character_book":{"entries":[{"keys":["ledger"],"content":"A debt."}]}}
+	}`)
+
+	seen := make(map[uuid.UUID]block.Role)
+	for _, element := range resolveAndParse(t, file).Elements {
+		ids := block.ItemIDs(element.Content)
+		for index, id := range ids {
+			if id == uuid.Nil {
+				t.Errorf("%s item %d arrived with no id", element.Role, index+1)
+				continue
+			}
+			if owner, taken := seen[id]; taken {
+				t.Errorf("%s item %d shares an id with %s", element.Role, index+1, owner)
+			}
+			seen[id] = element.Role
+		}
+	}
+	if len(seen) < 7 {
+		t.Errorf("read %d items with ids, want every greeting, turn and entry", len(seen))
+	}
+}

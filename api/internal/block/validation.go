@@ -51,6 +51,25 @@ func ValidateContentLimits(elements []Element) error {
 	return nil
 }
 
+// validateItemIDs refuses an element whose items have no id of their own.
+// Preserved data keys against these ids, so two items sharing one id would be
+// one owner and an item with none could never own anything.
+func validateItemIDs(element Element, name string) error {
+	seen := make(map[uuid.UUID]struct{})
+	for index, id := range ItemIDs(element.Content) {
+		if id == uuid.Nil {
+			return fmt.Errorf("%s item %d must keep an id before saving", name, index+1)
+		}
+		if _, taken := seen[id]; taken {
+			return fmt.Errorf(
+				"two items in %s use the same id. Give each one its own before saving", name,
+			)
+		}
+		seen[id] = struct{}{}
+	}
+	return nil
+}
+
 func elementItems(content Content) []any {
 	items := make([]any, 0, elementItemCount(content))
 	switch value := content.(type) {
@@ -138,6 +157,9 @@ func ValidateStructure(holder Block) error {
 			)
 		}
 		identities[element.ID] = name
+		if err := validateItemIDs(element, name); err != nil {
+			return err
+		}
 		supportsDisplay := element.Type == TypeProse || element.Type == TypeTextSet
 		if supportsDisplay {
 			if !element.Options.Display.Known() {

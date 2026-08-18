@@ -302,13 +302,13 @@ func elementsForExtractedMedia(media []preparedMedia) []block.Element {
 			order = append(order, item.ElementRole)
 		}
 		grouped[item.ElementRole] = append(grouped[item.ElementRole], block.ImageItem{
-			MediaID: item.ID, Name: item.Name,
+			ID: block.NewItemID(), MediaID: item.ID, Name: item.Name,
 		})
 	}
 	elements := make([]block.Element, 0, len(order))
 	for _, role := range order {
 		elements = append(elements, block.Element{
-			Type: block.TypeImageSet, Role: role,
+			ID: uuid.New(), Type: block.TypeImageSet, Role: role,
 			Content: block.ImageSet{Images: grouped[role]},
 		})
 	}

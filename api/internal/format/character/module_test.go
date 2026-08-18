@@ -101,8 +101,6 @@ func TestCharacterReaderReturnsHeaderFieldsAndRoleTaggedElements(t *testing.T) {
 		block.RoleDescription:             block.Prose{Text: "Keeps the quiet archive."},
 		block.RolePersonality:             block.Prose{Text: "Patient"},
 		block.RoleScenario:                block.Prose{Text: "After closing"},
-		block.RoleGreetings:               block.TextSet{Texts: []block.TextItem{{Text: "Welcome back."}, {Text: "You found me."}}},
-		block.RoleGroupGreetings:          block.TextSet{Texts: []block.TextItem{{Text: "All of you made it."}}},
 		block.RoleSystemPrompt:            block.Prose{Text: "Stay in character."},
 		block.RolePostHistoryInstructions: block.Prose{Text: "Answer softly."},
 		block.RoleCreatorNotes:            block.Prose{Text: "Made for quiet scenes."},
@@ -115,6 +113,25 @@ func TestCharacterReaderReturnsHeaderFieldsAndRoleTaggedElements(t *testing.T) {
 		}
 		if !reflect.DeepEqual(got, content) {
 			t.Errorf("%s content = %#v, want %#v", role, got, content)
+		}
+	}
+	// A text item also carries an id Illarin minted, which has its own test.
+	wantTexts := map[block.Role][]string{
+		block.RoleGreetings:      {"Welcome back.", "You found me."},
+		block.RoleGroupGreetings: {"All of you made it."},
+	}
+	for role, texts := range wantTexts {
+		got, ok := elementContent(parsed.Elements, role)
+		if !ok {
+			t.Errorf("no %s element in %+v", role, parsed.Elements)
+			continue
+		}
+		read := make([]string, 0, len(texts))
+		for _, item := range got.(block.TextSet).Texts {
+			read = append(read, item.Text)
+		}
+		if !slices.Equal(read, texts) {
+			t.Errorf("%s texts = %v, want %v", role, read, texts)
 		}
 	}
 	if _, ok := elementContent(parsed.Elements, block.RoleExampleDialogue); !ok {

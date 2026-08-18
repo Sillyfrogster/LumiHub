@@ -91,7 +91,7 @@ func TestANewRevisionReplacesTheCurrentBytesAndKeepsTheCatalogEntry(t *testing.T
 		Kind: "character", Format: "recognized", Header: format.Header{Name: "Seeded"}, Blurb: "Seeded blurb",
 		Elements: []block.Element{
 			{Type: block.TypeProse, Role: block.RoleDescription, Content: block.Prose{Text: "Description"}},
-			{Type: block.TypeTextSet, Role: block.RoleGreetings, Content: block.TextSet{Texts: []block.TextItem{{Text: "Hello"}}}},
+			{Type: block.TypeTextSet, Role: block.RoleGreetings, Content: block.TextSet{Texts: []block.TextItem{{ID: block.NewItemID(), Text: "Hello"}}}},
 		},
 	}})
 	svc, pool := newTestServiceWithRegistry(t, registry)

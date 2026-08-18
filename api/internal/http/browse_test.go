@@ -37,7 +37,7 @@ func (browseModule) Parse(_ context.Context, file probe.Inspection, _ format.Cla
 		Facets: []format.Facet{{Key: "tone", Value: tone}, {Key: "client_feature", Value: "lorebook"}},
 		Elements: []block.Element{
 			{Type: block.TypeProse, Role: block.RoleDescription, Content: block.Prose{Text: "Test description"}},
-			{Type: block.TypeTextSet, Role: block.RoleGreetings, Content: block.TextSet{Texts: []block.TextItem{{Text: "Hello"}}}},
+			{Type: block.TypeTextSet, Role: block.RoleGreetings, Content: block.TextSet{Texts: []block.TextItem{{ID: block.NewItemID(), Text: "Hello"}}}},
 		},
 	}, nil
 }

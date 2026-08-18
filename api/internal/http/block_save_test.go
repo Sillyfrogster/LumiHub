@@ -488,7 +488,7 @@ func TestSwitchingThreeMessagesBackToStackTwoNamesTheStrandedElement(t *testing.
 	stored = append(stored, block.Element{
 		ID: uuid.New(), Type: block.TypeTextSet, Role: block.RoleGroupGreetings,
 		Slot: "bottom", Options: block.Options{Display: block.DisplayRich},
-		Content: block.TextSet{Texts: []block.TextItem{{Text: "Only for the whole party."}}},
+		Content: block.TextSet{Texts: []block.TextItem{{ID: block.NewItemID(), Text: "Only for the whole party."}}},
 	})
 	stored[0].Slot = "top"
 	stored[1].Slot = "middle"

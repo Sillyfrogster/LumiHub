@@ -399,14 +399,14 @@ func (c card) elements(formatID string, book lorebook) []block.Element {
 func (c card) greetings(primary, alternates string) []block.TextItem {
 	items := make([]block.TextItem, 0)
 	if primary != "" {
-		items = append(items, block.TextItem{Text: c.text(primary)})
+		items = append(items, block.TextItem{ID: block.NewItemID(), Text: c.text(primary)})
 	}
 	var values []string
 	if raw, ok := c.fields[alternates]; ok {
 		_ = json.Unmarshal(raw, &values)
 	}
 	for _, value := range values {
-		items = append(items, block.TextItem{Text: value})
+		items = append(items, block.TextItem{ID: block.NewItemID(), Text: value})
 	}
 	return items
 }
@@ -425,6 +425,7 @@ func dialogueTurns(sample string) []block.DialogueTurn {
 			text = line
 		}
 		turns = append(turns, block.DialogueTurn{
+			ID:      block.NewItemID(),
 			Speaker: strings.TrimSpace(speaker), Text: strings.TrimSpace(text),
 		})
 	}
