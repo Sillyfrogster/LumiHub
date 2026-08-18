@@ -156,6 +156,9 @@ export function AssetBlocks({
     setArrangementMessage("");
     try {
       await action();
+      // The download panel is rendered from the asset's projection, which the
+      // save just rewrote, so the page is read again.
+      router.refresh();
     } catch (error) {
       setArrangementMessage(
         error instanceof Error
@@ -388,16 +391,18 @@ export function AssetBlocks({
           images={images}
           onDismiss={() => setEditing(null)}
           onImageAdded={() => router.refresh()}
-          onSaved={(saved) =>
+          onSaved={(saved) => {
             setCurrentBlocks((current) =>
               current.map((block) => (block.id === saved.id ? saved : block)),
-            )
-          }
-          onRemoved={() =>
+            );
+            router.refresh();
+          }}
+          onRemoved={() => {
             setCurrentBlocks((current) =>
               current.filter((block) => block.id !== editedBlock.id),
-            )
-          }
+            );
+            router.refresh();
+          }}
           onHide={async () => {
             const saved = await arrangeAssetBlocks(assetId, {
               blocks: currentBlocks.map((block) => ({

@@ -54,7 +54,7 @@ type Detail struct {
 	// rather than listed as unavailable.
 	Downloads []format.Target
 	// Original is the creator's own upload, and is nil for an asset built from
-	// nothing. It stands on its own below the generated downloads.
+	// nothing.
 	Original  *OriginalUpload
 	CreatedAt time.Time
 	// Blocks are the asset's content, in page order.
