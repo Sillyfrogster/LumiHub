@@ -1333,6 +1333,11 @@ type MediaList struct {
 	Items []Media `json:"items"`
 }
 
+// MoveAssetBlockContentRequest defines model for MoveAssetBlockContentRequest.
+type MoveAssetBlockContentRequest struct {
+	DestinationBlockId openapi_types.UUID `json:"destinationBlockId"`
+}
+
 // NeedsKind defines model for NeedsKind.
 type NeedsKind struct {
 	Kind *NeedsKindKind `json:"kind"`
@@ -1596,6 +1601,9 @@ type ArrangeAssetBlocksJSONRequestBody = ArrangeAssetBlocksRequest
 // SaveAssetBlockJSONRequestBody defines body for SaveAssetBlock for application/json ContentType.
 type SaveAssetBlockJSONRequestBody = SaveAssetBlockRequest
 
+// MoveAssetBlockContentJSONRequestBody defines body for MoveAssetBlockContent for application/json ContentType.
+type MoveAssetBlockContentJSONRequestBody = MoveAssetBlockContentRequest
+
 // SetAssetDiscoveryJSONRequestBody defines body for SetAssetDiscovery for application/json ContentType.
 type SetAssetDiscoveryJSONRequestBody = AssetDiscoveryRequest
 
@@ -1685,6 +1693,9 @@ type ServerInterface interface {
 
 	// (PUT /v1/assets/{id}/blocks/{blockId})
 	SaveAssetBlock(c *gin.Context, id openapi_types.UUID, blockId openapi_types.UUID)
+
+	// (POST /v1/assets/{id}/blocks/{blockId}/move-and-remove)
+	MoveAssetBlockContent(c *gin.Context, id openapi_types.UUID, blockId openapi_types.UUID)
 
 	// (PUT /v1/assets/{id}/discovery)
 	SetAssetDiscovery(c *gin.Context, id openapi_types.UUID)
@@ -2228,6 +2239,40 @@ func (siw *ServerInterfaceWrapper) SaveAssetBlock(c *gin.Context) {
 	}
 
 	siw.Handler.SaveAssetBlock(c, id, blockId)
+}
+
+// MoveAssetBlockContent operation middleware
+func (siw *ServerInterfaceWrapper) MoveAssetBlockContent(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "blockId" -------------
+	var blockId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "blockId", c.Param("blockId"), &blockId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter blockId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.MoveAssetBlockContent(c, id, blockId)
 }
 
 // SetAssetDiscovery operation middleware
@@ -2925,6 +2970,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.DELETE(options.BaseURL+"/v1/assets/:id/blocks/:blockId", wrapper.RemoveAssetBlock)
 	router.PUT(options.BaseURL+"/v1/assets/:id/blocks/:blockId", wrapper.SaveAssetBlock)
 	router.PUT(options.BaseURL+"/v1/assets/:id/blocks", wrapper.ArrangeAssetBlocks)
+	router.POST(options.BaseURL+"/v1/assets/:id/blocks/:blockId/move-and-remove", wrapper.MoveAssetBlockContent)
 	router.PUT(options.BaseURL+"/v1/assets/:id/file-patch", wrapper.SetFilePatch)
 	router.POST(options.BaseURL+"/v1/assets/:id/restore", wrapper.RestoreAsset)
 	router.PUT(options.BaseURL+"/v1/assets/:id/identity", wrapper.SetAssetIdentity)

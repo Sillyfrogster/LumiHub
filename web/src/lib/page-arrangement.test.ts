@@ -179,4 +179,30 @@ describe("remove confirmation counts", () => {
       0,
     );
   });
+
+  test("counts every catalog element through its named collection", () => {
+    const examples = [
+      ["field_list", { fields: [{}, {}] }, 2],
+      ["entry_table", { entries: [{}, {}, {}] }, 3],
+      ["link_list", { links: [{}] }, 1],
+      ["prompt_list", { fragments: [{}, {}] }, 2],
+      ["variable_schema", { variables: { name: {}, mood: {} } }, 2],
+      ["setting_group", { settings: { temperature: 1 } }, 1],
+      ["script_list", { scripts: [{}, {}] }, 2],
+      [
+        "color_set",
+        { colors: { light: { ink: "#000" }, dark: { ink: "#fff" } } },
+        2,
+      ],
+      [
+        "stylesheet_set",
+        { global: "body {}", stylesheets: { card: ".card {}" } },
+        2,
+      ],
+      ["record_list", { records: [{}, {}, {}] }, 3],
+    ] as const;
+    for (const [type, content, count] of examples) {
+      expect(contentItemCount({ type, content })).toBe(count);
+    }
+  });
 });

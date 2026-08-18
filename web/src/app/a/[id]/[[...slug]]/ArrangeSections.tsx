@@ -19,10 +19,12 @@ import {
 import {
   type AssetBlock,
   arrangeAssetBlocks,
+  moveAssetBlockContent,
   removeAssetBlock,
 } from "@/lib/api/query";
 import {
   contentItemCount,
+  LAYOUTS,
   packBlockRows,
   WIDTH_LABELS,
 } from "@/lib/page-arrangement";
@@ -156,7 +158,7 @@ export function ArrangeSections({
               type="button"
               className={styles.handle}
               draggable
-              aria-label={`Drag ${block.title} to reorder`}
+              aria-label={`Move ${block.title}. Drag, or use Arrow Up and Arrow Down.`}
               onDragStart={(event) => {
                 setDragged(block.id);
                 event.dataTransfer.effectAllowed = "move";
@@ -165,6 +167,16 @@ export function ArrangeSections({
               onDragEnd={() => {
                 setDragged(null);
                 setDropAt(null);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "ArrowUp" && index > 0) {
+                  event.preventDefault();
+                  move(index, index - 1);
+                }
+                if (event.key === "ArrowDown" && index < blocks.length - 1) {
+                  event.preventDefault();
+                  move(index, index + 1);
+                }
               }}
             >
               <GripVertical size={19} aria-hidden="true" />
@@ -187,22 +199,26 @@ export function ArrangeSections({
             </div>
 
             <div className={styles.mobileMove}>
-              <button
-                type="button"
-                aria-label={`Move ${block.title} up`}
-                disabled={saving || index === 0}
-                onClick={() => move(index, index - 1)}
-              >
-                <ArrowUp size={17} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                aria-label={`Move ${block.title} down`}
-                disabled={saving || index === blocks.length - 1}
-                onClick={() => move(index, index + 1)}
-              >
-                <ArrowDown size={17} aria-hidden="true" />
-              </button>
+              {index > 0 ? (
+                <button
+                  type="button"
+                  aria-label={`Move ${block.title} up`}
+                  disabled={saving}
+                  onClick={() => move(index, index - 1)}
+                >
+                  <ArrowUp size={17} aria-hidden="true" />
+                </button>
+              ) : null}
+              {index < blocks.length - 1 ? (
+                <button
+                  type="button"
+                  aria-label={`Move ${block.title} down`}
+                  disabled={saving}
+                  onClick={() => move(index, index + 1)}
+                >
+                  <ArrowDown size={17} aria-hidden="true" />
+                </button>
+              ) : null}
               <label>
                 <span className={styles.srOnly}>Move {block.title} to</span>
                 <select
@@ -289,7 +305,9 @@ export function ArrangeSections({
       {removing ? (
         <RemoveSectionDialog
           block={removing}
+          destinations={moveContentDestinations(removing, blocks)}
           pending={saving}
+          error={message}
           onCancel={() => setRemoving(null)}
           onHide={async () => {
             setRemoving(null);
@@ -321,9 +339,44 @@ export function ArrangeSections({
               setSaving(false);
             }
           }}
+          onMove={async (destinationBlockId) => {
+            if (saving) return;
+            setSaving(true);
+            setMessage("");
+            try {
+              const saved = await moveAssetBlockContent(
+                assetId,
+                removing.id,
+                destinationBlockId,
+              );
+              onChange(saved);
+              setRemoving(null);
+            } catch (error) {
+              setMessage(
+                error instanceof Error
+                  ? error.message
+                  : "The content could not be moved. Try again.",
+              );
+            } finally {
+              setSaving(false);
+            }
+          }}
         />
       ) : null}
     </section>
+  );
+}
+
+export function moveContentDestinations(
+  source: AssetBlock,
+  blocks: AssetBlock[],
+) {
+  const movable = source.elements.filter((element) => !element.pinned).length;
+  if (movable === 0) return [];
+  return blocks.filter(
+    (block) =>
+      block.id !== source.id &&
+      LAYOUTS[block.layout].slots.length - block.elements.length >= movable,
   );
 }
 
@@ -340,18 +393,24 @@ function moveDestinations(blocks: AssetBlock[], current: number) {
     }));
 }
 
-function RemoveSectionDialog({
+export function RemoveSectionDialog({
   block,
+  destinations,
   pending,
+  error,
   onCancel,
   onHide,
   onRemove,
+  onMove,
 }: {
   block: AssetBlock;
+  destinations: AssetBlock[];
   pending: boolean;
+  error?: string;
   onCancel: () => void;
   onHide: () => void;
   onRemove: () => void;
+  onMove: (destinationBlockId: string) => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => dialog.current?.showModal(), []);
@@ -359,6 +418,7 @@ function RemoveSectionDialog({
     .map((element) => ({ element, count: contentItemCount(element) }))
     .filter(({ count }) => count > 0);
   const movable = block.elements.filter((element) => !element.pinned);
+  const [destination, setDestination] = useState(destinations[0]?.id ?? "");
 
   return (
     <dialog
@@ -380,8 +440,10 @@ function RemoveSectionDialog({
                 <li key={element.id}>
                   <strong>{element.label}</strong>
                   <span>
-                    {count} {count === 1 ? "item" : "items"}, and it is what a
-                    download reads for {element.label}
+                    {count} {count === 1 ? "item" : "items"}
+                    {element.role
+                      ? `, and it is what a download reads for ${element.label}`
+                      : " of page content"}
                   </span>
                 </li>
               ))}
@@ -394,6 +456,11 @@ function RemoveSectionDialog({
         ) : (
           <p>This section is empty, so nothing is lost.</p>
         )}
+        {error ? (
+          <p className={styles.dialogError} role="alert">
+            {error}
+          </p>
+        ) : null}
 
         <section className={styles.keep} aria-labelledby="keep-section-heading">
           <h3 id="keep-section-heading">Or keep it</h3>
@@ -406,12 +473,41 @@ function RemoveSectionDialog({
               </span>
             </button>
           ) : null}
-          {movable.length > 0 ? (
+          {movable.length > 0 && destinations.length > 0 ? (
+            <div className={styles.moveChoice}>
+              <label htmlFor="move-section-content">
+                <strong>Move the content first</strong>
+                <span>Choose the section that should keep it.</span>
+              </label>
+              <div>
+                <select
+                  id="move-section-content"
+                  value={destination}
+                  onChange={(event) => setDestination(event.target.value)}
+                  disabled={pending}
+                >
+                  {destinations.map((candidate) => (
+                    <option value={candidate.id} key={candidate.id}>
+                      {candidate.title}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={pending || !destination}
+                  onClick={() => onMove(destination)}
+                >
+                  <GripVertical size={18} aria-hidden="true" />
+                  Move content and remove section
+                </button>
+              </div>
+            </div>
+          ) : movable.length > 0 ? (
             <div className={styles.keepChoice}>
               <GripVertical size={18} aria-hidden="true" />
               <span>
                 <strong>Move the content first</strong>
-                Move unpinned elements into another section, then return here.
+                No other section has room for these elements yet.
               </span>
             </div>
           ) : null}

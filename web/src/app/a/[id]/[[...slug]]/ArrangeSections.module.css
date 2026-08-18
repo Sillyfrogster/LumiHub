@@ -306,6 +306,14 @@
   font-weight: 700;
 }
 
+.dialogError {
+  padding: 11px 13px;
+  border: 1px solid rgba(159, 45, 45, 0.3);
+  border-radius: var(--radius-md);
+  background: rgba(159, 45, 45, 0.07);
+  color: #7e2929;
+}
+
 .keep {
   margin-top: 24px;
   padding-top: 22px;
@@ -327,6 +335,53 @@
   margin-top: 10px;
   padding: 12px 14px;
   text-align: left;
+}
+
+.moveChoice {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--line-hair);
+  border-radius: var(--radius-md);
+}
+
+.moveChoice > label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--body);
+  font-size: 0.74rem;
+  line-height: 1.4;
+}
+
+.moveChoice > label strong {
+  color: var(--ink);
+}
+
+.moveChoice > div {
+  display: flex;
+  gap: 8px;
+}
+
+.moveChoice select {
+  min-width: 0;
+  min-height: 44px;
+  flex: 1 1 180px;
+  padding-inline: 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--body);
+  font: inherit;
+  font-size: 0.74rem;
+}
+
+.moveChoice button {
+  width: auto;
+  flex: 0 0 auto;
+  margin: 0;
 }
 
 .keepChoice {
@@ -459,5 +514,16 @@
 
   .dialogFooter {
     padding: 14px 20px;
+  }
+
+  .moveChoice > div {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .moveChoice select,
+  .moveChoice button {
+    width: 100%;
+    flex-basis: auto;
   }
 }

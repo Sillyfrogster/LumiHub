@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, RotateCcw, Trash2, X } from "lucide-react";
+import { EyeOff, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import {
   type AssetBlock,
@@ -21,12 +21,16 @@ export function BlockSheet({
   onDismiss,
   onSaved,
   onRemoved,
+  onHide,
+  onRemove,
 }: {
   assetId: string;
   block: AssetBlock;
   onDismiss: () => void;
   onSaved: (block: AssetBlock) => void;
   onRemoved: () => void;
+  onHide: () => Promise<void>;
+  onRemove: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [title, setTitle] = useState(block.titleIsDefault ? "" : block.title);
@@ -213,6 +217,55 @@ export function BlockSheet({
               />
             ))}
           </div>
+
+          <section
+            className={styles.blockActions}
+            aria-labelledby="block-actions"
+          >
+            <div>
+              <h3 id="block-actions">Section actions</h3>
+              <p>Hide it from readers, or review what removal would lose.</p>
+            </div>
+            <div>
+              {block.hideable ? (
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => {
+                    setPending(true);
+                    setMessage("");
+                    void onHide()
+                      .then(close)
+                      .catch((error) =>
+                        setMessage(
+                          error instanceof Error
+                            ? error.message
+                            : "The section could not be hidden. Try again.",
+                        ),
+                      )
+                      .finally(() => setPending(false));
+                  }}
+                >
+                  <EyeOff size={16} aria-hidden="true" />
+                  Hide section
+                </button>
+              ) : null}
+              {!block.required ? (
+                <button
+                  type="button"
+                  className={styles.removeBlock}
+                  disabled={pending}
+                  onClick={() => {
+                    close();
+                    onRemove();
+                  }}
+                >
+                  <Trash2 size={16} aria-hidden="true" />
+                  Remove section
+                </button>
+              ) : null}
+            </div>
+          </section>
 
           {message ? (
             <p className={styles.error} role="alert">

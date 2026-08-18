@@ -553,6 +553,34 @@ paths:
         "403": { description: The signed-in account has not verified its email }
         "404": { description: The asset does not belong to the creator }
         "409": { description: The asset is withheld and cannot be changed }
+  /v1/assets/{id}/blocks/{blockId}/move-and-remove:
+    post:
+      operationId: moveAssetBlockContent
+      description: >-
+        Move every unpinned element into a section with enough free slots, then
+        remove the emptied optional section. Both changes commit together.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: blockId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MoveAssetBlockContentRequest" }
+      responses:
+        "200":
+          description: Every remaining block in its saved page order
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AssetBlock" }
+        "400": { description: The source cannot be removed or the destination has no room }
+        "401": { description: No account is signed in }
+        "403": { description: The signed-in account has not verified its email }
+        "404": { description: The asset or either block does not belong to the creator }
+        "409": { description: The asset is withheld and cannot be changed }
   /v1/assets/{id}/file-patch:
     put:
       operationId: setFilePatch
@@ -1128,6 +1156,12 @@ components:
               id: { type: string, format: uuid }
               hidden: { type: boolean }
               width: { type: string, enum: [full, two_thirds, half, third] }
+    MoveAssetBlockContentRequest:
+      type: object
+      additionalProperties: false
+      required: [destinationBlockId]
+      properties:
+        destinationBlockId: { type: string, format: uuid }
     SaveAssetElement:
       type: object
       additionalProperties: false

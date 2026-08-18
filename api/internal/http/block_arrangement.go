@@ -66,3 +66,35 @@ func (h *Handlers) RemoveAssetBlock(c *gin.Context, id types.UUID, blockID types
 		c.Status(http.StatusNoContent)
 	}
 }
+
+func (h *Handlers) MoveAssetBlockContent(c *gin.Context, id types.UUID, blockID types.UUID) {
+	owner, ok := h.verifiedAccount(c, "moving section content")
+	if !ok {
+		return
+	}
+	var request MoveAssetBlockContentRequest
+	if err := decodeOneJSON(c.Request.Body, &request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Choose the section that should keep this content."})
+		return
+	}
+	saved, err := h.assets.MoveBlockContent(
+		c.Request.Context(), owner.ID, uuid.UUID(id), uuid.UUID(blockID), uuid.UUID(request.DestinationBlockId),
+	)
+	switch {
+	case errors.Is(err, asset.ErrNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": "No such section."})
+	case errors.Is(err, asset.ErrAssetFrozen):
+		c.JSON(http.StatusConflict, gin.H{"error": "A withheld asset cannot be changed."})
+	case errors.Is(err, asset.ErrInvalidBlock):
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	case err != nil:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not move the section content."})
+	default:
+		blocks, conversionErr := toAPIBlocks(saved.Kind, saved.Blocks)
+		if conversionErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not read the arranged sections."})
+			return
+		}
+		c.JSON(http.StatusOK, blocks)
+	}
+}

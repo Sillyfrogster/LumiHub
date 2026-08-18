@@ -148,3 +148,38 @@ func TestSavingAnOptionalBlockEmptyReturnsItToAbsent(t *testing.T) {
 		t.Errorf("blocks after empty save = %d, want the two required blocks", len(saved.Blocks))
 	}
 }
+
+func TestCreatorMovesUnpinnedContentBeforeRemovingItsBlock(t *testing.T) {
+	_, r, session, _, pool := newVerifiedTestRoutersWithPool(t, 1<<20, DefaultDeadlines())
+	started := startCharacter(t, r, session)
+	galleryID := insertEmptyGallery(t, pool, started.ID)
+	messagesBlock := blockNamed(t, started.Blocks, "messages")
+	messages := editableBlock(messagesBlock)
+	messages.Layout = "stack-3"
+	messages.Elements[0].Slot = "top"
+	messages.Elements[1].Slot = "middle"
+	response := saveBlock(t, r, session, started.ID, messagesBlock.ID, messages)
+	if response.Code != http.StatusOK {
+		t.Fatalf("prepare destination status = %d, want 200: %s", response.Code, response.Body.String())
+	}
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/assets/"+started.ID+"/blocks/"+galleryID+"/move-and-remove",
+		strings.NewReader(`{"destinationBlockId":"`+messagesBlock.ID+`"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response = send(t, r, authorized(request, session))
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("move Gallery content status = %d, want 200: %s", response.Code, response.Body.String())
+	}
+	saved := fetchStartedAsset(t, r, session, started.ID)
+	if len(saved.Blocks) != 2 {
+		t.Fatalf("blocks after move = %d, want the source removed", len(saved.Blocks))
+	}
+	messagesBlock = blockNamed(t, saved.Blocks, "messages")
+	if len(messagesBlock.Elements) != 3 || messagesBlock.Elements[2].Role != "gallery" || messagesBlock.Elements[2].Slot != "bottom" {
+		t.Errorf("Messages after move = %+v, want Gallery in the free bottom slot", messagesBlock.Elements)
+	}
+}

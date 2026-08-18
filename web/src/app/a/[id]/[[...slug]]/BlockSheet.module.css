@@ -287,6 +287,55 @@ button.defaultTitle:hover:not(:disabled),
   line-height: 1.6;
 }
 
+.blockActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-top: 24px;
+  padding: 18px 0 2px;
+  border-top: 1px solid var(--line);
+}
+
+.blockActions h3 {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 1.08rem;
+  font-weight: 500;
+}
+
+.blockActions p {
+  max-width: 42ch;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.blockActions > div:last-child {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.blockActions button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 7px;
+  padding-inline: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--body);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.blockActions .removeBlock {
+  color: #8a4444;
+}
+
 .error {
   margin-top: 24px;
   padding: 14px 16px;
@@ -326,6 +375,7 @@ button.defaultTitle:hover:not(:disabled),
 .defaultTitle:disabled,
 .addItem:disabled,
 .removeItem:disabled,
+.blockActions button:disabled,
 .elementHeading > button:disabled,
 .naming input:disabled,
 .listItem input:disabled,
@@ -372,6 +422,17 @@ button.defaultTitle:hover:not(:disabled),
   }
 
   .arrangementActions {
+    width: 100%;
+  }
+
+  .blockActions,
+  .blockActions > div:last-child {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .blockActions > div:last-child,
+  .blockActions button {
     width: 100%;
   }
 

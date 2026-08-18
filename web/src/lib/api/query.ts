@@ -193,6 +193,30 @@ export async function removeAssetBlock(assetId: string, blockId: string) {
   }
 }
 
+/** Moves a section's unpinned content, then removes the emptied section. */
+export async function moveAssetBlockContent(
+  assetId: string,
+  blockId: string,
+  destinationBlockId: string,
+): Promise<AssetBlock[]> {
+  const { data, error } = await api.POST(
+    "/v1/assets/{id}/blocks/{blockId}/move-and-remove",
+    {
+      params: { path: { id: assetId, blockId } },
+      body: { destinationBlockId },
+    },
+  );
+  if (error || !data) {
+    const detail = error as { error?: unknown } | undefined;
+    throw new Error(
+      typeof detail?.error === "string"
+        ? detail.error.replace(/^invalid block:\s*/i, "")
+        : "The content could not be moved. Try again.",
+    );
+  }
+  return data;
+}
+
 /**
  * The header fields that sit above an asset's blocks. A null answer to the
  * adult content question is the unanswered state, which only a draft may be

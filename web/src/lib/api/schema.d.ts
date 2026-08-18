@@ -449,6 +449,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/assets/{id}/blocks/{blockId}/move-and-remove": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Move every unpinned element into a section with enough free slots, then remove the emptied optional section. Both changes commit together. */
+    post: operations["moveAssetBlockContent"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/assets/{id}/file-patch": {
     parameters: {
       query?: never;
@@ -811,6 +828,10 @@ export interface components {
         /** @enum {string} */
         width: "full" | "two_thirds" | "half" | "third";
       }[];
+    };
+    MoveAssetBlockContentRequest: {
+      /** Format: uuid */
+      destinationBlockId: string;
     };
     SaveAssetElement: {
       /** Format: uuid */
@@ -2307,6 +2328,68 @@ export interface operations {
         content?: never;
       };
       /** @description The asset does not belong to the creator */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The asset is withheld and cannot be changed */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  moveAssetBlockContent: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+        blockId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MoveAssetBlockContentRequest"];
+      };
+    };
+    responses: {
+      /** @description Every remaining block in its saved page order */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AssetBlock"][];
+        };
+      };
+      /** @description The source cannot be removed or the destination has no room */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The signed-in account has not verified its email */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The asset or either block does not belong to the creator */
       404: {
         headers: {
           [name: string]: unknown;

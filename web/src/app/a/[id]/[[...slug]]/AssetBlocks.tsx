@@ -5,12 +5,18 @@ import { type CSSProperties, useEffect, useState } from "react";
 import {
   type AssetBlock,
   arrangeAssetBlocks,
+  moveAssetBlockContent,
+  removeAssetBlock,
   type SaveAssetBlockRequest,
   saveAssetBlock,
 } from "@/lib/api/query";
 import { packBlockRows } from "@/lib/page-arrangement";
 import { WidthPicker } from "./ArrangementPickers";
-import { ArrangeSections } from "./ArrangeSections";
+import {
+  ArrangeSections,
+  moveContentDestinations,
+  RemoveSectionDialog,
+} from "./ArrangeSections";
 import styles from "./AssetBlocks.module.css";
 import { BlockSheet } from "./BlockSheet";
 import { ElementBody } from "./ElementBody";
@@ -45,6 +51,8 @@ export function AssetBlocks({
   const [arrangementMessage, setArrangementMessage] = useState("");
   const [arranging, setArranging] = useState(false);
   const [readerView, setReaderView] = useState(false);
+  const [removing, setRemoving] = useState<AssetBlock | null>(null);
+  const [blockActionPending, setBlockActionPending] = useState(false);
 
   useEffect(() => setCurrentBlocks(blocks), [blocks]);
 
@@ -55,6 +63,23 @@ export function AssetBlocks({
   const rows = packBlockRows(packable, { showHidden: editingVisible });
 
   const editedBlock = currentBlocks.find((block) => block.id === editing);
+
+  async function runBlockAction(action: () => Promise<void>) {
+    if (blockActionPending) return;
+    setBlockActionPending(true);
+    setArrangementMessage("");
+    try {
+      await action();
+    } catch (error) {
+      setArrangementMessage(
+        error instanceof Error
+          ? error.message
+          : "The section could not be changed. Try again.",
+      );
+    } finally {
+      setBlockActionPending(false);
+    }
+  }
 
   return (
     <>
@@ -268,6 +293,61 @@ export function AssetBlocks({
             setCurrentBlocks((current) =>
               current.filter((block) => block.id !== editedBlock.id),
             )
+          }
+          onHide={async () => {
+            const saved = await arrangeAssetBlocks(assetId, {
+              blocks: currentBlocks.map((block) => ({
+                id: block.id,
+                hidden: block.id === editedBlock.id ? true : block.hidden,
+                width: block.width,
+              })),
+            });
+            setCurrentBlocks(saved);
+          }}
+          onRemove={() => setRemoving(editedBlock)}
+        />
+      ) : null}
+      {removing ? (
+        <RemoveSectionDialog
+          block={removing}
+          destinations={moveContentDestinations(removing, currentBlocks)}
+          pending={blockActionPending}
+          error={arrangementMessage}
+          onCancel={() => setRemoving(null)}
+          onHide={() =>
+            runBlockAction(async () => {
+              const saved = await arrangeAssetBlocks(assetId, {
+                blocks: currentBlocks.map((block) => ({
+                  id: block.id,
+                  hidden: block.id === removing.id ? true : block.hidden,
+                  width: block.width,
+                })),
+              });
+              setCurrentBlocks(saved);
+              setRemoving(null);
+            })
+          }
+          onRemove={() =>
+            runBlockAction(async () => {
+              await removeAssetBlock(assetId, removing.id);
+              setCurrentBlocks((current) =>
+                current
+                  .filter((block) => block.id !== removing.id)
+                  .map((block, position) => ({ ...block, position })),
+              );
+              setRemoving(null);
+            })
+          }
+          onMove={(destinationBlockId) =>
+            runBlockAction(async () => {
+              const saved = await moveAssetBlockContent(
+                assetId,
+                removing.id,
+                destinationBlockId,
+              );
+              setCurrentBlocks(saved);
+              setRemoving(null);
+            })
           }
         />
       ) : null}

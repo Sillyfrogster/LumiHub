@@ -131,7 +131,60 @@ export function contentItemCount(element: {
       const images = (element.content as { images?: unknown }).images;
       return Array.isArray(images) ? images.length : 0;
     }
+    case "field_list":
+      return collectionSize(element.content, "fields");
+    case "entry_table":
+      return collectionSize(element.content, "entries");
+    case "link_list":
+      return collectionSize(element.content, "links");
+    case "prompt_list":
+      return collectionSize(element.content, "fragments");
+    case "variable_schema":
+      return collectionSize(element.content, "variables");
+    case "setting_group":
+      return collectionSize(element.content, "settings");
+    case "script_list":
+      return collectionSize(element.content, "scripts");
+    case "color_set":
+      return nestedCollectionSize(element.content, "colors");
+    case "stylesheet_set": {
+      const content = element.content as {
+        global?: unknown;
+        stylesheets?: unknown;
+      };
+      const global =
+        typeof content.global === "string" && content.global.trim() !== ""
+          ? 1
+          : 0;
+      return global + collectionSize(element.content, "stylesheets");
+    }
+    case "record_list":
+      return collectionSize(element.content, "records");
     default:
       return 0;
   }
+}
+
+function collectionSize(content: unknown, key: string): number {
+  if (!content || typeof content !== "object") return 0;
+  const collection = (content as Record<string, unknown>)[key];
+  if (Array.isArray(collection)) return collection.length;
+  if (collection && typeof collection === "object") {
+    return Object.keys(collection).length;
+  }
+  return 0;
+}
+
+function nestedCollectionSize(content: unknown, key: string): number {
+  if (!content || typeof content !== "object") return 0;
+  const collection = (content as Record<string, unknown>)[key];
+  if (Array.isArray(collection)) return collection.length;
+  if (!collection || typeof collection !== "object") return 0;
+  return Object.values(collection).reduce<number>((total, group) => {
+    if (Array.isArray(group)) return total + group.length;
+    if (group && typeof group === "object") {
+      return total + Object.keys(group).length;
+    }
+    return total;
+  }, 0);
 }

@@ -54,22 +54,9 @@ func (s *Service) SaveBlock(
 	}
 	defer tx.Rollback(ctx)
 
-	var kind string
-	var withheld bool
-	err = tx.QueryRow(ctx, `
-		select kind, withheld_at is not null
-		  from assets
-		 where id = $1 and owner_id = $2 and deleted_at is null
-		 for update
-	`, assetID, ownerID).Scan(&kind, &withheld)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return SavedBlock{}, ErrNotFound
-	}
+	kind, err := lockEditableAsset(ctx, tx, ownerID, assetID)
 	if err != nil {
-		return SavedBlock{}, fmt.Errorf("read block owner: %w", err)
-	}
-	if withheld {
-		return SavedBlock{}, ErrAssetFrozen
+		return SavedBlock{}, err
 	}
 
 	blocks, err := readBlocks(ctx, tx, assetID)
@@ -249,6 +236,102 @@ func (s *Service) RemoveBlock(
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+// MoveBlockContent moves unpinned elements, then removes their old block.
+func (s *Service) MoveBlockContent(
+	ctx context.Context,
+	ownerID uuid.UUID,
+	assetID uuid.UUID,
+	blockID uuid.UUID,
+	destinationID uuid.UUID,
+) (SavedBlocks, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return SavedBlocks{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	kind, err := lockEditableAsset(ctx, tx, ownerID, assetID)
+	if err != nil {
+		return SavedBlocks{}, err
+	}
+	before, err := readBlocks(ctx, tx, assetID)
+	if err != nil {
+		return SavedBlocks{}, err
+	}
+	var source *block.Block
+	var destination *block.Block
+	for i := range before {
+		switch before[i].ID {
+		case blockID:
+			source = &before[i]
+		case destinationID:
+			destination = &before[i]
+		}
+	}
+	if source == nil || destination == nil || source.ID == destination.ID {
+		return SavedBlocks{}, ErrNotFound
+	}
+	definition, _ := source.Definition.Definition(kind)
+	if definition.Required {
+		return SavedBlocks{}, fmt.Errorf("%w: %s is required and cannot be removed", ErrInvalidBlock, definition.Title)
+	}
+	for _, element := range source.Elements {
+		if source.Pinned(element.Role, kind) {
+			return SavedBlocks{}, fmt.Errorf("%w: %s is pinned and cannot move", ErrInvalidBlock, element.Role.Label())
+		}
+	}
+	if len(source.Elements) == 0 {
+		return SavedBlocks{}, fmt.Errorf("%w: this section has no content to move", ErrInvalidBlock)
+	}
+	occupied := make(map[block.Slot]struct{}, len(destination.Elements))
+	for _, element := range destination.Elements {
+		occupied[element.Slot] = struct{}{}
+	}
+	free := make([]block.Slot, 0)
+	for _, slot := range destination.Layout.Slots() {
+		if _, used := occupied[slot]; !used {
+			free = append(free, slot)
+		}
+	}
+	if len(free) < len(source.Elements) {
+		return SavedBlocks{}, fmt.Errorf("%w: %s does not have room for this content", ErrInvalidBlock, destination.Definition)
+	}
+	for i, element := range source.Elements {
+		element.Slot = free[i]
+		destination.Elements = append(destination.Elements, element)
+	}
+	after := make([]block.Block, 0, len(before)-1)
+	for _, holder := range before {
+		if holder.ID == source.ID {
+			continue
+		}
+		holder.Position = len(after)
+		after = append(after, holder)
+	}
+	if err := block.ValidateStructure(*destination); err != nil {
+		return SavedBlocks{}, fmt.Errorf("%w: %v", ErrInvalidBlock, err)
+	}
+	if err := block.ValidateBuilderConstraints(kind, before, after); err != nil {
+		return SavedBlocks{}, fmt.Errorf("%w: %v", ErrInvalidBlock, err)
+	}
+	elements, err := json.Marshal(destination.Elements)
+	if err != nil {
+		return SavedBlocks{}, fmt.Errorf("write moved elements: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `
+		update asset_blocks set elements = $3 where id = $1 and asset_id = $2
+	`, destination.ID, assetID, elements); err != nil {
+		return SavedBlocks{}, fmt.Errorf("save moved elements: %w", err)
+	}
+	if err := deleteBlockAndClosePositions(ctx, tx, assetID, source.ID, after); err != nil {
+		return SavedBlocks{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return SavedBlocks{}, err
+	}
+	return SavedBlocks{Kind: kind, Blocks: after}, nil
 }
 
 func deleteBlockAndClosePositions(
