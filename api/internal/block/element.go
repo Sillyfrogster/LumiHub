@@ -6,8 +6,10 @@
 package block
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 
 	"github.com/google/uuid"
 )
@@ -159,6 +161,98 @@ func (t Type) Known() bool {
 	return ok
 }
 
+// DecodeContent reads a save request through the schema for its element type.
+func DecodeContent(elementType Type, raw json.RawMessage) (Content, error) {
+	if !elementType.Known() {
+		return nil, fmt.Errorf("no element type %q", elementType)
+	}
+	switch elementType {
+	case TypeProse:
+		var incoming struct {
+			Text *string `json:"text"`
+		}
+		if err := decodeContentJSON(raw, &incoming); err != nil {
+			return nil, err
+		}
+		if incoming.Text == nil {
+			return nil, fmt.Errorf("text must be present as a string")
+		}
+		return Prose{Text: *incoming.Text}, nil
+	case TypeTextSet:
+		var incoming struct {
+			Texts *[]struct {
+				Name string  `json:"name,omitempty"`
+				Text *string `json:"text"`
+			} `json:"texts"`
+		}
+		if err := decodeContentJSON(raw, &incoming); err != nil {
+			return nil, err
+		}
+		if incoming.Texts == nil {
+			return nil, fmt.Errorf("texts must be present as a list")
+		}
+		texts := make([]TextItem, len(*incoming.Texts))
+		for i, item := range *incoming.Texts {
+			if item.Text == nil {
+				return nil, fmt.Errorf("text %d must include text as a string", i+1)
+			}
+			texts[i] = TextItem{Name: item.Name, Text: *item.Text}
+		}
+		return TextSet{Texts: texts}, nil
+	case TypeDialogueSample:
+		var incoming struct {
+			Turns *[]struct {
+				Speaker *string `json:"speaker"`
+				Text    *string `json:"text"`
+			} `json:"turns"`
+		}
+		if err := decodeContentJSON(raw, &incoming); err != nil {
+			return nil, err
+		}
+		if incoming.Turns == nil {
+			return nil, fmt.Errorf("turns must be present as a list")
+		}
+		turns := make([]DialogueTurn, len(*incoming.Turns))
+		for i, turn := range *incoming.Turns {
+			if turn.Speaker == nil || turn.Text == nil {
+				return nil, fmt.Errorf("turn %d must include speaker and text as strings", i+1)
+			}
+			turns[i] = DialogueTurn{Speaker: *turn.Speaker, Text: *turn.Text}
+		}
+		return DialogueSample{Turns: turns}, nil
+	case TypeImageSet:
+		var incoming struct {
+			Images *[]ImageItem `json:"images"`
+		}
+		if err := decodeContentJSON(raw, &incoming); err != nil {
+			return nil, err
+		}
+		if incoming.Images == nil {
+			return nil, fmt.Errorf("images must be present as a list")
+		}
+		for i, image := range *incoming.Images {
+			if image.MediaID == uuid.Nil {
+				return nil, fmt.Errorf("image %d must include a media id", i+1)
+			}
+		}
+		return ImageSet{Images: *incoming.Images}, nil
+	default:
+		return nil, fmt.Errorf("no element type %q", elementType)
+	}
+}
+
+func decodeContentJSON(raw json.RawMessage, destination any) error {
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(destination); err != nil {
+		return err
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		return fmt.Errorf("content must be one JSON value")
+	}
+	return nil
+}
+
 // wireElement is how an element is stored and served. The version belongs to
 // the content, so a writer cannot forget to stamp it.
 type wireElement struct {
@@ -227,5 +321,32 @@ var labels = map[Role]string{
 	RoleGallery:         "Images",
 }
 
+var roleTypes = map[Role][]Type{
+	RoleDescription:     {TypeProse},
+	RolePersonality:     {TypeProse},
+	RoleScenario:        {TypeProse},
+	RoleGreetings:       {TypeTextSet},
+	RoleGroupGreetings:  {TypeTextSet},
+	RoleExampleDialogue: {TypeDialogueSample},
+	RoleGallery:         {TypeImageSet},
+}
+
 // Label returns the role's wording on the page.
 func (r Role) Label() string { return labels[r] }
+
+// Allows reports whether this role may attach to an element type.
+func (r Role) Allows(elementType Type) bool {
+	allowed, ok := roleTypes[r]
+	if !ok {
+		return false
+	}
+	for _, candidate := range allowed {
+		if candidate == elementType {
+			return true
+		}
+	}
+	return false
+}
+
+// AllowedTypes returns the element types this role may attach to.
+func (r Role) AllowedTypes() []Type { return roleTypes[r] }

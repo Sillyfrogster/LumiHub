@@ -82,28 +82,28 @@ func (e AssetDiscovery) Valid() bool {
 
 // Defines values for AssetBlockLayout.
 const (
-	Duo       AssetBlockLayout = "duo"
-	MainAside AssetBlockLayout = "main-aside"
-	Single    AssetBlockLayout = "single"
-	Stack2    AssetBlockLayout = "stack-2"
-	Stack3    AssetBlockLayout = "stack-3"
-	Trio      AssetBlockLayout = "trio"
+	AssetBlockLayoutDuo       AssetBlockLayout = "duo"
+	AssetBlockLayoutMainAside AssetBlockLayout = "main-aside"
+	AssetBlockLayoutSingle    AssetBlockLayout = "single"
+	AssetBlockLayoutStack2    AssetBlockLayout = "stack-2"
+	AssetBlockLayoutStack3    AssetBlockLayout = "stack-3"
+	AssetBlockLayoutTrio      AssetBlockLayout = "trio"
 )
 
 // Valid indicates whether the value is a known member of the AssetBlockLayout enum.
 func (e AssetBlockLayout) Valid() bool {
 	switch e {
-	case Duo:
+	case AssetBlockLayoutDuo:
 		return true
-	case MainAside:
+	case AssetBlockLayoutMainAside:
 		return true
-	case Single:
+	case AssetBlockLayoutSingle:
 		return true
-	case Stack2:
+	case AssetBlockLayoutStack2:
 		return true
-	case Stack3:
+	case AssetBlockLayoutStack3:
 		return true
-	case Trio:
+	case AssetBlockLayoutTrio:
 		return true
 	default:
 		return false
@@ -112,22 +112,22 @@ func (e AssetBlockLayout) Valid() bool {
 
 // Defines values for AssetBlockWidth.
 const (
-	Full      AssetBlockWidth = "full"
-	Half      AssetBlockWidth = "half"
-	Third     AssetBlockWidth = "third"
-	TwoThirds AssetBlockWidth = "two_thirds"
+	AssetBlockWidthFull      AssetBlockWidth = "full"
+	AssetBlockWidthHalf      AssetBlockWidth = "half"
+	AssetBlockWidthThird     AssetBlockWidth = "third"
+	AssetBlockWidthTwoThirds AssetBlockWidth = "two_thirds"
 )
 
 // Valid indicates whether the value is a known member of the AssetBlockWidth enum.
 func (e AssetBlockWidth) Valid() bool {
 	switch e {
-	case Full:
+	case AssetBlockWidthFull:
 		return true
-	case Half:
+	case AssetBlockWidthHalf:
 		return true
-	case Third:
+	case AssetBlockWidthThird:
 		return true
-	case TwoThirds:
+	case AssetBlockWidthTwoThirds:
 		return true
 	default:
 		return false
@@ -235,16 +235,16 @@ func (e AssetDiscoveryRequestDiscovery) Valid() bool {
 
 // Defines values for AssetElementDisplay.
 const (
-	Rich     AssetElementDisplay = "rich"
-	Verbatim AssetElementDisplay = "verbatim"
+	AssetElementDisplayRich     AssetElementDisplay = "rich"
+	AssetElementDisplayVerbatim AssetElementDisplay = "verbatim"
 )
 
 // Valid indicates whether the value is a known member of the AssetElementDisplay enum.
 func (e AssetElementDisplay) Valid() bool {
 	switch e {
-	case Rich:
+	case AssetElementDisplayRich:
 		return true
-	case Verbatim:
+	case AssetElementDisplayVerbatim:
 		return true
 	default:
 		return false
@@ -253,22 +253,22 @@ func (e AssetElementDisplay) Valid() bool {
 
 // Defines values for AssetElementType.
 const (
-	DialogueSample AssetElementType = "dialogue_sample"
-	ImageSet       AssetElementType = "image_set"
-	Prose          AssetElementType = "prose"
-	TextSet        AssetElementType = "text_set"
+	AssetElementTypeDialogueSample AssetElementType = "dialogue_sample"
+	AssetElementTypeImageSet       AssetElementType = "image_set"
+	AssetElementTypeProse          AssetElementType = "prose"
+	AssetElementTypeTextSet        AssetElementType = "text_set"
 )
 
 // Valid indicates whether the value is a known member of the AssetElementType enum.
 func (e AssetElementType) Valid() bool {
 	switch e {
-	case DialogueSample:
+	case AssetElementTypeDialogueSample:
 		return true
-	case ImageSet:
+	case AssetElementTypeImageSet:
 		return true
-	case Prose:
+	case AssetElementTypeProse:
 		return true
-	case TextSet:
+	case AssetElementTypeTextSet:
 		return true
 	default:
 		return false
@@ -599,6 +599,102 @@ func (e NsfwVisibilityRequestVisibility) Valid() bool {
 	case NsfwVisibilityRequestVisibilityHidden:
 		return true
 	case NsfwVisibilityRequestVisibilityShown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SaveAssetBlockRequestLayout.
+const (
+	SaveAssetBlockRequestLayoutDuo       SaveAssetBlockRequestLayout = "duo"
+	SaveAssetBlockRequestLayoutMainAside SaveAssetBlockRequestLayout = "main-aside"
+	SaveAssetBlockRequestLayoutSingle    SaveAssetBlockRequestLayout = "single"
+	SaveAssetBlockRequestLayoutStack2    SaveAssetBlockRequestLayout = "stack-2"
+	SaveAssetBlockRequestLayoutStack3    SaveAssetBlockRequestLayout = "stack-3"
+	SaveAssetBlockRequestLayoutTrio      SaveAssetBlockRequestLayout = "trio"
+)
+
+// Valid indicates whether the value is a known member of the SaveAssetBlockRequestLayout enum.
+func (e SaveAssetBlockRequestLayout) Valid() bool {
+	switch e {
+	case SaveAssetBlockRequestLayoutDuo:
+		return true
+	case SaveAssetBlockRequestLayoutMainAside:
+		return true
+	case SaveAssetBlockRequestLayoutSingle:
+		return true
+	case SaveAssetBlockRequestLayoutStack2:
+		return true
+	case SaveAssetBlockRequestLayoutStack3:
+		return true
+	case SaveAssetBlockRequestLayoutTrio:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SaveAssetBlockRequestWidth.
+const (
+	SaveAssetBlockRequestWidthFull      SaveAssetBlockRequestWidth = "full"
+	SaveAssetBlockRequestWidthHalf      SaveAssetBlockRequestWidth = "half"
+	SaveAssetBlockRequestWidthThird     SaveAssetBlockRequestWidth = "third"
+	SaveAssetBlockRequestWidthTwoThirds SaveAssetBlockRequestWidth = "two_thirds"
+)
+
+// Valid indicates whether the value is a known member of the SaveAssetBlockRequestWidth enum.
+func (e SaveAssetBlockRequestWidth) Valid() bool {
+	switch e {
+	case SaveAssetBlockRequestWidthFull:
+		return true
+	case SaveAssetBlockRequestWidthHalf:
+		return true
+	case SaveAssetBlockRequestWidthThird:
+		return true
+	case SaveAssetBlockRequestWidthTwoThirds:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SaveAssetElementDisplay.
+const (
+	SaveAssetElementDisplayRich     SaveAssetElementDisplay = "rich"
+	SaveAssetElementDisplayVerbatim SaveAssetElementDisplay = "verbatim"
+)
+
+// Valid indicates whether the value is a known member of the SaveAssetElementDisplay enum.
+func (e SaveAssetElementDisplay) Valid() bool {
+	switch e {
+	case SaveAssetElementDisplayRich:
+		return true
+	case SaveAssetElementDisplayVerbatim:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SaveAssetElementType.
+const (
+	SaveAssetElementTypeDialogueSample SaveAssetElementType = "dialogue_sample"
+	SaveAssetElementTypeImageSet       SaveAssetElementType = "image_set"
+	SaveAssetElementTypeProse          SaveAssetElementType = "prose"
+	SaveAssetElementTypeTextSet        SaveAssetElementType = "text_set"
+)
+
+// Valid indicates whether the value is a known member of the SaveAssetElementType enum.
+func (e SaveAssetElementType) Valid() bool {
+	switch e {
+	case SaveAssetElementTypeDialogueSample:
+		return true
+	case SaveAssetElementTypeImageSet:
+		return true
+	case SaveAssetElementTypeProse:
+		return true
+	case SaveAssetElementTypeTextSet:
 		return true
 	default:
 		return false
@@ -1203,6 +1299,42 @@ type RenameHandleRequest struct {
 	Handle string `json:"handle"`
 }
 
+// SaveAssetBlockRequest defines model for SaveAssetBlockRequest.
+type SaveAssetBlockRequest struct {
+	Elements []SaveAssetElement          `json:"elements"`
+	Hidden   bool                        `json:"hidden"`
+	Layout   SaveAssetBlockRequestLayout `json:"layout"`
+
+	// Title Null keeps the definition's current default wording.
+	Title *string                    `json:"title"`
+	Width SaveAssetBlockRequestWidth `json:"width"`
+}
+
+// SaveAssetBlockRequestLayout defines model for SaveAssetBlockRequest.Layout.
+type SaveAssetBlockRequestLayout string
+
+// SaveAssetBlockRequestWidth defines model for SaveAssetBlockRequest.Width.
+type SaveAssetBlockRequestWidth string
+
+// SaveAssetElement defines model for SaveAssetElement.
+type SaveAssetElement struct {
+	// Content The element type's own body.
+	Content json.RawMessage          `json:"content"`
+	Display *SaveAssetElementDisplay `json:"display,omitempty"`
+	Id      openapi_types.UUID       `json:"id"`
+
+	// Role Absent where the element has no import or export meaning.
+	Role *string              `json:"role,omitempty"`
+	Slot string               `json:"slot"`
+	Type SaveAssetElementType `json:"type"`
+}
+
+// SaveAssetElementDisplay defines model for SaveAssetElement.Display.
+type SaveAssetElementDisplay string
+
+// SaveAssetElementType defines model for SaveAssetElement.Type.
+type SaveAssetElementType string
+
 // Scope asset:receive lets an instance receive assets sent to it. library:sync lets it report what it has installed.
 type Scope string
 
@@ -1345,6 +1477,9 @@ type CreateAssetJSONRequestBody = StartAssetRequest
 // CreateAssetMultipartRequestBody defines body for CreateAsset for multipart/form-data ContentType.
 type CreateAssetMultipartRequestBody CreateAssetMultipartBody
 
+// SaveAssetBlockJSONRequestBody defines body for SaveAssetBlock for application/json ContentType.
+type SaveAssetBlockJSONRequestBody = SaveAssetBlockRequest
+
 // SetAssetDiscoveryJSONRequestBody defines body for SetAssetDiscovery for application/json ContentType.
 type SetAssetDiscoveryJSONRequestBody = AssetDiscoveryRequest
 
@@ -1422,6 +1557,9 @@ type ServerInterface interface {
 
 	// (GET /v1/assets/{id})
 	GetAsset(c *gin.Context, id openapi_types.UUID, params GetAssetParams)
+
+	// (PUT /v1/assets/{id}/blocks/{blockId})
+	SaveAssetBlock(c *gin.Context, id openapi_types.UUID, blockId openapi_types.UUID)
 
 	// (PUT /v1/assets/{id}/discovery)
 	SetAssetDiscovery(c *gin.Context, id openapi_types.UUID)
@@ -1847,6 +1985,40 @@ func (siw *ServerInterfaceWrapper) GetAsset(c *gin.Context) {
 	}
 
 	siw.Handler.GetAsset(c, id, params)
+}
+
+// SaveAssetBlock operation middleware
+func (siw *ServerInterfaceWrapper) SaveAssetBlock(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "blockId" -------------
+	var blockId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "blockId", c.Param("blockId"), &blockId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter blockId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.SaveAssetBlock(c, id, blockId)
 }
 
 // SetAssetDiscovery operation middleware
@@ -2491,6 +2663,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.DELETE(options.BaseURL+"/v1/assets/:id", wrapper.DeleteAsset)
 	router.GET(options.BaseURL+"/v1/assets/:id", wrapper.GetAsset)
 	router.POST(options.BaseURL+"/v1/assets/:id/revisions", wrapper.AddAssetRevision)
+	router.PUT(options.BaseURL+"/v1/assets/:id/blocks/:blockId", wrapper.SaveAssetBlock)
 	router.PUT(options.BaseURL+"/v1/assets/:id/file-patch", wrapper.SetFilePatch)
 	router.POST(options.BaseURL+"/v1/assets/:id/restore", wrapper.RestoreAsset)
 	router.PUT(options.BaseURL+"/v1/assets/:id/discovery", wrapper.SetAssetDiscovery)

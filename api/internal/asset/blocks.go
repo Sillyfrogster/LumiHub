@@ -3,6 +3,7 @@ package asset
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/block"
@@ -10,6 +11,102 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
+
+// BlockUpdate is everything one block sheet can save at once.
+type BlockUpdate struct {
+	Title    *string
+	Layout   block.Layout
+	Width    block.Width
+	Hidden   bool
+	Elements []block.Element
+}
+
+// SavedBlock is the saved row and the kind catalog that describes it.
+type SavedBlock struct {
+	Kind  string
+	Block block.Block
+}
+
+// SaveBlock rewrites one block row and leaves every other block untouched.
+func (s *Service) SaveBlock(
+	ctx context.Context,
+	ownerID uuid.UUID,
+	assetID uuid.UUID,
+	blockID uuid.UUID,
+	update BlockUpdate,
+) (SavedBlock, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return SavedBlock{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	var kind string
+	var withheld bool
+	err = tx.QueryRow(ctx, `
+		select kind, withheld_at is not null
+		  from assets
+		 where id = $1 and owner_id = $2 and deleted_at is null
+		 for update
+	`, assetID, ownerID).Scan(&kind, &withheld)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return SavedBlock{}, ErrNotFound
+	}
+	if err != nil {
+		return SavedBlock{}, fmt.Errorf("read block owner: %w", err)
+	}
+	if withheld {
+		return SavedBlock{}, ErrAssetFrozen
+	}
+
+	blocks, err := readBlocks(ctx, tx, assetID)
+	if err != nil {
+		return SavedBlock{}, err
+	}
+	before := append([]block.Block(nil), blocks...)
+	var saved *block.Block
+	for i := range blocks {
+		if blocks[i].ID != blockID {
+			continue
+		}
+		blocks[i].Title = update.Title
+		blocks[i].Layout = update.Layout
+		blocks[i].Width = update.Width
+		blocks[i].Hidden = update.Hidden
+		blocks[i].Elements = update.Elements
+		saved = &blocks[i]
+		break
+	}
+	if saved == nil {
+		return SavedBlock{}, ErrNotFound
+	}
+	if err := block.ValidateStructure(*saved); err != nil {
+		return SavedBlock{}, fmt.Errorf("%w: %v", ErrInvalidBlock, err)
+	}
+	if err := block.ValidateBuilderConstraints(kind, before, blocks); err != nil {
+		return SavedBlock{}, fmt.Errorf("%w: %v", ErrInvalidBlock, err)
+	}
+
+	elements, err := json.Marshal(saved.Elements)
+	if err != nil {
+		return SavedBlock{}, fmt.Errorf("write %s elements: %w", saved.Definition, err)
+	}
+	result, err := tx.Exec(ctx, `
+		update asset_blocks
+		   set title = $3, hidden = $4, layout = $5, width = $6, elements = $7
+		 where id = $1 and asset_id = $2
+	`, blockID, assetID, saved.Title, saved.Hidden, saved.Layout, saved.Width, elements)
+	if err != nil {
+		return SavedBlock{}, fmt.Errorf("save block: %w", err)
+	}
+	if result.RowsAffected() != 1 {
+		return SavedBlock{}, ErrNotFound
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return SavedBlock{}, err
+	}
+	return SavedBlock{Kind: kind, Block: *saved}, nil
+}
 
 // insertBlocks writes an asset's blocks, one row each.
 func insertBlocks(ctx context.Context, tx pgx.Tx, assetID uuid.UUID, blocks []block.Block) error {

@@ -482,6 +482,33 @@ paths:
         "403": { description: The signed-in account has not verified its email }
         "404": { description: The asset does not belong to the creator }
         "409": { description: The asset is withheld and cannot be changed }
+  /v1/assets/{id}/blocks/{blockId}:
+    put:
+      operationId: saveAssetBlock
+      description: >-
+        Save one block without rewriting any other block on the asset. Draft
+        content may be empty, but it must still be structurally valid and obey
+        the kind catalog's builder constraints.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: blockId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SaveAssetBlockRequest" }
+      responses:
+        "200":
+          description: The saved block as it now appears on the page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssetBlock" }
+        "400": { description: The block is malformed or breaks a builder constraint }
+        "401": { description: No account is signed in }
+        "403": { description: The signed-in account has not verified its email }
+        "404": { description: The asset or block does not belong to the creator }
+        "409": { description: The asset is withheld and cannot be changed }
         "422": { description: The uploaded bytes have been purged and cannot return }
   /v1/assets/{id}/file-patch:
     put:
@@ -968,6 +995,42 @@ components:
         elements:
           type: array
           items: { $ref: "#/components/schemas/AssetElement" }
+    SaveAssetBlockRequest:
+      type: object
+      additionalProperties: false
+      required: [title, layout, width, hidden, elements]
+      properties:
+        title:
+          type: [string, "null"]
+          description: Null keeps the definition's current default wording.
+        layout:
+          type: string
+          enum: [single, duo, main-aside, trio, stack-2, stack-3]
+        width: { type: string, enum: [full, two_thirds, half, third] }
+        hidden: { type: boolean }
+        elements:
+          type: array
+          items: { $ref: "#/components/schemas/SaveAssetElement" }
+    SaveAssetElement:
+      type: object
+      additionalProperties: false
+      required: [id, type, slot, content]
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, enum: [prose, text_set, dialogue_sample, image_set] }
+        role:
+          type: string
+          description: Absent where the element has no import or export meaning.
+        slot: { type: string }
+        display: { type: string, enum: [rich, verbatim] }
+        content:
+          description: The element type's own body.
+          x-go-type: json.RawMessage
+          oneOf:
+            - $ref: "#/components/schemas/ProseContent"
+            - $ref: "#/components/schemas/TextSetContent"
+            - $ref: "#/components/schemas/DialogueSampleContent"
+            - $ref: "#/components/schemas/ImageSetContent"
     AssetElement:
       type: object
       description: >-

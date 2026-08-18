@@ -24,6 +24,7 @@ var (
 	ErrIngestNotFound   = errors.New("ingest operation not found")
 	ErrInvalidDiscovery = errors.New("invalid discovery state")
 	ErrAssetFrozen      = errors.New("asset is frozen")
+	ErrInvalidBlock     = errors.New("invalid block")
 	// ErrKindNotBuildable is a kind with no block catalog, which is refused
 	// rather than answered with a page that has nothing on it.
 	ErrKindNotBuildable = errors.New("that kind cannot be built yet")

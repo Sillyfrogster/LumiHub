@@ -414,6 +414,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/assets/{id}/blocks/{blockId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Save one block without rewriting any other block on the asset. Draft content may be empty, but it must still be structurally valid and obey the kind catalog's builder constraints. */
+    put: operations["saveAssetBlock"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/assets/{id}/file-patch": {
     parameters: {
       query?: never;
@@ -715,6 +732,33 @@ export interface components {
       /** @description Whether every element in the block carries nothing. Computed for display and never stored. */
       isEmpty: boolean;
       elements: components["schemas"]["AssetElement"][];
+    };
+    SaveAssetBlockRequest: {
+      /** @description Null keeps the definition's current default wording. */
+      title: string | null;
+      /** @enum {string} */
+      layout: "single" | "duo" | "main-aside" | "trio" | "stack-2" | "stack-3";
+      /** @enum {string} */
+      width: "full" | "two_thirds" | "half" | "third";
+      hidden: boolean;
+      elements: components["schemas"]["SaveAssetElement"][];
+    };
+    SaveAssetElement: {
+      /** Format: uuid */
+      id: string;
+      /** @enum {string} */
+      type: "prose" | "text_set" | "dialogue_sample" | "image_set";
+      /** @description Absent where the element has no import or export meaning. */
+      role?: string;
+      slot: string;
+      /** @enum {string} */
+      display?: "rich" | "verbatim";
+      /** @description The element type's own body. */
+      content:
+        | components["schemas"]["ProseContent"]
+        | components["schemas"]["TextSetContent"]
+        | components["schemas"]["DialogueSampleContent"]
+        | components["schemas"]["ImageSetContent"];
     };
     /** @description One piece of content. Its role is what import and export read, and it travels with the element wherever the creator moves it. */
     AssetElement: {
@@ -1981,6 +2025,68 @@ export interface operations {
         content?: never;
       };
       /** @description The asset does not belong to the creator */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The asset is withheld and cannot be changed */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  saveAssetBlock: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+        blockId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SaveAssetBlockRequest"];
+      };
+    };
+    responses: {
+      /** @description The saved block as it now appears on the page */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AssetBlock"];
+        };
+      };
+      /** @description The block is malformed or breaks a builder constraint */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The signed-in account has not verified its email */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The asset or block does not belong to the creator */
       404: {
         headers: {
           [name: string]: unknown;
