@@ -186,7 +186,7 @@ export function AddSectionTray({
   );
 }
 
-const NUMBERS = [
+const COUNT_WORDS = [
   "No sections",
   "One section",
   "Two sections",
@@ -201,5 +201,5 @@ const NUMBERS = [
 ];
 
 function countWord(count: number): string {
-  return NUMBERS[count] ?? `${count} sections`;
+  return COUNT_WORDS[count] ?? `${count} sections`;
 }
