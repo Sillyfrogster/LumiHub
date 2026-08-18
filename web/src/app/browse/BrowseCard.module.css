@@ -95,7 +95,7 @@
 
 /* An unanswered question is neutral. Reading it as a no would be an answer. */
 .unrated {
-  background: rgba(8, 29, 58, 0.78);
+  background: rgba(8, 29, 58, 0.86);
 }
 
 .ownerState {
