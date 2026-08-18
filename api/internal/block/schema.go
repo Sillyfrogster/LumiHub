@@ -68,4 +68,12 @@ var schemas = map[Type]schema{
 		empty:  func() Content { return ImageSet{Images: []ImageItem{}} },
 		decode: decodeAs[ImageSet],
 	},
+	TypeFieldList: {
+		empty:  func() Content { return FieldList{Fields: []FieldItem{}} },
+		decode: decodeAs[FieldList],
+	},
+	TypeLinkList: {
+		empty:  func() Content { return LinkList{Links: []LinkItem{}} },
+		decode: decodeAs[LinkList],
+	},
 }

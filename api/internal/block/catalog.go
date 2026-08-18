@@ -1,5 +1,7 @@
 package block
 
+import "slices"
+
 // DefinitionID names a block's entry in a kind catalog.
 type DefinitionID string
 
@@ -7,7 +9,37 @@ const (
 	CharacterCore DefinitionID = "character_core"
 	Messages      DefinitionID = "messages"
 	Gallery       DefinitionID = "gallery"
+	Usage         DefinitionID = "usage"
+	Changelog     DefinitionID = "changelog"
+	Attributes    DefinitionID = "attributes"
+	AuthorNotes   DefinitionID = "author_notes"
+	RunsBestWith  DefinitionID = "runs_best_with"
+	CustomSection DefinitionID = "custom_section"
 )
+
+// Group is where a block's content ends up. The add tray groups by it,
+// because a creator knows the destination before they know the name.
+type Group string
+
+const (
+	GroupFile   Group = "file"
+	GroupReader Group = "reader"
+	GroupWork   Group = "work"
+	GroupOther  Group = "other"
+)
+
+var groupTitles = map[Group]string{
+	GroupFile:   "Content that travels with the file",
+	GroupReader: "Things a reader sees",
+	GroupWork:   "About the work",
+	GroupOther:  "Anything else",
+}
+
+// Groups returns the add tray's groups in the order a creator reads them.
+func Groups() []Group { return []Group{GroupFile, GroupReader, GroupWork, GroupOther} }
+
+// Title returns the group's wording in the add tray.
+func (g Group) Title() string { return groupTitles[g] }
 
 // Definition is what a kind declares about one of its blocks. Every field here
 // is read at render time and none of it is copied onto a block row, so changing
@@ -31,6 +63,23 @@ type Definition struct {
 	// Width is what stops an imported asset arriving as a stack of identical
 	// full-width cards.
 	Width Width
+	// Summary is the line the add tray carries under the definition's name.
+	Summary string
+	// Group is where this block's content ends up.
+	Group Group
+	// Repeatable definitions may sit on a page more than once.
+	Repeatable bool
+	// Choices are the elements a creator may start the block with. A
+	// definition that names none starts with the elements it declares.
+	Choices []DefinedElement
+}
+
+// choices returns the elements a creator may start this block with.
+func (d Definition) choices() []DefinedElement {
+	if len(d.Choices) > 0 {
+		return d.Choices
+	}
+	return d.Elements
 }
 
 // DefinedElement is one element a definition places.
@@ -75,13 +124,79 @@ var character = []Definition{
 		Layouts: []Layout{Stack2, Stack3},
 		Width:   Full,
 	},
+}
+
+// shared is the seven definitions every kind lists. They hold the parts no
+// file format carries, whatever a creator is building.
+var shared = []Definition{
 	{
 		ID:       Gallery,
 		Title:    "Gallery",
-		Hideable: true,
-		Elements: []DefinedElement{{Role: RoleGallery, Type: TypeImageSet}},
+		Summary:  "Images of the work, kept together and carried in a download.",
+		Group:    GroupFile,
+		Elements: []DefinedElement{{Role: RoleGallery, Type: TypeImageSet, Options: Options{ItemSize: ItemMedium}}},
 		Layouts:  []Layout{Single},
 		Width:    Half,
+	},
+	{
+		ID:       Usage,
+		Title:    "How to use this",
+		Summary:  "A note on how to run it and what it expects.",
+		Group:    GroupReader,
+		Elements: []DefinedElement{{Type: TypeProse, Options: Options{Display: DisplayRich}}},
+		Layouts:  []Layout{Single},
+		Width:    Half,
+	},
+	{
+		ID:       Changelog,
+		Title:    "Changelog",
+		Summary:  "What changed, one entry at a time.",
+		Group:    GroupWork,
+		Elements: []DefinedElement{{Type: TypeTextSet, Options: Options{Display: DisplayRich}}},
+		Layouts:  []Layout{Single},
+		Width:    Half,
+	},
+	{
+		ID:       Attributes,
+		Title:    "Attributes",
+		Summary:  "Short facts as a grid, each one a name and a value.",
+		Group:    GroupReader,
+		Elements: []DefinedElement{{Type: TypeFieldList}},
+		Layouts:  []Layout{Single},
+		Width:    Third,
+	},
+	{
+		ID:       AuthorNotes,
+		Title:    "Author’s notes",
+		Summary:  "What you want to say about making it.",
+		Group:    GroupWork,
+		Elements: []DefinedElement{{Type: TypeProse, Options: Options{Display: DisplayRich}}},
+		Layouts:  []Layout{Single},
+		Width:    Third,
+	},
+	{
+		ID:       RunsBestWith,
+		Title:    "Runs best with",
+		Summary:  "Links to the work a reader should pair this with.",
+		Group:    GroupReader,
+		Elements: []DefinedElement{{Type: TypeLinkList}},
+		Layouts:  []Layout{Single},
+		Width:    Third,
+	},
+	{
+		ID:         CustomSection,
+		Title:      "New section",
+		Summary:    "A heading you write, with text, images, links or a list under it.",
+		Group:      GroupOther,
+		Repeatable: true,
+		Layouts:    []Layout{Single, Duo, MainAside, Trio, Stack2, Stack3},
+		Width:      Full,
+		Choices: []DefinedElement{
+			{Type: TypeProse, Options: Options{Display: DisplayRich}},
+			{Type: TypeImageSet, Options: Options{ItemSize: ItemMedium}},
+			{Type: TypeLinkList},
+			{Type: TypeTextSet, Options: Options{Display: DisplayRich}},
+		},
 	},
 }
 
@@ -91,10 +206,14 @@ var catalogs = map[string][]Definition{
 	"character": character,
 }
 
-// Catalog returns the block definitions a kind declares, in page order.
+// Catalog returns the block definitions a kind declares, in page order. Every
+// kind lists its own and then the seven shared ones.
 func Catalog(kind string) ([]Definition, bool) {
-	definitions, ok := catalogs[kind]
-	return definitions, ok
+	own, ok := catalogs[kind]
+	if !ok {
+		return nil, false
+	}
+	return slices.Concat(own, shared), true
 }
 
 // Kinds returns every kind that has a catalog, so a creator is only offered

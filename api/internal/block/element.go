@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 
 	"github.com/google/uuid"
 )
@@ -21,8 +22,10 @@ type Type string
 const (
 	TypeProse          Type = "prose"
 	TypeTextSet        Type = "text_set"
+	TypeFieldList      Type = "field_list"
 	TypeDialogueSample Type = "dialogue_sample"
 	TypeImageSet       Type = "image_set"
+	TypeLinkList       Type = "link_list"
 )
 
 // Role is what an element's content means, and it is the whole of what import
@@ -73,9 +76,29 @@ func (d Display) Known() bool {
 	return d == DisplayRich || d == DisplayVerbatim
 }
 
+// ItemSize is how large the images inside an element are drawn. It names what
+// it controls rather than the element's own geometry, and these three values
+// are all an element may say about size.
+type ItemSize string
+
+const (
+	ItemSmall  ItemSize = "small"
+	ItemMedium ItemSize = "medium"
+	ItemLarge  ItemSize = "large"
+)
+
+// Known reports whether the item size belongs to the closed vocabulary.
+func (s ItemSize) Known() bool {
+	return s == ItemSmall || s == ItemMedium || s == ItemLarge
+}
+
+// ItemSizes returns the sizes an element may draw its images at.
+func ItemSizes() []ItemSize { return []ItemSize{ItemSmall, ItemMedium, ItemLarge} }
+
 // Options are an element's presentation choices, each from a closed set.
 type Options struct {
-	Display Display `json:"display,omitempty"`
+	Display  Display  `json:"display,omitempty"`
+	ItemSize ItemSize `json:"itemSize,omitempty"`
 }
 
 // Slot is the place an element takes in its block's layout.
@@ -151,6 +174,46 @@ type ImageItem struct {
 
 func (s ImageSet) Empty() bool { return len(s.Images) == 0 }
 
+// FieldList is an ordered list of short named values.
+type FieldList struct {
+	Fields []FieldItem `json:"fields"`
+}
+
+type FieldItem struct {
+	Name  string `json:"name,omitempty"`
+	Value string `json:"value"`
+}
+
+func (l FieldList) Empty() bool {
+	for _, field := range l.Fields {
+		if field.Value != "" {
+			return false
+		}
+	}
+	return true
+}
+
+// LinkList is an ordered list of web links, each with the wording a reader
+// sees and an optional line about why it is there.
+type LinkList struct {
+	Links []LinkItem `json:"links"`
+}
+
+type LinkItem struct {
+	Label string `json:"label,omitempty"`
+	URL   string `json:"url"`
+	Note  string `json:"note,omitempty"`
+}
+
+func (l LinkList) Empty() bool {
+	for _, link := range l.Links {
+		if link.URL != "" {
+			return false
+		}
+	}
+	return true
+}
+
 // Empty returns the content an element of this type starts with.
 func (t Type) Empty() (Content, error) {
 	known, ok := schemas[t]
@@ -225,6 +288,43 @@ func DecodeContent(elementType Type, raw json.RawMessage) (Content, error) {
 			turns[i] = DialogueTurn{Speaker: *turn.Speaker, Text: *turn.Text}
 		}
 		return DialogueSample{Turns: turns}, nil
+	case TypeFieldList:
+		var incoming struct {
+			Fields *[]struct {
+				Name  string  `json:"name,omitempty"`
+				Value *string `json:"value"`
+			} `json:"fields"`
+		}
+		if err := decodeContentJSON(raw, &incoming); err != nil {
+			return nil, err
+		}
+		if incoming.Fields == nil {
+			return nil, fmt.Errorf("fields must be present as a list")
+		}
+		fields := make([]FieldItem, len(*incoming.Fields))
+		for i, field := range *incoming.Fields {
+			if field.Value == nil {
+				return nil, fmt.Errorf("field %d must include value as a string", i+1)
+			}
+			fields[i] = FieldItem{Name: field.Name, Value: *field.Value}
+		}
+		return FieldList{Fields: fields}, nil
+	case TypeLinkList:
+		var incoming struct {
+			Links *[]LinkItem `json:"links"`
+		}
+		if err := decodeContentJSON(raw, &incoming); err != nil {
+			return nil, err
+		}
+		if incoming.Links == nil {
+			return nil, fmt.Errorf("links must be present as a list")
+		}
+		for i, link := range *incoming.Links {
+			if err := checkWebAddress(link.URL); err != nil {
+				return nil, fmt.Errorf("link %d: %w", i+1, err)
+			}
+		}
+		return LinkList{Links: *incoming.Links}, nil
 	case TypeImageSet:
 		var incoming struct {
 			Images *[]ImageItem `json:"images"`
@@ -244,6 +344,22 @@ func DecodeContent(elementType Type, raw json.RawMessage) (Content, error) {
 	default:
 		return nil, fmt.Errorf("no element type %q", elementType)
 	}
+}
+
+// checkWebAddress takes http and https and refuses everything else, because
+// any other scheme is a way to run code from a page a reader trusts.
+func checkWebAddress(address string) error {
+	parsed, err := url.Parse(address)
+	if err != nil {
+		return fmt.Errorf("%q is not an address", address)
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return fmt.Errorf("a link must start with http or https")
+	}
+	if parsed.Host == "" {
+		return fmt.Errorf("a link must name a site")
+	}
+	return nil
 }
 
 func decodeContentJSON(raw json.RawMessage, destination any) error {
@@ -324,6 +440,26 @@ var labels = map[Role]string{
 	RoleGroupGreetings:  "Group-only greetings",
 	RoleExampleDialogue: "Example dialogue",
 	RoleGallery:         "Images",
+}
+
+// typeLabels name an element that carries no role, so a removal confirmation
+// can still say what a creator is about to lose.
+var typeLabels = map[Type]string{
+	TypeProse:          "Text",
+	TypeTextSet:        "List",
+	TypeFieldList:      "Details",
+	TypeDialogueSample: "Dialogue",
+	TypeImageSet:       "Images",
+	TypeLinkList:       "Links",
+}
+
+// Label returns the element's wording, from its role where it has one and from
+// its type where it does not.
+func (e Element) Label() string {
+	if label := e.Role.Label(); label != "" {
+		return label
+	}
+	return typeLabels[e.Type]
 }
 
 var roleTypes = map[Role][]Type{

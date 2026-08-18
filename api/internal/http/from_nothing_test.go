@@ -22,15 +22,16 @@ type startedBlock struct {
 	Hideable       bool     `json:"hideable"`
 	IsEmpty        bool     `json:"isEmpty"`
 	Elements       []struct {
-		ID      string          `json:"id"`
-		Type    string          `json:"type"`
-		Role    string          `json:"role"`
-		Slot    string          `json:"slot"`
-		Label   string          `json:"label"`
-		Pinned  bool            `json:"pinned"`
-		Display string          `json:"display"`
-		IsEmpty bool            `json:"isEmpty"`
-		Content json.RawMessage `json:"content"`
+		ID       string          `json:"id"`
+		Type     string          `json:"type"`
+		Role     string          `json:"role"`
+		Slot     string          `json:"slot"`
+		Label    string          `json:"label"`
+		Pinned   bool            `json:"pinned"`
+		Display  string          `json:"display"`
+		ItemSize string          `json:"itemSize"`
+		IsEmpty  bool            `json:"isEmpty"`
+		Content  json.RawMessage `json:"content"`
 	} `json:"elements"`
 }
 
@@ -48,8 +49,22 @@ type startedAsset struct {
 		DetailURL string `json:"detailUrl"`
 		ThumbURL  string `json:"thumbUrl"`
 	} `json:"media"`
-	Readiness []readinessItem `json:"readiness"`
-	Blocks    []startedBlock  `json:"blocks"`
+	Readiness       []readinessItem  `json:"readiness"`
+	Blocks          []startedBlock   `json:"blocks"`
+	AddableSections []addableSection `json:"addableSections"`
+}
+
+type addableSection struct {
+	Definition string `json:"definition"`
+	Title      string `json:"title"`
+	Summary    string `json:"summary"`
+	Group      string `json:"group"`
+	GroupTitle string `json:"groupTitle"`
+	Repeatable bool   `json:"repeatable"`
+	Choices    []struct {
+		Type  string `json:"type"`
+		Label string `json:"label"`
+	} `json:"choices"`
 }
 
 func startCharacter(t *testing.T, r http.Handler, session *http.Cookie) startedAsset {

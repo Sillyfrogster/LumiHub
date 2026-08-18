@@ -20,7 +20,7 @@ func (h *Handlers) SaveAssetBlock(c *gin.Context, id types.UUID, blockID types.U
 	var request SaveAssetBlockRequest
 	if err := decodeOneJSON(c.Request.Body, &request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Send valid JSON with a title, layout, width and elements. Every element id must be a UUID; display must be rich or verbatim.",
+			"error": "Send valid JSON with a title, layout, width and elements. Every element id must be a UUID; display must be rich or verbatim, and an image size small, medium or large.",
 		})
 		return
 	}
@@ -59,29 +59,30 @@ func blockUpdate(request SaveAssetBlockRequest) (asset.BlockUpdate, error) {
 	elements := make([]block.Element, len(request.Elements))
 	for i, incoming := range request.Elements {
 		elementType := block.Type(incoming.Type)
+		role := block.Role("")
+		if incoming.Role != nil {
+			role = block.Role(*incoming.Role)
+		}
 		content, err := block.DecodeContent(elementType, incoming.Content)
 		if err != nil {
-			label := block.Role("")
-			if incoming.Role != nil {
-				label = block.Role(*incoming.Role)
-			}
-			name := label.Label()
+			name := block.Element{Type: elementType, Role: role}.Label()
 			if name == "" {
 				name = fmt.Sprintf("Element %d", i+1)
 			}
 			return asset.BlockUpdate{}, fmt.Errorf("%s content is malformed: %w", name, err)
 		}
-		role := block.Role("")
-		if incoming.Role != nil {
-			role = block.Role(*incoming.Role)
-		}
 		display := block.Display("")
 		if incoming.Display != nil {
 			display = block.Display(*incoming.Display)
 		}
+		itemSize := block.ItemSize("")
+		if incoming.ItemSize != nil {
+			itemSize = block.ItemSize(*incoming.ItemSize)
+		}
 		elements[i] = block.Element{
 			ID: uuid.UUID(incoming.Id), Type: elementType, Role: role,
-			Slot: block.Slot(incoming.Slot), Options: block.Options{Display: display},
+			Slot:    block.Slot(incoming.Slot),
+			Options: block.Options{Display: display, ItemSize: itemSize},
 			Content: content,
 		}
 	}

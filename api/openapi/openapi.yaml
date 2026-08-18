@@ -527,6 +527,31 @@ paths:
         "404": { description: The asset or block does not belong to the creator }
         "409": { description: The asset is withheld and cannot be changed }
   /v1/assets/{id}/blocks:
+    post:
+      operationId: addAssetBlock
+      description: >-
+        Add one optional section to the foot of the page, holding the element
+        the creator chose. A required section, and a section already present
+        that cannot repeat, are both refused.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AddAssetBlockRequest" }
+      responses:
+        "201":
+          description: The new section as it now appears at the foot of the page
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssetBlock" }
+        "400": { description: The section cannot be added to this asset }
+        "401": { description: No account is signed in }
+        "403": { description: The signed-in account has not verified its email }
+        "404": { description: The asset does not belong to the creator }
+        "409": { description: The asset is withheld and cannot be changed }
     put:
       operationId: arrangeAssetBlocks
       description: >-
@@ -1168,20 +1193,23 @@ components:
       required: [id, type, slot, content]
       properties:
         id: { type: string, format: uuid }
-        type: { type: string, enum: [prose, text_set, dialogue_sample, image_set] }
+        type: { $ref: "#/components/schemas/ElementType" }
         role:
           type: string
           description: Absent where the element has no import or export meaning.
         slot: { type: string }
         display: { type: string, enum: [rich, verbatim] }
+        itemSize: { $ref: "#/components/schemas/ItemSize" }
         content:
           description: The element type's own body.
           x-go-type: json.RawMessage
           oneOf:
             - $ref: "#/components/schemas/ProseContent"
             - $ref: "#/components/schemas/TextSetContent"
+            - $ref: "#/components/schemas/FieldListContent"
             - $ref: "#/components/schemas/DialogueSampleContent"
             - $ref: "#/components/schemas/ImageSetContent"
+            - $ref: "#/components/schemas/LinkListContent"
     AssetElement:
       type: object
       description: >-
@@ -1190,7 +1218,7 @@ components:
       required: [id, type, slot, label, pinned, isEmpty, content]
       properties:
         id: { type: string, format: uuid }
-        type: { type: string, enum: [prose, text_set, dialogue_sample, image_set] }
+        type: { $ref: "#/components/schemas/ElementType" }
         role:
           type: string
           description: Absent where the element has no import or export meaning.
@@ -1200,6 +1228,7 @@ components:
           type: boolean
           description: A pinned element can be neither removed nor moved out of its block.
         display: { type: string, enum: [rich, verbatim] }
+        itemSize: { $ref: "#/components/schemas/ItemSize" }
         isEmpty: { type: boolean }
         content:
           description: The element type's own body. A reader switches on type to read it.
@@ -1207,8 +1236,10 @@ components:
           oneOf:
             - $ref: "#/components/schemas/ProseContent"
             - $ref: "#/components/schemas/TextSetContent"
+            - $ref: "#/components/schemas/FieldListContent"
             - $ref: "#/components/schemas/DialogueSampleContent"
             - $ref: "#/components/schemas/ImageSetContent"
+            - $ref: "#/components/schemas/LinkListContent"
     ProseContent:
       type: object
       required: [text]
@@ -1241,6 +1272,9 @@ components:
     ImageSetContent:
       type: object
       required: [images]
+      description: >-
+        An ordered list of images. An item carries its image and one optional
+        free-text name, and its position is where it sits in the list.
       properties:
         images:
           type: array
@@ -1250,6 +1284,73 @@ components:
             properties:
               mediaId: { type: string, format: uuid }
               name: { type: string }
+    FieldListContent:
+      type: object
+      required: [fields]
+      properties:
+        fields:
+          type: array
+          items:
+            type: object
+            required: [value]
+            properties:
+              name: { type: string }
+              value: { type: string }
+    LinkListContent:
+      type: object
+      required: [links]
+      properties:
+        links:
+          type: array
+          items:
+            type: object
+            required: [url]
+            properties:
+              label: { type: string }
+              url: { type: string }
+              note: { type: string }
+    ElementType:
+      type: string
+      description: What an element's data structure is, from the global vocabulary.
+      enum: [prose, text_set, field_list, dialogue_sample, image_set, link_list]
+    ItemSize:
+      type: string
+      description: >-
+        How large the images inside an element are drawn. It names what it
+        controls, and no element type declares a measurement of its own.
+      enum: [small, medium, large]
+    AddAssetBlockRequest:
+      type: object
+      additionalProperties: false
+      required: [definition, elementType]
+      properties:
+        definition: { type: string }
+        elementType: { $ref: "#/components/schemas/ElementType" }
+    AddableSection:
+      type: object
+      description: >-
+        One section the add tray offers. Where the content ends up is what the
+        tray groups by, so a creator arrives at it by destination.
+      required: [definition, title, summary, group, groupTitle, repeatable, choices]
+      properties:
+        definition: { type: string }
+        title: { type: string }
+        summary: { type: string }
+        group: { type: string, enum: [file, reader, work, other] }
+        groupTitle: { type: string }
+        repeatable: { type: boolean }
+        choices:
+          type: array
+          description: >-
+            The elements a creator may start the section with. One choice needs
+            no question asking.
+          items: { $ref: "#/components/schemas/AddableSectionChoice" }
+    AddableSectionChoice:
+      type: object
+      required: [type, label]
+      properties:
+        type: { $ref: "#/components/schemas/ElementType" }
+        label: { type: string }
     Asset:
       type: object
       required: [id, kind, format, name, blurb, tags, isNsfw, discovery, createdAt]
@@ -1328,6 +1429,12 @@ components:
             reading their own draft.
           type: array
           items: { $ref: "#/components/schemas/ReadinessItem" }
+        addableSections:
+          description: >-
+            The sections this kind can still be given, in catalog order.
+            Present only while the owner is reading their own asset.
+          type: array
+          items: { $ref: "#/components/schemas/AddableSection" }
         visibility: { type: string, enum: [hidden, blurred, shown] }
         withhold:
           $ref: "#/components/schemas/AssetWithhold"

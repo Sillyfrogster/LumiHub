@@ -442,7 +442,8 @@ export interface paths {
     get?: never;
     /** @description Rewrite the whole page order and save visibility and width choices in the same transaction. Every current block must appear exactly once. */
     put: operations["arrangeAssetBlocks"];
-    post?: never;
+    /** @description Add one optional section to the foot of the page, holding the element the creator chose. A required section, and a section already present that cannot repeat, are both refused. */
+    post: operations["addAssetBlock"];
     delete?: never;
     options?: never;
     head?: never;
@@ -836,26 +837,27 @@ export interface components {
     SaveAssetElement: {
       /** Format: uuid */
       id: string;
-      /** @enum {string} */
-      type: "prose" | "text_set" | "dialogue_sample" | "image_set";
+      type: components["schemas"]["ElementType"];
       /** @description Absent where the element has no import or export meaning. */
       role?: string;
       slot: string;
       /** @enum {string} */
       display?: "rich" | "verbatim";
+      itemSize?: components["schemas"]["ItemSize"];
       /** @description The element type's own body. */
       content:
         | components["schemas"]["ProseContent"]
         | components["schemas"]["TextSetContent"]
+        | components["schemas"]["FieldListContent"]
         | components["schemas"]["DialogueSampleContent"]
-        | components["schemas"]["ImageSetContent"];
+        | components["schemas"]["ImageSetContent"]
+        | components["schemas"]["LinkListContent"];
     };
     /** @description One piece of content. Its role is what import and export read, and it travels with the element wherever the creator moves it. */
     AssetElement: {
       /** Format: uuid */
       id: string;
-      /** @enum {string} */
-      type: "prose" | "text_set" | "dialogue_sample" | "image_set";
+      type: components["schemas"]["ElementType"];
       /** @description Absent where the element has no import or export meaning. */
       role?: string;
       slot: string;
@@ -864,13 +866,16 @@ export interface components {
       pinned: boolean;
       /** @enum {string} */
       display?: "rich" | "verbatim";
+      itemSize?: components["schemas"]["ItemSize"];
       isEmpty: boolean;
       /** @description The element type's own body. A reader switches on type to read it. */
       content:
         | components["schemas"]["ProseContent"]
         | components["schemas"]["TextSetContent"]
+        | components["schemas"]["FieldListContent"]
         | components["schemas"]["DialogueSampleContent"]
-        | components["schemas"]["ImageSetContent"];
+        | components["schemas"]["ImageSetContent"]
+        | components["schemas"]["LinkListContent"];
     };
     ProseContent: {
       text: string;
@@ -887,12 +892,62 @@ export interface components {
         text: string;
       }[];
     };
+    /** @description An ordered list of images. An item carries its image and one optional free-text name, and its position is where it sits in the list. */
     ImageSetContent: {
       images: {
         /** Format: uuid */
         mediaId: string;
         name?: string;
       }[];
+    };
+    FieldListContent: {
+      fields: {
+        name?: string;
+        value: string;
+      }[];
+    };
+    LinkListContent: {
+      links: {
+        label?: string;
+        url: string;
+        note?: string;
+      }[];
+    };
+    /**
+     * @description What an element's data structure is, from the global vocabulary.
+     * @enum {string}
+     */
+    ElementType:
+      | "prose"
+      | "text_set"
+      | "field_list"
+      | "dialogue_sample"
+      | "image_set"
+      | "link_list";
+    /**
+     * @description How large the images inside an element are drawn. It names what it controls, and no element type declares a measurement of its own.
+     * @enum {string}
+     */
+    ItemSize: "small" | "medium" | "large";
+    AddAssetBlockRequest: {
+      definition: string;
+      elementType: components["schemas"]["ElementType"];
+    };
+    /** @description One section the add tray offers. Where the content ends up is what the tray groups by, so a creator arrives at it by destination. */
+    AddableSection: {
+      definition: string;
+      title: string;
+      summary: string;
+      /** @enum {string} */
+      group: "file" | "reader" | "work" | "other";
+      groupTitle: string;
+      repeatable: boolean;
+      /** @description The elements a creator may start the section with. One choice needs no question asking. */
+      choices: components["schemas"]["AddableSectionChoice"][];
+    };
+    AddableSectionChoice: {
+      type: components["schemas"]["ElementType"];
+      label: string;
     };
     Asset: {
       /** Format: uuid */
@@ -942,6 +997,8 @@ export interface components {
       preview: string | null;
       /** @description What publication is waiting on. Present only while the owner is reading their own draft. */
       readiness?: components["schemas"]["ReadinessItem"][];
+      /** @description The sections this kind can still be given, in catalog order. Present only while the owner is reading their own asset. */
+      addableSections?: components["schemas"]["AddableSection"][];
       /** @enum {string} */
       visibility: "hidden" | "blurred" | "shown";
       withhold?: components["schemas"]["AssetWithhold"];
@@ -2307,6 +2364,67 @@ export interface operations {
         };
       };
       /** @description The arrangement is incomplete */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The signed-in account has not verified its email */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The asset does not belong to the creator */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The asset is withheld and cannot be changed */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  addAssetBlock: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AddAssetBlockRequest"];
+      };
+    };
+    responses: {
+      /** @description The new section as it now appears at the foot of the page */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AssetBlock"];
+        };
+      };
+      /** @description The section cannot be added to this asset */
       400: {
         headers: {
           [name: string]: unknown;

@@ -62,6 +62,30 @@ func (e AddMediaRequestRole) Valid() bool {
 	}
 }
 
+// Defines values for AddableSectionGroup.
+const (
+	File   AddableSectionGroup = "file"
+	Other  AddableSectionGroup = "other"
+	Reader AddableSectionGroup = "reader"
+	Work   AddableSectionGroup = "work"
+)
+
+// Valid indicates whether the value is a known member of the AddableSectionGroup enum.
+func (e AddableSectionGroup) Valid() bool {
+	switch e {
+	case File:
+		return true
+	case Other:
+		return true
+	case Reader:
+		return true
+	case Work:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ArrangeAssetBlocksRequestBlocksWidth.
 const (
 	ArrangeAssetBlocksRequestBlocksWidthFull      ArrangeAssetBlocksRequestBlocksWidth = "full"
@@ -305,30 +329,6 @@ func (e AssetElementDisplay) Valid() bool {
 	}
 }
 
-// Defines values for AssetElementType.
-const (
-	AssetElementTypeDialogueSample AssetElementType = "dialogue_sample"
-	AssetElementTypeImageSet       AssetElementType = "image_set"
-	AssetElementTypeProse          AssetElementType = "prose"
-	AssetElementTypeTextSet        AssetElementType = "text_set"
-)
-
-// Valid indicates whether the value is a known member of the AssetElementType enum.
-func (e AssetElementType) Valid() bool {
-	switch e {
-	case AssetElementTypeDialogueSample:
-		return true
-	case AssetElementTypeImageSet:
-		return true
-	case AssetElementTypeProse:
-		return true
-	case AssetElementTypeTextSet:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for AssetImageRole.
 const (
 	AssetImageRoleAvatar           AssetImageRole = "avatar"
@@ -512,6 +512,36 @@ func (e DeletedAssetKind) Valid() bool {
 	}
 }
 
+// Defines values for ElementType.
+const (
+	DialogueSample ElementType = "dialogue_sample"
+	FieldList      ElementType = "field_list"
+	ImageSet       ElementType = "image_set"
+	LinkList       ElementType = "link_list"
+	Prose          ElementType = "prose"
+	TextSet        ElementType = "text_set"
+)
+
+// Valid indicates whether the value is a known member of the ElementType enum.
+func (e ElementType) Valid() bool {
+	switch e {
+	case DialogueSample:
+		return true
+	case FieldList:
+		return true
+	case ImageSet:
+		return true
+	case LinkList:
+		return true
+	case Prose:
+		return true
+	case TextSet:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for IngestFailureReason.
 const (
 	InternalFailure    IngestFailureReason = "internal_failure"
@@ -563,6 +593,27 @@ func (e IngestOperationStatus) Valid() bool {
 	case IngestOperationStatusProcessing:
 		return true
 	case IngestOperationStatusSuccess:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ItemSize.
+const (
+	Large  ItemSize = "large"
+	Medium ItemSize = "medium"
+	Small  ItemSize = "small"
+)
+
+// Valid indicates whether the value is a known member of the ItemSize enum.
+func (e ItemSize) Valid() bool {
+	switch e {
+	case Large:
+		return true
+	case Medium:
+		return true
+	case Small:
 		return true
 	default:
 		return false
@@ -734,30 +785,6 @@ func (e SaveAssetElementDisplay) Valid() bool {
 	}
 }
 
-// Defines values for SaveAssetElementType.
-const (
-	SaveAssetElementTypeDialogueSample SaveAssetElementType = "dialogue_sample"
-	SaveAssetElementTypeImageSet       SaveAssetElementType = "image_set"
-	SaveAssetElementTypeProse          SaveAssetElementType = "prose"
-	SaveAssetElementTypeTextSet        SaveAssetElementType = "text_set"
-)
-
-// Valid indicates whether the value is a known member of the SaveAssetElementType enum.
-func (e SaveAssetElementType) Valid() bool {
-	switch e {
-	case SaveAssetElementTypeDialogueSample:
-		return true
-	case SaveAssetElementTypeImageSet:
-		return true
-	case SaveAssetElementTypeProse:
-		return true
-	case SaveAssetElementTypeTextSet:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for Scope.
 const (
 	AssetReceive Scope = "asset:receive"
@@ -910,6 +937,14 @@ type Account struct {
 // AccountRole defines model for Account.Role.
 type AccountRole string
 
+// AddAssetBlockRequest defines model for AddAssetBlockRequest.
+type AddAssetBlockRequest struct {
+	Definition string `json:"definition"`
+
+	// ElementType What an element's data structure is, from the global vocabulary.
+	ElementType ElementType `json:"elementType"`
+}
+
 // AddMediaRequest defines model for AddMediaRequest.
 type AddMediaRequest struct {
 	Role AddMediaRequestRole `json:"role"`
@@ -917,6 +952,29 @@ type AddMediaRequest struct {
 
 // AddMediaRequestRole defines model for AddMediaRequest.Role.
 type AddMediaRequestRole string
+
+// AddableSection One section the add tray offers. Where the content ends up is what the tray groups by, so a creator arrives at it by destination.
+type AddableSection struct {
+	// Choices The elements a creator may start the section with. One choice needs no question asking.
+	Choices    []AddableSectionChoice `json:"choices"`
+	Definition string                 `json:"definition"`
+	Group      AddableSectionGroup    `json:"group"`
+	GroupTitle string                 `json:"groupTitle"`
+	Repeatable bool                   `json:"repeatable"`
+	Summary    string                 `json:"summary"`
+	Title      string                 `json:"title"`
+}
+
+// AddableSectionGroup defines model for AddableSection.Group.
+type AddableSectionGroup string
+
+// AddableSectionChoice defines model for AddableSectionChoice.
+type AddableSectionChoice struct {
+	Label string `json:"label"`
+
+	// Type What an element's data structure is, from the global vocabulary.
+	Type ElementType `json:"type"`
+}
 
 // ArrangeAssetBlocksRequest defines model for ArrangeAssetBlocksRequest.
 type ArrangeAssetBlocksRequest struct {
@@ -980,6 +1038,9 @@ type AssetBlockWidth string
 
 // AssetDetail defines model for AssetDetail.
 type AssetDetail struct {
+	// AddableSections The sections this kind can still be given, in catalog order. Present only while the owner is reading their own asset.
+	AddableSections *[]AddableSection `json:"addableSections,omitempty"`
+
 	// Blocks The asset's blocks in page order.
 	Blocks []AssetBlock `json:"blocks"`
 
@@ -1044,22 +1105,24 @@ type AssetElement struct {
 	Display *AssetElementDisplay `json:"display,omitempty"`
 	Id      openapi_types.UUID   `json:"id"`
 	IsEmpty bool                 `json:"isEmpty"`
-	Label   string               `json:"label"`
+
+	// ItemSize How large the images inside an element are drawn. It names what it controls, and no element type declares a measurement of its own.
+	ItemSize *ItemSize `json:"itemSize,omitempty"`
+	Label    string    `json:"label"`
 
 	// Pinned A pinned element can be neither removed nor moved out of its block.
 	Pinned bool `json:"pinned"`
 
 	// Role Absent where the element has no import or export meaning.
-	Role *string          `json:"role,omitempty"`
-	Slot string           `json:"slot"`
-	Type AssetElementType `json:"type"`
+	Role *string `json:"role,omitempty"`
+	Slot string  `json:"slot"`
+
+	// Type What an element's data structure is, from the global vocabulary.
+	Type ElementType `json:"type"`
 }
 
 // AssetElementDisplay defines model for AssetElement.Display.
 type AssetElementDisplay string
-
-// AssetElementType defines model for AssetElement.Type.
-type AssetElementType string
 
 // AssetIdentityRequest defines model for AssetIdentityRequest.
 type AssetIdentityRequest struct {
@@ -1224,6 +1287,17 @@ type DialogueSampleContent struct {
 	} `json:"turns"`
 }
 
+// ElementType What an element's data structure is, from the global vocabulary.
+type ElementType string
+
+// FieldListContent defines model for FieldListContent.
+type FieldListContent struct {
+	Fields []struct {
+		Name  *string `json:"name,omitempty"`
+		Value string  `json:"value"`
+	} `json:"fields"`
+}
+
 // FileFieldPatch defines model for FileFieldPatch.
 type FileFieldPatch struct {
 	CharacterVersion        *string `json:"character_version,omitempty"`
@@ -1236,7 +1310,7 @@ type FileFieldPatch struct {
 	SystemPrompt            *string `json:"system_prompt,omitempty"`
 }
 
-// ImageSetContent defines model for ImageSetContent.
+// ImageSetContent An ordered list of images. An item carries its image and one optional free-text name, and its position is where it sits in the list.
 type ImageSetContent struct {
 	Images []struct {
 		MediaId openapi_types.UUID `json:"mediaId"`
@@ -1265,6 +1339,18 @@ type IngestOperation struct {
 
 // IngestOperationStatus defines model for IngestOperation.Status.
 type IngestOperationStatus string
+
+// ItemSize How large the images inside an element are drawn. It names what it controls, and no element type declares a measurement of its own.
+type ItemSize string
+
+// LinkListContent defines model for LinkListContent.
+type LinkListContent struct {
+	Links []struct {
+		Label *string `json:"label,omitempty"`
+		Note  *string `json:"note,omitempty"`
+		Url   string  `json:"url"`
+	} `json:"links"`
+}
 
 // LinkPollResult defines model for LinkPollResult.
 type LinkPollResult struct {
@@ -1434,17 +1520,19 @@ type SaveAssetElement struct {
 	Display *SaveAssetElementDisplay `json:"display,omitempty"`
 	Id      openapi_types.UUID       `json:"id"`
 
+	// ItemSize How large the images inside an element are drawn. It names what it controls, and no element type declares a measurement of its own.
+	ItemSize *ItemSize `json:"itemSize,omitempty"`
+
 	// Role Absent where the element has no import or export meaning.
-	Role *string              `json:"role,omitempty"`
-	Slot string               `json:"slot"`
-	Type SaveAssetElementType `json:"type"`
+	Role *string `json:"role,omitempty"`
+	Slot string  `json:"slot"`
+
+	// Type What an element's data structure is, from the global vocabulary.
+	Type ElementType `json:"type"`
 }
 
 // SaveAssetElementDisplay defines model for SaveAssetElement.Display.
 type SaveAssetElementDisplay string
-
-// SaveAssetElementType defines model for SaveAssetElement.Type.
-type SaveAssetElementType string
 
 // Scope asset:receive lets an instance receive assets sent to it. library:sync lets it report what it has installed.
 type Scope string
@@ -1595,6 +1683,9 @@ type CreateAssetJSONRequestBody = StartAssetRequest
 // CreateAssetMultipartRequestBody defines body for CreateAsset for multipart/form-data ContentType.
 type CreateAssetMultipartRequestBody CreateAssetMultipartBody
 
+// AddAssetBlockJSONRequestBody defines body for AddAssetBlock for application/json ContentType.
+type AddAssetBlockJSONRequestBody = AddAssetBlockRequest
+
 // ArrangeAssetBlocksJSONRequestBody defines body for ArrangeAssetBlocks for application/json ContentType.
 type ArrangeAssetBlocksJSONRequestBody = ArrangeAssetBlocksRequest
 
@@ -1684,6 +1775,9 @@ type ServerInterface interface {
 
 	// (GET /v1/assets/{id})
 	GetAsset(c *gin.Context, id openapi_types.UUID, params GetAssetParams)
+
+	// (POST /v1/assets/{id}/blocks)
+	AddAssetBlock(c *gin.Context, id openapi_types.UUID)
 
 	// (PUT /v1/assets/{id}/blocks)
 	ArrangeAssetBlocks(c *gin.Context, id openapi_types.UUID)
@@ -2146,6 +2240,31 @@ func (siw *ServerInterfaceWrapper) GetAsset(c *gin.Context) {
 	}
 
 	siw.Handler.GetAsset(c, id, params)
+}
+
+// AddAssetBlock operation middleware
+func (siw *ServerInterfaceWrapper) AddAssetBlock(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.AddAssetBlock(c, id)
 }
 
 // ArrangeAssetBlocks operation middleware
@@ -2969,6 +3088,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/v1/assets/:id/revisions", wrapper.AddAssetRevision)
 	router.DELETE(options.BaseURL+"/v1/assets/:id/blocks/:blockId", wrapper.RemoveAssetBlock)
 	router.PUT(options.BaseURL+"/v1/assets/:id/blocks/:blockId", wrapper.SaveAssetBlock)
+	router.POST(options.BaseURL+"/v1/assets/:id/blocks", wrapper.AddAssetBlock)
 	router.PUT(options.BaseURL+"/v1/assets/:id/blocks", wrapper.ArrangeAssetBlocks)
 	router.POST(options.BaseURL+"/v1/assets/:id/blocks/:blockId/move-and-remove", wrapper.MoveAssetBlockContent)
 	router.PUT(options.BaseURL+"/v1/assets/:id/file-patch", wrapper.SetFilePatch)

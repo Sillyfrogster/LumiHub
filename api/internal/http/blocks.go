@@ -56,9 +56,9 @@ func toAPIElements(kind string, holder block.Block) ([]AssetElement, error) {
 		}
 		served := AssetElement{
 			Id:      types.UUID(element.ID),
-			Type:    AssetElementType(element.Type),
+			Type:    ElementType(element.Type),
 			Slot:    string(element.Slot),
-			Label:   element.Role.Label(),
+			Label:   element.Label(),
 			Pinned:  holder.Pinned(element.Role, kind),
 			IsEmpty: element.Content == nil || element.Content.Empty(),
 			Content: content,
@@ -70,6 +70,10 @@ func toAPIElements(kind string, holder block.Block) ([]AssetElement, error) {
 		if element.Options.Display != "" {
 			display := AssetElementDisplay(element.Options.Display)
 			served.Display = &display
+		}
+		if element.Options.ItemSize != "" {
+			size := ItemSize(element.Options.ItemSize)
+			served.ItemSize = &size
 		}
 		out = append(out, served)
 	}

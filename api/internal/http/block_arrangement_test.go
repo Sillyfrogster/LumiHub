@@ -40,7 +40,7 @@ func insertEmptyGallery(t *testing.T, pool *pgxpool.Pool, assetID string) string
 	t.Helper()
 	id := uuid.New()
 	elementID := uuid.New()
-	elements := `[{"id":"` + elementID.String() + `","type":"image_set","role":"gallery","slot":"main","version":1,"options":{},"content":{"images":[]}}]`
+	elements := `[{"id":"` + elementID.String() + `","type":"image_set","role":"gallery","slot":"main","version":1,"options":{"itemSize":"medium"},"content":{"images":[]}}]`
 	if _, err := pool.Exec(t.Context(), `
 		insert into asset_blocks
 		  (id, asset_id, definition, position, hidden, layout, width, elements)

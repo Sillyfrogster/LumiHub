@@ -12,12 +12,13 @@ import (
 )
 
 type saveBlockElement struct {
-	ID      string          `json:"id"`
-	Type    string          `json:"type"`
-	Role    string          `json:"role,omitempty"`
-	Slot    string          `json:"slot"`
-	Display string          `json:"display,omitempty"`
-	Content json.RawMessage `json:"content"`
+	ID       string          `json:"id"`
+	Type     string          `json:"type"`
+	Role     string          `json:"role,omitempty"`
+	Slot     string          `json:"slot"`
+	Display  string          `json:"display,omitempty"`
+	ItemSize string          `json:"itemSize,omitempty"`
+	Content  json.RawMessage `json:"content"`
 }
 
 type saveBlockBody struct {
@@ -32,7 +33,8 @@ func editableBlock(block startedBlock) saveBlockBody {
 	for i, element := range block.Elements {
 		elements[i] = saveBlockElement{
 			ID: element.ID, Type: element.Type, Role: element.Role,
-			Slot: element.Slot, Display: element.Display, Content: element.Content,
+			Slot: element.Slot, Display: element.Display, ItemSize: element.ItemSize,
+			Content: element.Content,
 		}
 	}
 	return saveBlockBody{

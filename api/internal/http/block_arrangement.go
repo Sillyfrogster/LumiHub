@@ -11,6 +11,39 @@ import (
 	"github.com/oapi-codegen/runtime/types"
 )
 
+func (h *Handlers) AddAssetBlock(c *gin.Context, id types.UUID) {
+	owner, ok := h.verifiedAccount(c, "adding a section")
+	if !ok {
+		return
+	}
+	var request AddAssetBlockRequest
+	if err := decodeOneJSON(c.Request.Body, &request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Name the section to add and the element it starts with."})
+		return
+	}
+	saved, err := h.assets.AddBlock(
+		c.Request.Context(), owner.ID, uuid.UUID(id),
+		block.DefinitionID(request.Definition), block.Type(request.ElementType),
+	)
+	switch {
+	case errors.Is(err, asset.ErrNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": "No such asset."})
+	case errors.Is(err, asset.ErrAssetFrozen):
+		c.JSON(http.StatusConflict, gin.H{"error": "A withheld asset cannot be changed."})
+	case errors.Is(err, asset.ErrInvalidBlock):
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	case err != nil:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not add the section."})
+	default:
+		blocks, conversionErr := toAPIBlocks(saved.Kind, []block.Block{saved.Block})
+		if conversionErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not read the new section."})
+			return
+		}
+		c.JSON(http.StatusCreated, blocks[0])
+	}
+}
+
 func (h *Handlers) ArrangeAssetBlocks(c *gin.Context, id types.UUID) {
 	owner, ok := h.verifiedAccount(c, "arranging an asset")
 	if !ok {

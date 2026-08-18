@@ -7,6 +7,7 @@ import (
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/account"
 	"github.com/Sillyfrogster/LumiHub/api/internal/asset"
+	"github.com/Sillyfrogster/LumiHub/api/internal/block"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
 	"github.com/gin-gonic/gin"
@@ -572,25 +573,57 @@ func toAPIDetail(found asset.Detail, visibility asset.ContentVisibility) (AssetD
 		return AssetDetail{}, err
 	}
 	return AssetDetail{
-		Id:            types.UUID(found.ID),
-		Kind:          AssetDetailKind(found.Kind),
-		Name:          found.Name,
-		Blurb:         found.Blurb,
-		Tags:          tags,
-		Creator:       found.Creator,
-		IsNsfw:        found.IsNSFW,
-		Discovery:     AssetDetailDiscovery(found.Discovery),
-		Lifecycle:     AssetDetailLifecycle(found.Lifecycle),
-		IsOwner:       found.IsOwner,
-		HasSourceFile: found.HasSourceFile,
-		CreatedAt:     found.CreatedAt,
-		Blocks:        blocks,
-		Media:         media,
-		Preview:       found.Preview,
-		Readiness:     toAPIReadiness(found.Readiness),
-		Visibility:    AssetDetailVisibility(visibility),
-		Withhold:      toAPIWithhold(found.Withhold),
+		Id:              types.UUID(found.ID),
+		Kind:            AssetDetailKind(found.Kind),
+		Name:            found.Name,
+		Blurb:           found.Blurb,
+		Tags:            tags,
+		Creator:         found.Creator,
+		IsNsfw:          found.IsNSFW,
+		Discovery:       AssetDetailDiscovery(found.Discovery),
+		Lifecycle:       AssetDetailLifecycle(found.Lifecycle),
+		IsOwner:         found.IsOwner,
+		HasSourceFile:   found.HasSourceFile,
+		CreatedAt:       found.CreatedAt,
+		Blocks:          blocks,
+		Media:           media,
+		Preview:         found.Preview,
+		Readiness:       toAPIReadiness(found.Readiness),
+		AddableSections: toAPIAddableSections(found.Kind, found.IsOwner),
+		Visibility:      AssetDetailVisibility(visibility),
+		Withhold:        toAPIWithhold(found.Withhold),
 	}, nil
+}
+
+// toAPIAddableSections serves the add tray's catalog. Only the owner can add a
+// section, so nobody else is handed the list.
+func toAPIAddableSections(kind string, isOwner bool) *[]AddableSection {
+	if !isOwner {
+		return nil
+	}
+	offers, ok := block.Offers(kind)
+	if !ok {
+		return nil
+	}
+	sections := make([]AddableSection, 0, len(offers))
+	for _, offer := range offers {
+		choices := make([]AddableSectionChoice, 0, len(offer.Choices))
+		for _, choice := range offer.Choices {
+			choices = append(choices, AddableSectionChoice{
+				Label: choice.Label, Type: ElementType(choice.Type),
+			})
+		}
+		sections = append(sections, AddableSection{
+			Definition: string(offer.Definition),
+			Title:      offer.Title,
+			Summary:    offer.Summary,
+			Group:      AddableSectionGroup(offer.Group),
+			GroupTitle: offer.Group.Title(),
+			Repeatable: offer.Repeatable,
+			Choices:    choices,
+		})
+	}
+	return &sections
 }
 
 func toAPIWithhold(found *asset.Withhold) *AssetWithhold {

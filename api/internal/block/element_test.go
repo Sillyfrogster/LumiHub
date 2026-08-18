@@ -119,3 +119,53 @@ func TestAnEmptyElementCarriesNothingAReaderWouldSee(t *testing.T) {
 		t.Errorf("a text set holding only a name reads as filled")
 	}
 }
+
+func TestAFieldListAndALinkListCarryTheirOwnItems(t *testing.T) {
+	fields := FieldList{Fields: []FieldItem{{Name: "Height", Value: "Six feet"}}}
+	if fields.Empty() {
+		t.Errorf("a field list holding a value reads as empty")
+	}
+	if !(FieldList{Fields: []FieldItem{{Name: "Height"}}}).Empty() {
+		t.Errorf("a field list holding only a name reads as filled")
+	}
+
+	links := LinkList{Links: []LinkItem{{Label: "The lorebook", URL: "https://illarin.xyz/a/1"}}}
+	if links.Empty() {
+		t.Errorf("a link list holding a link reads as empty")
+	}
+	if !(LinkList{Links: []LinkItem{{Label: "Nowhere"}}}).Empty() {
+		t.Errorf("a link list holding only a label reads as filled")
+	}
+}
+
+func TestALinkListRefusesAnAddressThatIsNotAWebLink(t *testing.T) {
+	_, err := DecodeContent(TypeLinkList, []byte(
+		`{"links":[{"label":"Tap me","url":"javascript:alert(1)"}]}`,
+	))
+	if err == nil {
+		t.Fatalf("a script address was saved as a link")
+	}
+	if !strings.Contains(err.Error(), "http") {
+		t.Errorf("refusal = %q, want it to name what a link may start with", err)
+	}
+
+	content, err := DecodeContent(TypeLinkList, []byte(
+		`{"links":[{"label":"The lorebook","url":"https://illarin.xyz/a/1","note":"Read it first"}]}`,
+	))
+	if err != nil {
+		t.Fatalf("read a web link: %v", err)
+	}
+	if got := content.(LinkList).Links[0].Note; got != "Read it first" {
+		t.Errorf("note = %q, want what was sent", got)
+	}
+}
+
+func TestAnImageSetItemCarriesOneNameAndNoSeparateCaption(t *testing.T) {
+	content, err := DecodeContent(TypeImageSet, []byte(
+		`{"images":[{"mediaId":"`+uuid.New().String()+`","name":"joy"},`+
+			`{"mediaId":"`+uuid.New().String()+`","caption":"the second"}]}`,
+	))
+	if err == nil {
+		t.Fatalf("an image carried a caption beside its name: %+v", content)
+	}
+}

@@ -126,6 +126,51 @@ func (s *Service) SaveBlock(
 	return SavedBlock{Kind: kind, Block: *saved}, nil
 }
 
+// AddBlock puts one optional section at the foot of the page, holding the
+// element the creator chose.
+func (s *Service) AddBlock(
+	ctx context.Context,
+	ownerID uuid.UUID,
+	assetID uuid.UUID,
+	definition block.DefinitionID,
+	elementType block.Type,
+) (SavedBlock, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return SavedBlock{}, err
+	}
+	defer tx.Rollback(ctx)
+
+	kind, err := lockEditableAsset(ctx, tx, ownerID, assetID)
+	if err != nil {
+		return SavedBlock{}, err
+	}
+	page, err := readBlocks(ctx, tx, assetID)
+	if err != nil {
+		return SavedBlock{}, err
+	}
+	added, err := block.NewBlock(kind, definition, elementType, page)
+	if err != nil {
+		return SavedBlock{}, fmt.Errorf("%w: %v", ErrInvalidBlock, err)
+	}
+	if err := block.ValidateStructure(added); err != nil {
+		return SavedBlock{}, fmt.Errorf("%w: %v", ErrInvalidBlock, err)
+	}
+	// The new element has no earlier identity to keep, so the page it joins is
+	// both sides of the check.
+	after := append(page, added)
+	if err := block.ValidateBuilderConstraints(kind, after, after); err != nil {
+		return SavedBlock{}, fmt.Errorf("%w: %v", ErrInvalidBlock, err)
+	}
+	if err := insertBlocks(ctx, tx, assetID, []block.Block{added}); err != nil {
+		return SavedBlock{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return SavedBlock{}, err
+	}
+	return SavedBlock{Kind: kind, Block: added}, nil
+}
+
 // ArrangeBlocks rewrites page order, visibility and width as one change.
 func (s *Service) ArrangeBlocks(
 	ctx context.Context,

@@ -17,11 +17,7 @@ func ValidateStructure(holder Block) error {
 	if len(holder.Elements) > len(available) {
 		stranded := make([]string, 0, len(holder.Elements)-len(available))
 		for i, element := range holder.Elements[len(available):] {
-			name := element.Role.Label()
-			if name == "" {
-				name = fmt.Sprintf("Element %d", len(available)+i+1)
-			}
-			stranded = append(stranded, name)
+			stranded = append(stranded, elementName(element, len(available)+i))
 		}
 		return fmt.Errorf(
 			"%s has no room for %s in %s. Move or remove %s before changing the layout",
@@ -29,13 +25,10 @@ func ValidateStructure(holder Block) error {
 			strings.ToLower(strings.Join(stranded, ", ")),
 		)
 	}
-	occupied := make(map[Slot]Role, len(holder.Elements))
+	occupied := make(map[Slot]string, len(holder.Elements))
 	identities := make(map[uuid.UUID]string, len(holder.Elements))
 	for i, element := range holder.Elements {
-		name := element.Role.Label()
-		if name == "" {
-			name = fmt.Sprintf("Element %d", i+1)
-		}
+		name := elementName(element, i)
 		if !element.Type.Known() {
 			return fmt.Errorf("%s uses unknown element type %q", name, element.Type)
 		}
@@ -63,6 +56,19 @@ func ValidateStructure(holder Block) error {
 				name,
 			)
 		}
+		if element.Type == TypeImageSet {
+			if !element.Options.ItemSize.Known() {
+				return fmt.Errorf(
+					"%s draws its images at %q. Choose %s before saving",
+					name, element.Options.ItemSize, joinItemSizes(),
+				)
+			}
+		} else if element.Options.ItemSize != "" {
+			return fmt.Errorf(
+				"%s holds no images, so it takes no image size. Remove it before saving",
+				name,
+			)
+		}
 		if !slices.Contains(available, element.Slot) {
 			return fmt.Errorf(
 				"%s is in slot %q, but %s has only %s. Move it to one of those slots before saving",
@@ -70,16 +76,12 @@ func ValidateStructure(holder Block) error {
 			)
 		}
 		if prior, exists := occupied[element.Slot]; exists {
-			priorName := prior.Label()
-			if priorName == "" {
-				priorName = "Another element"
-			}
 			return fmt.Errorf(
 				"%s and %s both use slot %q. Move one before saving",
-				priorName, name, element.Slot,
+				prior, name, element.Slot,
 			)
 		}
-		occupied[element.Slot] = element.Role
+		occupied[element.Slot] = name
 	}
 	return nil
 }
@@ -90,11 +92,19 @@ func ValidateBuilderConstraints(kind string, before []Block, after []Block) erro
 	for _, holder := range before {
 		beforeByID[holder.ID] = holder
 	}
+	seen := make(map[DefinitionID]struct{}, len(after))
 	for _, holder := range after {
 		definition, ok := holder.Definition.Definition(kind)
 		if !ok {
 			return fmt.Errorf("%s is not part of the %s catalog", holder.Definition, kind)
 		}
+		if _, repeated := seen[holder.Definition]; repeated && !definition.Repeatable {
+			return fmt.Errorf(
+				"%s can be on this page once. Remove the second one before saving",
+				definition.Title,
+			)
+		}
+		seen[holder.Definition] = struct{}{}
 		if !slices.Contains(definition.Layouts, holder.Layout) {
 			available := make([]string, len(definition.Layouts))
 			for i, layout := range definition.Layouts {
@@ -142,10 +152,7 @@ func ValidateBuilderConstraints(kind string, before []Block, after []Block) erro
 	}
 	for _, holder := range after {
 		for i, element := range holder.Elements {
-			name := element.Role.Label()
-			if name == "" {
-				name = fmt.Sprintf("Element %d", i+1)
-			}
+			name := elementName(element, i)
 			if prior, exists := elementIDs[element.ID]; exists {
 				return fmt.Errorf(
 					"%s and %s use the same id. Give each element its own id before saving",
@@ -216,6 +223,24 @@ func pinnedElementPresent(blocks []Block, blockID uuid.UUID, original Element) b
 		}
 	}
 	return false
+}
+
+// elementName is what a refusal calls one element. The position stands in only
+// where the element type is not one Illarin knows.
+func elementName(element Element, index int) string {
+	if name := element.Label(); name != "" {
+		return name
+	}
+	return fmt.Sprintf("Element %d", index+1)
+}
+
+func joinItemSizes() string {
+	sizes := ItemSizes()
+	names := make([]string, len(sizes))
+	for i, size := range sizes {
+		names[i] = string(size)
+	}
+	return strings.Join(names[:len(names)-1], ", ") + " or " + names[len(names)-1]
 }
 
 func joinSlots(values []Slot) string {
