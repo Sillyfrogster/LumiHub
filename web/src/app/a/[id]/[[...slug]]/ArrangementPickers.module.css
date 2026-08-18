@@ -18,8 +18,9 @@
   background: var(--surface);
   color: var(--body);
   cursor: pointer;
-  font-size: 0.74rem;
+  font-size: 0.75rem;
   font-weight: 700;
+  line-height: 1rem;
   list-style: none;
   transition:
     border-color 160ms var(--ease),
@@ -36,11 +37,6 @@
   border-color: var(--faint);
   background: var(--surface-quiet);
   color: var(--ink);
-}
-
-.trigger[aria-disabled="true"] {
-  cursor: wait;
-  opacity: 0.58;
 }
 
 .chevron {
@@ -88,14 +84,15 @@
 
 .menuHeading strong {
   color: var(--ink);
-  font-size: 0.78rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
 }
 
 .menuHeading span {
   margin-top: 3px;
   color: var(--muted);
-  font-size: 0.7rem;
-  line-height: 1.45;
+  font-size: 0.75rem;
+  line-height: 1rem;
 }
 
 .options {
@@ -132,14 +129,15 @@
 
 .optionCopy strong {
   color: var(--ink);
-  font-size: 0.76rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
 }
 
 .optionCopy small {
   margin-top: 2px;
   color: var(--muted);
-  font-size: 0.68rem;
-  line-height: 1.4;
+  font-size: 0.75rem;
+  line-height: 1rem;
 }
 
 .check {

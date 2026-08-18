@@ -59,7 +59,6 @@ export function WidthPicker({
       <summary
         className={styles.trigger}
         aria-label={`Change section width. Current width: ${WIDTH_LABELS[width]}`}
-        aria-disabled={pending}
       >
         <Columns3 size={15} aria-hidden="true" />
         <WidthBars width={width} />
@@ -141,7 +140,6 @@ export function LayoutPicker({
       <summary
         className={styles.trigger}
         aria-label={`Change section layout. Current layout: ${LAYOUT_LABELS[layout]}`}
-        aria-disabled={pending}
       >
         <LayoutGrid size={15} aria-hidden="true" />
         <span className={styles.triggerLabel}>{LAYOUT_LABELS[layout]}</span>

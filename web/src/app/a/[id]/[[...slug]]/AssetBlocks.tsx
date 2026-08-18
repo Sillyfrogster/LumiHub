@@ -19,8 +19,8 @@ const LAYOUT_CLASS: Record<AssetBlock["layout"], string> = {
   duo: styles.duo,
   "main-aside": styles.mainAside,
   trio: styles.trio,
-  "stack-2": styles.stack,
-  "stack-3": styles.stack,
+  "stack-2": styles.stack2,
+  "stack-3": styles.stack3,
 };
 
 /**

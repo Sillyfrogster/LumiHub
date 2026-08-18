@@ -115,10 +115,9 @@
   color: var(--ink);
 }
 
-/* One row of elements per layout preset. A vertical stack and a single slot
-   read the same on the page; they differ in how many elements may sit in them. */
 .single,
-.stack {
+.stack2,
+.stack3 {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 26px;
@@ -128,13 +127,13 @@
   grid-template-areas: "main";
 }
 
-.stack:has(> :nth-child(2):last-child) {
+.stack2 {
   grid-template-areas:
     "top"
     "bottom";
 }
 
-.stack:has(> :nth-child(3):last-child) {
+.stack3 {
   grid-template-areas:
     "top"
     "middle"
@@ -171,12 +170,12 @@
 .arrangementMessage {
   margin-bottom: 18px;
   padding: 12px 14px;
-  border: 1px solid rgba(138, 68, 68, 0.24);
+  border: 1px solid var(--line-check);
   border-radius: var(--radius-md);
-  background: rgba(138, 68, 68, 0.06);
-  color: #713838;
-  font-size: 0.8rem;
-  line-height: 1.5;
+  background: var(--surface-frame);
+  color: var(--body);
+  font-size: 0.75rem;
+  line-height: 1rem;
 }
 
 @container block (max-width: 650px) {
@@ -242,7 +241,8 @@
   }
 
   .single,
-  .stack,
+  .stack2,
+  .stack3,
   .duo,
   .trio,
   .mainAside {
@@ -259,8 +259,8 @@
     border-radius: var(--radius-md);
     background: var(--surface-quiet);
     color: var(--body);
-    font-size: 0.78rem;
-    line-height: 1.5;
+    font-size: 0.75rem;
+    line-height: 1rem;
   }
 }
 
