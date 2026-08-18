@@ -19,7 +19,7 @@ func (h *Handlers) SaveAssetBlock(c *gin.Context, id types.UUID, blockID types.U
 	}
 	var request SaveAssetBlockRequest
 	if err := decodeOneJSON(c.Request.Body, &request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Send the block as JSON."})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Send only the section title and elements as JSON."})
 		return
 	}
 	update, err := blockUpdate(request)
@@ -80,7 +80,7 @@ func blockUpdate(request SaveAssetBlockRequest) (asset.BlockUpdate, error) {
 		}
 	}
 	return asset.BlockUpdate{
-		Title: request.Title, Layout: block.Layout(request.Layout),
-		Width: block.Width(request.Width), Hidden: request.Hidden, Elements: elements,
+		Title:    request.Title,
+		Elements: elements,
 	}, nil
 }

@@ -1,10 +1,10 @@
 .page {
   --font-body: var(--font-inter), system-ui, sans-serif;
-  --detail-dark: #111115;
-  --detail-dark-raised: #19191e;
+  --detail-dark: #0d0d0f;
+  --detail-dark-raised: #151517;
   --detail-dark-line: rgba(255, 255, 255, 0.14);
   --detail-dark-text: #f5f5f7;
-  --detail-dark-muted: #b8b8c1;
+  --detail-dark-muted: #a1a1aa;
   position: relative;
   overflow-x: clip;
   background: #fafafb;

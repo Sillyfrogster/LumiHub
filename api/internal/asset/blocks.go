@@ -15,9 +15,6 @@ import (
 // BlockUpdate is everything one block sheet can save at once.
 type BlockUpdate struct {
 	Title    *string
-	Layout   block.Layout
-	Width    block.Width
-	Hidden   bool
 	Elements []block.Element
 }
 
@@ -70,9 +67,6 @@ func (s *Service) SaveBlock(
 			continue
 		}
 		blocks[i].Title = update.Title
-		blocks[i].Layout = update.Layout
-		blocks[i].Width = update.Width
-		blocks[i].Hidden = update.Hidden
 		blocks[i].Elements = update.Elements
 		saved = &blocks[i]
 		break
@@ -93,9 +87,9 @@ func (s *Service) SaveBlock(
 	}
 	result, err := tx.Exec(ctx, `
 		update asset_blocks
-		   set title = $3, hidden = $4, layout = $5, width = $6, elements = $7
+		   set title = $3, elements = $4
 		 where id = $1 and asset_id = $2
-	`, blockID, assetID, saved.Title, saved.Hidden, saved.Layout, saved.Width, elements)
+	`, blockID, assetID, saved.Title, elements)
 	if err != nil {
 		return SavedBlock{}, fmt.Errorf("save block: %w", err)
 	}

@@ -998,16 +998,11 @@ components:
     SaveAssetBlockRequest:
       type: object
       additionalProperties: false
-      required: [title, layout, width, hidden, elements]
+      required: [title, elements]
       properties:
         title:
           type: [string, "null"]
           description: Null keeps the definition's current default wording.
-        layout:
-          type: string
-          enum: [single, duo, main-aside, trio, stack-2, stack-3]
-        width: { type: string, enum: [full, two_thirds, half, third] }
-        hidden: { type: boolean }
         elements:
           type: array
           items: { $ref: "#/components/schemas/SaveAssetElement" }

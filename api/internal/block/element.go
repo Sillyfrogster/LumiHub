@@ -68,6 +68,11 @@ const (
 	DisplayVerbatim Display = "verbatim"
 )
 
+// Known reports whether the display option belongs to the closed vocabulary.
+func (d Display) Known() bool {
+	return d == DisplayRich || d == DisplayVerbatim
+}
+
 // Options are an element's presentation choices, each from a closed set.
 type Options struct {
 	Display Display `json:"display,omitempty"`

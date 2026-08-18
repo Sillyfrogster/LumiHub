@@ -19,9 +19,6 @@ type saveBlockElement struct {
 
 type saveBlockBody struct {
 	Title    *string            `json:"title"`
-	Layout   string             `json:"layout"`
-	Width    string             `json:"width"`
-	Hidden   bool               `json:"hidden"`
 	Elements []saveBlockElement `json:"elements"`
 }
 
@@ -33,10 +30,7 @@ func editableBlock(block startedBlock) saveBlockBody {
 			Slot: element.Slot, Display: element.Display, Content: element.Content,
 		}
 	}
-	return saveBlockBody{
-		Layout: block.Layout, Width: block.Width, Hidden: block.Hidden,
-		Elements: elements,
-	}
+	return saveBlockBody{Elements: elements}
 }
 
 func saveBlock(
@@ -229,6 +223,74 @@ func TestAPinnedElementCannotBeRemovedFromItsBlock(t *testing.T) {
 		t.Fatalf("removed pinned element status = %d, want 400: %s", response.Code, response.Body.String())
 	}
 	for _, want := range []string{"Description", "The character", "Restore"} {
+		if !strings.Contains(response.Body.String(), want) {
+			t.Errorf("refusal %q does not name %q", response.Body.String(), want)
+		}
+	}
+}
+
+func TestSavingAnElementWithAnUnknownDisplayNamesTheClosedChoices(t *testing.T) {
+	r, session := newVerifiedTestRouter(t)
+	started := startCharacter(t, r, session)
+	coreBlock := blockNamed(t, started.Blocks, "character_core")
+	core := editableBlock(coreBlock)
+	core.Elements[0].Display = "glowing"
+
+	response := saveBlock(t, r, session, started.ID, coreBlock.ID, core)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("unknown display status = %d, want 400: %s", response.Code, response.Body.String())
+	}
+	for _, want := range []string{"Description", "display", "rich", "verbatim"} {
+		if !strings.Contains(response.Body.String(), want) {
+			t.Errorf("refusal %q does not name %q", response.Body.String(), want)
+		}
+	}
+}
+
+func TestSavingDuplicateElementIdentityNamesWhatMustChange(t *testing.T) {
+	r, session := newVerifiedTestRouter(t)
+	started := startCharacter(t, r, session)
+	coreBlock := blockNamed(t, started.Blocks, "character_core")
+	core := editableBlock(coreBlock)
+	core.Elements[1].ID = core.Elements[0].ID
+
+	response := saveBlock(t, r, session, started.ID, coreBlock.ID, core)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("duplicate element id status = %d, want 400: %s", response.Code, response.Body.String())
+	}
+	for _, want := range []string{"Description", "Personality", "same id"} {
+		if !strings.Contains(response.Body.String(), want) {
+			t.Errorf("refusal %q does not name %q", response.Body.String(), want)
+		}
+	}
+}
+
+func TestBlockSaveDoesNotAcceptLaterArrangementActions(t *testing.T) {
+	r, session := newVerifiedTestRouter(t)
+	started := startCharacter(t, r, session)
+	messagesBlock := blockNamed(t, started.Blocks, "messages")
+	body := struct {
+		saveBlockBody
+		Hidden bool `json:"hidden"`
+	}{saveBlockBody: editableBlock(messagesBlock), Hidden: true}
+	encoded, err := json.Marshal(body)
+	if err != nil {
+		t.Fatalf("encode later action: %v", err)
+	}
+	request := httptest.NewRequest(
+		http.MethodPut,
+		"/v1/assets/"+started.ID+"/blocks/"+messagesBlock.ID,
+		strings.NewReader(string(encoded)),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := send(t, r, authorized(request, session))
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("later arrangement fields status = %d, want 400: %s", response.Code, response.Body.String())
+	}
+	for _, want := range []string{"title", "elements"} {
 		if !strings.Contains(response.Body.String(), want) {
 			t.Errorf("refusal %q does not name %q", response.Body.String(), want)
 		}

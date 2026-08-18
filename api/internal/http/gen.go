@@ -82,28 +82,28 @@ func (e AssetDiscovery) Valid() bool {
 
 // Defines values for AssetBlockLayout.
 const (
-	AssetBlockLayoutDuo       AssetBlockLayout = "duo"
-	AssetBlockLayoutMainAside AssetBlockLayout = "main-aside"
-	AssetBlockLayoutSingle    AssetBlockLayout = "single"
-	AssetBlockLayoutStack2    AssetBlockLayout = "stack-2"
-	AssetBlockLayoutStack3    AssetBlockLayout = "stack-3"
-	AssetBlockLayoutTrio      AssetBlockLayout = "trio"
+	Duo       AssetBlockLayout = "duo"
+	MainAside AssetBlockLayout = "main-aside"
+	Single    AssetBlockLayout = "single"
+	Stack2    AssetBlockLayout = "stack-2"
+	Stack3    AssetBlockLayout = "stack-3"
+	Trio      AssetBlockLayout = "trio"
 )
 
 // Valid indicates whether the value is a known member of the AssetBlockLayout enum.
 func (e AssetBlockLayout) Valid() bool {
 	switch e {
-	case AssetBlockLayoutDuo:
+	case Duo:
 		return true
-	case AssetBlockLayoutMainAside:
+	case MainAside:
 		return true
-	case AssetBlockLayoutSingle:
+	case Single:
 		return true
-	case AssetBlockLayoutStack2:
+	case Stack2:
 		return true
-	case AssetBlockLayoutStack3:
+	case Stack3:
 		return true
-	case AssetBlockLayoutTrio:
+	case Trio:
 		return true
 	default:
 		return false
@@ -112,22 +112,22 @@ func (e AssetBlockLayout) Valid() bool {
 
 // Defines values for AssetBlockWidth.
 const (
-	AssetBlockWidthFull      AssetBlockWidth = "full"
-	AssetBlockWidthHalf      AssetBlockWidth = "half"
-	AssetBlockWidthThird     AssetBlockWidth = "third"
-	AssetBlockWidthTwoThirds AssetBlockWidth = "two_thirds"
+	Full      AssetBlockWidth = "full"
+	Half      AssetBlockWidth = "half"
+	Third     AssetBlockWidth = "third"
+	TwoThirds AssetBlockWidth = "two_thirds"
 )
 
 // Valid indicates whether the value is a known member of the AssetBlockWidth enum.
 func (e AssetBlockWidth) Valid() bool {
 	switch e {
-	case AssetBlockWidthFull:
+	case Full:
 		return true
-	case AssetBlockWidthHalf:
+	case Half:
 		return true
-	case AssetBlockWidthThird:
+	case Third:
 		return true
-	case AssetBlockWidthTwoThirds:
+	case TwoThirds:
 		return true
 	default:
 		return false
@@ -599,60 +599,6 @@ func (e NsfwVisibilityRequestVisibility) Valid() bool {
 	case NsfwVisibilityRequestVisibilityHidden:
 		return true
 	case NsfwVisibilityRequestVisibilityShown:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SaveAssetBlockRequestLayout.
-const (
-	SaveAssetBlockRequestLayoutDuo       SaveAssetBlockRequestLayout = "duo"
-	SaveAssetBlockRequestLayoutMainAside SaveAssetBlockRequestLayout = "main-aside"
-	SaveAssetBlockRequestLayoutSingle    SaveAssetBlockRequestLayout = "single"
-	SaveAssetBlockRequestLayoutStack2    SaveAssetBlockRequestLayout = "stack-2"
-	SaveAssetBlockRequestLayoutStack3    SaveAssetBlockRequestLayout = "stack-3"
-	SaveAssetBlockRequestLayoutTrio      SaveAssetBlockRequestLayout = "trio"
-)
-
-// Valid indicates whether the value is a known member of the SaveAssetBlockRequestLayout enum.
-func (e SaveAssetBlockRequestLayout) Valid() bool {
-	switch e {
-	case SaveAssetBlockRequestLayoutDuo:
-		return true
-	case SaveAssetBlockRequestLayoutMainAside:
-		return true
-	case SaveAssetBlockRequestLayoutSingle:
-		return true
-	case SaveAssetBlockRequestLayoutStack2:
-		return true
-	case SaveAssetBlockRequestLayoutStack3:
-		return true
-	case SaveAssetBlockRequestLayoutTrio:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for SaveAssetBlockRequestWidth.
-const (
-	SaveAssetBlockRequestWidthFull      SaveAssetBlockRequestWidth = "full"
-	SaveAssetBlockRequestWidthHalf      SaveAssetBlockRequestWidth = "half"
-	SaveAssetBlockRequestWidthThird     SaveAssetBlockRequestWidth = "third"
-	SaveAssetBlockRequestWidthTwoThirds SaveAssetBlockRequestWidth = "two_thirds"
-)
-
-// Valid indicates whether the value is a known member of the SaveAssetBlockRequestWidth enum.
-func (e SaveAssetBlockRequestWidth) Valid() bool {
-	switch e {
-	case SaveAssetBlockRequestWidthFull:
-		return true
-	case SaveAssetBlockRequestWidthHalf:
-		return true
-	case SaveAssetBlockRequestWidthThird:
-		return true
-	case SaveAssetBlockRequestWidthTwoThirds:
 		return true
 	default:
 		return false
@@ -1301,20 +1247,11 @@ type RenameHandleRequest struct {
 
 // SaveAssetBlockRequest defines model for SaveAssetBlockRequest.
 type SaveAssetBlockRequest struct {
-	Elements []SaveAssetElement          `json:"elements"`
-	Hidden   bool                        `json:"hidden"`
-	Layout   SaveAssetBlockRequestLayout `json:"layout"`
+	Elements []SaveAssetElement `json:"elements"`
 
 	// Title Null keeps the definition's current default wording.
-	Title *string                    `json:"title"`
-	Width SaveAssetBlockRequestWidth `json:"width"`
+	Title *string `json:"title"`
 }
-
-// SaveAssetBlockRequestLayout defines model for SaveAssetBlockRequest.Layout.
-type SaveAssetBlockRequestLayout string
-
-// SaveAssetBlockRequestWidth defines model for SaveAssetBlockRequest.Width.
-type SaveAssetBlockRequestWidth string
 
 // SaveAssetElement defines model for SaveAssetElement.
 type SaveAssetElement struct {

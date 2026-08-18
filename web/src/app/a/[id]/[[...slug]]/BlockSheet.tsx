@@ -55,9 +55,6 @@ export function BlockSheet({
     try {
       const saved = await saveAssetBlock(assetId, block.id, {
         title: useDefaultTitle ? null : title,
-        layout: block.layout,
-        width: block.width,
-        hidden: block.hidden,
         elements: elements.map(toSaveElement),
       });
       onSaved(saved);
@@ -116,20 +113,25 @@ export function BlockSheet({
               }}
               disabled={pending}
             />
-            <button
-              type="button"
-              className={styles.defaultTitle}
-              onClick={() => {
-                setUseDefaultTitle(true);
-                setTitle("");
-              }}
-              disabled={pending || useDefaultTitle}
-            >
-              <RotateCcw size={15} aria-hidden="true" />
-              {useDefaultTitle
-                ? "Using Illarin’s current wording"
-                : "Use default name"}
-            </button>
+            {useDefaultTitle ? (
+              <p className={styles.defaultTitle}>
+                <RotateCcw size={15} aria-hidden="true" />
+                Using Illarin’s current wording
+              </p>
+            ) : (
+              <button
+                type="button"
+                className={styles.defaultTitle}
+                onClick={() => {
+                  setUseDefaultTitle(true);
+                  setTitle("");
+                }}
+                disabled={pending}
+              >
+                <RotateCcw size={15} aria-hidden="true" />
+                Use default name
+              </button>
+            )}
           </section>
 
           <div className={styles.elements}>
@@ -293,7 +295,8 @@ function ListEditor({
   return (
     <div className={styles.listEditor}>
       {items.map((item, index) => (
-        <div className={styles.listItem} key={`${index}-${item.name ?? ""}`}>
+        // biome-ignore lint/suspicious/noArrayIndexKey: Items stay ordered and hold no local state.
+        <div className={styles.listItem} key={index}>
           <label>
             <span>
               Name <small>optional</small>
@@ -367,7 +370,8 @@ function DialogueEditor({
   return (
     <div className={styles.listEditor}>
       {turns.map((turn, index) => (
-        <div className={styles.listItem} key={`${index}-${turn.speaker}`}>
+        // biome-ignore lint/suspicious/noArrayIndexKey: Turns stay ordered and hold no local state.
+        <div className={styles.listItem} key={index}>
           <label>
             <span>Speaker</span>
             <input

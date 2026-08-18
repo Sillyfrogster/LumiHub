@@ -170,7 +170,11 @@
   margin-top: 8px;
 }
 
-.defaultTitle:hover:not(:disabled),
+p.defaultTitle {
+  cursor: default;
+}
+
+button.defaultTitle:hover:not(:disabled),
 .addItem:hover:not(:disabled) {
   color: var(--ink);
 }

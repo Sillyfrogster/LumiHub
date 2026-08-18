@@ -736,11 +736,6 @@ export interface components {
     SaveAssetBlockRequest: {
       /** @description Null keeps the definition's current default wording. */
       title: string | null;
-      /** @enum {string} */
-      layout: "single" | "duo" | "main-aside" | "trio" | "stack-2" | "stack-3";
-      /** @enum {string} */
-      width: "full" | "two_thirds" | "half" | "third";
-      hidden: boolean;
       elements: components["schemas"]["SaveAssetElement"][];
     };
     SaveAssetElement: {

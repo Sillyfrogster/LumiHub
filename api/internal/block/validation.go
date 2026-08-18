@@ -15,6 +15,7 @@ func ValidateStructure(holder Block) error {
 		return fmt.Errorf("choose a known layout before saving")
 	}
 	occupied := make(map[Slot]Role, len(holder.Elements))
+	identities := make(map[uuid.UUID]string, len(holder.Elements))
 	for i, element := range holder.Elements {
 		name := element.Role.Label()
 		if name == "" {
@@ -22,6 +23,30 @@ func ValidateStructure(holder Block) error {
 		}
 		if !element.Type.Known() {
 			return fmt.Errorf("%s uses unknown element type %q", name, element.Type)
+		}
+		if element.ID == uuid.Nil {
+			return fmt.Errorf("%s must keep a valid element id before saving", name)
+		}
+		if prior, exists := identities[element.ID]; exists {
+			return fmt.Errorf(
+				"%s and %s use the same id. Give each element its own id before saving",
+				prior, name,
+			)
+		}
+		identities[element.ID] = name
+		if element.Options.Display != "" {
+			if !element.Options.Display.Known() {
+				return fmt.Errorf(
+					"%s uses display %q. Choose rich or verbatim before saving",
+					name, element.Options.Display,
+				)
+			}
+			if element.Type != TypeProse && element.Type != TypeTextSet {
+				return fmt.Errorf(
+					"%s does not support a display option. Remove it before saving",
+					name,
+				)
+			}
 		}
 		if !slices.Contains(available, element.Slot) {
 			return fmt.Errorf(
@@ -47,8 +72,20 @@ func ValidateStructure(holder Block) error {
 // ValidateBuilderConstraints checks the kind catalog's rules across an asset.
 func ValidateBuilderConstraints(kind string, before []Block, after []Block) error {
 	roleCount := make(map[Role]int)
+	elementIDs := make(map[uuid.UUID]string)
 	for _, holder := range after {
 		for i, element := range holder.Elements {
+			name := element.Role.Label()
+			if name == "" {
+				name = fmt.Sprintf("Element %d", i+1)
+			}
+			if prior, exists := elementIDs[element.ID]; exists {
+				return fmt.Errorf(
+					"%s and %s use the same id. Give each element its own id before saving",
+					prior, name,
+				)
+			}
+			elementIDs[element.ID] = name
 			if element.Role == "" {
 				continue
 			}
@@ -61,10 +98,6 @@ func ValidateBuilderConstraints(kind string, before []Block, after []Block) erro
 					)
 				}
 				continue
-			}
-			name := element.Role.Label()
-			if name == "" {
-				name = fmt.Sprintf("Element %d", i+1)
 			}
 			allowed := element.Role.AllowedTypes()
 			types := make([]string, len(allowed))
