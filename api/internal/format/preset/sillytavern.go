@@ -411,6 +411,11 @@ func readSillyTavernScripts(
 	if !keys.Take(extensions, stScripts, &listed) {
 		return nil, nil
 	}
+	// An empty list is a key the file carries and this module has no content
+	// for, so it goes back where it was rather than being taken and dropped.
+	if len(listed) == 0 {
+		return nil, nil
+	}
 	if len(extensions) == 0 {
 		delete(source, stExtensions)
 	} else {

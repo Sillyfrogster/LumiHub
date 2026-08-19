@@ -944,3 +944,41 @@ func TestAVariableComesBackOnTheFragmentItBelongsTo(t *testing.T) {
 }
 
 func pointerTo[T any](value T) *T { return &value }
+
+// An empty script list is a key the file carries and Illarin has no content
+// for, so it comes back rather than disappearing.
+func TestAnEmptyScriptListComesBack(t *testing.T) {
+	for _, test := range []struct {
+		name, body, key string
+		module          format.Reader
+	}{
+		{
+			name: "lumiverse", key: "regex_scripts", module: LumiverseModule{},
+			body: `{"schemaVersion":1,"name":"Bare","blocks":[
+				{"id":"f1","name":"One","role":"system","content":"x","enabled":true}
+			],"regex_scripts":[]}`,
+		},
+		{
+			name: "sillytavern", key: "extensions", module: SillyTavernModule{},
+			body: `{"prompts":[{"identifier":"main","name":"One","role":"system","content":"x"}],
+				"prompt_order":[{"character_id":100001,"order":[{"identifier":"main","enabled":true}]}],
+				"extensions":{"regex_scripts":[]}}`,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			parsed := parse(t, test.body)
+			for _, element := range parsed.Elements {
+				if element.Role == block.RoleRegexScripts {
+					t.Fatal("an empty script list became a section on the page")
+				}
+			}
+			var body map[string]json.RawMessage
+			if err := json.Unmarshal(write(t, test.module, parsed).Body, &body); err != nil {
+				t.Fatalf("read the written preset: %v", err)
+			}
+			if _, held := body[test.key]; !held {
+				t.Errorf("%s did not travel back into the file", test.key)
+			}
+		})
+	}
+}
