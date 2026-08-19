@@ -1520,6 +1520,12 @@ components:
                   type: object
                   required: [label, value]
                   properties:
+                    key:
+                      description: >-
+                        What a saved choice calls this option, where the
+                        preset's format names its choices separately from the
+                        text they stand for.
+                      type: string
                     label: { type: string }
                     value: { type: string }
               range:

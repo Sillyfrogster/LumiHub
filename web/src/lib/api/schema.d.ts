@@ -1082,6 +1082,8 @@ export interface components {
         default?: components["schemas"]["TypedValue"];
         value?: components["schemas"]["TypedValue"];
         options?: {
+          /** @description What a saved choice calls this option, where the preset's format names its choices separately from the text they stand for. */
+          key?: string;
           label: string;
           value: string;
         }[];

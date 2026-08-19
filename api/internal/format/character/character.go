@@ -302,13 +302,13 @@ func (c card) parsed(formatID string, pictures []format.Media) (format.Parsed, e
 	return format.Parsed{
 		Kind:      Kind,
 		Format:    formatID,
-		Blurb:     c.blurb(),
 		Tags:      c.tags(),
 		Facets:    c.facets(),
 		Media:     pictures,
 		CreatedAt: c.createdAt(),
 		Header: format.Header{
-			Name: c.name(), AssetVersion: c.text("character_version"),
+			Name: c.name(), Blurb: c.blurb(),
+			AssetVersion:   c.text("character_version"),
 			CreditedAuthor: c.text("creator"), Nickname: c.text("nickname"),
 		},
 		Elements:  elements,

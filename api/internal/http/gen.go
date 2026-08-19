@@ -1931,8 +1931,10 @@ type VariableSchemaContent struct {
 		Label   *string             `json:"label,omitempty"`
 		Name    string              `json:"name"`
 		Options *[]struct {
-			Label string `json:"label"`
-			Value string `json:"value"`
+			// Key What a saved choice calls this option, where the preset's format names its choices separately from the text they stand for.
+			Key   *string `json:"key,omitempty"`
+			Label string  `json:"label"`
+			Value string  `json:"value"`
 		} `json:"options,omitempty"`
 		Range *struct {
 			Max  *float32 `json:"max,omitempty"`

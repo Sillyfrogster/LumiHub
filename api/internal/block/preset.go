@@ -262,11 +262,23 @@ type Variable struct {
 	Rows int `json:"rows,omitempty"`
 }
 
-// VariableOption is one choice a select offers. It carries the wording a reader
-// picks and the value that reaches the prompt.
+// VariableOption is one choice a select offers. It carries the wording a
+// reader picks and the value that reaches the prompt, and a key naming the
+// choice where the format the preset came from names its choices separately
+// from the text they stand for. A choice with no key of its own is named by
+// its value, which is what a preset built here does.
 type VariableOption struct {
+	Key   string `json:"key,omitempty"`
 	Label string `json:"label"`
 	Value string `json:"value"`
+}
+
+// Named returns what a saved choice calls this option.
+func (o VariableOption) Named() string {
+	if o.Key != "" {
+		return o.Key
+	}
+	return o.Value
 }
 
 // VariableRange bounds what a number or a slider accepts.

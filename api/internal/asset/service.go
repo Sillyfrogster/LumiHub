@@ -293,7 +293,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Asset, error) {
 		AssetVersion: parsed.Header.AssetVersion, CreditedAuthor: parsed.Header.CreditedAuthor,
 		Nickname:  parsed.Header.Nickname,
 		Name:      orElse(in.Name, parsed.Header.Name),
-		Blurb:     orElse(in.Blurb, parsed.Blurb),
+		Blurb:     orElse(in.Blurb, parsed.Header.Blurb),
 		Tags:      in.Tags,
 		IsNSFW:    &in.IsNSFW,
 		Discovery: discovery,

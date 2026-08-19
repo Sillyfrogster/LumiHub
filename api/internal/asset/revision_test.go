@@ -88,7 +88,7 @@ func addRevision(
 
 func TestANewRevisionReplacesTheCurrentBytesAndKeepsTheCatalogEntry(t *testing.T) {
 	registry := registryWithModule(t, recognizedModule{parsed: format.Parsed{
-		Kind: "character", Format: "recognized", Header: format.Header{Name: "Seeded"}, Blurb: "Seeded blurb",
+		Kind: "character", Format: "recognized", Header: format.Header{Name: "Seeded", Blurb: "Seeded blurb"},
 		Elements: []block.Element{
 			{Type: block.TypeProse, Role: block.RoleDescription, Content: block.Prose{Text: "Description"}},
 			{Type: block.TypeTextSet, Role: block.RoleGreetings, Content: block.TextSet{Texts: []block.TextItem{{ID: block.NewItemID(), Text: "Hello"}}}},

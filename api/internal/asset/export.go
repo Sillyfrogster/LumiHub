@@ -149,7 +149,7 @@ func (s *Service) exportSubject(
 	var origin pgtype.Text
 	var ownerID, revisionID pgtype.UUID
 	err := s.pool.QueryRow(ctx, `
-		select asset.kind, asset.name, asset.origin_format, asset.lifecycle,
+		select asset.kind, asset.name, asset.blurb, asset.origin_format, asset.lifecycle,
 		       asset.asset_version, asset.credited_author, asset.nickname,
 		       asset.owner_id, asset.current_revision_id
 		  from assets asset
@@ -157,7 +157,7 @@ func (s *Service) exportSubject(
 		   and (asset.lifecycle = 'published' or asset.owner_id = $2)
 		   and (asset.withheld_at is null or asset.owner_id = $2)
 	`, assetID, viewerID).Scan(
-		&subject.kind, &subject.name, &origin, &subject.lifecycle,
+		&subject.kind, &subject.name, &subject.header.Blurb, &origin, &subject.lifecycle,
 		&subject.header.AssetVersion, &subject.header.CreditedAuthor,
 		&subject.header.Nickname, &ownerID, &revisionID,
 	)

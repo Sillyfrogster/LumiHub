@@ -112,7 +112,6 @@ type Media struct {
 type Parsed struct {
 	Kind   string
 	Format string
-	Blurb  string
 	Tags   []string
 	IsNSFW *bool
 	Facets []Facet
@@ -124,9 +123,15 @@ type Parsed struct {
 	Remainder []Remainder
 }
 
-// Header is creator-authored identity that stays above the builder.
+// Header is creator-authored identity that stays above the builder. Every
+// field here is one an asset carries in its own right, so a reader fills what
+// the file supplies and a writer puts back the fields it declares.
 type Header struct {
-	Name           string
+	Name string
+	// Blurb is the line a person reads while browsing. On a kind whose format
+	// carries a description written for a person it is the same text in the
+	// file, and on every other kind it reaches no file at all.
+	Blurb          string
 	AssetVersion   string
 	CreditedAuthor string
 	Nickname       string

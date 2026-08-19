@@ -790,9 +790,11 @@ func (catalogModule) Claim(file probe.Inspection) (format.Claim, bool) {
 func (catalogModule) Parse(context.Context, probe.Inspection, format.Claim) (format.Parsed, error) {
 	nsfw := true
 	return format.Parsed{
-		Kind: "character", Format: "catalog", Header: format.Header{Name: "Moonlit Visitor"},
-		Blurb: "A quiet visitor from the edge of the wood.",
-		Tags:  []string{"folklore", "gentle"}, IsNSFW: &nsfw,
+		Kind: "character", Format: "catalog",
+		Header: format.Header{
+			Name: "Moonlit Visitor", Blurb: "A quiet visitor from the edge of the wood.",
+		},
+		Tags: []string{"folklore", "gentle"}, IsNSFW: &nsfw,
 		Elements: []block.Element{
 			{Type: block.TypeProse, Role: block.RoleDescription, Content: block.Prose{Text: "A quiet visitor."}},
 			{Type: block.TypeTextSet, Role: block.RoleGreetings, Content: block.TextSet{Texts: []block.TextItem{{ID: block.NewItemID(), Text: "Good evening."}}}},

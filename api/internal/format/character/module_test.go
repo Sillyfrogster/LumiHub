@@ -223,8 +223,8 @@ func TestACardsDescriptionNeverBecomesTheBlurb(t *testing.T) {
 	}`)
 
 	parsed := resolveAndParse(t, file)
-	if parsed.Blurb != "A quiet archivist. Works best with a slow scene." {
-		t.Errorf("blurb = %q, want the creator's notes", parsed.Blurb)
+	if parsed.Header.Blurb != "A quiet archivist. Works best with a slow scene." {
+		t.Errorf("blurb = %q, want the creator's notes", parsed.Header.Blurb)
 	}
 }
 

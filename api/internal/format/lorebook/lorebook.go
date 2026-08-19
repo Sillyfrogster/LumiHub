@@ -162,8 +162,7 @@ func (m Module) Parse(
 	seeded := blurb(source)
 	return format.Parsed{
 		Kind: Kind, Format: ID,
-		Blurb:     seeded,
-		Header:    format.Header{Name: strings.TrimSpace(name)},
+		Header:    format.Header{Name: strings.TrimSpace(name), Blurb: seeded},
 		Elements:  []block.Element{element},
 		Remainder: remainder(source, entries, entryFields),
 	}, nil

@@ -360,7 +360,7 @@ func prepareIngest(job ingestJob, parsed format.Parsed) (preparedIngest, error) 
 	if job.Name != nil {
 		name = *job.Name
 	}
-	blurb := parsed.Blurb
+	blurb := parsed.Header.Blurb
 	if job.Blurb != nil {
 		blurb = *job.Blurb
 	}

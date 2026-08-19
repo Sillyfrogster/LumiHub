@@ -136,8 +136,8 @@ func TestReadingABookFillsTheEntryRoleAndKeepsTheRest(t *testing.T) {
 	if parsed.Header.Name != "Zenless lore" {
 		t.Errorf("name = %q, want the book's own", parsed.Header.Name)
 	}
-	if parsed.Blurb != "A compendium of events, factions and locations." {
-		t.Errorf("blurb = %q, want the book's description", parsed.Blurb)
+	if parsed.Header.Blurb != "A compendium of events, factions and locations." {
+		t.Errorf("blurb = %q, want the book's description", parsed.Header.Blurb)
 	}
 	table := onlyEntryTable(t, parsed.Elements)
 	if len(table.Entries) != 2 {
