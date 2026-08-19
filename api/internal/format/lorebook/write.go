@@ -8,6 +8,7 @@ import (
 	"github.com/Sillyfrogster/LumiHub/api/internal/block"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format/book"
+	"github.com/Sillyfrogster/LumiHub/api/internal/format/keys"
 	"github.com/google/uuid"
 )
 
@@ -18,8 +19,8 @@ import (
 func (Module) Write(_ context.Context, asset format.ExportAsset) (format.Artifact, error) {
 	entries := bookEntries(asset)
 	body := map[string]json.RawMessage{
-		"name":     mustJSON(asset.Header.Name),
-		entriesKey: mustJSON(book.Write(entries)),
+		"name":     keys.Must(asset.Header.Name),
+		entriesKey: keys.Must(book.Write(entries)),
 	}
 	if err := restorePreserved(body, entries, asset.Preserved); err != nil {
 		return format.Artifact{}, err
@@ -63,7 +64,7 @@ func restorePreserved(
 	entries []block.Entry,
 	rows []format.Remainder,
 ) error {
-	extensions := readObject(body[extensionsKey])
+	extensions := keys.Object(body[extensionsKey])
 	written, err := writtenEntries(body)
 	if err != nil {
 		return err
@@ -80,7 +81,7 @@ func restorePreserved(
 		}
 		switch {
 		case row.Owner == format.OwnerAsset && row.Namespace == bookNamespace:
-			mergeAbsent(body, fields)
+			keys.MergeAbsent(body, fields)
 		case row.Owner == format.OwnerAsset:
 			if _, held := extensions[row.Namespace]; !held {
 				extensions[row.Namespace] = row.Payload
@@ -90,7 +91,7 @@ func restorePreserved(
 			if !kept || index >= len(written) {
 				continue
 			}
-			mergeAbsent(written[index], fields)
+			keys.MergeAbsent(written[index], fields)
 		}
 	}
 
@@ -109,33 +110,4 @@ func writtenEntries(body map[string]json.RawMessage) ([]map[string]json.RawMessa
 		return nil, fmt.Errorf("read the written entries: %w", err)
 	}
 	return entries, nil
-}
-
-// mergeAbsent adds the keys a target does not already carry.
-func mergeAbsent(target, source map[string]json.RawMessage) {
-	for key, value := range source {
-		if _, written := target[key]; !written {
-			target[key] = value
-		}
-	}
-}
-
-// readObject reads an object out of raw JSON, giving back an empty one where
-// there is nothing to read.
-func readObject(raw json.RawMessage) map[string]json.RawMessage {
-	object := make(map[string]json.RawMessage)
-	if len(raw) > 0 {
-		_ = json.Unmarshal(raw, &object)
-	}
-	return object
-}
-
-// mustJSON encodes a value the writer built itself. Every call site passes a
-// string or a list of objects the writer just made, neither of which can fail.
-func mustJSON(value any) json.RawMessage {
-	encoded, err := json.Marshal(value)
-	if err != nil {
-		panic(fmt.Sprintf("write a lorebook value: %v", err))
-	}
-	return encoded
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/Sillyfrogster/LumiHub/api/internal/block"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format/book"
+	"github.com/Sillyfrogster/LumiHub/api/internal/format/keys"
 )
 
 // The card writers build a file out of the asset's roles. Nothing here reads
@@ -192,8 +193,8 @@ func marshalCard(formatID string, body map[string]json.RawMessage) ([]byte, erro
 		version = v2SpecVersion
 	}
 	card, err := json.Marshal(map[string]json.RawMessage{
-		"spec":         mustJSON(formatID),
-		"spec_version": mustJSON(version),
+		"spec":         keys.Must(formatID),
+		"spec_version": keys.Must(version),
 		"data":         data,
 	})
 	if err != nil {
@@ -223,22 +224,22 @@ func cardFields(
 		first = greetings[0].Text
 	}
 	body := map[string]json.RawMessage{
-		"name":                      mustJSON(asset.Header.Name),
-		"description":               mustJSON(asset.Text(block.RoleDescription)),
-		"personality":               mustJSON(asset.Text(block.RolePersonality)),
-		"scenario":                  mustJSON(asset.Text(block.RoleScenario)),
-		"first_mes":                 mustJSON(first),
-		"alternate_greetings":       mustJSON(textsOf(greetings[min(1, len(greetings)):])),
-		"mes_example":               mustJSON(dialogueText(asset)),
-		"system_prompt":             mustJSON(asset.Text(block.RoleSystemPrompt)),
-		"post_history_instructions": mustJSON(asset.Text(block.RolePostHistoryInstructions)),
-		"creator_notes":             mustJSON(asset.Text(block.RoleCreatorNotes)),
-		"creator":                   mustJSON(asset.Header.CreditedAuthor),
-		"character_version":         mustJSON(asset.Header.AssetVersion),
+		"name":                      keys.Must(asset.Header.Name),
+		"description":               keys.Must(asset.Text(block.RoleDescription)),
+		"personality":               keys.Must(asset.Text(block.RolePersonality)),
+		"scenario":                  keys.Must(asset.Text(block.RoleScenario)),
+		"first_mes":                 keys.Must(first),
+		"alternate_greetings":       keys.Must(textsOf(greetings[min(1, len(greetings)):])),
+		"mes_example":               keys.Must(dialogueText(asset)),
+		"system_prompt":             keys.Must(asset.Text(block.RoleSystemPrompt)),
+		"post_history_instructions": keys.Must(asset.Text(block.RolePostHistoryInstructions)),
+		"creator_notes":             keys.Must(asset.Text(block.RoleCreatorNotes)),
+		"creator":                   keys.Must(asset.Header.CreditedAuthor),
+		"character_version":         keys.Must(asset.Header.AssetVersion),
 	}
 	if formatID != V2 {
-		body["nickname"] = mustJSON(asset.Header.Nickname)
-		body["group_only_greetings"] = mustJSON(
+		body["nickname"] = keys.Must(asset.Header.Nickname)
+		body["group_only_greetings"] = keys.Must(
 			textsOf(textItems(asset, block.RoleGroupGreetings)),
 		)
 	}
@@ -309,7 +310,7 @@ func bookEntries(asset format.ExportAsset) []block.Entry {
 // writtenBook writes the entries a card carries. Everything a book held that
 // the entry table has no place for comes back afterwards, from preservation.
 func writtenBook(entries []block.Entry) json.RawMessage {
-	return mustJSON(map[string]any{"entries": book.Write(entries)})
+	return keys.Must(map[string]any{"entries": book.Write(entries)})
 }
 
 // cardAssetRecord is one entry of a v3 card's asset list.
@@ -341,7 +342,7 @@ func inlineAssets(asset format.ExportAsset, embedded bool) json.RawMessage {
 			Ext: mediaExtension(picture.media.MediaType),
 		})
 	}
-	return mustJSON(records)
+	return keys.Must(records)
 }
 
 // archivedAssets writes the picture list a CharX card carries and the files it
@@ -363,7 +364,7 @@ func archivedAssets(asset format.ExportAsset) ([]archivedFile, json.RawMessage) 
 			Name: picture.name, Ext: extension,
 		})
 	}
-	return files, mustJSON(records)
+	return files, keys.Must(records)
 }
 
 const (
@@ -541,14 +542,4 @@ func visitPNGChunks(source []byte, visit func(kind string, data, raw []byte) err
 		offset = end
 	}
 	return nil
-}
-
-// mustJSON encodes a value the writer built itself. Every call site passes a
-// string, a bool, a number or a slice of those, none of which can fail.
-func mustJSON(value any) json.RawMessage {
-	encoded, err := json.Marshal(value)
-	if err != nil {
-		panic(fmt.Sprintf("write a card value: %v", err))
-	}
-	return encoded
 }

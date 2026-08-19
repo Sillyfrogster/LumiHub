@@ -11,6 +11,8 @@ import (
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/block"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
+	"github.com/Sillyfrogster/LumiHub/api/internal/format/book"
+	"github.com/Sillyfrogster/LumiHub/api/internal/format/keys"
 	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
 	"github.com/google/uuid"
 )
@@ -188,26 +190,26 @@ func readSillyTavernEntry(payload json.RawMessage) (block.Entry, json.RawMessage
 		return entry, payload
 	}
 
-	consume(fields, stName, &entry.Name)
-	consume(fields, stKeys, &entry.Keys)
-	consume(fields, stSecondaryKeys, &entry.SecondaryKeys)
-	consume(fields, stSelective, &entry.Selective)
-	consume(fields, stCaseSensitive, &entry.CaseSensitive)
-	consume(fields, stConstant, &entry.Constant)
-	consume(fields, stOrder, &entry.Order)
-	consume(fields, stText, &entry.Text)
-	consume(fields, stExclude, &entry.Recursion.Exclude)
-	consume(fields, stPrevent, &entry.Recursion.Prevent)
-	consume(fields, stDelayUntil, &entry.Recursion.DelayUntil)
+	keys.Take(fields, stName, &entry.Name)
+	keys.Take(fields, stKeys, &entry.Keys)
+	keys.Take(fields, stSecondaryKeys, &entry.SecondaryKeys)
+	keys.Take(fields, stSelective, &entry.Selective)
+	keys.Take(fields, stCaseSensitive, &entry.CaseSensitive)
+	keys.Take(fields, stConstant, &entry.Constant)
+	keys.Take(fields, stOrder, &entry.Order)
+	keys.Take(fields, stText, &entry.Text)
+	keys.Take(fields, stExclude, &entry.Recursion.Exclude)
+	keys.Take(fields, stPrevent, &entry.Recursion.Prevent)
+	keys.Take(fields, stDelayUntil, &entry.Recursion.DelayUntil)
 
 	// SillyTavern switches an entry off where the card formats switch one on.
 	var disabled bool
-	if consume(fields, stDisable, &disabled) {
+	if keys.Take(fields, stDisable, &disabled) {
 		entry.Enabled = !disabled
 	}
 
 	var placement int
-	if consume(fields, stPosition, &placement) {
+	if keys.Take(fields, stPosition, &placement) {
 		switch placement {
 		case stBeforeCharacter:
 			entry.Position = block.BeforeCharacter
@@ -224,31 +226,6 @@ func readSillyTavernEntry(payload json.RawMessage) (block.Entry, json.RawMessage
 	}
 	kept, _ := json.Marshal(fields)
 	return entry, kept
-}
-
-// consume takes one field out of an entry and reports whether it did. A field
-// written as the wrong shape is left where it is, so a bad value costs that
-// field and travels back out untouched.
-func consume[T any](fields map[string]json.RawMessage, name string, target *T) bool {
-	raw, present := fields[name]
-	if !present || json.Unmarshal(raw, target) != nil {
-		return false
-	}
-	delete(fields, name)
-	return true
-}
-
-func writeIfSet(fields map[string]json.RawMessage, key string, set bool, value any) {
-	if set {
-		fields[key] = mustJSON(value)
-	}
-}
-
-func orEmptyStrings(values []string) []string {
-	if values == nil {
-		return []string{}
-	}
-	return values
 }
 
 // sillyTavernRemainder is what the file carried that did not become content:
@@ -304,13 +281,13 @@ func (SillyTavernModule) Write(
 		}
 		switch {
 		case row.Owner == format.OwnerAsset && row.Namespace == bookNamespace:
-			mergeAbsent(body, fields)
+			keys.MergeAbsent(body, fields)
 		case row.Owner == format.OwnerItem && row.Namespace == sillyTavernEntryNamespace:
 			index, kept := position[row.OwnerID]
 			if !kept || index >= len(written) {
 				continue
 			}
-			mergeAbsent(written[index], fields)
+			keys.MergeAbsent(written[index], fields)
 		}
 	}
 
@@ -331,25 +308,25 @@ func (SillyTavernModule) Write(
 
 func writeSillyTavernEntry(entry block.Entry) map[string]json.RawMessage {
 	fields := map[string]json.RawMessage{
-		stKeys:    mustJSON(orEmptyStrings(entry.Keys)),
-		stText:    mustJSON(entry.Text),
-		stDisable: mustJSON(!entry.Enabled),
-		stOrder:   mustJSON(entry.Order),
+		stKeys:    keys.Must(book.OrEmptyStrings(entry.Keys)),
+		stText:    keys.Must(entry.Text),
+		stDisable: keys.Must(!entry.Enabled),
+		stOrder:   keys.Must(entry.Order),
 	}
-	writeIfSet(fields, stName, entry.Name != "", entry.Name)
-	writeIfSet(fields, stSecondaryKeys, len(entry.SecondaryKeys) > 0, entry.SecondaryKeys)
-	writeIfSet(fields, stSelective, entry.Selective, entry.Selective)
-	writeIfSet(fields, stCaseSensitive, entry.CaseSensitive, entry.CaseSensitive)
-	writeIfSet(fields, stConstant, entry.Constant, entry.Constant)
-	writeIfSet(fields, stExclude, entry.Recursion.Exclude, entry.Recursion.Exclude)
-	writeIfSet(fields, stPrevent, entry.Recursion.Prevent, entry.Recursion.Prevent)
-	writeIfSet(fields, stDelayUntil, entry.Recursion.DelayUntil, entry.Recursion.DelayUntil)
+	keys.WriteIfSet(fields, stName, entry.Name != "", entry.Name)
+	keys.WriteIfSet(fields, stSecondaryKeys, len(entry.SecondaryKeys) > 0, entry.SecondaryKeys)
+	keys.WriteIfSet(fields, stSelective, entry.Selective, entry.Selective)
+	keys.WriteIfSet(fields, stCaseSensitive, entry.CaseSensitive, entry.CaseSensitive)
+	keys.WriteIfSet(fields, stConstant, entry.Constant, entry.Constant)
+	keys.WriteIfSet(fields, stExclude, entry.Recursion.Exclude, entry.Recursion.Exclude)
+	keys.WriteIfSet(fields, stPrevent, entry.Recursion.Prevent, entry.Recursion.Prevent)
+	keys.WriteIfSet(fields, stDelayUntil, entry.Recursion.DelayUntil, entry.Recursion.DelayUntil)
 	if entry.Position != "" {
 		placement := stBeforeCharacter
 		if entry.Position == block.AfterCharacter {
 			placement = stAfterCharacter
 		}
-		fields[stPosition] = mustJSON(placement)
+		fields[stPosition] = keys.Must(placement)
 	}
 	return fields
 }

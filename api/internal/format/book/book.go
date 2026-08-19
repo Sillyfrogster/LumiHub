@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/block"
+	"github.com/Sillyfrogster/LumiHub/api/internal/format/keys"
 	"github.com/google/uuid"
 )
 
@@ -47,17 +48,17 @@ func Read(payloads []json.RawMessage) ([]block.Entry, map[uuid.UUID]json.RawMess
 // the wrong shape is not consumed, so a bad value costs that field and leaves
 // the rest of the entry, and every other entry, whole.
 func ReadEntry(fields map[string]json.RawMessage, item *block.Entry) {
-	consume(fields, "name", &item.Name)
-	consume(fields, "keys", &item.Keys)
-	consume(fields, "secondary_keys", &item.SecondaryKeys)
-	consume(fields, "selective", &item.Selective)
-	consume(fields, "case_sensitive", &item.CaseSensitive)
-	consume(fields, "constant", &item.Constant)
-	consume(fields, "enabled", &item.Enabled)
-	consume(fields, "insertion_order", &item.Order)
-	consume(fields, "content", &item.Text)
+	keys.Take(fields, "name", &item.Name)
+	keys.Take(fields, "keys", &item.Keys)
+	keys.Take(fields, "secondary_keys", &item.SecondaryKeys)
+	keys.Take(fields, "selective", &item.Selective)
+	keys.Take(fields, "case_sensitive", &item.CaseSensitive)
+	keys.Take(fields, "constant", &item.Constant)
+	keys.Take(fields, "enabled", &item.Enabled)
+	keys.Take(fields, "insertion_order", &item.Order)
+	keys.Take(fields, "content", &item.Text)
 	var position string
-	if !consume(fields, "position", &position) {
+	if !keys.Take(fields, "position", &position) {
 		return
 	}
 	switch position {
@@ -72,41 +73,26 @@ func ReadEntry(fields map[string]json.RawMessage, item *block.Entry) {
 	}
 }
 
-func consume[T any](fields map[string]json.RawMessage, name string, target *T) bool {
-	raw, present := fields[name]
-	if !present || json.Unmarshal(raw, target) != nil {
-		return false
-	}
-	delete(fields, name)
-	return true
-}
-
 // Write writes the entries a book carries. Everything a book held that the
 // entry table has no place for comes back afterwards, from preservation.
 func Write(entries []block.Entry) []map[string]json.RawMessage {
 	written := make([]map[string]json.RawMessage, 0, len(entries))
 	for _, entry := range entries {
 		fields := map[string]json.RawMessage{
-			"keys":            mustJSON(orEmptyStrings(entry.Keys)),
-			"content":         mustJSON(entry.Text),
-			"enabled":         mustJSON(entry.Enabled),
-			"insertion_order": mustJSON(entry.Order),
+			"keys":            keys.Must(OrEmptyStrings(entry.Keys)),
+			"content":         keys.Must(entry.Text),
+			"enabled":         keys.Must(entry.Enabled),
+			"insertion_order": keys.Must(entry.Order),
 		}
-		writeIfSet(fields, "name", entry.Name != "", entry.Name)
-		writeIfSet(fields, "secondary_keys", len(entry.SecondaryKeys) > 0, entry.SecondaryKeys)
-		writeIfSet(fields, "selective", entry.Selective, entry.Selective)
-		writeIfSet(fields, "case_sensitive", entry.CaseSensitive, entry.CaseSensitive)
-		writeIfSet(fields, "constant", entry.Constant, entry.Constant)
-		writeIfSet(fields, "position", entry.Position != "", writtenPosition(entry.Position))
+		keys.WriteIfSet(fields, "name", entry.Name != "", entry.Name)
+		keys.WriteIfSet(fields, "secondary_keys", len(entry.SecondaryKeys) > 0, entry.SecondaryKeys)
+		keys.WriteIfSet(fields, "selective", entry.Selective, entry.Selective)
+		keys.WriteIfSet(fields, "case_sensitive", entry.CaseSensitive, entry.CaseSensitive)
+		keys.WriteIfSet(fields, "constant", entry.Constant, entry.Constant)
+		keys.WriteIfSet(fields, "position", entry.Position != "", writtenPosition(entry.Position))
 		written = append(written, fields)
 	}
 	return written
-}
-
-func writeIfSet(fields map[string]json.RawMessage, key string, set bool, value any) {
-	if set {
-		fields[key] = mustJSON(value)
-	}
 }
 
 // writtenPosition is the wording a book uses for where an entry's text goes.
@@ -117,19 +103,11 @@ func writtenPosition(position block.EntryPosition) string {
 	return "before_char"
 }
 
-func orEmptyStrings(values []string) []string {
+// OrEmptyStrings writes an absent list as an empty one, because a book's keys
+// are a list a reader expects to find even when it holds nothing.
+func OrEmptyStrings(values []string) []string {
 	if values == nil {
 		return []string{}
 	}
 	return values
-}
-
-// mustJSON encodes a value the writer built itself. Every call site passes a
-// string, a bool, a number or a slice of those, none of which can fail.
-func mustJSON(value any) json.RawMessage {
-	encoded, err := json.Marshal(value)
-	if err != nil {
-		panic("write a book value: " + err.Error())
-	}
-	return encoded
 }

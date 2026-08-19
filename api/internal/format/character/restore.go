@@ -6,6 +6,7 @@ import (
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/block"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
+	"github.com/Sillyfrogster/LumiHub/api/internal/format/keys"
 	"github.com/google/uuid"
 )
 
@@ -30,7 +31,7 @@ func RestorePreserved(
 	entries []block.Entry,
 	rows []format.Remainder,
 ) error {
-	extensions := readObject(body[extensionsKey])
+	extensions := keys.Object(body[extensionsKey])
 	book, bookEntries, err := readWrittenBook(body)
 	if err != nil {
 		return err
@@ -47,19 +48,19 @@ func RestorePreserved(
 		}
 		switch {
 		case row.Owner == format.OwnerAsset && row.Namespace == cardNamespace:
-			mergeAbsent(body, fields)
+			keys.MergeAbsent(body, fields)
 		case row.Owner == format.OwnerAsset:
 			if _, written := extensions[row.Namespace]; !written {
 				extensions[row.Namespace] = row.Payload
 			}
 		case row.Owner == format.OwnerElement && row.Namespace == bookKey:
-			mergeAbsent(book, fields)
+			keys.MergeAbsent(book, fields)
 		case row.Owner == format.OwnerItem && row.Namespace == bookKey:
 			index, kept := position[row.OwnerID]
 			if !kept || index >= len(bookEntries) {
 				continue
 			}
-			mergeAbsent(bookEntries[index], fields)
+			keys.MergeAbsent(bookEntries[index], fields)
 		}
 	}
 
@@ -98,23 +99,4 @@ func readWrittenBook(
 		}
 	}
 	return book, entries, nil
-}
-
-// mergeAbsent adds the keys a target does not already carry.
-func mergeAbsent(target, source map[string]json.RawMessage) {
-	for key, value := range source {
-		if _, written := target[key]; !written {
-			target[key] = value
-		}
-	}
-}
-
-// readObject reads an object out of raw JSON, giving back an empty one where there
-// is nothing to read.
-func readObject(raw json.RawMessage) map[string]json.RawMessage {
-	object := make(map[string]json.RawMessage)
-	if len(raw) > 0 {
-		_ = json.Unmarshal(raw, &object)
-	}
-	return object
 }

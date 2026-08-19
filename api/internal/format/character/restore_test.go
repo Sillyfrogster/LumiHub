@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/block"
+	"github.com/Sillyfrogster/LumiHub/api/internal/format/keys"
 )
 
 // The round trip this whole ticket exists for: a card carrying third-party
@@ -55,16 +56,16 @@ func TestEveryPreservedKeyComesBackByteIdentical(t *testing.T) {
 			t.Errorf("%s = %s, want %s", key, written[key], original[key])
 		}
 	}
-	for namespace, value := range readObject(original["extensions"]) {
-		got := readObject(written["extensions"])[namespace]
+	for namespace, value := range keys.Object(original["extensions"]) {
+		got := keys.Object(written["extensions"])[namespace]
 		if !reflect.DeepEqual(compact(t, got), compact(t, value)) {
 			t.Errorf("%s = %s, want %s byte for byte", namespace, got, value)
 		}
 	}
-	book := readObject(written["character_book"])
+	book := keys.Object(written["character_book"])
 	for _, key := range []string{"scan_depth", "token_budget"} {
 		if !reflect.DeepEqual(compact(t, book[key]),
-			compact(t, readObject(original["character_book"])[key])) {
+			compact(t, keys.Object(original["character_book"])[key])) {
 			t.Errorf("the book's %s did not come back: %s", key, book[key])
 		}
 	}
@@ -106,7 +107,7 @@ func TestADeletedEntryTakesItsPreservedKeysWithIt(t *testing.T) {
 		t.Fatalf("restore preserved data: %v", err)
 	}
 	var restored []map[string]json.RawMessage
-	if err := json.Unmarshal(readObject(written["character_book"])["entries"], &restored); err != nil {
+	if err := json.Unmarshal(keys.Object(written["character_book"])["entries"], &restored); err != nil {
 		t.Fatalf("read the restored entries: %v", err)
 	}
 	if len(restored) != 1 {
