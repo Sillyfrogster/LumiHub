@@ -137,6 +137,14 @@ type Header struct {
 	Nickname       string
 }
 
+// MaxBlurbRunes is as long as the line a person reads while browsing gets.
+//
+// A blurb seeded from a file is a prefill the creator confirms, so it may be
+// shortened to fit. A blurb bound to a field in the file is the same text both
+// ways, so a value too long to fit is not bound at all rather than bound
+// short: it stays in the file and travels back out whole.
+const MaxBlurbRunes = 400
+
 // Owner is what a preserved payload belongs to. It is one mechanism with three
 // owners, the asset, one element, and one item inside an element.
 type Owner string

@@ -296,20 +296,36 @@ func (m LumiverseModule) Parse(
 		})
 	}
 
-	var name, blurb, version string
+	var name, version string
 	keys.Take(source, lvName, &name)
-	keys.Take(source, lvDescription, &blurb)
 	keys.Take(source, lvVersion, &version)
 
 	return format.Parsed{
 		Kind: Kind, Format: LumiverseID,
-		Header:   format.Header{Name: name, Blurb: blurb, AssetVersion: version},
+		Header:   format.Header{Name: name, Blurb: boundBlurb(source), AssetVersion: version},
 		Elements: elements,
 		Remainder: lumiversePreservation.remainder(
 			source, read.leftovers,
 			scriptLeftovers(scripts, lumiverseScriptNamespace, scriptFields),
 		),
 	}, nil
+}
+
+// boundBlurb takes the preset's own description as the line a person reads
+// while browsing. The two are the same text and this module writes it back, so
+// a description longer than a blurb holds is left in the file rather than
+// bound short. Two real presets are README-shaped and this is the case they
+// are.
+func boundBlurb(source map[string]json.RawMessage) string {
+	var description string
+	if !keys.Take(source, lvDescription, &description) {
+		return ""
+	}
+	if len([]rune(description)) > format.MaxBlurbRunes {
+		source[lvDescription] = keys.Must(description)
+		return ""
+	}
+	return description
 }
 
 // readNested reads one of the file's own objects into an element and puts back

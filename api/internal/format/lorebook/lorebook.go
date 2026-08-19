@@ -43,10 +43,6 @@ const (
 	entriesKey     = "entries"
 )
 
-// Seeded catalog text is a prefill the creator confirms, so the blurb is
-// bounded rather than however long the note in the file happens to be.
-const maxBlurbRunes = 400
-
 // Module reads and writes the standalone lorebook document.
 type Module struct{}
 
@@ -224,7 +220,7 @@ func remainder(
 // description where it has one.
 func blurb(source map[string]json.RawMessage) string {
 	description, _ := text(source, "description")
-	return truncate(strings.TrimSpace(description), maxBlurbRunes)
+	return truncate(strings.TrimSpace(description), format.MaxBlurbRunes)
 }
 
 // text reads a string key, answering false where the key is absent or is not a

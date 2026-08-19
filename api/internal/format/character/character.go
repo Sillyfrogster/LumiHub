@@ -27,9 +27,8 @@ const Kind = "character"
 // Seeded catalog text is a prefill the creator confirms, so it is bounded
 // rather than however long the note in the file happens to be.
 const (
-	maxBlurbRunes = 400
-	maxTags       = 32
-	maxTagRunes   = 64
+	maxTags     = 32
+	maxTagRunes = 64
 )
 
 // A card carries whatever namespaces its tools wrote. These bounds keep one
@@ -492,7 +491,7 @@ func (c card) name() string { return strings.TrimSpace(c.text("name")) }
 // notes. A card's description is a prompt written to be fed to a model and
 // never becomes the blurb.
 func (c card) blurb() string {
-	return truncate(strings.TrimSpace(c.text("creator_notes")), maxBlurbRunes)
+	return truncate(strings.TrimSpace(c.text("creator_notes")), format.MaxBlurbRunes)
 }
 
 func (c card) tags() []string {

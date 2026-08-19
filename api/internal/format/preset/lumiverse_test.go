@@ -232,6 +232,44 @@ func TestABlockListThatIsNotAListRefusesTheImport(t *testing.T) {
 }
 
 // The blurb is the same text as the preset's own description, both ways.
+// A description longer than a blurb holds is not bound and not shortened. It
+// stays in the file, comes back whole, and the creator writes their own line.
+func TestADescriptionTooLongToBindStaysInTheFile(t *testing.T) {
+	long := strings.Repeat("a long README of a description. ", 40)
+	if len([]rune(long)) <= format.MaxBlurbRunes {
+		t.Fatalf("the fixture is %d runes, want more than %d",
+			len([]rune(long)), format.MaxBlurbRunes)
+	}
+	parsed := parse(t, strings.Replace(
+		lumiversePreset, "A calm narrator with a short leash.", long, 1,
+	))
+	if parsed.Header.Blurb != "" {
+		t.Errorf("blurb = %q, want none rather than a shortened one", parsed.Header.Blurb)
+	}
+	body := preservedPayload(t, parsed.Remainder, format.OwnerAsset, lumiverseNamespace)
+	if string(body["description"]) != string(mustEncode(t, long)) {
+		t.Error("the description was not kept whole in the file")
+	}
+
+	var written map[string]json.RawMessage
+	if err := json.Unmarshal(write(t, LumiverseModule{}, parsed).Body, &written); err != nil {
+		t.Fatalf("read the written preset: %v", err)
+	}
+	if string(written["description"]) != string(mustEncode(t, long)) {
+		t.Errorf("description = %s, want the creator's own text back whole",
+			written["description"])
+	}
+}
+
+func mustEncode(t *testing.T, value any) json.RawMessage {
+	t.Helper()
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("encode: %v", err)
+	}
+	return encoded
+}
+
 func TestTheBlurbBindsBothWaysForALumiversePreset(t *testing.T) {
 	parsed := parse(t, lumiversePreset)
 	if parsed.Header.Blurb != "A calm narrator with a short leash." {

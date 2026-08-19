@@ -24,10 +24,12 @@ func (LumiverseModule) Write(
 	named := slotsByApp[Lumiverse]
 
 	body := map[string]json.RawMessage{
-		lvName:        keys.Must(asset.Header.Name),
-		lvDescription: keys.Must(asset.Header.Blurb),
-		lvBlocks:      keys.Must(writeLumiverseBlocks(asset, held)),
+		lvName:   keys.Must(asset.Header.Name),
+		lvBlocks: keys.Must(writeLumiverseBlocks(asset, held)),
 	}
+	// A blurb the creator has not written leaves the description to
+	// preservation, which is where a description too long to bind stayed.
+	keys.WriteIfSet(body, lvDescription, asset.Header.Blurb != "", asset.Header.Blurb)
 	keys.WriteIfSet(body, lvVersion, asset.Header.AssetVersion != "", asset.Header.AssetVersion)
 	if saved := writeSavedValues(asset, held); len(saved) > 0 {
 		body[lvSaved] = keys.Must(saved)
