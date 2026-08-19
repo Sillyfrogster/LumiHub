@@ -44,6 +44,19 @@ func ItemIDs(content Content) []uuid.UUID {
 		return collectItemIDs(held.Links, func(item LinkItem) uuid.UUID { return item.ID })
 	case EntryTable:
 		return collectItemIDs(held.Entries, func(item Entry) uuid.UUID { return item.ID })
+	case PromptList:
+		// Groups and fragments are both items a preserved key can belong to,
+		// so both are in the one list this element owns.
+		return append(
+			collectItemIDs(held.Groups, func(item PromptGroup) uuid.UUID { return item.ID }),
+			collectItemIDs(held.Fragments, func(item PromptFragment) uuid.UUID { return item.ID })...,
+		)
+	case VariableSchema:
+		return collectItemIDs(held.Variables, func(item Variable) uuid.UUID { return item.ID })
+	case SettingGroup:
+		return collectItemIDs(held.Settings, func(item Setting) uuid.UUID { return item.ID })
+	case ScriptList:
+		return collectItemIDs(held.Scripts, func(item Script) uuid.UUID { return item.ID })
 	default:
 		return nil
 	}

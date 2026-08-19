@@ -16,6 +16,14 @@ func (e Element) Facts() []string {
 	switch content := e.Content.(type) {
 	case EntryTable:
 		return e.bookFacts(content)
+	case PromptList:
+		return e.fragmentFacts(content)
+	case SettingGroup:
+		return e.settingFacts(content)
+	case VariableSchema:
+		return e.itemFacts(len(content.Variables))
+	case ScriptList:
+		return e.itemFacts(len(content.Scripts))
 	case ImageSet:
 		return e.itemFacts(len(content.Images))
 	case TextSet:
@@ -51,6 +59,41 @@ func (e Element) bookFacts(book EntryTable) []string {
 	return append(facts, fmt.Sprintf("%s switched on", number(on)))
 }
 
+// fragmentFacts says how long a prompt is and how much of it is live. The
+// second fact is left out where every fragment is on, because a count that
+// always repeats the first one says nothing.
+func (e Element) fragmentFacts(list PromptList) []string {
+	facts := e.itemFacts(len(list.Fragments))
+	if len(facts) == 0 {
+		return nil
+	}
+	on := 0
+	for _, fragment := range list.Fragments {
+		if fragment.Enabled {
+			on++
+		}
+	}
+	if on == len(list.Fragments) {
+		return facts
+	}
+	return append(facts, fmt.Sprintf("%s switched on", number(on)))
+}
+
+// settingFacts says how many slots the app has and how many of them somebody
+// filled in. A group of named slots with nothing in any of them is a form a
+// creator has yet to fill, and saying so is more use than the total alone.
+func (e Element) settingFacts(group SettingGroup) []string {
+	facts := e.itemFacts(len(group.Settings))
+	if len(facts) == 0 {
+		return nil
+	}
+	supplied := group.Supplied()
+	if supplied == len(group.Settings) {
+		return facts
+	}
+	return append(facts, fmt.Sprintf("%s filled in", number(supplied)))
+}
+
 func (e Element) itemFacts(count int) []string {
 	if count == 0 {
 		return nil
@@ -76,6 +119,8 @@ func (e Element) itemNoun() (string, string) {
 		return "expression", "expressions"
 	case RoleLorebookEntries:
 		return "entry", "entries"
+	case RolePromptNudges:
+		return "nudge", "nudges"
 	}
 	switch e.Type {
 	case TypeImageSet:
@@ -88,6 +133,14 @@ func (e Element) itemNoun() (string, string) {
 		return "link", "links"
 	case TypeEntryTable:
 		return "entry", "entries"
+	case TypePromptList:
+		return "fragment", "fragments"
+	case TypeVariableSchema:
+		return "variable", "variables"
+	case TypeSettingGroup:
+		return "setting", "settings"
+	case TypeScriptList:
+		return "script", "scripts"
 	default:
 		return "item", "items"
 	}

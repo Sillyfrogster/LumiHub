@@ -11,7 +11,7 @@ import (
 func TestOnlyTheOwnerPublishesADraft(t *testing.T) {
 	svc, _ := newTestService(t)
 	owner, somebodyElse := uuid.New(), uuid.New()
-	draft, err := svc.StartFromNothing(context.Background(), owner, "character")
+	draft, err := svc.StartFromNothing(context.Background(), owner, "character", "")
 	if err != nil {
 		t.Fatalf("start a draft: %v", err)
 	}
@@ -36,7 +36,7 @@ func TestAWithheldAssetIsNotPublished(t *testing.T) {
 		`insert into users (id, username) values ($1, 'withheld.owner')`, owner); err != nil {
 		t.Fatalf("insert the owner: %v", err)
 	}
-	draft, err := svc.StartFromNothing(context.Background(), owner, "character")
+	draft, err := svc.StartFromNothing(context.Background(), owner, "character", "")
 	if err != nil {
 		t.Fatalf("start a draft: %v", err)
 	}

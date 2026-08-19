@@ -16,19 +16,19 @@ import (
 
 // Defines values for AccountRole.
 const (
-	Admin     AccountRole = "admin"
-	Moderator AccountRole = "moderator"
-	User      AccountRole = "user"
+	AccountRoleAdmin     AccountRole = "admin"
+	AccountRoleModerator AccountRole = "moderator"
+	AccountRoleUser      AccountRole = "user"
 )
 
 // Valid indicates whether the value is a known member of the AccountRole enum.
 func (e AccountRole) Valid() bool {
 	switch e {
-	case Admin:
+	case AccountRoleAdmin:
 		return true
-	case Moderator:
+	case AccountRoleModerator:
 		return true
-	case User:
+	case AccountRoleUser:
 		return true
 	default:
 		return false
@@ -516,8 +516,12 @@ const (
 	FieldList      ElementType = "field_list"
 	ImageSet       ElementType = "image_set"
 	LinkList       ElementType = "link_list"
+	PromptList     ElementType = "prompt_list"
 	Prose          ElementType = "prose"
+	ScriptList     ElementType = "script_list"
+	SettingGroup   ElementType = "setting_group"
 	TextSet        ElementType = "text_set"
+	VariableSchema ElementType = "variable_schema"
 )
 
 // Valid indicates whether the value is a known member of the ElementType enum.
@@ -533,9 +537,17 @@ func (e ElementType) Valid() bool {
 		return true
 	case LinkList:
 		return true
+	case PromptList:
+		return true
 	case Prose:
 		return true
+	case ScriptList:
+		return true
+	case SettingGroup:
+		return true
 	case TextSet:
+		return true
+	case VariableSchema:
 		return true
 	default:
 		return false
@@ -701,6 +713,54 @@ func (e NsfwVisibilityRequestVisibility) Valid() bool {
 	}
 }
 
+// Defines values for PromptListContentFragmentsPlacement.
+const (
+	InHistory   PromptListContentFragmentsPlacement = "in_history"
+	PostHistory PromptListContentFragmentsPlacement = "post_history"
+	PreHistory  PromptListContentFragmentsPlacement = "pre_history"
+)
+
+// Valid indicates whether the value is a known member of the PromptListContentFragmentsPlacement enum.
+func (e PromptListContentFragmentsPlacement) Valid() bool {
+	switch e {
+	case InHistory:
+		return true
+	case PostHistory:
+		return true
+	case PreHistory:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PromptListContentFragmentsRole.
+const (
+	PromptListContentFragmentsRoleAssistant       PromptListContentFragmentsRole = "assistant"
+	PromptListContentFragmentsRoleAssistantAppend PromptListContentFragmentsRole = "assistant_append"
+	PromptListContentFragmentsRoleSystem          PromptListContentFragmentsRole = "system"
+	PromptListContentFragmentsRoleUser            PromptListContentFragmentsRole = "user"
+	PromptListContentFragmentsRoleUserAppend      PromptListContentFragmentsRole = "user_append"
+)
+
+// Valid indicates whether the value is a known member of the PromptListContentFragmentsRole enum.
+func (e PromptListContentFragmentsRole) Valid() bool {
+	switch e {
+	case PromptListContentFragmentsRoleAssistant:
+		return true
+	case PromptListContentFragmentsRoleAssistantAppend:
+		return true
+	case PromptListContentFragmentsRoleSystem:
+		return true
+	case PromptListContentFragmentsRoleUser:
+		return true
+	case PromptListContentFragmentsRoleUserAppend:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SaveAssetBlockRequestLayout.
 const (
 	SaveAssetBlockRequestLayoutDuo       SaveAssetBlockRequestLayout = "duo"
@@ -785,6 +845,123 @@ func (e Scope) Valid() bool {
 	case AssetReceive:
 		return true
 	case LibrarySync:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ScriptListContentScriptsAffects.
+const (
+	Display ScriptListContentScriptsAffects = "display"
+	Prompt  ScriptListContentScriptsAffects = "prompt"
+)
+
+// Valid indicates whether the value is a known member of the ScriptListContentScriptsAffects enum.
+func (e ScriptListContentScriptsAffects) Valid() bool {
+	switch e {
+	case Display:
+		return true
+	case Prompt:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ScriptListContentScriptsTargets.
+const (
+	ScriptListContentScriptsTargetsLorebook     ScriptListContentScriptsTargets = "lorebook"
+	ScriptListContentScriptsTargetsModelOutput  ScriptListContentScriptsTargets = "model_output"
+	ScriptListContentScriptsTargetsSlashCommand ScriptListContentScriptsTargets = "slash_command"
+	ScriptListContentScriptsTargetsUserInput    ScriptListContentScriptsTargets = "user_input"
+)
+
+// Valid indicates whether the value is a known member of the ScriptListContentScriptsTargets enum.
+func (e ScriptListContentScriptsTargets) Valid() bool {
+	switch e {
+	case ScriptListContentScriptsTargetsLorebook:
+		return true
+	case ScriptListContentScriptsTargetsModelOutput:
+		return true
+	case ScriptListContentScriptsTargetsSlashCommand:
+		return true
+	case ScriptListContentScriptsTargetsUserInput:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SettingGroupContentSettingsType.
+const (
+	SettingGroupContentSettingsTypeBoolean    SettingGroupContentSettingsType = "boolean"
+	SettingGroupContentSettingsTypeNumber     SettingGroupContentSettingsType = "number"
+	SettingGroupContentSettingsTypeStringList SettingGroupContentSettingsType = "string_list"
+	SettingGroupContentSettingsTypeText       SettingGroupContentSettingsType = "text"
+)
+
+// Valid indicates whether the value is a known member of the SettingGroupContentSettingsType enum.
+func (e SettingGroupContentSettingsType) Valid() bool {
+	switch e {
+	case SettingGroupContentSettingsTypeBoolean:
+		return true
+	case SettingGroupContentSettingsTypeNumber:
+		return true
+	case SettingGroupContentSettingsTypeStringList:
+		return true
+	case SettingGroupContentSettingsTypeText:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StartAssetRequestApp.
+const (
+	Lumiverse   StartAssetRequestApp = "lumiverse"
+	Sillytavern StartAssetRequestApp = "sillytavern"
+)
+
+// Valid indicates whether the value is a known member of the StartAssetRequestApp enum.
+func (e StartAssetRequestApp) Valid() bool {
+	switch e {
+	case Lumiverse:
+		return true
+	case Sillytavern:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VariableSchemaContentVariablesWidget.
+const (
+	VariableSchemaContentVariablesWidgetMultiselect VariableSchemaContentVariablesWidget = "multiselect"
+	VariableSchemaContentVariablesWidgetNumber      VariableSchemaContentVariablesWidget = "number"
+	VariableSchemaContentVariablesWidgetSelect      VariableSchemaContentVariablesWidget = "select"
+	VariableSchemaContentVariablesWidgetSlider      VariableSchemaContentVariablesWidget = "slider"
+	VariableSchemaContentVariablesWidgetSwitch      VariableSchemaContentVariablesWidget = "switch"
+	VariableSchemaContentVariablesWidgetText        VariableSchemaContentVariablesWidget = "text"
+	VariableSchemaContentVariablesWidgetTextarea    VariableSchemaContentVariablesWidget = "textarea"
+)
+
+// Valid indicates whether the value is a known member of the VariableSchemaContentVariablesWidget enum.
+func (e VariableSchemaContentVariablesWidget) Valid() bool {
+	switch e {
+	case VariableSchemaContentVariablesWidgetMultiselect:
+		return true
+	case VariableSchemaContentVariablesWidgetNumber:
+		return true
+	case VariableSchemaContentVariablesWidgetSelect:
+		return true
+	case VariableSchemaContentVariablesWidgetSlider:
+		return true
+	case VariableSchemaContentVariablesWidgetSwitch:
+		return true
+	case VariableSchemaContentVariablesWidgetText:
+		return true
+	case VariableSchemaContentVariablesWidgetTextarea:
 		return true
 	default:
 		return false
@@ -1525,6 +1702,43 @@ type Profile struct {
 	Id     openapi_types.UUID `json:"id"`
 }
 
+// PromptListContent A preset's prompt, in the order it is sent. One level of grouping is the list's own nesting rather than a second element.
+type PromptListContent struct {
+	Fragments []struct {
+		// Depth Messages back from the most recent.
+		Depth   *int `json:"depth,omitempty"`
+		Enabled bool `json:"enabled"`
+
+		// GroupId The group the fragment sits under, of the groups above.
+		GroupId *openapi_types.UUID `json:"groupId,omitempty"`
+
+		// Id Illarin's own id for this item, minted when the item is created. Preserved data keys against it, so send it back unchanged; an item with no id is a new one.
+		Id *openapi_types.UUID `json:"id,omitempty"`
+
+		// Marker What an app splices in where this fragment sits. A marker carries no text of its own and the name is taken at face value.
+		Marker *string `json:"marker,omitempty"`
+		Name   *string `json:"name,omitempty"`
+
+		// Placement Unset where the preset leaves the choice to whatever reads it.
+		Placement *PromptListContentFragmentsPlacement `json:"placement,omitempty"`
+
+		// Role Who the fragment speaks as. The two appending roles add to the message before them rather than starting one.
+		Role *PromptListContentFragmentsRole `json:"role,omitempty"`
+		Text string                          `json:"text"`
+	} `json:"fragments"`
+	Groups []struct {
+		// Id Illarin's own id for this item, minted when the item is created. Preserved data keys against it, so send it back unchanged; an item with no id is a new one.
+		Id   *openapi_types.UUID `json:"id,omitempty"`
+		Name string              `json:"name"`
+	} `json:"groups"`
+}
+
+// PromptListContentFragmentsPlacement Unset where the preset leaves the choice to whatever reads it.
+type PromptListContentFragmentsPlacement string
+
+// PromptListContentFragmentsRole Who the fragment speaks as. The two appending roles add to the message before them rather than starting one.
+type PromptListContentFragmentsRole string
+
 // ProseContent defines model for ProseContent.
 type ProseContent struct {
 	Text string `json:"text"`
@@ -1593,10 +1807,64 @@ type SaveAssetElementDisplay string
 // Scope asset:receive lets an instance receive assets sent to it. library:sync lets it report what it has installed.
 type Scope string
 
+// ScriptListContent A preset's find and replace scripts, in the order they run.
+type ScriptListContent struct {
+	Scripts []struct {
+		// Affects What the replacement changes.
+		Affects     *[]ScriptListContentScriptsAffects `json:"affects,omitempty"`
+		Description *string                            `json:"description,omitempty"`
+		Enabled     bool                               `json:"enabled"`
+		Find        string                             `json:"find"`
+
+		// Flags The expression's own, such as g for every match.
+		Flags *string `json:"flags,omitempty"`
+
+		// Id Illarin's own id for this item, minted when the item is created. Preserved data keys against it, so send it back unchanged; an item with no id is a new one.
+		Id        *openapi_types.UUID `json:"id,omitempty"`
+		MaxDepth  *int                `json:"maxDepth,omitempty"`
+		MinDepth  *int                `json:"minDepth,omitempty"`
+		Name      *string             `json:"name,omitempty"`
+		Replace   string              `json:"replace"`
+		RunOnEdit *bool               `json:"runOnEdit,omitempty"`
+
+		// Targets The text the script runs over.
+		Targets *[]ScriptListContentScriptsTargets `json:"targets,omitempty"`
+
+		// Trim Text cut out of the match before the replacement is written.
+		Trim *[]string `json:"trim,omitempty"`
+	} `json:"scripts"`
+}
+
+// ScriptListContentScriptsAffects defines model for ScriptListContent.Scripts.Affects.
+type ScriptListContentScriptsAffects string
+
+// ScriptListContentScriptsTargets defines model for ScriptListContent.Scripts.Targets.
+type ScriptListContentScriptsTargets string
+
 // SessionState defines model for SessionState.
 type SessionState struct {
 	User *Account `json:"user"`
 }
+
+// SettingGroupContent A set of named settings an app understands. The names are taken at face value and Illarin models nothing about what any of them controls.
+type SettingGroupContent struct {
+	Settings []struct {
+		// Choices What a text setting is limited to. None leaves it free text.
+		Choices *[]string `json:"choices,omitempty"`
+
+		// Id Illarin's own id for this item, minted when the item is created. Preserved data keys against it, so send it back unchanged; an item with no id is a new one.
+		Id    *openapi_types.UUID             `json:"id,omitempty"`
+		Label *string                         `json:"label,omitempty"`
+		Name  string                          `json:"name"`
+		Type  SettingGroupContentSettingsType `json:"type"`
+
+		// Value Absent where nobody has supplied one.
+		Value *TypedValue `json:"value,omitempty"`
+	} `json:"settings"`
+}
+
+// SettingGroupContentSettingsType defines model for SettingGroupContent.Settings.Type.
+type SettingGroupContentSettingsType string
 
 // SignInRequest defines model for SignInRequest.
 type SignInRequest struct {
@@ -1613,8 +1881,13 @@ type SignUpRequest struct {
 
 // StartAssetRequest The kind an asset is built as. Only kinds Illarin can build are accepted, so a creator is never handed an empty page.
 type StartAssetRequest struct {
-	Kind string `json:"kind"`
+	// App Which app the asset is built for, asked once for the kinds whose settings have names only an app can give them. It seeds those names and is stored nowhere. Absent, and refused, for every other kind.
+	App  *StartAssetRequestApp `json:"app,omitempty"`
+	Kind string                `json:"kind"`
 }
+
+// StartAssetRequestApp Which app the asset is built for, asked once for the kinds whose settings have names only an app can give them. It seeds those names and is stored nowhere. Absent, and refused, for every other kind.
+type StartAssetRequestApp string
 
 // StartLinkRequest defines model for StartLinkRequest.
 type StartLinkRequest struct {
@@ -1632,6 +1905,55 @@ type TextSetContent struct {
 		Text string              `json:"text"`
 	} `json:"texts"`
 }
+
+// TypedValue One typed value: what a setting holds, or what a variable defaults to and what was saved for it. The whole value being absent is nobody having supplied one, which a format writes as an absent key rather than as a zero.
+type TypedValue struct {
+	Boolean *bool    `json:"boolean,omitempty"`
+	Number  *float32 `json:"number,omitempty"`
+
+	// Strings Kept as it was written and in the order it was written, duplicates included. An empty list here is a list somebody emptied on purpose.
+	Strings *[]string `json:"strings,omitempty"`
+	Text    *string   `json:"text,omitempty"`
+}
+
+// VariableSchemaContent The form a preset asks a reader to fill in before they use it.
+type VariableSchemaContent struct {
+	Variables []struct {
+		// Default One typed value: what a setting holds, or what a variable defaults to and what was saved for it. The whole value being absent is nobody having supplied one, which a format writes as an absent key rather than as a zero.
+		Default     *TypedValue `json:"default,omitempty"`
+		Description *string     `json:"description,omitempty"`
+
+		// FragmentId The prompt fragment the variable belongs to.
+		FragmentId *openapi_types.UUID `json:"fragmentId,omitempty"`
+
+		// Id Illarin's own id for this item, minted when the item is created. Preserved data keys against it, so send it back unchanged; an item with no id is a new one.
+		Id      *openapi_types.UUID `json:"id,omitempty"`
+		Label   *string             `json:"label,omitempty"`
+		Name    string              `json:"name"`
+		Options *[]struct {
+			Label string `json:"label"`
+			Value string `json:"value"`
+		} `json:"options,omitempty"`
+		Range *struct {
+			Max  *float32 `json:"max,omitempty"`
+			Min  *float32 `json:"min,omitempty"`
+			Step *float32 `json:"step,omitempty"`
+		} `json:"range,omitempty"`
+
+		// Rows How tall a text area is drawn.
+		Rows *int `json:"rows,omitempty"`
+
+		// Separator Joins a multiselect's chosen values on the way into a prompt.
+		Separator *string `json:"separator,omitempty"`
+
+		// Value One typed value: what a setting holds, or what a variable defaults to and what was saved for it. The whole value being absent is nobody having supplied one, which a format writes as an absent key rather than as a zero.
+		Value  *TypedValue                          `json:"value,omitempty"`
+		Widget VariableSchemaContentVariablesWidget `json:"widget"`
+	} `json:"variables"`
+}
+
+// VariableSchemaContentVariablesWidget defines model for VariableSchemaContent.Variables.Widget.
+type VariableSchemaContentVariablesWidget string
 
 // VerifyEmailRequest defines model for VerifyEmailRequest.
 type VerifyEmailRequest struct {

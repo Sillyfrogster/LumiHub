@@ -49,6 +49,14 @@ var contentFloors = map[string][]Requirement{
 			Role:   RoleLorebookEntries,
 		},
 	},
+	"preset": {
+		{
+			ID:     "prompt_fragments",
+			Label:  "Prompt fragment",
+			Detail: "Write at least one prompt fragment.",
+			Role:   RolePromptFragments,
+		},
+	},
 }
 
 // ContentFloor measures a kind's content requirements against an asset's

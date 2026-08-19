@@ -18,7 +18,7 @@ import (
 func startedDraft(t *testing.T, svc *Service) (uuid.UUID, uuid.UUID) {
 	t.Helper()
 	owner := uuid.New()
-	draft, err := svc.StartFromNothing(context.Background(), owner, "character")
+	draft, err := svc.StartFromNothing(context.Background(), owner, "character", "")
 	if err != nil {
 		t.Fatalf("start a draft: %v", err)
 	}

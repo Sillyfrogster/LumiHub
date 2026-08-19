@@ -27,6 +27,10 @@ const (
 	TypeImageSet       Type = "image_set"
 	TypeLinkList       Type = "link_list"
 	TypeEntryTable     Type = "entry_table"
+	TypePromptList     Type = "prompt_list"
+	TypeVariableSchema Type = "variable_schema"
+	TypeSettingGroup   Type = "setting_group"
+	TypeScriptList     Type = "script_list"
 )
 
 // Role is what an element's content means, and it is the whole of what import
@@ -57,6 +61,15 @@ const (
 	// character was the only kind that had one, and it is named for the
 	// content now.
 	RoleLorebookEntries Role = "lorebook_entries"
+	// The preset roles. Four of them are settings a creator fills in and three
+	// are content they write, which is why they are seven roles and not one.
+	RolePromptFragments    Role = "prompt_fragments"
+	RolePromptVariables    Role = "prompt_variables"
+	RoleSamplerSettings    Role = "sampler_settings"
+	RoleCompletionSettings Role = "completion_settings"
+	RoleAdvancedSettings   Role = "advanced_settings"
+	RolePromptNudges       Role = "prompt_nudges"
+	RoleRegexScripts       Role = "regex_scripts"
 )
 
 // Roles returns the semantic vocabulary in the order a report reads it, which
@@ -67,6 +80,9 @@ func Roles() []Role {
 		RoleGroupGreetings, RoleExampleDialogue, RoleSystemPrompt,
 		RolePostHistoryInstructions, RoleCreatorNotes, RoleGallery,
 		RoleExpressions, RoleLorebookEntries,
+		RolePromptFragments, RolePromptVariables, RoleSamplerSettings,
+		RoleCompletionSettings, RoleAdvancedSettings, RolePromptNudges,
+		RoleRegexScripts,
 	}
 }
 
@@ -76,7 +92,9 @@ func (r Role) Known() bool {
 	case RoleDescription, RolePersonality, RoleScenario, RoleGreetings,
 		RoleGroupGreetings, RoleExampleDialogue, RoleSystemPrompt,
 		RolePostHistoryInstructions, RoleCreatorNotes, RoleGallery,
-		RoleExpressions, RoleLorebookEntries:
+		RoleExpressions, RoleLorebookEntries, RolePromptFragments,
+		RolePromptVariables, RoleSamplerSettings, RoleCompletionSettings,
+		RoleAdvancedSettings, RolePromptNudges, RoleRegexScripts:
 		return true
 	default:
 		return false
@@ -378,6 +396,14 @@ func DecodeContent(elementType Type, raw json.RawMessage) (Content, error) {
 		return LinkList{Links: links}, nil
 	case TypeEntryTable:
 		return decodeEntryTable(raw)
+	case TypePromptList:
+		return decodePromptList(raw)
+	case TypeVariableSchema:
+		return decodeVariableSchema(raw)
+	case TypeSettingGroup:
+		return decodeSettingGroup(raw)
+	case TypeScriptList:
+		return decodeScriptList(raw)
 	case TypeImageSet:
 		var incoming struct {
 			Images *[]ImageItem `json:"images"`
@@ -501,6 +527,14 @@ var labels = map[Role]string{
 	RoleCreatorNotes:            "Author’s notes",
 	RoleExpressions:             "Expressions",
 	RoleLorebookEntries:         "Entries",
+
+	RolePromptFragments:    "Prompt fragments",
+	RolePromptVariables:    "Variables",
+	RoleSamplerSettings:    "Samplers",
+	RoleCompletionSettings: "Completion",
+	RoleAdvancedSettings:   "Advanced",
+	RolePromptNudges:       "Nudges",
+	RoleRegexScripts:       "Regex scripts",
 }
 
 // typeLabels name an element that carries no role, so a removal confirmation
@@ -513,6 +547,10 @@ var typeLabels = map[Type]string{
 	TypeImageSet:       "Images",
 	TypeLinkList:       "Links",
 	TypeEntryTable:     "Entries",
+	TypePromptList:     "Prompt fragments",
+	TypeVariableSchema: "Variables",
+	TypeSettingGroup:   "Settings",
+	TypeScriptList:     "Regex scripts",
 }
 
 // Label returns the element's wording, from its role where it has one and from
@@ -538,6 +576,14 @@ var roleTypes = map[Role][]Type{
 	RoleCreatorNotes:            {TypeProse},
 	RoleExpressions:             {TypeImageSet},
 	RoleLorebookEntries:         {TypeEntryTable},
+
+	RolePromptFragments:    {TypePromptList},
+	RolePromptVariables:    {TypeVariableSchema},
+	RoleSamplerSettings:    {TypeSettingGroup},
+	RoleCompletionSettings: {TypeSettingGroup},
+	RoleAdvancedSettings:   {TypeSettingGroup},
+	RolePromptNudges:       {TypeTextSet},
+	RoleRegexScripts:       {TypeScriptList},
 }
 
 // Label returns the role's wording on the page.

@@ -97,6 +97,25 @@ func elementItems(content Content) []any {
 		for _, item := range value.Entries {
 			items = append(items, item)
 		}
+	case PromptList:
+		for _, item := range value.Groups {
+			items = append(items, item)
+		}
+		for _, item := range value.Fragments {
+			items = append(items, item)
+		}
+	case VariableSchema:
+		for _, item := range value.Variables {
+			items = append(items, item)
+		}
+	case SettingGroup:
+		for _, item := range value.Settings {
+			items = append(items, item)
+		}
+	case ScriptList:
+		for _, item := range value.Scripts {
+			items = append(items, item)
+		}
 	}
 	return items
 }
@@ -115,6 +134,14 @@ func elementItemCount(content Content) int {
 		return len(value.Links)
 	case EntryTable:
 		return len(value.Entries)
+	case PromptList:
+		return len(value.Groups) + len(value.Fragments)
+	case VariableSchema:
+		return len(value.Variables)
+	case SettingGroup:
+		return len(value.Settings)
+	case ScriptList:
+		return len(value.Scripts)
 	default:
 		return 0
 	}
@@ -358,7 +385,20 @@ func joinItemSizes() string {
 	for i, size := range sizes {
 		names[i] = string(size)
 	}
-	return strings.Join(names[:len(names)-1], ", ") + " or " + names[len(names)-1]
+	return joinWithOr(names)
+}
+
+// joinWithOr writes a closed vocabulary the way a refusal reads it, so a
+// creator is told every value they may choose instead.
+func joinWithOr(names []string) string {
+	switch len(names) {
+	case 0:
+		return ""
+	case 1:
+		return names[0]
+	default:
+		return strings.Join(names[:len(names)-1], ", ") + " or " + names[len(names)-1]
+	}
 }
 
 func joinSlots(values []Slot) string {

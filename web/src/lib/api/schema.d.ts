@@ -799,6 +799,11 @@ export interface components {
     /** @description The kind an asset is built as. Only kinds Illarin can build are accepted, so a creator is never handed an empty page. */
     StartAssetRequest: {
       kind: string;
+      /**
+       * @description Which app the asset is built for, asked once for the kinds whose settings have names only an app can give them. It seeds those names and is stored nowhere. Absent, and refused, for every other kind.
+       * @enum {string}
+       */
+      app?: "sillytavern" | "lumiverse";
     };
     /** @description A titled container. Required, hideable, the layouts it allows and its default width are read from the kind catalog at render time, so this is what the catalog says today rather than what was true when the block was made. */
     AssetBlock: {
@@ -869,7 +874,11 @@ export interface components {
         | components["schemas"]["DialogueSampleContent"]
         | components["schemas"]["ImageSetContent"]
         | components["schemas"]["LinkListContent"]
-        | components["schemas"]["EntryTableContent"];
+        | components["schemas"]["EntryTableContent"]
+        | components["schemas"]["PromptListContent"]
+        | components["schemas"]["VariableSchemaContent"]
+        | components["schemas"]["SettingGroupContent"]
+        | components["schemas"]["ScriptListContent"];
     };
     /** @description One piece of content. Its role is what import and export read, and it travels with the element wherever the creator moves it. */
     AssetElement: {
@@ -896,7 +905,11 @@ export interface components {
         | components["schemas"]["DialogueSampleContent"]
         | components["schemas"]["ImageSetContent"]
         | components["schemas"]["LinkListContent"]
-        | components["schemas"]["EntryTableContent"];
+        | components["schemas"]["EntryTableContent"]
+        | components["schemas"]["PromptListContent"]
+        | components["schemas"]["VariableSchemaContent"]
+        | components["schemas"]["SettingGroupContent"]
+        | components["schemas"]["ScriptListContent"];
     };
     ProseContent: {
       text: string;
@@ -988,6 +1001,150 @@ export interface components {
         text: string;
       }[];
     };
+    /** @description One typed value: what a setting holds, or what a variable defaults to and what was saved for it. The whole value being absent is nobody having supplied one, which a format writes as an absent key rather than as a zero. */
+    TypedValue: {
+      number?: number;
+      boolean?: boolean;
+      text?: string;
+      /** @description Kept as it was written and in the order it was written, duplicates included. An empty list here is a list somebody emptied on purpose. */
+      strings?: string[];
+    };
+    /** @description A preset's prompt, in the order it is sent. One level of grouping is the list's own nesting rather than a second element. */
+    PromptListContent: {
+      groups: {
+        /**
+         * Format: uuid
+         * @description Illarin's own id for this item, minted when the item is created. Preserved data keys against it, so send it back unchanged; an item with no id is a new one.
+         */
+        id?: string;
+        name: string;
+      }[];
+      fragments: {
+        /**
+         * Format: uuid
+         * @description Illarin's own id for this item, minted when the item is created. Preserved data keys against it, so send it back unchanged; an item with no id is a new one.
+         */
+        id?: string;
+        name?: string;
+        /**
+         * Format: uuid
+         * @description The group the fragment sits under, of the groups above.
+         */
+        groupId?: string;
+        /**
+         * @description Who the fragment speaks as. The two appending roles add to the message before them rather than starting one.
+         * @enum {string}
+         */
+        role?:
+          | "system"
+          | "user"
+          | "assistant"
+          | "user_append"
+          | "assistant_append";
+        text: string;
+        /** @description What an app splices in where this fragment sits. A marker carries no text of its own and the name is taken at face value. */
+        marker?: string;
+        enabled: boolean;
+        /**
+         * @description Unset where the preset leaves the choice to whatever reads it.
+         * @enum {string}
+         */
+        placement?: "pre_history" | "post_history" | "in_history";
+        /** @description Messages back from the most recent. */
+        depth?: number;
+      }[];
+    };
+    /** @description The form a preset asks a reader to fill in before they use it. */
+    VariableSchemaContent: {
+      variables: {
+        /**
+         * Format: uuid
+         * @description Illarin's own id for this item, minted when the item is created. Preserved data keys against it, so send it back unchanged; an item with no id is a new one.
+         */
+        id?: string;
+        name: string;
+        /** @enum {string} */
+        widget:
+          | "switch"
+          | "select"
+          | "multiselect"
+          | "number"
+          | "slider"
+          | "text"
+          | "textarea";
+        label?: string;
+        description?: string;
+        /**
+         * Format: uuid
+         * @description The prompt fragment the variable belongs to.
+         */
+        fragmentId?: string;
+        default?: components["schemas"]["TypedValue"];
+        value?: components["schemas"]["TypedValue"];
+        options?: {
+          label: string;
+          value: string;
+        }[];
+        range?: {
+          min?: number;
+          max?: number;
+          step?: number;
+        };
+        /** @description Joins a multiselect's chosen values on the way into a prompt. */
+        separator?: string;
+        /** @description How tall a text area is drawn. */
+        rows?: number;
+      }[];
+    };
+    /** @description A set of named settings an app understands. The names are taken at face value and Illarin models nothing about what any of them controls. */
+    SettingGroupContent: {
+      settings: {
+        /**
+         * Format: uuid
+         * @description Illarin's own id for this item, minted when the item is created. Preserved data keys against it, so send it back unchanged; an item with no id is a new one.
+         */
+        id?: string;
+        name: string;
+        label?: string;
+        /** @enum {string} */
+        type: "number" | "boolean" | "text" | "string_list";
+        /** @description What a text setting is limited to. None leaves it free text. */
+        choices?: string[];
+        /** @description Absent where nobody has supplied one. */
+        value?: components["schemas"]["TypedValue"];
+      }[];
+    };
+    /** @description A preset's find and replace scripts, in the order they run. */
+    ScriptListContent: {
+      scripts: {
+        /**
+         * Format: uuid
+         * @description Illarin's own id for this item, minted when the item is created. Preserved data keys against it, so send it back unchanged; an item with no id is a new one.
+         */
+        id?: string;
+        name?: string;
+        description?: string;
+        find: string;
+        /** @description The expression's own, such as g for every match. */
+        flags?: string;
+        replace: string;
+        /** @description Text cut out of the match before the replacement is written. */
+        trim?: string[];
+        /** @description The text the script runs over. */
+        targets?: (
+          | "user_input"
+          | "model_output"
+          | "slash_command"
+          | "lorebook"
+        )[];
+        /** @description What the replacement changes. */
+        affects?: ("display" | "prompt")[];
+        enabled: boolean;
+        minDepth?: number;
+        maxDepth?: number;
+        runOnEdit?: boolean;
+      }[];
+    };
     /**
      * @description What an element's data structure is, from the global vocabulary.
      * @enum {string}
@@ -999,7 +1156,11 @@ export interface components {
       | "dialogue_sample"
       | "image_set"
       | "link_list"
-      | "entry_table";
+      | "entry_table"
+      | "prompt_list"
+      | "variable_schema"
+      | "setting_group"
+      | "script_list";
     /**
      * @description How large the images inside an element are drawn. It names what it controls, and no element type declares a measurement of its own.
      * @enum {string}

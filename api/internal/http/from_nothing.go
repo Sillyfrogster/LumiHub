@@ -3,6 +3,7 @@ package http
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/account"
 	"github.com/Sillyfrogster/LumiHub/api/internal/asset"
@@ -16,11 +17,19 @@ func (h *Handlers) startAssetFromNothing(c *gin.Context, owner account.Account) 
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Send the kind to build as JSON."})
 		return
 	}
-	id, err := h.assets.StartFromNothing(c.Request.Context(), owner.ID, request.Kind)
+	app := ""
+	if request.App != nil {
+		app = string(*request.App)
+	}
+	id, err := h.assets.StartFromNothing(c.Request.Context(), owner.ID, request.Kind, app)
 	if errors.Is(err, asset.ErrKindNotBuildable) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Illarin cannot build that kind yet. Choose another.",
 		})
+		return
+	}
+	if errors.Is(err, asset.ErrAppNotAnswered) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": appAnswerRefusal(request.Kind)})
 		return
 	}
 	if err != nil {
@@ -40,4 +49,14 @@ func (h *Handlers) startAssetFromNothing(c *gin.Context, owner account.Account) 
 	}
 	c.Header("Location", "/v1/assets/"+id.String())
 	c.JSON(http.StatusCreated, page)
+}
+
+// appAnswerRefusal says what a creator has to answer, naming the apps where
+// there is a question to answer and saying there is none where there is not.
+func appAnswerRefusal(kind string) string {
+	apps := asset.Apps(kind)
+	if len(apps) == 0 {
+		return "Nothing about this kind depends on an app, so do not send one."
+	}
+	return "Say which app this is for: " + strings.Join(apps, " or ") + "."
 }

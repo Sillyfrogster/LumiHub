@@ -1111,6 +1111,13 @@ components:
         accepted, so a creator is never handed an empty page.
       properties:
         kind: { type: string }
+        app:
+          type: string
+          description: >-
+            Which app the asset is built for, asked once for the kinds whose
+            settings have names only an app can give them. It seeds those names
+            and is stored nowhere. Absent, and refused, for every other kind.
+          enum: [sillytavern, lumiverse]
     AssetBlock:
       type: object
       description: >-
@@ -1208,6 +1215,10 @@ components:
             - $ref: "#/components/schemas/ImageSetContent"
             - $ref: "#/components/schemas/LinkListContent"
             - $ref: "#/components/schemas/EntryTableContent"
+            - $ref: "#/components/schemas/PromptListContent"
+            - $ref: "#/components/schemas/VariableSchemaContent"
+            - $ref: "#/components/schemas/SettingGroupContent"
+            - $ref: "#/components/schemas/ScriptListContent"
     AssetElement:
       type: object
       description: >-
@@ -1246,6 +1257,10 @@ components:
             - $ref: "#/components/schemas/ImageSetContent"
             - $ref: "#/components/schemas/LinkListContent"
             - $ref: "#/components/schemas/EntryTableContent"
+            - $ref: "#/components/schemas/PromptListContent"
+            - $ref: "#/components/schemas/VariableSchemaContent"
+            - $ref: "#/components/schemas/SettingGroupContent"
+            - $ref: "#/components/schemas/ScriptListContent"
     ProseContent:
       type: object
       required: [text]
@@ -1393,10 +1408,225 @@ components:
                   prevent: { type: boolean }
                   delayUntil: { type: boolean }
               text: { type: string }
+    TypedValue:
+      type: object
+      description: >-
+        One typed value: what a setting holds, or what a variable defaults to
+        and what was saved for it. The whole value being absent is nobody
+        having supplied one, which a format writes as an absent key rather than
+        as a zero.
+      properties:
+        number: { type: number }
+        boolean: { type: boolean }
+        text: { type: string }
+        strings:
+          description: >-
+            Kept as it was written and in the order it was written, duplicates
+            included. An empty list here is a list somebody emptied on purpose.
+          type: array
+          items: { type: string }
+    PromptListContent:
+      type: object
+      required: [groups, fragments]
+      description: >-
+        A preset's prompt, in the order it is sent. One level of grouping is the
+        list's own nesting rather than a second element.
+      properties:
+        groups:
+          type: array
+          items:
+            type: object
+            required: [name]
+            properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
+              name: { type: string }
+        fragments:
+          type: array
+          items:
+            type: object
+            required: [text, enabled]
+            properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
+              name: { type: string }
+              groupId:
+                description: The group the fragment sits under, of the groups above.
+                type: string
+                format: uuid
+              role:
+                description: >-
+                  Who the fragment speaks as. The two appending roles add to the
+                  message before them rather than starting one.
+                type: string
+                enum: [system, user, assistant, user_append, assistant_append]
+              text: { type: string }
+              marker:
+                description: >-
+                  What an app splices in where this fragment sits. A marker
+                  carries no text of its own and the name is taken at face value.
+                type: string
+              enabled: { type: boolean }
+              placement:
+                description: Unset where the preset leaves the choice to whatever reads it.
+                type: string
+                enum: [pre_history, post_history, in_history]
+              depth:
+                description: Messages back from the most recent.
+                type: integer
+    VariableSchemaContent:
+      type: object
+      required: [variables]
+      description: The form a preset asks a reader to fill in before they use it.
+      properties:
+        variables:
+          type: array
+          items:
+            type: object
+            required: [name, widget]
+            properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
+              name: { type: string }
+              widget:
+                type: string
+                enum: [switch, select, multiselect, number, slider, text, textarea]
+              label: { type: string }
+              description: { type: string }
+              fragmentId:
+                description: The prompt fragment the variable belongs to.
+                type: string
+                format: uuid
+              default: { $ref: "#/components/schemas/TypedValue" }
+              value: { $ref: "#/components/schemas/TypedValue" }
+              options:
+                type: array
+                items:
+                  type: object
+                  required: [label, value]
+                  properties:
+                    label: { type: string }
+                    value: { type: string }
+              range:
+                type: object
+                properties:
+                  min: { type: number }
+                  max: { type: number }
+                  step: { type: number }
+              separator:
+                description: Joins a multiselect's chosen values on the way into a prompt.
+                type: string
+              rows:
+                description: How tall a text area is drawn.
+                type: integer
+    SettingGroupContent:
+      type: object
+      required: [settings]
+      description: >-
+        A set of named settings an app understands. The names are taken at face
+        value and Illarin models nothing about what any of them controls.
+      properties:
+        settings:
+          type: array
+          items:
+            type: object
+            required: [name, type]
+            properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
+              name: { type: string }
+              label: { type: string }
+              type:
+                type: string
+                enum: [number, boolean, text, string_list]
+              choices:
+                description: >-
+                  What a text setting is limited to. None leaves it free text.
+                type: array
+                items: { type: string }
+              value:
+                description: Absent where nobody has supplied one.
+                $ref: "#/components/schemas/TypedValue"
+    ScriptListContent:
+      type: object
+      required: [scripts]
+      description: A preset's find and replace scripts, in the order they run.
+      properties:
+        scripts:
+          type: array
+          items:
+            type: object
+            required: [find, replace, enabled]
+            properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
+              name: { type: string }
+              description: { type: string }
+              find: { type: string }
+              flags:
+                description: The expression's own, such as g for every match.
+                type: string
+              replace: { type: string }
+              trim:
+                description: Text cut out of the match before the replacement is written.
+                type: array
+                items: { type: string }
+              targets:
+                description: The text the script runs over.
+                type: array
+                items:
+                  type: string
+                  enum: [user_input, model_output, slash_command, lorebook]
+              affects:
+                description: What the replacement changes.
+                type: array
+                items: { type: string, enum: [display, prompt] }
+              enabled: { type: boolean }
+              minDepth: { type: integer }
+              maxDepth: { type: integer }
+              runOnEdit: { type: boolean }
     ElementType:
       type: string
       description: What an element's data structure is, from the global vocabulary.
-      enum: [prose, text_set, field_list, dialogue_sample, image_set, link_list, entry_table]
+      enum:
+        [
+          prose,
+          text_set,
+          field_list,
+          dialogue_sample,
+          image_set,
+          link_list,
+          entry_table,
+          prompt_list,
+          variable_schema,
+          setting_group,
+          script_list,
+        ]
     ItemSize:
       type: string
       description: >-

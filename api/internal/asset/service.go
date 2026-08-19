@@ -32,6 +32,9 @@ var (
 	// ErrKindNotBuildable is a kind with no block catalog, which is refused
 	// rather than answered with a page that has nothing on it.
 	ErrKindNotBuildable = errors.New("that kind cannot be built yet")
+	// ErrAppNotAnswered is a kind that is asked which app it is for and was
+	// not told, or was told an app Illarin has no slot names for.
+	ErrAppNotAnswered = errors.New("that kind needs to know which app it is for")
 )
 
 // Service runs the catalog. It knows the module interfaces, never a concrete
@@ -204,12 +207,24 @@ func ingestFailureMessage(reason string) string {
 // StartFromNothing makes a draft carrying the blocks its kind requires, present
 // and empty, so a creator can see what the kind is asking of them before they
 // have typed anything. The kind is asked for once, here, and never changes.
+//
+// A preset is also asked which app it is for. That answer seeds the slot names
+// and is stored nowhere: origin_format stays null and the asset carries no
+// record of which app was picked.
 func (s *Service) StartFromNothing(
 	ctx context.Context,
 	ownerID uuid.UUID,
 	kind string,
+	app string,
 ) (uuid.UUID, error) {
-	blocks, err := block.Place(kind, nil)
+	if _, ok := block.Catalog(kind); !ok {
+		return uuid.Nil, ErrKindNotBuildable
+	}
+	seeded, err := seedFor(kind, app)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	blocks, err := block.Place(kind, seeded)
 	if err != nil {
 		return uuid.Nil, ErrKindNotBuildable
 	}

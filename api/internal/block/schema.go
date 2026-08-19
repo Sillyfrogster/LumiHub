@@ -86,4 +86,22 @@ var schemas = map[Type]schema{
 		empty:   func() Content { return EntryTable{Entries: []Entry{}} },
 		decode:  decodeAs[EntryTable],
 	},
+	TypePromptList: {
+		empty: func() Content {
+			return PromptList{Groups: []PromptGroup{}, Fragments: []PromptFragment{}}
+		},
+		decode: decodeAs[PromptList],
+	},
+	TypeVariableSchema: {
+		empty:  func() Content { return VariableSchema{Variables: []Variable{}} },
+		decode: decodeAs[VariableSchema],
+	},
+	TypeSettingGroup: {
+		empty:  func() Content { return SettingGroup{Settings: []Setting{}} },
+		decode: decodeAs[SettingGroup],
+	},
+	TypeScriptList: {
+		empty:  func() Content { return ScriptList{Scripts: []Script{}} },
+		decode: decodeAs[ScriptList],
+	},
 }

@@ -8,6 +8,11 @@ type DefinitionID string
 const (
 	CharacterCore     DefinitionID = "character_core"
 	LorebookCore      DefinitionID = "lorebook_core"
+	PresetCore        DefinitionID = "preset_core"
+	PresetSettings    DefinitionID = "settings"
+	PresetVariables   DefinitionID = "variables"
+	PresetScripts     DefinitionID = "scripts"
+	PresetNudges      DefinitionID = "nudges"
 	Messages          DefinitionID = "messages"
 	Expressions       DefinitionID = "expressions"
 	Lorebook          DefinitionID = "lorebook"
@@ -231,6 +236,69 @@ var lorebook = []Definition{
 	},
 }
 
+// preset is the preset catalog, in page order. A preset is its prompt, and
+// the four groups of knobs around it are each absent until something fills
+// them.
+var preset = []Definition{
+	{
+		ID:       PresetCore,
+		Title:    "Prompt fragments",
+		Required: true,
+		// A preset with its prompt withheld is not a page.
+		Hideable: false,
+		Elements: []DefinedElement{
+			{Role: RolePromptFragments, Type: TypePromptList, Pinned: true},
+		},
+		Layouts: []Layout{Single},
+		Width:   Full,
+	},
+	{
+		ID:      PresetSettings,
+		Title:   "Settings",
+		Summary: "The samplers, the completion behaviour and the advanced knobs.",
+		Group:   GroupFile,
+		// Three groups of one type rather than three sections, because three
+		// near-identical cards of knobs read as a spreadsheet.
+		Elements: []DefinedElement{
+			{Role: RoleSamplerSettings, Type: TypeSettingGroup},
+			{Role: RoleCompletionSettings, Type: TypeSettingGroup},
+			{Role: RoleAdvancedSettings, Type: TypeSettingGroup},
+		},
+		Layouts: []Layout{Trio, Stack3},
+		Width:   Full,
+	},
+	{
+		ID:       PresetVariables,
+		Title:    "Variables",
+		Summary:  "The form a reader fills in before they use the preset.",
+		Group:    GroupFile,
+		Elements: []DefinedElement{{Role: RolePromptVariables, Type: TypeVariableSchema}},
+		Layouts:  []Layout{Single},
+		Width:    TwoThirds,
+	},
+	{
+		ID:       PresetScripts,
+		Title:    "Regex scripts",
+		Summary:  "Find and replace over what is written and what comes back.",
+		Group:    GroupFile,
+		Elements: []DefinedElement{{Role: RoleRegexScripts, Type: TypeScriptList}},
+		Layouts:  []Layout{Single},
+		Width:    TwoThirds,
+	},
+	{
+		ID:      PresetNudges,
+		Title:   "Nudges",
+		Summary: "The short prompts an app sends on its own, and the formats it wraps.",
+		Group:   GroupFile,
+		// Prompt text with macros in it, so it is shown exactly as written.
+		Elements: []DefinedElement{
+			{Role: RolePromptNudges, Type: TypeTextSet, Options: Options{Display: DisplayVerbatim}},
+		},
+		Layouts: []Layout{Single},
+		Width:   Third,
+	},
+}
+
 // shared is the seven definitions every kind lists. They hold the parts no
 // file format carries, whatever a creator is building.
 var shared = []Definition{
@@ -314,6 +382,7 @@ var shared = []Definition{
 var catalogs = map[string][]Definition{
 	"character": character,
 	"lorebook":  lorebook,
+	"preset":    preset,
 }
 
 // Catalog returns the block definitions a kind declares, in page order. Every
