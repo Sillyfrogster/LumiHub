@@ -102,7 +102,13 @@ func TestOnlyADocumentHoldingEntriesIsClaimed(t *testing.T) {
 			// A card keeps its book nested, so it never looks like one.
 			claimant: "chara_card_v2",
 		},
-		{name: "entries as an object", body: `{"entries": {"0": {}}}`, claimant: ""},
+		{
+			name: "entries as an object",
+			body: `{"entries": {"0": {}}}`,
+			// Keyed entries are SillyTavern's file, and the listed book never
+			// claims one.
+			claimant: SillyTavernID,
+		},
 		{name: "nothing recognisable", body: `{"colours": []}`, claimant: ""},
 	} {
 		t.Run(test.name, func(t *testing.T) {

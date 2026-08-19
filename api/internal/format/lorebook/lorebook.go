@@ -1,11 +1,14 @@
-// Package lorebook reads and writes a standalone lorebook file. The file is
-// the same object a character card carries under `character_book`, hoisted to
-// the top level of a document of its own, so the entry vocabulary is the
-// shared one and only the surroundings differ.
+// Package lorebook reads and writes the two standalone lorebook files.
 //
-// The format names itself nowhere. A lorebook document carries no spec field
-// and no version, so it is recognised by the one structure it always has: a
-// list of entries.
+// One is the same object a character card carries under `character_book`,
+// hoisted to the top level of a document of its own, so its entry vocabulary
+// is the shared one and only the surroundings differ. The other is what
+// SillyTavern's World Info panel exports, which spells every field its own way
+// and keys its entries rather than listing them.
+//
+// Neither names itself, so each is recognised by the one structure it always
+// has. That is also the one thing that differs between them, so a file can
+// only ever match one of the two.
 package lorebook
 
 import (
@@ -253,4 +256,4 @@ func truncate(text string, limit int) string {
 
 // Modules returns every lorebook module, so the server registers the set
 // rather than remembering to add each one.
-func Modules() []format.Reader { return []format.Reader{Module{}} }
+func Modules() []format.Reader { return []format.Reader{Module{}, SillyTavernModule{}} }

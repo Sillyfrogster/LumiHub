@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/block"
@@ -166,7 +167,7 @@ func (s *Service) GetIngest(ctx context.Context, ownerID, id uuid.UUID) (IngestO
 	}
 	operation := IngestOperation{ID: id, Status: status}
 	if status == IngestFailed && failureReason.Valid {
-		message := ingestFailureMessage(failureReason.String)
+		message := s.ingestFailureMessage(failureReason.String)
 		if failureMessage.Valid {
 			message = failureMessage.String
 		}
@@ -185,12 +186,14 @@ func (s *Service) GetIngest(ctx context.Context, ownerID, id uuid.UUID) (IngestO
 	return operation, nil
 }
 
-func ingestFailureMessage(reason string) string {
+func (s *Service) ingestFailureMessage(reason string) string {
 	switch reason {
 	case "malformed_input":
 		return "The file is malformed and could not be read."
 	case "unsupported_format":
-		return "No supported format recognised this file. LumiHub can import CCv2, CCv3 and CharX character cards; choose one of those, or start from nothing and build a character here."
+		return "No supported format recognised this file. Illarin can read " +
+			joinReadable(s.reg.ReadableLabels()) +
+			". If yours is not one of those, start from nothing and build it here."
 	case "unsupported_version":
 		return "The file uses a version LumiHub cannot read safely."
 	case "safety_violation":
@@ -469,4 +472,17 @@ func (s *Service) DownloadExportForLinkedInstance(
 		download.Event.AuthorizationClass = AuthorizationLinkedInstance
 	}
 	return download, nil
+}
+
+// joinReadable writes the formats a person can upload the way a person reads
+// a list.
+func joinReadable(labels []string) string {
+	switch len(labels) {
+	case 0:
+		return "nothing yet"
+	case 1:
+		return labels[0]
+	default:
+		return strings.Join(labels[:len(labels)-1], ", ") + " and " + labels[len(labels)-1]
+	}
 }

@@ -148,6 +148,25 @@ func (r *Registry) Declaration(id string) (Declaration, bool) {
 	return module.Declaration(), true
 }
 
+// ReadableLabels names every format the registry can read, in the order a
+// person would read them out. A refusal is built from this rather than from a
+// sentence somebody has to remember to update.
+func (r *Registry) ReadableLabels() []string {
+	ids := make([]string, 0, len(r.modules))
+	for id := range r.modules {
+		ids = append(ids, id)
+	}
+	slices.Sort(ids)
+	labels := make([]string, 0, len(ids))
+	for _, id := range ids {
+		declaration := r.modules[id].Declaration()
+		if declaration.Direction.Read {
+			labels = append(labels, declaration.Label)
+		}
+	}
+	return labels
+}
+
 type RegisteredBrowseDefinition struct {
 	Format     string
 	Definition BrowseDefinition
