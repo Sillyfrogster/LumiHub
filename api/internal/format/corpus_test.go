@@ -13,6 +13,7 @@ import (
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format/character"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format/lorebook"
+	"github.com/Sillyfrogster/LumiHub/api/internal/format/preset"
 	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
 	"github.com/google/uuid"
 )
@@ -29,7 +30,7 @@ func (s corpusStore) ReadRange(_ context.Context, _ uuid.UUID, offset, length in
 // fails.
 func TestLocalCorpusRunsThroughEveryModule(t *testing.T) {
 	registry := format.NewRegistry()
-	for _, module := range slices.Concat(character.Modules(), lorebook.Modules()) {
+	for _, module := range slices.Concat(character.Modules(), lorebook.Modules(), preset.Modules()) {
 		if err := registry.Register(module); err != nil {
 			t.Fatalf("register %q: %v", module.ID(), err)
 		}
