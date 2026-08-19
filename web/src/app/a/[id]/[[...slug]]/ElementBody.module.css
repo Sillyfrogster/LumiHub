@@ -1,5 +1,8 @@
 .element {
   display: flex;
+  min-width: 0;
+  container-name: element;
+  container-type: inline-size;
   flex-direction: column;
   gap: 10px;
 }
@@ -331,9 +334,144 @@
   }
 }
 
+/* An element in one slot of a trio has room for a heading or a button on a
+   line, not both. */
+@container element (max-width: 330px) {
+  .heading {
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+
 @media (max-width: 560px) {
   .heading {
     flex-direction: column;
     gap: 10px;
   }
+}
+
+.promptList {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+/* A run under a heading is set in from the ones with no heading, so where the
+   heading stops owning fragments is visible. */
+.promptGroup:has(> h4) .fragments {
+  padding-left: 18px;
+}
+
+.promptGroup > h4 {
+  margin-bottom: 12px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-strong);
+  font-family: var(--font-display);
+  font-size: 1.12rem;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.fragments {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  list-style: none;
+}
+
+.fragments > li {
+  padding-left: 16px;
+  border-left: 2px solid var(--line);
+}
+
+.fragments > li[data-off] {
+  border-left-style: dashed;
+  opacity: 0.62;
+}
+
+.fragmentHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  margin-bottom: 5px;
+  gap: 4px 10px;
+}
+
+.fragmentName {
+  color: var(--ink-strong);
+  font-size: 0.82rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.fragmentTags {
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.fragmentMarker {
+  color: var(--faint);
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-style: italic;
+}
+
+.variables,
+.scripts {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  list-style: none;
+}
+
+.variables > li,
+.scripts > li {
+  padding-left: 16px;
+  border-left: 2px solid var(--line);
+}
+
+.scripts > li[data-off] {
+  border-left-style: dashed;
+  opacity: 0.62;
+}
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 7px;
+  gap: 5px;
+  list-style: none;
+}
+
+.choices > li {
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunk);
+  color: var(--body);
+  font-size: 0.74rem;
+  overflow-wrap: anywhere;
+}
+
+.pattern {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 5px;
+  gap: 8px;
+}
+
+.pattern code {
+  padding: 3px 9px;
+  border: 1px solid var(--line-hair);
+  border-radius: var(--radius-md);
+  background: var(--surface-code);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.pattern span {
+  color: var(--muted);
 }

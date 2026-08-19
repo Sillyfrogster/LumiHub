@@ -211,18 +211,41 @@ describe("remove confirmation counts", () => {
 });
 
 describe("where an element is edited", () => {
-  test("the four collection types open a full-screen surface", () => {
+  test("every collection type opens a full-screen surface", () => {
     for (const type of [
       "entry_table",
       "image_set",
       "text_set",
       "dialogue_sample",
+      "prompt_list",
+      "variable_schema",
+      "setting_group",
+      "script_list",
     ]) {
       expect(opensFullScreen(type)).toBe(true);
     }
     for (const type of ["prose", "field_list", "link_list"]) {
       expect(opensFullScreen(type)).toBe(false);
     }
+  });
+
+  test("a seeded settings group is past what a sheet holds", () => {
+    const seeded = {
+      type: "setting_group",
+      content: {
+        settings: Array.from({ length: 18 }, (_, index) => ({
+          name: `setting_${index}`,
+          type: "number",
+        })),
+      },
+    };
+    expect(fitsInTheSheet(seeded)).toBe(false);
+
+    const advanced = {
+      type: "setting_group",
+      content: { settings: [{ name: "seed", type: "number" }] },
+    };
+    expect(fitsInTheSheet(advanced)).toBe(true);
   });
 
   test("small content stays editable in the sheet", () => {

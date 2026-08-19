@@ -137,6 +137,9 @@
 
 .fields {
   display: flex;
+  /* Room to write in, and a stop before a one-line field runs the width of a
+     wide monitor. */
+  max-width: 1080px;
   flex-direction: column;
   gap: 18px;
 }

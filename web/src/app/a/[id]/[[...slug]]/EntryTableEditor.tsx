@@ -1,21 +1,19 @@
 "use client";
 
-import { Plus, Trash2 } from "lucide-react";
-import { useId, useMemo, useRef, useState } from "react";
+import { useState } from "react";
 import type { LorebookEntry } from "@/lib/api/query";
-import styles from "./EntryTableEditor.module.css";
-
-/** One key per line, so a key holding a comma is still one key. */
-function readKeys(written: string): string[] {
-  return written
-    .split("\n")
-    .map((key) => key.trim())
-    .filter((key) => key !== "");
-}
-
-function writeKeys(keys: string[] | undefined): string {
-  return (keys ?? []).join("\n");
-}
+import {
+  CollectionEditor,
+  Field,
+  FieldGroup,
+  FieldPair,
+  ItemFields,
+  ItemHeading,
+  NothingChosen,
+  readLines,
+  Switch,
+  writeLines,
+} from "./CollectionEditor";
 
 export function entryName(entry: LorebookEntry, position: number): string {
   if (entry.name?.trim()) return entry.name;
@@ -23,11 +21,7 @@ export function entryName(entry: LorebookEntry, position: number): string {
   return `Entry ${position + 1}`;
 }
 
-/**
- * A lorebook as a list beside an editor. A book of a thousand entries is read
- * by scanning the list and edited one entry at a time, which is why this is
- * not a stack of a thousand forms.
- */
+/** A lorebook, one entry at a time. */
 export function EntryTableEditor({
   entries,
   pending,
@@ -38,32 +32,7 @@ export function EntryTableEditor({
   onChange: (entries: LorebookEntry[]) => void;
 }) {
   const [selected, setSelected] = useState(0);
-  const [search, setSearch] = useState("");
-  const searchId = useId();
-  const editor = useRef<HTMLDivElement>(null);
-
-  const wanted = search.trim().toLowerCase();
-  const matching = useMemo(
-    () =>
-      entries
-        .map((entry, index) => ({ entry, index }))
-        .filter(
-          ({ entry, index }) =>
-            wanted === "" ||
-            entryName(entry, index).toLowerCase().includes(wanted) ||
-            entry.text.toLowerCase().includes(wanted) ||
-            entry.keys.some((key) => key.toLowerCase().includes(wanted)),
-        ),
-    [entries, wanted],
-  );
-
   const current = entries[selected];
-
-  function select(index: number) {
-    setSelected(index);
-    // The panes stack at narrow width, so the editor needs bringing into view.
-    editor.current?.scrollIntoView({ block: "nearest" });
-  }
 
   function replaceCurrent(changes: Partial<LorebookEntry>) {
     onChange(
@@ -73,89 +42,45 @@ export function EntryTableEditor({
     );
   }
 
-  function addEntry() {
-    onChange([...entries, { keys: [], text: "", enabled: true }]);
-    select(entries.length);
-  }
-
-  function removeCurrent() {
-    onChange(entries.filter((_, index) => index !== selected));
-    setSelected(Math.max(0, Math.min(selected, entries.length - 2)));
-  }
-
   return (
-    <div className={styles.editor}>
-      <div className={styles.list}>
-        <div className={styles.search}>
-          <label className={styles.hiddenLabel} htmlFor={searchId}>
-            Search the entries
-          </label>
-          <input
-            id={searchId}
-            type="search"
-            value={search}
-            placeholder="Search names, keys and text"
-            onChange={(event) => setSearch(event.target.value)}
-          />
-        </div>
-        {matching.length === 0 ? (
-          <p className={styles.nothing}>
-            {entries.length === 0
-              ? "This book has no entries yet."
-              : "No entry matches that."}
-          </p>
-        ) : (
-          <ol className={styles.entries}>
-            {matching.map(({ entry, index }) => (
-              <li key={index}>
-                <button
-                  type="button"
-                  aria-current={index === selected}
-                  onClick={() => select(index)}
-                >
-                  <span className={styles.entryName}>
-                    {entryName(entry, index)}
-                  </span>
-                  <span className={styles.entryKeys}>
-                    {entry.keys.length === 0
-                      ? "No keys"
-                      : entry.keys.slice(0, 4).join(" · ")}
-                  </span>
-                  {entry.enabled ? null : (
-                    <span className={styles.off}>Switched off</span>
-                  )}
-                </button>
-              </li>
-            ))}
-          </ol>
-        )}
-        <button
-          type="button"
-          className={styles.addEntry}
-          onClick={addEntry}
-          disabled={pending}
-        >
-          <Plus size={16} aria-hidden="true" />
-          Add entry
-        </button>
-      </div>
-
-      <div className={styles.detail} ref={editor}>
-        {current ? (
-          <EntryFields
-            entry={current}
-            position={selected}
-            pending={pending}
-            onChange={replaceCurrent}
-            onRemove={removeCurrent}
-          />
-        ) : (
-          <p className={styles.nothing}>
-            Choose an entry to edit it, or add the first one.
-          </p>
-        )}
-      </div>
-    </div>
+    <CollectionEditor
+      noun="entry"
+      emptyMessage="This book has no entries yet."
+      pending={pending}
+      selected={selected}
+      onSelect={setSelected}
+      onAdd={() =>
+        onChange([...entries, { keys: [], text: "", enabled: true }])
+      }
+      rows={entries.map((entry, index) => ({
+        name: entryName(entry, index),
+        detail:
+          entry.keys.length === 0
+            ? "No keys"
+            : entry.keys.slice(0, 4).join(" · "),
+        off: !entry.enabled,
+        search: [entryName(entry, index), entry.text, entry.keys.join(" ")]
+          .join(" ")
+          .toLowerCase(),
+      }))}
+    >
+      {current ? (
+        <EntryFields
+          entry={current}
+          position={selected}
+          pending={pending}
+          onChange={replaceCurrent}
+          onRemove={() => {
+            onChange(entries.filter((_, index) => index !== selected));
+            setSelected(Math.max(0, Math.min(selected, entries.length - 2)));
+          }}
+        />
+      ) : (
+        <NothingChosen>
+          Choose an entry to edit it, or add the first one.
+        </NothingChosen>
+      )}
+    </CollectionEditor>
   );
 }
 
@@ -174,24 +99,15 @@ function EntryFields({
 }) {
   const recursion = entry.recursion ?? {};
   return (
-    <div className={styles.fields}>
-      <div className={styles.detailHeading}>
-        <h4>{entryName(entry, position)}</h4>
-        <button
-          type="button"
-          className={styles.removeEntry}
-          onClick={onRemove}
-          disabled={pending}
-        >
-          <Trash2 size={14} aria-hidden="true" />
-          Remove entry
-        </button>
-      </div>
+    <ItemFields>
+      <ItemHeading
+        name={entryName(entry, position)}
+        noun="entry"
+        pending={pending}
+        onRemove={onRemove}
+      />
 
-      <label className={styles.field}>
-        <span>
-          Name <small>optional, and never sent to a model</small>
-        </span>
+      <Field label="Name" hint="optional, and never sent to a model">
         <input
           value={entry.name ?? ""}
           onChange={(event) =>
@@ -199,33 +115,28 @@ function EntryFields({
           }
           disabled={pending}
         />
-      </label>
+      </Field>
 
-      <label className={styles.field}>
-        <span>Entry text</span>
+      <Field label="Entry text">
         <textarea
           rows={8}
           value={entry.text}
           onChange={(event) => onChange({ text: event.target.value })}
           disabled={pending}
         />
-      </label>
+      </Field>
 
-      <fieldset className={styles.group}>
-        <legend>What switches it on</legend>
-        <label className={styles.field}>
-          <span>
-            Keys <small>one per line</small>
-          </span>
+      <FieldGroup legend="What switches it on">
+        <Field label="Keys" hint="one per line">
           <textarea
             rows={4}
-            value={writeKeys(entry.keys)}
+            value={writeLines(entry.keys)}
             onChange={(event) =>
-              onChange({ keys: readKeys(event.target.value) })
+              onChange({ keys: readLines(event.target.value) })
             }
             disabled={pending}
           />
-        </label>
+        </Field>
         <Switch
           label="Switched on"
           hint="A switched-off entry stays in the book and reaches no model."
@@ -247,19 +158,16 @@ function EntryFields({
           pending={pending}
           onChange={(selective) => onChange({ selective })}
         />
-        <label className={styles.field}>
-          <span>
-            Second keys <small>one per line</small>
-          </span>
+        <Field label="Second keys" hint="one per line">
           <textarea
             rows={3}
-            value={writeKeys(entry.secondaryKeys)}
+            value={writeLines(entry.secondaryKeys)}
             onChange={(event) =>
-              onChange({ secondaryKeys: readKeys(event.target.value) })
+              onChange({ secondaryKeys: readLines(event.target.value) })
             }
             disabled={pending}
           />
-        </label>
+        </Field>
         <Switch
           label="Match the case of a key"
           hint="Off, ledger and Ledger both count."
@@ -267,15 +175,11 @@ function EntryFields({
           pending={pending}
           onChange={(caseSensitive) => onChange({ caseSensitive })}
         />
-      </fieldset>
+      </FieldGroup>
 
-      <fieldset className={styles.group}>
-        <legend>Where it goes</legend>
-        <div className={styles.pair}>
-          <label className={styles.field}>
-            <span>
-              Order <small>among the entries that fired with it</small>
-            </span>
+      <FieldGroup legend="Where it goes">
+        <FieldPair>
+          <Field label="Order" hint="among the entries that fired with it">
             <input
               type="number"
               value={entry.order ?? 0}
@@ -284,9 +188,8 @@ function EntryFields({
               }
               disabled={pending}
             />
-          </label>
-          <label className={styles.field}>
-            <span>Position</span>
+          </Field>
+          <Field label="Position">
             <select
               value={entry.position ?? ""}
               onChange={(event) =>
@@ -303,12 +206,11 @@ function EntryFields({
               <option value="before_character">Before the character</option>
               <option value="after_character">After the character</option>
             </select>
-          </label>
-        </div>
-      </fieldset>
+          </Field>
+        </FieldPair>
+      </FieldGroup>
 
-      <fieldset className={styles.group}>
-        <legend>Passes after the first</legend>
+      <FieldGroup legend="Passes after the first">
         <Switch
           label="Do not let this entry switch others on"
           checked={recursion.exclude ?? false}
@@ -333,36 +235,7 @@ function EntryFields({
             onChange({ recursion: { ...recursion, delayUntil } })
           }
         />
-      </fieldset>
-    </div>
-  );
-}
-
-function Switch({
-  label,
-  hint,
-  checked,
-  pending,
-  onChange,
-}: {
-  label: string;
-  hint?: string;
-  checked: boolean;
-  pending: boolean;
-  onChange: (checked: boolean) => void;
-}) {
-  return (
-    <label className={styles.switch}>
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-        disabled={pending}
-      />
-      <span>
-        {label}
-        {hint ? <small>{hint}</small> : null}
-      </span>
-    </label>
+      </FieldGroup>
+    </ItemFields>
   );
 }

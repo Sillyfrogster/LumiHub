@@ -119,6 +119,10 @@ export const FULL_SCREEN_TYPES = [
   "image_set",
   "text_set",
   "dialogue_sample",
+  "prompt_list",
+  "variable_schema",
+  "setting_group",
+  "script_list",
 ] as const;
 
 export function opensFullScreen(type: string): boolean {

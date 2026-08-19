@@ -12,6 +12,17 @@ export type ArrangeAssetBlocksRequest =
   components["schemas"]["ArrangeAssetBlocksRequest"];
 export type EntryTableContent = components["schemas"]["EntryTableContent"];
 export type LorebookEntry = EntryTableContent["entries"][number];
+export type PromptListContent = components["schemas"]["PromptListContent"];
+export type PromptGroup = PromptListContent["groups"][number];
+export type PromptFragment = PromptListContent["fragments"][number];
+export type SettingGroupContent = components["schemas"]["SettingGroupContent"];
+export type PresetSetting = SettingGroupContent["settings"][number];
+export type VariableSchemaContent =
+  components["schemas"]["VariableSchemaContent"];
+export type PresetVariable = VariableSchemaContent["variables"][number];
+export type ScriptListContent = components["schemas"]["ScriptListContent"];
+export type RegexScript = ScriptListContent["scripts"][number];
+export type TypedValue = components["schemas"]["TypedValue"];
 export type AddableSection = components["schemas"]["AddableSection"];
 export type ElementType = components["schemas"]["ElementType"];
 export type AssetTag = components["schemas"]["AssetTag"];
@@ -108,9 +119,16 @@ export async function fetchAsset(
  * Starts an asset from nothing. The kind is asked for once, here, so the page
  * that comes back is already the right shape.
  */
-export async function startAsset(kind: string): Promise<AssetDetail> {
+export type StartAssetApp = NonNullable<
+  components["schemas"]["StartAssetRequest"]["app"]
+>;
+
+export async function startAsset(
+  kind: string,
+  app?: StartAssetApp,
+): Promise<AssetDetail> {
   const { data, error } = await api.POST("/v1/assets", {
-    body: { kind },
+    body: app ? { kind, app } : { kind },
   });
   // The same route also accepts an upload, which answers with an ingest
   // operation, so the answer is narrowed to the page a start comes back with.

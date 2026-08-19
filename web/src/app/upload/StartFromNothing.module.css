@@ -60,3 +60,54 @@
   color: var(--ink-strong);
   font-size: 0.86rem;
 }
+
+.kinds button[aria-expanded="true"] {
+  border-color: var(--accent);
+}
+
+.apps {
+  margin-top: 18px;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.appQuestion {
+  max-width: 62ch;
+  color: var(--body);
+  font-size: 0.9rem;
+  line-height: 1.65;
+}
+
+.appChoices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.appChoices button {
+  display: inline-flex;
+  min-height: 46px;
+  align-items: center;
+  padding-inline: 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-quiet);
+  color: var(--ink-strong);
+  font-size: 0.88rem;
+  font-weight: 700;
+  transition:
+    border-color 0.2s var(--ease),
+    transform 0.2s var(--ease);
+}
+
+.appChoices button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: var(--accent);
+}
+
+.appChoices button:disabled {
+  opacity: 0.6;
+}

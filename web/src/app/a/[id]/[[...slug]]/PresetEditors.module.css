@@ -1,0 +1,241 @@
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.quiet {
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+.quiet code {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+}
+
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+}
+
+.groups > li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.groups input,
+.addGroup input,
+.addSetting input,
+.addSetting select,
+.option input {
+  min-height: 44px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 10px 13px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--surface-quiet);
+  color: var(--ink);
+  font: inherit;
+}
+
+.groups input:focus,
+.addGroup input:focus,
+.addSetting input:focus,
+.addSetting select:focus,
+.option input:focus {
+  border-color: var(--accent);
+  background: var(--surface);
+}
+
+.addGroup,
+.addSetting {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.addGroup button,
+.addSetting button,
+.addOption {
+  display: inline-flex;
+  min-height: 44px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  padding-inline: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--body);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.addOption {
+  align-self: flex-start;
+}
+
+.removeGroup,
+.removeSetting {
+  display: inline-flex;
+  min-height: 40px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  padding-inline: 10px;
+  color: #8a4444;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.settings {
+  display: flex;
+  /* A form reads down a column, so it stops widening past a comfortable
+     measure however much room the full-screen surface has. */
+  max-width: 880px;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.setting {
+  display: grid;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line-hair);
+  gap: 8px 18px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) auto;
+}
+
+/* A slot nobody filled in is what a writer leaves out of the file, so it reads
+   as a name waiting rather than as a value that happens to be blank. */
+.setting[data-unset] .settingName span {
+  color: var(--muted);
+}
+
+.settingName {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settingName span {
+  color: var(--ink-strong);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.settingName small {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.settingValue {
+  min-width: 0;
+}
+
+.settingValue input,
+.settingValue select,
+.settingValue textarea {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--surface-quiet);
+  color: var(--ink);
+  font: inherit;
+  line-height: 1.5;
+}
+
+.settingValue textarea {
+  resize: vertical;
+}
+
+.settingValue input:focus,
+.settingValue select:focus,
+.settingValue textarea:focus {
+  border-color: var(--accent);
+  background: var(--surface);
+}
+
+.unset {
+  color: var(--faint);
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  font-style: italic;
+}
+
+.settingActions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.settingActions > button:first-child {
+  min-height: 40px;
+  padding-inline: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--body);
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pattern {
+  font-family: var(--font-mono);
+}
+
+.groups input:disabled,
+.addGroup input:disabled,
+.addGroup button:disabled,
+.addSetting input:disabled,
+.addSetting select:disabled,
+.addSetting button:disabled,
+.addOption:disabled,
+.option input:disabled,
+.settingValue input:disabled,
+.settingValue select:disabled,
+.settingValue textarea:disabled,
+.settingActions button:disabled,
+.removeGroup:disabled,
+.removeSetting:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+@media (max-width: 720px) {
+  .setting {
+    align-items: stretch;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settingActions {
+    justify-content: flex-end;
+  }
+
+  .option {
+    flex-wrap: wrap;
+  }
+}

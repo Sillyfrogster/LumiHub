@@ -3,7 +3,16 @@
 import { Maximize2 } from "lucide-react";
 import Image from "next/image";
 import type { CSSProperties } from "react";
-import type { AssetElement, AssetImage, LorebookEntry } from "@/lib/api/query";
+import type {
+  AssetElement,
+  AssetImage,
+  LorebookEntry,
+  PresetSetting,
+  PresetVariable,
+  PromptListContent,
+  RegexScript,
+  TypedValue,
+} from "@/lib/api/query";
 import { fitsInTheSheet, opensFullScreen } from "@/lib/page-arrangement";
 import styles from "./ElementBody.module.css";
 
@@ -176,7 +185,180 @@ function ElementContent({
     return <EntryTable entries={content.entries} />;
   }
 
+  if (element.type === "prompt_list" && "fragments" in content) {
+    return <PromptList content={content} />;
+  }
+
+  if (element.type === "setting_group" && "settings" in content) {
+    return <SettingGroup settings={content.settings} />;
+  }
+
+  if (element.type === "variable_schema" && "variables" in content) {
+    return <VariableSchema variables={content.variables} />;
+  }
+
+  if (element.type === "script_list" && "scripts" in content) {
+    return <ScriptList scripts={content.scripts} />;
+  }
+
   return null;
+}
+
+const PROMPT_ROLE_LABELS: Record<string, string> = {
+  system: "System",
+  user: "User",
+  assistant: "Assistant",
+  user_append: "User, appended",
+  assistant_append: "Assistant, appended",
+};
+
+const PLACEMENT_LABELS: Record<string, string> = {
+  pre_history: "Before the conversation",
+  in_history: "In the conversation",
+  post_history: "After the conversation",
+};
+
+/**
+ * A preset as its prompt, in the order it is sent. A heading appears wherever
+ * the fragment under it belongs to a different one than the fragment before,
+ * so the grouping shows without the order moving to make it show.
+ */
+function PromptList({ content }: { content: PromptListContent }) {
+  const groups = content.groups ?? [];
+  const fragments = content.fragments ?? [];
+  const runs: { group?: string; fragments: PromptListContent["fragments"] }[] =
+    [];
+  for (const fragment of fragments) {
+    const name = groups.find((group) => group.id === fragment.groupId)?.name;
+    const open = runs.at(-1);
+    if (open && open.group === name) open.fragments.push(fragment);
+    else runs.push({ group: name, fragments: [fragment] });
+  }
+  return (
+    <div className={styles.promptList}>
+      {runs.map((run, index) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: Runs follow the fragment order and hold no local state.
+        <section className={styles.promptGroup} key={index}>
+          {run.group ? <h4>{run.group}</h4> : null}
+          <Fragments fragments={run.fragments} />
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function Fragments({
+  fragments,
+}: {
+  fragments: PromptListContent["fragments"];
+}) {
+  return (
+    <ol className={styles.fragments}>
+      {fragments.map((fragment, index) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: Fragments stay ordered and hold no local state.
+        <li key={index} data-off={fragment.enabled ? undefined : true}>
+          <div className={styles.fragmentHead}>
+            <span className={styles.fragmentName}>
+              {fragment.name?.trim() ||
+                fragment.marker?.trim() ||
+                `Fragment ${index + 1}`}
+            </span>
+            <span className={styles.fragmentTags}>
+              {fragment.role ? PROMPT_ROLE_LABELS[fragment.role] : null}
+              {fragment.placement
+                ? ` · ${PLACEMENT_LABELS[fragment.placement]}`
+                : null}
+              {fragment.enabled ? null : " · Off"}
+            </span>
+          </div>
+          {fragment.marker ? (
+            <p className={styles.fragmentMarker}>
+              The app splices its own content in here.
+            </p>
+          ) : (
+            <Paragraphs text={fragment.text} />
+          )}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** Only the settings somebody filled in. A named slot with nothing in it is
+ * a form its owner has yet to fill, not something to show a reader. */
+function SettingGroup({ settings }: { settings: PresetSetting[] }) {
+  const supplied = settings.filter((setting) => setting.value != null);
+  if (supplied.length === 0) return null;
+  return (
+    <dl className={styles.fieldList}>
+      {supplied.map((setting) => (
+        <div key={setting.id ?? setting.name}>
+          <dt>{setting.name}</dt>
+          <dd>{writeValue(setting.value)}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function writeValue(value: TypedValue | undefined): string {
+  if (!value) return "";
+  if (value.number != null) return String(value.number);
+  if (value.boolean != null) return value.boolean ? "Yes" : "No";
+  if (value.strings) {
+    return value.strings.length === 0 ? "Nothing" : value.strings.join(", ");
+  }
+  return value.text ?? "";
+}
+
+/** What a reader is asked before they use the preset. */
+function VariableSchema({ variables }: { variables: PresetVariable[] }) {
+  return (
+    <ul className={styles.variables}>
+      {variables.map((variable, index) => (
+        <li key={variable.id ?? `${index}-${variable.name}`}>
+          <p className={styles.itemName}>
+            {variable.label?.trim() || variable.name}
+          </p>
+          {variable.description ? <p>{variable.description}</p> : null}
+          {variable.options && variable.options.length > 0 ? (
+            <ul className={styles.choices}>
+              {variable.options.map((option, position) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: Choices stay ordered and hold no local state.
+                <li key={position}>{option.label || option.value}</li>
+              ))}
+            </ul>
+          ) : null}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** What the preset rewrites, as a find beside its replacement. */
+function ScriptList({ scripts }: { scripts: RegexScript[] }) {
+  return (
+    <ul className={styles.scripts}>
+      {scripts.map((script, index) => (
+        <li
+          key={script.id ?? index}
+          data-off={script.enabled ? undefined : true}
+        >
+          <p className={styles.itemName}>
+            {script.name?.trim() || `Script ${index + 1}`}
+            {script.enabled ? null : (
+              <span className={styles.fragmentTags}> · Off</span>
+            )}
+          </p>
+          <p className={styles.pattern}>
+            <code>{script.find}</code>
+            <span aria-hidden="true">→</span>
+            <code>{script.replace || "nothing"}</code>
+          </p>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 /**

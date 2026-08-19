@@ -10,24 +10,20 @@ import {
 } from "@/lib/api/query";
 import { fitsInTheSheet, opensFullScreen } from "@/lib/page-arrangement";
 import styles from "./BlockSheet.module.css";
+import { replaceAt, without } from "./CollectionEditor";
 import { EntryTableEditor } from "./EntryTableEditor";
+import {
+  PromptListEditor,
+  ScriptListEditor,
+  SettingGroupEditor,
+  VariableSchemaEditor,
+} from "./PresetEditors";
 
 type TextItem = { name?: string; text: string };
 type DialogueTurn = { speaker: string; text: string };
 type FieldItem = { name?: string; value: string };
 type LinkItem = { label?: string; url: string; note?: string };
 type ImageItem = { mediaId: string; name?: string };
-
-/** Returns the list with one item's fields changed, leaving the rest alone. */
-function replaceAt<T>(items: T[], index: number, changes: Partial<T>): T[] {
-  return items.map((item, position) =>
-    position === index ? { ...item, ...changes } : item,
-  );
-}
-
-function without<T>(items: T[], index: number): T[] {
-  return items.filter((_, position) => position !== index);
-}
 
 /**
  * One element inside a section sheet. Small content is edited here. Content
@@ -147,7 +143,7 @@ export function ElementFields({
       <ListEditor
         items={element.content.texts}
         pending={pending}
-        noun="greeting"
+        noun={element.role === "prompt_nudges" ? "nudge" : "greeting"}
         onChange={(texts) =>
           onChange({
             ...element,
@@ -238,6 +234,70 @@ export function ElementFields({
             ...element,
             content: { entries },
             isEmpty: entries.every((entry) => entry.text.trim() === ""),
+          })
+        }
+      />
+    );
+  }
+
+  if (element.type === "prompt_list" && "fragments" in element.content) {
+    return (
+      <PromptListEditor
+        content={element.content}
+        pending={pending}
+        onChange={(content) =>
+          onChange({
+            ...element,
+            content,
+            isEmpty: content.fragments.length === 0,
+          })
+        }
+      />
+    );
+  }
+
+  if (element.type === "setting_group" && "settings" in element.content) {
+    return (
+      <SettingGroupEditor
+        settings={element.content.settings}
+        pending={pending}
+        onChange={(settings) =>
+          onChange({
+            ...element,
+            content: { settings },
+            isEmpty: settings.every((setting) => setting.value == null),
+          })
+        }
+      />
+    );
+  }
+
+  if (element.type === "variable_schema" && "variables" in element.content) {
+    return (
+      <VariableSchemaEditor
+        variables={element.content.variables}
+        pending={pending}
+        onChange={(variables) =>
+          onChange({
+            ...element,
+            content: { variables },
+            isEmpty: variables.length === 0,
+          })
+        }
+      />
+    );
+  }
+
+  if (element.type === "script_list" && "scripts" in element.content) {
+    return (
+      <ScriptListEditor
+        scripts={element.content.scripts}
+        pending={pending}
+        onChange={(scripts) =>
+          onChange({
+            ...element,
+            content: { scripts },
+            isEmpty: scripts.length === 0,
           })
         }
       />
@@ -682,6 +742,14 @@ function elementHint(type: AssetElement["type"]): string {
       return "Addresses have to start with http or https.";
     case "entry_table":
       return "Each entry is switched on by its own keys.";
+    case "prompt_list":
+      return "Fragments are sent in the order they sit in, under the headings you give them.";
+    case "setting_group":
+      return "The names are your app's own, and a setting you leave out stays out of the file.";
+    case "variable_schema":
+      return "Each variable is one thing a reader chooses before the preset runs.";
+    case "script_list":
+      return "Each script finds something and writes something else in its place.";
   }
 }
 function capitalize(value: string) {
