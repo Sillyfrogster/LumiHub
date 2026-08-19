@@ -236,47 +236,6 @@ func nudges(asset format.ExportAsset) []block.TextItem {
 	return set.Texts
 }
 
-// kept is an asset's preserved data, sorted into what owns it. A writer asks it
-// for one namespace at a time rather than walking the rows itself.
-//
-// An asset's namespaces stay as the bytes they were stored as, because a
-// namespace holds whatever the file put there and not every one of them is an
-// object. An item's are read as keys, which is the only shape a module ever
-// preserves for one item.
-type kept struct {
-	asset map[string]json.RawMessage
-	items map[string]map[uuid.UUID]map[string]json.RawMessage
-}
-
-func preservedBy(rows []format.Remainder) kept {
-	held := kept{
-		asset: make(map[string]json.RawMessage),
-		items: make(map[string]map[uuid.UUID]map[string]json.RawMessage),
-	}
-	for _, row := range rows {
-		switch row.Owner {
-		case format.OwnerAsset:
-			held.asset[row.Namespace] = row.Payload
-		case format.OwnerItem:
-			if held.items[row.Namespace] == nil {
-				held.items[row.Namespace] = make(map[uuid.UUID]map[string]json.RawMessage)
-			}
-			held.items[row.Namespace][row.OwnerID] = keys.Object(row.Payload)
-		}
-	}
-	return held
-}
-
-// item returns what one item of an element kept from the file it arrived in.
-func (k kept) item(namespace string, id uuid.UUID) map[string]json.RawMessage {
-	return k.items[namespace][id]
-}
-
-// object returns one preserved namespace as keys the writer can put back.
-func (k kept) object(namespace string) map[string]json.RawMessage {
-	return keys.Object(k.asset[namespace])
-}
-
 // unnamedSetting matches a group holding a setting whose name this app does
 // not read. A writer puts back the names it declares and no others, so a name
 // from somewhere else stays behind rather than reaching a file that would

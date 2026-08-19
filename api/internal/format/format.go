@@ -128,9 +128,9 @@ type Parsed struct {
 // the file supplies and a writer puts back the fields it declares.
 type Header struct {
 	Name string
-	// Blurb is the line a person reads while browsing. On a kind whose format
-	// carries a description written for a person it is the same text in the
-	// file, and on every other kind it reaches no file at all.
+	// Blurb is the line a person reads while browsing. It is the same text as
+	// the file's own description where a format carries one, and reaches no
+	// file where none does.
 	Blurb          string
 	AssetVersion   string
 	CreditedAuthor string

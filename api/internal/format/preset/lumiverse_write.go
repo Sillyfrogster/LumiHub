@@ -132,16 +132,6 @@ func lumiverseBlockNames(list block.PromptList, held kept) map[uuid.UUID]string 
 	return names
 }
 
-// itemName reads the identifier a file knew one item by, falling back to the
-// id Illarin minted where the item never came from a file.
-func itemName(held kept, namespace string, id uuid.UUID, key string) string {
-	var name string
-	if json.Unmarshal(held.item(namespace, id)[key], &name) == nil && name != "" {
-		return name
-	}
-	return id.String()
-}
-
 func writeLumiverseHeading(
 	group block.PromptGroup,
 	names map[uuid.UUID]string,
@@ -336,9 +326,9 @@ func writeFreeValue(value block.Value) json.RawMessage {
 // restoreLumiversePreserved writes an asset's preserved data back into the
 // file the writer built from the creator's content:
 //
+//   - a name inside a settings object goes back inside that object
 //   - the preset namespace goes back at the file's own top level
 //   - every other namespace goes back under `extensions`, one key each
-//   - a name inside a settings object goes back inside that object
 //
 // Content the writer already wrote wins. A preserved copy of something the
 // creator can now edit would put a stale value back on top of a live one.
@@ -355,17 +345,5 @@ func restoreLumiversePreserved(body map[string]json.RawMessage, held kept) {
 		delete(preserved, key)
 	}
 	keys.MergeAbsent(body, preserved)
-
-	extensions := keys.Object(body[lvExtensions])
-	for namespace, payload := range held.asset {
-		if namespace == lumiverseNamespace {
-			continue
-		}
-		if _, written := extensions[namespace]; !written {
-			extensions[namespace] = payload
-		}
-	}
-	if len(extensions) > 0 {
-		body[lvExtensions] = keys.Must(extensions)
-	}
+	lumiversePreservation.restoreExtensions(body, held)
 }

@@ -192,17 +192,5 @@ func restoreSillyTavernPreserved(body map[string]json.RawMessage, held kept) {
 	preserved := held.object(sillyTavernNamespace)
 	delete(preserved, stOrder)
 	keys.MergeAbsent(body, preserved)
-
-	extensions := keys.Object(body[stExtensions])
-	for namespace, payload := range held.asset {
-		if namespace == sillyTavernNamespace {
-			continue
-		}
-		if _, written := extensions[namespace]; !written {
-			extensions[namespace] = payload
-		}
-	}
-	if len(extensions) > 0 {
-		body[stExtensions] = keys.Must(extensions)
-	}
+	sillyTavernPreservation.restoreExtensions(body, held)
 }
