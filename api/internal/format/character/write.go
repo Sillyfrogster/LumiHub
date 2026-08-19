@@ -16,6 +16,7 @@ import (
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/block"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
+	"github.com/Sillyfrogster/LumiHub/api/internal/format/book"
 )
 
 // The card writers build a file out of the asset's roles. Nothing here reads
@@ -308,44 +309,7 @@ func bookEntries(asset format.ExportAsset) []block.Entry {
 // writtenBook writes the entries a card carries. Everything a book held that
 // the entry table has no place for comes back afterwards, from preservation.
 func writtenBook(entries []block.Entry) json.RawMessage {
-	written := make([]map[string]json.RawMessage, 0, len(entries))
-	for _, entry := range entries {
-		fields := map[string]json.RawMessage{
-			"keys":            mustJSON(orEmptyStrings(entry.Keys)),
-			"content":         mustJSON(entry.Text),
-			"enabled":         mustJSON(entry.Enabled),
-			"insertion_order": mustJSON(entry.Order),
-		}
-		writeIfSet(fields, "name", entry.Name != "", entry.Name)
-		writeIfSet(fields, "secondary_keys", len(entry.SecondaryKeys) > 0, entry.SecondaryKeys)
-		writeIfSet(fields, "selective", entry.Selective, entry.Selective)
-		writeIfSet(fields, "case_sensitive", entry.CaseSensitive, entry.CaseSensitive)
-		writeIfSet(fields, "constant", entry.Constant, entry.Constant)
-		writeIfSet(fields, "position", entry.Position != "", cardPosition(entry.Position))
-		written = append(written, fields)
-	}
-	return mustJSON(map[string]any{"entries": written})
-}
-
-func writeIfSet(fields map[string]json.RawMessage, key string, set bool, value any) {
-	if set {
-		fields[key] = mustJSON(value)
-	}
-}
-
-// cardPosition is the wording a card uses for where an entry's text goes.
-func cardPosition(position block.EntryPosition) string {
-	if position == block.AfterCharacter {
-		return "after_char"
-	}
-	return "before_char"
-}
-
-func orEmptyStrings(values []string) []string {
-	if values == nil {
-		return []string{}
-	}
-	return values
+	return mustJSON(map[string]any{"entries": book.Write(entries)})
 }
 
 // cardAssetRecord is one entry of a v3 card's asset list.

@@ -83,6 +83,16 @@ func (r *Registry) ValidateDeclarations() error {
 	return nil
 }
 
+// signaturesOverlap reports whether one module's structural signature could
+// never be told apart from another's. That is what happens when one asks for a
+// part of what the other asks for, at the same types, on a container they
+// share: every payload the stricter signature matches, the looser one matches
+// as well, so the looser one shadows it on every file.
+//
+// Two signatures that each require a key the other does not are told apart by
+// those keys, which is how the formats with no marker of their own separate. A
+// file carrying both key sets is genuinely ambiguous rather than misdeclared,
+// and resolving it fails closed on equally strong claims.
 func signaturesOverlap(first, second []Recognition) bool {
 	for _, a := range first {
 		if a.Kind != RecognitionSignature {
@@ -92,22 +102,23 @@ func signaturesOverlap(first, second []Recognition) bool {
 			if b.Kind != RecognitionSignature || incompatibleContainers(a.Containers, b.Containers) {
 				continue
 			}
-			compatible := true
-			for key, aType := range a.Required {
-				if bType, present := b.Required[key]; present {
-					if aType == bType {
-						continue
-					}
-					compatible = false
-					break
-				}
-			}
-			if compatible {
+			if shadows(a.Required, b.Required) || shadows(b.Required, a.Required) {
 				return true
 			}
 		}
 	}
 	return false
+}
+
+// shadows reports whether every key the looser signature requires is required
+// by the stricter one at the same type.
+func shadows(looser, stricter map[string]ValueType) bool {
+	for key, wanted := range looser {
+		if held, present := stricter[key]; !present || held != wanted {
+			return false
+		}
+	}
+	return true
 }
 
 func incompatibleContainers(first, second []probe.Container) bool {

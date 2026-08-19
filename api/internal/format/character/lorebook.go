@@ -5,6 +5,7 @@ import (
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/block"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
+	"github.com/Sillyfrogster/LumiHub/api/internal/format/book"
 	"github.com/google/uuid"
 )
 
@@ -86,68 +87,15 @@ func (c card) lorebook() lorebook {
 	}
 	delete(source, "entries")
 
-	book := lorebook{
+	entries, entryFields := book.Read(entryPayloads)
+	read := lorebook{
 		found:            true,
 		insideExtensions: insideExtensions,
-		entryFields:      make(map[uuid.UUID]json.RawMessage),
+		table:            block.EntryTable{Entries: entries},
+		entryFields:      entryFields,
 	}
-	entries := make([]block.Entry, 0, len(entryPayloads))
-	for _, payload := range entryPayloads {
-		item := block.Entry{ID: block.NewItemID(), Enabled: true}
-		var fields map[string]json.RawMessage
-		if json.Unmarshal(payload, &fields) != nil || fields == nil {
-			// An entry that is not an object still arrived, so it is kept as
-			// an entry with nothing read and the whole payload preserved.
-			book.entryFields[item.ID] = payload
-			entries = append(entries, item)
-			continue
-		}
-		readEntry(fields, &item)
-		entries = append(entries, item)
-		if len(fields) > 0 {
-			book.entryFields[item.ID], _ = json.Marshal(fields)
-		}
-	}
-	book.table = block.EntryTable{Entries: entries}
 	if len(source) > 0 {
-		book.bookFields, _ = json.Marshal(source)
+		read.bookFields, _ = json.Marshal(source)
 	}
-	return book
-}
-
-// readEntry takes what the entry table models out of one entry's fields and
-// leaves the rest behind for preservation.
-func readEntry(fields map[string]json.RawMessage, item *block.Entry) {
-	consumeLorebookField(fields, "name", &item.Name)
-	consumeLorebookField(fields, "keys", &item.Keys)
-	consumeLorebookField(fields, "secondary_keys", &item.SecondaryKeys)
-	consumeLorebookField(fields, "selective", &item.Selective)
-	consumeLorebookField(fields, "case_sensitive", &item.CaseSensitive)
-	consumeLorebookField(fields, "constant", &item.Constant)
-	consumeLorebookField(fields, "enabled", &item.Enabled)
-	consumeLorebookField(fields, "insertion_order", &item.Order)
-	consumeLorebookField(fields, "content", &item.Text)
-	var position string
-	if !consumeLorebookField(fields, "position", &position) {
-		return
-	}
-	switch position {
-	case "", "before_char", "before_character":
-		if position != "" {
-			item.Position = block.BeforeCharacter
-		}
-	case "after_char", "after_character":
-		item.Position = block.AfterCharacter
-	default:
-		fields["position"], _ = json.Marshal(position)
-	}
-}
-
-func consumeLorebookField[T any](fields map[string]json.RawMessage, name string, target *T) bool {
-	raw, present := fields[name]
-	if !present || json.Unmarshal(raw, target) != nil {
-		return false
-	}
-	delete(fields, name)
-	return true
+	return read
 }

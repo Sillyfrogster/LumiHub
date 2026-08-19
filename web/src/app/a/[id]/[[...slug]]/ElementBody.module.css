@@ -201,7 +201,21 @@
 .entryTable {
   width: 100%;
   border-collapse: collapse;
+  /* Fixed columns. Left to fit its own content, a table of 285 entries hands
+     the width to whichever row carries the longest key list and squeezes the
+     names beside it down to a letter a line. */
+  table-layout: fixed;
   text-align: left;
+}
+
+.entryTable th:first-child,
+.entryTable td:first-child {
+  width: 18%;
+}
+
+.entryTable th:nth-child(2),
+.entryTable td:nth-child(2) {
+  width: 24%;
 }
 
 .entryTable th {
@@ -216,7 +230,7 @@
 
 .entryTable th:last-child,
 .entryTable td:last-child {
-  width: 1%;
+  width: 4rem;
   padding-right: 0;
   white-space: nowrap;
 }
@@ -243,7 +257,9 @@
   color: var(--ink-strong);
   font-size: 0.88rem;
   font-weight: 700;
-  overflow-wrap: anywhere;
+  /* A name breaks between its words, and inside one only where a single word
+     is wider than the column. */
+  overflow-wrap: break-word;
 }
 
 .entryTable tr[data-off] .entryName {
@@ -307,6 +323,8 @@
     text-transform: uppercase;
   }
 
+  .entryTable td:first-child,
+  .entryTable td:nth-child(2),
   .entryTable th:last-child,
   .entryTable td:last-child {
     width: auto;

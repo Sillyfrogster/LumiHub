@@ -76,25 +76,52 @@ type declarationModule struct {
 
 func (m declarationModule) Declaration() Declaration { return m.declaration }
 
-func TestValidationRejectsSignaturesOnePayloadCanMatchTogether(t *testing.T) {
+// registerSignatures puts one module behind each structural signature.
+func registerSignatures(t *testing.T, signatures map[string]map[string]ValueType) *Registry {
+	t.Helper()
 	registry := NewRegistry()
-	for _, item := range []struct {
-		id       string
-		required map[string]ValueType
-	}{
-		{id: "first", required: map[string]ValueType{"alpha": ValueString}},
-		{id: "second", required: map[string]ValueType{"beta": ValueBoolean}},
-	} {
-		declaration := testReaderDeclaration(item.id, "character")
-		declaration.Recognition[0].Required = item.required
+	for id, required := range signatures {
+		declaration := testReaderDeclaration(id, "character")
+		declaration.Recognition[0].Required = required
 		if err := registry.Register(declarationModule{
-			stubModule: stubModule{id: item.id}, declaration: declaration,
+			stubModule: stubModule{id: id}, declaration: declaration,
 		}); err != nil {
-			t.Fatalf("register %s: %v", item.id, err)
+			t.Fatalf("register %s: %v", id, err)
 		}
 	}
+	return registry
+}
+
+func TestValidationRejectsASignatureThatShadowsAnother(t *testing.T) {
+	registry := registerSignatures(t, map[string]map[string]ValueType{
+		"looser":   {"alpha": ValueString},
+		"stricter": {"alpha": ValueString, "beta": ValueBoolean},
+	})
 	if err := registry.ValidateDeclarations(); !errors.Is(err, ErrInvariant) {
-		t.Fatalf("validation error = %v, want overlapping signatures rejected", err)
+		t.Fatalf("validation error = %v, want the shadowed signature rejected", err)
+	}
+}
+
+// The formats that name themselves nowhere are told apart by the keys each one
+// requires and the other does not, which is the whole of how a lorebook and a
+// legacy character card separate.
+func TestValidationAcceptsSignaturesThatEachRequireWhatTheOtherDoesNot(t *testing.T) {
+	registry := registerSignatures(t, map[string]map[string]ValueType{
+		"first":  {"alpha": ValueString},
+		"second": {"beta": ValueBoolean},
+	})
+	if err := registry.ValidateDeclarations(); err != nil {
+		t.Fatalf("validation error = %v, want signatures with disjoint keys accepted", err)
+	}
+}
+
+func TestValidationRejectsTwoModulesDeclaringOneSignature(t *testing.T) {
+	registry := registerSignatures(t, map[string]map[string]ValueType{
+		"first":  {"alpha": ValueString},
+		"second": {"alpha": ValueString},
+	})
+	if err := registry.ValidateDeclarations(); !errors.Is(err, ErrInvariant) {
+		t.Fatalf("validation error = %v, want the repeated signature rejected", err)
 	}
 }
 

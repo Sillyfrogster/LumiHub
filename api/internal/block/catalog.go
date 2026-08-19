@@ -7,6 +7,7 @@ type DefinitionID string
 
 const (
 	CharacterCore     DefinitionID = "character_core"
+	LorebookCore      DefinitionID = "lorebook_core"
 	Messages          DefinitionID = "messages"
 	Expressions       DefinitionID = "expressions"
 	Lorebook          DefinitionID = "lorebook"
@@ -213,6 +214,23 @@ var character = []Definition{
 	},
 }
 
+// lorebook is the lorebook catalog. A book is its entries, so the kind has one
+// required section and nothing else of its own.
+var lorebook = []Definition{
+	{
+		ID:       LorebookCore,
+		Title:    "Entries",
+		Required: true,
+		// A lorebook with its entries withheld is not a page.
+		Hideable: false,
+		Elements: []DefinedElement{
+			{Role: RoleLorebookEntries, Type: TypeEntryTable, Pinned: true},
+		},
+		Layouts: []Layout{Single},
+		Width:   Full,
+	},
+}
+
 // shared is the seven definitions every kind lists. They hold the parts no
 // file format carries, whatever a creator is building.
 var shared = []Definition{
@@ -295,6 +313,7 @@ var shared = []Definition{
 // yet, and creation refuses it rather than offering an empty page.
 var catalogs = map[string][]Definition{
 	"character": character,
+	"lorebook":  lorebook,
 }
 
 // Catalog returns the block definitions a kind declares, in page order. Every

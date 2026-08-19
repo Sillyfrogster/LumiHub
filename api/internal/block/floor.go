@@ -41,6 +41,14 @@ var contentFloors = map[string][]Requirement{
 			Role:   RoleGreetings,
 		},
 	},
+	"lorebook": {
+		{
+			ID:     "entries",
+			Label:  "Entry",
+			Detail: "Write at least one entry.",
+			Role:   RoleLorebookEntries,
+		},
+	},
 }
 
 // ContentFloor measures a kind's content requirements against an asset's

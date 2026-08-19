@@ -7,10 +7,12 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format/character"
+	"github.com/Sillyfrogster/LumiHub/api/internal/format/lorebook"
 	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
 	"github.com/google/uuid"
 )
@@ -27,7 +29,7 @@ func (s corpusStore) ReadRange(_ context.Context, _ uuid.UUID, offset, length in
 // fails.
 func TestLocalCorpusRunsThroughEveryModule(t *testing.T) {
 	registry := format.NewRegistry()
-	for _, module := range character.Modules() {
+	for _, module := range slices.Concat(character.Modules(), lorebook.Modules()) {
 		if err := registry.Register(module); err != nil {
 			t.Fatalf("register %q: %v", module.ID(), err)
 		}
@@ -74,7 +76,8 @@ func TestLocalCorpusRunsThroughEveryModule(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if parsed.Kind != character.Kind || parsed.Format != resolution.Module.ID() {
+		declared := resolution.Module.Declaration()
+		if parsed.Kind != declared.Kind || parsed.Format != resolution.Module.ID() {
 			t.Errorf("%s parsed as kind %q format %q", entry.Name(), parsed.Kind, parsed.Format)
 		}
 		return nil
