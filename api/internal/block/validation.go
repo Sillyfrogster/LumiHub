@@ -19,13 +19,14 @@ const (
 // element content, including import and hand editing.
 func ValidateContentLimits(elements []Element) error {
 	for _, element := range elements {
-		count := elementItemCount(element.Content)
-		if count > MaxCollectionItems {
+		items := elementItems(element.Content)
+		if len(items) > MaxCollectionItems {
 			return fmt.Errorf(
-				"%s has %d items; the limit is %d", element.Role.Label(), count, MaxCollectionItems,
+				"%s has %d items; the limit is %d",
+				element.Role.Label(), len(items), MaxCollectionItems,
 			)
 		}
-		for index, item := range elementItems(element.Content) {
+		for index, item := range items {
 			encoded, err := json.Marshal(item)
 			if err != nil {
 				return fmt.Errorf("measure %s item %d: %w", element.Role.Label(), index+1, err)
@@ -70,8 +71,11 @@ func validateItemIDs(element Element, name string) error {
 	return nil
 }
 
+// elementItems returns everything inside one element that a limit is measured
+// against. It is the one place the item types are listed, so a count and the
+// items themselves can never disagree.
 func elementItems(content Content) []any {
-	items := make([]any, 0, elementItemCount(content))
+	var items []any
 	switch value := content.(type) {
 	case TextSet:
 		for _, item := range value.Texts {
@@ -118,33 +122,6 @@ func elementItems(content Content) []any {
 		}
 	}
 	return items
-}
-
-func elementItemCount(content Content) int {
-	switch value := content.(type) {
-	case TextSet:
-		return len(value.Texts)
-	case DialogueSample:
-		return len(value.Turns)
-	case ImageSet:
-		return len(value.Images)
-	case FieldList:
-		return len(value.Fields)
-	case LinkList:
-		return len(value.Links)
-	case EntryTable:
-		return len(value.Entries)
-	case PromptList:
-		return len(value.Groups) + len(value.Fragments)
-	case VariableSchema:
-		return len(value.Variables)
-	case SettingGroup:
-		return len(value.Settings)
-	case ScriptList:
-		return len(value.Scripts)
-	default:
-		return 0
-	}
 }
 
 // ValidateStructure checks whether a block can be read without special cases.

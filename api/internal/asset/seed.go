@@ -33,10 +33,10 @@ func Apps(kind string) []string {
 	return apps
 }
 
-// seedFor returns the elements a from-nothing asset starts with. Only a kind
-// that is asked which app it is for has any, and what it returns is named slots
-// with nothing in them. The seed supplies names and never values.
-func seedFor(kind string, app string) ([]block.Element, error) {
+// seedElements returns the elements a from-nothing asset starts with. Only a
+// kind that is asked which app it is for has any, and what it returns is named
+// slots with nothing in them. The seed supplies names and never values.
+func seedElements(kind string, app string) ([]block.Element, error) {
 	if !KindAsksForAnApp(kind) {
 		if app != "" {
 			return nil, ErrAppNotAnswered

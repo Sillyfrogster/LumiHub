@@ -220,7 +220,7 @@ func (s *Service) StartFromNothing(
 	if _, ok := block.Catalog(kind); !ok {
 		return uuid.Nil, ErrKindNotBuildable
 	}
-	seeded, err := seedFor(kind, app)
+	seeded, err := seedElements(kind, app)
 	if err != nil {
 		return uuid.Nil, err
 	}

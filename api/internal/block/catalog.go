@@ -237,7 +237,7 @@ var lorebook = []Definition{
 }
 
 // preset is the preset catalog, in page order. A preset is its prompt, and
-// the four groups of knobs around it are each absent until something fills
+// the four groups of settings around it are each absent until something fills
 // them.
 var preset = []Definition{
 	{
@@ -255,10 +255,10 @@ var preset = []Definition{
 	{
 		ID:      PresetSettings,
 		Title:   "Settings",
-		Summary: "The samplers, the completion behaviour and the advanced knobs.",
+		Summary: "Samplers, completion behaviour, and the advanced settings.",
 		Group:   GroupFile,
 		// Three groups of one type rather than three sections, because three
-		// near-identical cards of knobs read as a spreadsheet.
+		// near-identical cards of settings read as a spreadsheet.
 		Elements: []DefinedElement{
 			{Role: RoleSamplerSettings, Type: TypeSettingGroup},
 			{Role: RoleCompletionSettings, Type: TypeSettingGroup},
