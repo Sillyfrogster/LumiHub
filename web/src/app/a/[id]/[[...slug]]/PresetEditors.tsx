@@ -241,7 +241,7 @@ function GroupEditor({
           type="button"
           onClick={() => {
             if (adding.trim() === "") return;
-            // Fragments can reference this group before the next save.
+            /** Fragments can reference this group before the next save. */
             onChange({
               groups: [
                 ...groups,

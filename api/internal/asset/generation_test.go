@@ -297,8 +297,6 @@ func TestRemovingASectionThatHeldContentMovesTheContentGeneration(t *testing.T) 
 	}
 }
 
-// The creator's own version text is an exported field like any other. Editing
-// it changes the file, and nothing here reads the text itself (ADR-0023).
 func TestTheAssetVersionIsPartOfTheFingerprintAndTheDiscoveryStateIsNot(t *testing.T) {
 	svc, pool := newTestService(t)
 	owner, draft := startedDraft(t, svc)

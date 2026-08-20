@@ -19,9 +19,7 @@ const OriginIllarin = "illarin"
 type ExportAsset struct {
 	Kind   string
 	Header Header
-	// Elements are the asset's role-tagged content in page order. A hidden
-	// block's elements are in here, because hiding is a promise about a page
-	// and an export is a promise about a file (ADR-0024).
+	// Elements includes hidden page content because hiding does not change exports.
 	Elements []block.Element
 	// Cover is the picture that stands for the asset, nil where it has none.
 	Cover *ExportMedia

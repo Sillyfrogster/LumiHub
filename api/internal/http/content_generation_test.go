@@ -25,8 +25,6 @@ func contentGeneration(t *testing.T, pool *pgxpool.Pool, assetID string) int {
 	return generation
 }
 
-// The counter a linked instance compares moves for the content of a download
-// and stays still for the arrangement of a page (ADR-0023).
 func TestEditingAnElementMovesTheCounterAndRearrangingThePageDoesNot(t *testing.T) {
 	_, r, session, _, pool := newVerifiedTestRoutersWithPool(t, 1<<20, DefaultDeadlines())
 	started := startCharacter(t, r, session)

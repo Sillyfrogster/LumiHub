@@ -109,9 +109,7 @@ func (s *Service) writeExport(
 	return written, nil
 }
 
-// elements is the asset's content in page order. A hidden block's elements are
-// in here, because hiding is a promise about a page and an export is a promise
-// about a file (ADR-0024).
+// elements includes hidden page content because hiding does not change exports.
 func (subject exportSubject) elements() []block.Element {
 	elements := make([]block.Element, 0)
 	for _, holder := range subject.blocks {

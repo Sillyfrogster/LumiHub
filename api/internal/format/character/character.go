@@ -209,8 +209,6 @@ func declaration(id string) format.Declaration {
 		Preservation: format.PreservationDeclaration{
 			Body: cardNamespace, Container: []string{extensionsKey},
 		},
-		// Shared roles make all character origins tested across card writers
-		// (ADR-0020).
 		TestedOrigins: []string{V2, V3, CharX, format.OriginIllarin},
 	}
 }

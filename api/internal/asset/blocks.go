@@ -203,10 +203,7 @@ func (s *Service) AddBlock(
 	return SavedBlock{Kind: kind, Block: added}, nil
 }
 
-// ArrangeBlocks rewrites page order, visibility and width as one change. None
-// of the three reaches a download, so the export section of the projection is
-// left where it is. An export is a promise about a file and hiding is a promise
-// about a page (ADR-0024).
+// ArrangeBlocks changes page presentation without changing exported content.
 func (s *Service) ArrangeBlocks(
 	ctx context.Context,
 	ownerID uuid.UUID,

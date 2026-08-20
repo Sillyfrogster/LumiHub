@@ -19,9 +19,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// aCardCarryingThirdPartyNamespaces is the file this ticket exists for: real
-// content, four namespaces SillyTavern stamps on everything it writes, two a
-// creator's other tools wrote, and a book whose entries carry their own ids.
+// aCardCarryingThirdPartyNamespaces exercises body, extension, and entry data.
 const aCardCarryingThirdPartyNamespaces = `{
 	"spec":"chara_card_v3","spec_version":"3.0",
 	"data":{
@@ -175,8 +173,6 @@ func TestPreservedDataNeverRendersOnThePage(t *testing.T) {
 	}
 }
 
-// The round trip this ticket exists for. An edit to an unrelated block leaves
-// every preserved key exactly as it arrived.
 func TestEditingABlockLeavesEveryPreservedKeyUntouched(t *testing.T) {
 	r, session, assets := newCharacterIngestRouter(t)
 	assetID := uploadedCharacterID(t, r, session, assets, aCardCarryingThirdPartyNamespaces)

@@ -36,7 +36,11 @@ func TestLocalCorpusRunsThroughEveryModule(t *testing.T) {
 		t.Fatalf("module declarations: %v", err)
 	}
 
-	root := filepath.Clean("../../../.ai/probe-corpus")
+	root := os.Getenv("ILLARIN_LOCAL_CORPUS")
+	if root == "" {
+		t.Skip("local probe corpus is not configured")
+	}
+	root = filepath.Clean(root)
 	if _, err := os.Stat(root); os.IsNotExist(err) {
 		t.Skip("local probe corpus is not present")
 	} else if err != nil {

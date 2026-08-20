@@ -91,9 +91,7 @@ func (SillyTavernModule) Declaration() format.Declaration {
 		ConsumedKeys: []string{entriesKey},
 		Boilerplate:  nil,
 		Preservation: format.PreservationDeclaration{Body: bookNamespace},
-		// Its own format and Illarin-authored books. Reading a listed book and
-		// writing a keyed one would be a converter between two formats, which
-		// is a thing no module is (ADR-0020).
+		// This module does not convert between lorebook formats.
 		TestedOrigins: []string{SillyTavernID, format.OriginIllarin},
 	}
 }

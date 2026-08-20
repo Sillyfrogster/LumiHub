@@ -10,10 +10,7 @@ import (
 	"github.com/Sillyfrogster/LumiHub/api/internal/block"
 )
 
-// App is an application a reader opens a downloaded file in. The table is
-// display knowledge. It is stored on no asset, it is openly incomplete, and an
-// app Illarin has not named is simply absent. It exists so the recommendation
-// can prefer a format somebody's app will actually open (ADR-0025).
+// App describes formats an application can open for download recommendations.
 type App struct {
 	ID    string
 	Label string
@@ -117,13 +114,7 @@ func (s CapabilitySubject) origin() string {
 	return s.Origin
 }
 
-// OfferedTargets returns the formats this asset may be downloaded as, each with
-// what it costs, and marks the recommended one.
-//
-// Three gates all have to pass before a target is offered: the writer has been
-// tested against the asset's origin, the content survives the trip, and a
-// cross-platform target is allowed by the creator. Structural compatibility on
-// its own makes a writer eligible for nothing (ADR-0020).
+// OfferedTargets returns tested, permitted formats and their content costs.
 func (r *Registry) OfferedTargets(subject CapabilitySubject) []Target {
 	ids := make([]string, 0, len(r.modules))
 	for id := range r.modules {

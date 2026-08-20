@@ -113,7 +113,7 @@ function texts(entries: Record<string, unknown>[], key: string): string[] {
   return found;
 }
 
-// Keep indented prose and thematic breaks literal; HTML is stripped first.
+/** Keeps indented prose and thematic breaks literal after HTML is stripped. */
 const DISABLED = {
   disable: { null: ["codeIndented", "htmlFlow", "htmlText", "thematicBreak"] },
 };
@@ -272,7 +272,7 @@ const DISCARDED = /<(script|style|svg)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi;
 const COMMENT_OR_TAG =
   /<!--[\s\S]*?-->|<\/?([a-zA-Z][a-zA-Z0-9-]*)(?:\s(?:"[^"]*"|'[^']*'|[^'">])*)?\/?>/g;
 
-// Only recognized HTML names are stripped; prompt-like angle brackets survive.
+/** Strips recognized HTML while preserving prompt-like angle brackets. */
 function stripHtml(source: string): { text: string; removed: boolean } {
   let removed = false;
   let text = source.replace(DISCARDED, () => {

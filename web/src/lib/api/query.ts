@@ -99,7 +99,7 @@ export async function fetchDeletedAssets(
   return data.items;
 }
 
-// The API intentionally makes withheld, deleted, and missing assets identical.
+/** The API intentionally makes withheld, deleted, and missing assets identical. */
 export async function fetchAsset(
   id: string,
   cookie?: string,
@@ -123,8 +123,7 @@ export async function startAsset(
   const { data, error } = await api.POST("/v1/assets", {
     body: app ? { kind, app } : { kind },
   });
-  // The same route also accepts an upload, which answers with an ingest
-  // operation, so the answer is narrowed to the page a start comes back with.
+  /** The upload variant returns an ingest operation, so require a page here. */
   if (error || !data || !("blocks" in data)) {
     throw new Error("Could not start the asset");
   }
@@ -195,7 +194,7 @@ export async function addAssetBlock(
   return data;
 }
 
-// Media is stored first, then linked when its section is saved.
+/** Media is stored first, then linked when its section is saved. */
 export async function addAssetImage(
   assetId: string,
   file: File,
@@ -282,7 +281,7 @@ export async function moveAssetBlockContent(
   return data;
 }
 
-// A null adult-content answer is allowed only while the asset is a draft.
+/** A null adult-content answer is allowed only while the asset is a draft. */
 export async function saveAssetIdentity(
   id: string,
   identity: { name: string; isNsfw: boolean | null },
@@ -327,7 +326,7 @@ export async function publishAsset(
   };
 }
 
-// Preserved namespaces belong to the source file and are owner-only.
+/** Preserved namespaces belong to the source file and are owner-only. */
 export async function fetchPreservedNamespaces(
   id: string,
 ): Promise<PreservedNamespace[]> {

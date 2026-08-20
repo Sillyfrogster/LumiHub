@@ -259,8 +259,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Asset, error) {
 	assetID := uuid.New()
 	revisionID := uuid.New()
 
-	// Write first so a failure can only leave a sweepable orphan, never a
-	// committed row that points to a missing file.
+	// Write first so failures leave sweepable orphans instead of missing files.
 	stored, err := s.store.Put(ctx, in.File)
 	if err != nil {
 		return Asset{}, fmt.Errorf("store upload: %w", err)

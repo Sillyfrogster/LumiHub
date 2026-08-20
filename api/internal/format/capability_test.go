@@ -92,9 +92,6 @@ func targetNamed(targets []Target, id string) (Target, bool) {
 	return Target{}, false
 }
 
-// Structural compatibility makes a writer eligible for nothing. A writer that
-// has not been tested against this asset's origin is not offered, however well
-// its declaration lines up (ADR-0020).
 func TestAnUntestedOriginOffersNoTarget(t *testing.T) {
 	registry := registryOf(t, writerDeclaration("preset_lumiverse", fullCharacterGrades()))
 	targets := registry.OfferedTargets(CapabilitySubject{

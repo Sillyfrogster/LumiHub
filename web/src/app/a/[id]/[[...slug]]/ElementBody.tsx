@@ -411,7 +411,7 @@ function EntryTable({ entries }: { entries: LorebookEntry[] }) {
   );
 }
 
-// Prompt fragments are sent to models verbatim.
+/** Prompt fragments are sent to models verbatim. */
 function Paragraphs({ text }: { text: string }) {
   const paragraphs = text.split(/\n{2,}/).filter((line) => line.trim() !== "");
   return (

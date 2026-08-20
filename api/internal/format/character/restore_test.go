@@ -9,9 +9,6 @@ import (
 	"github.com/Sillyfrogster/LumiHub/api/internal/format/keys"
 )
 
-// The round trip this whole ticket exists for: a card carrying third-party
-// namespaces is read, its content is edited, and every preserved key comes
-// back byte-identical.
 func TestEveryPreservedKeyComesBackByteIdentical(t *testing.T) {
 	source := `{
 		"spec":"chara_card_v3","spec_version":"3.0",

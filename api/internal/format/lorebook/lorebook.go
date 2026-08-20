@@ -85,9 +85,7 @@ func (Module) Declaration() format.Declaration {
 		Preservation: format.PreservationDeclaration{
 			Body: bookNamespace, Container: []string{extensionsKey},
 		},
-		// Its own format and Illarin-authored books. A card writer is not
-		// tested to build a book out of a card's roles and does not claim to
-		// be (ADR-0020).
+		// This module does not convert character cards into standalone books.
 		TestedOrigins: []string{ID, format.OriginIllarin},
 	}
 }

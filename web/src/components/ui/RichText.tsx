@@ -47,7 +47,7 @@ function Block({ block }: { block: RichBlock }) {
   }
 
   if (block.kind === "heading") {
-    // Page headings already occupy h1 through h3.
+    /** Page headings already occupy h1 through h3. */
     const Tag = `h${Math.min(block.depth + 3, 6)}` as "h4" | "h5" | "h6";
     return (
       <Tag className={styles.heading}>

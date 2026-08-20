@@ -164,9 +164,7 @@ func (SillyTavernModule) Declaration() format.Declaration {
 		Preservation: format.PreservationDeclaration{
 			Body: sillyTavernNamespace, Container: []string{stExtensions},
 		},
-		// Its own format and Illarin-authored presets. Neither preset format
-		// converts to the other, so the Lumiverse preset is not here
-		// (ADR-0020).
+		// This module does not convert between preset formats.
 		TestedOrigins: []string{SillyTavernID, format.OriginIllarin},
 	}
 }

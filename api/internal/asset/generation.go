@@ -18,21 +18,9 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// Content generation is the integer that tells a linked instance an update
-// exists (ADR-0023). It starts at 1 and moves when a change would alter the
-// bytes of a file Illarin could hand out.
-//
-// No editing path decides that for itself. Each one fingerprints the asset
-// before it changes anything and hands the fingerprint back afterwards, so the
-// rule lives here alone and cannot drift as kinds and formats arrive.
+// Content generation advances when a change alters downloadable bytes.
 
-// contentFingerprint digests everything about an asset that reaches a file a
-// reader could download.
-//
-// Arrangement is deliberately absent. Block order, layout, width and hiding
-// are promises about a page rather than about a file (ADR-0024), so the page's
-// own columns are never read and elements are digested in id order rather than
-// in page order.
+// contentFingerprint excludes page arrangement and digests elements by ID.
 func (s *Service) contentFingerprint(
 	ctx context.Context,
 	q db.DBTX,

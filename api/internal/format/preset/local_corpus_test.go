@@ -14,7 +14,11 @@ import (
 // TestEveryLocalPresetSurvivesADownload exercises optional local fixtures and
 // skips when the corpus is absent.
 func TestEveryLocalPresetSurvivesADownload(t *testing.T) {
-	root := filepath.Clean("../../../../.ai/probe-corpus/full")
+	root := os.Getenv("ILLARIN_LOCAL_CORPUS")
+	if root == "" {
+		t.Skip("the local corpus is not configured")
+	}
+	root = filepath.Join(filepath.Clean(root), "full")
 	entries, err := os.ReadDir(root)
 	if os.IsNotExist(err) {
 		t.Skip("the local corpus is not on this machine")
