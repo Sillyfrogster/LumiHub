@@ -19,28 +19,28 @@
   align-items: center;
   gap: 8px;
   padding-inline: 13px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-md);
-  background: var(--surface);
-  color: var(--body);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
   font-size: 0.74rem;
   font-weight: 700;
 }
 
 .ownerToolbar > span {
   border-color: transparent;
-  background: var(--surface-frame);
-  color: var(--ink);
+  background: var(--color-muted);
+  color: var(--color-text-primary);
 }
 
 .ownerToolbar button:hover {
-  border-color: var(--faint);
-  color: var(--ink);
+  border-color: var(--color-text-secondary);
+  color: var(--color-text-primary);
 }
 
 .ownerToolbar button:focus-visible,
 .hiddenNotice button:focus-visible {
-  outline: 3px solid rgba(182, 92, 255, 0.25);
+  outline: 3px solid var(--color-accent);
   outline-offset: 2px;
 }
 
@@ -57,42 +57,24 @@
   container-name: block;
   container-type: inline-size;
   padding: 28px 30px 32px;
-  border: 1px solid var(--line-card);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
-  background: var(--surface);
+  background: var(--color-surface);
   scroll-margin-top: calc(var(--header-height) + 16px);
 }
 
 .block[data-hidden] {
   border-style: dashed;
-  background: var(--surface-quiet);
+  background: var(--color-muted);
 }
 
 .block[data-hidden] > :not(.hiddenNotice) {
   opacity: 0.48;
 }
 
-/* A readiness link lands here, so the block says which one it is. */
 .block:target {
-  border-color: rgba(182, 92, 255, 0.55);
-  box-shadow: 0 0 0 4px rgba(182, 92, 255, 0.12);
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .block:target {
-    animation: blockArrival 1200ms var(--ease) both;
-  }
-}
-
-@keyframes blockArrival {
-  0%,
-  55% {
-    box-shadow: 0 0 0 6px rgba(182, 92, 255, 0.22);
-  }
-
-  100% {
-    box-shadow: 0 0 0 4px rgba(182, 92, 255, 0.12);
-  }
+  border-color: var(--color-highlight);
+  background: var(--color-highlight-soft);
 }
 
 .header {
@@ -103,7 +85,7 @@
   gap: 20px;
   margin-bottom: 22px;
   padding-bottom: 16px;
-  border-bottom: 1px solid var(--line-hair);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .hiddenNotice {
@@ -113,10 +95,10 @@
   gap: 14px;
   margin: -6px 0 22px;
   padding: 12px 14px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: var(--surface);
-  color: var(--body);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
   font-size: 0.75rem;
   line-height: 1.45;
 }
@@ -125,10 +107,10 @@
   min-height: 40px;
   flex: 0 0 auto;
   padding-inline: 12px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-md);
-  background: var(--surface);
-  color: var(--ink);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
   font-size: 0.72rem;
   font-weight: 700;
 }
@@ -142,7 +124,7 @@
 }
 
 .title {
-  color: var(--ink);
+  color: var(--color-text-primary);
   font-family: var(--font-display);
   font-size: 1.5rem;
   font-weight: 500;
@@ -153,9 +135,9 @@
 .heading span {
   flex: 0 0 auto;
   padding: 4px 8px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-pill);
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 0.65rem;
   line-height: 1;
 }
@@ -174,10 +156,10 @@
   align-items: center;
   gap: 7px;
   padding: 0 12px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-md);
-  background: var(--surface);
-  color: var(--body);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
   font-size: 0.74rem;
   font-weight: 700;
   transition:
@@ -186,8 +168,8 @@
 }
 
 .edit:hover {
-  border-color: var(--faint);
-  color: var(--ink);
+  border-color: var(--color-text-secondary);
+  color: var(--color-text-primary);
 }
 
 .single,
@@ -245,10 +227,10 @@
 .arrangementMessage {
   margin-bottom: 18px;
   padding: 12px 14px;
-  border: 1px solid var(--line-check);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: var(--surface-frame);
-  color: var(--body);
+  background: var(--color-muted);
+  color: var(--color-text-secondary);
   font-size: 0.75rem;
   line-height: 1rem;
 }
@@ -340,10 +322,10 @@
     display: block;
     margin-bottom: -18px;
     padding: 12px 14px;
-    border: 1px solid var(--line);
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
-    background: var(--surface-quiet);
-    color: var(--body);
+    background: var(--color-muted);
+    color: var(--color-text-secondary);
     font-size: 0.75rem;
     line-height: 1rem;
   }

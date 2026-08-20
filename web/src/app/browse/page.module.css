@@ -6,8 +6,12 @@
   position: relative;
   min-height: 330px;
   overflow: hidden;
-  border-bottom: 1px solid rgba(199, 212, 232, 0.72);
-  background: linear-gradient(180deg, #f6f9fc, #eaf2fa);
+  border-bottom: 1px solid var(--color-border);
+  background: linear-gradient(
+    180deg,
+    var(--color-background),
+    var(--color-muted)
+  );
 }
 
 .mastheadInner {
@@ -36,7 +40,7 @@
 .intro p {
   max-width: 430px;
   margin-top: 20px;
-  color: var(--body);
+  color: var(--color-text-secondary);
   font-family: var(--font-display);
   font-size: clamp(1rem, 1.35vw, 1.13rem);
   font-style: italic;

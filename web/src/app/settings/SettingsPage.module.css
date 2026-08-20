@@ -2,8 +2,8 @@
   position: relative;
   min-height: calc(100svh - var(--header-height));
   overflow: hidden;
-  border-bottom: 1px solid var(--line);
-  background: var(--ground);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-background);
 }
 
 .layout {
@@ -29,7 +29,7 @@
 .heading p {
   max-width: 62ch;
   margin-top: 20px;
-  color: var(--body);
+  color: var(--color-text-secondary);
   font-size: 0.98rem;
   line-height: 1.75;
 }
@@ -39,8 +39,8 @@
   top: -220px;
   left: -280px;
   opacity: 0.36;
-  mix-blend-mode: multiply;
-  mask-image: radial-gradient(ellipse, #000 34%, transparent 72%);
+  mix-blend-mode: var(--art-wash-blend);
+  mask-image: radial-gradient(ellipse, var(--mask-opaque) 34%, transparent 72%);
 }
 
 .sprig {

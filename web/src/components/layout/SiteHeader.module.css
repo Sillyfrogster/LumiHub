@@ -2,9 +2,9 @@
   position: sticky;
   top: 0;
   z-index: 80;
-  background: rgba(246, 248, 251, 0.86);
+  background: color-mix(in srgb, var(--color-background) 86%, transparent);
   backdrop-filter: blur(14px) saturate(1.1);
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .bar {
@@ -19,7 +19,7 @@
   align-items: center;
   gap: 9px;
   flex: none;
-  color: var(--ink);
+  color: var(--color-text-primary);
 }
 
 .wordmark {
@@ -34,7 +34,7 @@
   align-items: center;
   gap: 26px;
   font-size: 13.5px;
-  color: var(--body);
+  color: var(--color-text-secondary);
 }
 
 .navLink {
@@ -47,7 +47,7 @@
 }
 
 .navLink:hover {
-  color: var(--ink-strong);
+  color: var(--color-text-primary);
 }
 
 .navLink[aria-current="page"]::after {
@@ -56,7 +56,7 @@
   inset-inline: 0;
   bottom: 0;
   height: 2px;
-  background: var(--accent);
+  background: var(--color-accent);
 }
 
 .spacer {
@@ -70,8 +70,8 @@
   height: 36px;
   padding-inline: 15px;
   border-radius: var(--radius-md);
-  background: var(--action);
-  color: #fff;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
   font-size: 12.5px;
   font-weight: 700;
   letter-spacing: 0.03em;
@@ -81,7 +81,7 @@
 
 .upload:hover {
   box-shadow: var(--shadow-button-hover);
-  color: #fff;
+  color: var(--color-on-accent);
 }
 
 .account {
@@ -101,7 +101,7 @@
   width: 102px;
   color: transparent;
   border-radius: var(--radius-sm);
-  background: var(--surface-sunk);
+  background: var(--color-muted);
   font-size: 0.72rem;
 }
 
@@ -112,14 +112,14 @@
 }
 
 .handle {
-  color: var(--ink-strong);
+  color: var(--color-text-primary);
   font-family: var(--font-display);
   font-size: 0.92rem;
   font-weight: 600;
 }
 
 .unverified {
-  color: var(--accent);
+  color: var(--color-accent);
   font-size: 0.62rem;
   font-weight: 900;
   letter-spacing: 0.06em;
@@ -131,7 +131,7 @@
   min-height: 38px;
   align-content: center;
   padding-inline: 7px;
-  color: var(--body);
+  color: var(--color-text-secondary);
   font-size: 0.76rem;
   font-weight: 700;
 }
@@ -146,17 +146,17 @@
   min-height: 38px;
   align-items: center;
   padding-inline: 14px;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-md);
-  background: var(--surface);
-  color: var(--ink-strong);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
   font-size: 0.76rem;
   font-weight: 900;
 }
 
 .createAccount:hover {
-  border-color: var(--faint);
-  color: var(--ink-strong);
+  border-color: var(--color-text-secondary);
+  color: var(--color-text-primary);
 }
 
 @media (max-width: 1180px) {
@@ -184,14 +184,14 @@
     height: 44px;
     flex: none;
     place-items: center;
-    color: var(--ink-strong);
+    color: var(--color-text-primary);
   }
 
   .mobileNav {
     display: block;
-    border-top: 1px solid var(--line-soft);
-    background: rgba(246, 248, 251, 0.98);
-    box-shadow: 0 18px 34px rgba(8, 29, 58, 0.08);
+    border-top: 1px solid var(--color-border);
+    background: color-mix(in srgb, var(--color-background) 98%, transparent);
+    box-shadow: var(--shadow-soft);
   }
 
   .mobileNavInner {
@@ -202,8 +202,8 @@
   .mobileNavInner a {
     min-height: 48px;
     align-content: center;
-    border-bottom: 1px solid var(--line-soft);
-    color: var(--ink-strong);
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-text-primary);
     font-family: var(--font-display);
     font-size: 1rem;
     font-weight: 600;
@@ -211,7 +211,7 @@
 
   .mobileNavInner a:last-child {
     border-bottom: 0;
-    color: var(--accent);
+    color: var(--color-accent);
   }
 }
 

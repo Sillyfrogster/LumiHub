@@ -1,7 +1,7 @@
 .element {
   display: flex;
   min-width: 0;
-  color: var(--body);
+  color: var(--color-text-secondary);
   container-name: element;
   container-type: inline-size;
   flex-direction: column;
@@ -16,7 +16,7 @@
 }
 
 .label {
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-family: var(--font-body);
   font-size: 0.7rem;
   font-weight: 800;
@@ -25,7 +25,7 @@
 }
 
 .facts {
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 0.78rem;
 }
 
@@ -40,26 +40,26 @@
   align-items: center;
   gap: 7px;
   padding-inline: 12px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-md);
-  background: var(--surface);
-  color: var(--body);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
   font-size: 0.74rem;
   font-weight: 700;
 }
 
 .expand:hover {
-  border-color: var(--faint);
-  color: var(--ink);
+  border-color: var(--color-text-secondary);
+  color: var(--color-text-primary);
 }
 
 .expand:focus-visible {
-  outline: 3px solid rgba(182, 92, 255, 0.25);
+  outline: 3px solid var(--color-accent);
   outline-offset: 2px;
 }
 
 .element p {
-  color: var(--body);
+  color: var(--color-text-secondary);
   font-size: 1rem;
   line-height: 1.78;
 }
@@ -69,7 +69,7 @@
 }
 
 .blank {
-  color: var(--faint);
+  color: var(--color-text-secondary);
   font-family: var(--font-display);
   font-size: 1rem;
   font-style: italic;
@@ -78,10 +78,10 @@
 .verbatim {
   overflow-x: auto;
   padding: 16px 18px;
-  border: 1px solid var(--line-hair);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: var(--surface-code);
-  color: var(--body);
+  background: var(--color-muted);
+  color: var(--color-text-secondary);
   font-family: var(--font-mono);
   font-size: 0.86rem;
   line-height: 1.7;
@@ -99,13 +99,13 @@
 .textSet > li,
 .dialogue > li {
   padding-left: 16px;
-  border-left: 2px solid var(--line);
+  border-left: 2px solid var(--color-border);
 }
 
 .itemName,
 .speaker {
   margin-bottom: 4px;
-  color: var(--ink-strong);
+  color: var(--color-text-primary);
   font-size: 0.82rem;
   font-weight: 800;
 }
@@ -118,13 +118,13 @@
 
 .fieldList > div {
   padding: 11px 13px;
-  border: 1px solid var(--line-hair);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: var(--surface-quiet);
+  background: var(--color-muted);
 }
 
 .fieldList dt {
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -133,12 +133,10 @@
 
 .fieldList dd {
   margin-top: 4px;
-  color: var(--ink-strong);
+  color: var(--color-text-primary);
   overflow-wrap: anywhere;
 }
 
-/* A field value and a link's note are a line beside a label, so prose in them
-   keeps the size of the label rather than the size of the page. */
 .tight p,
 .note p {
   font-size: 0.92rem;
@@ -146,11 +144,11 @@
 }
 
 .fieldList dd p {
-  color: var(--ink-strong);
+  color: var(--color-text-primary);
 }
 
 .note p {
-  color: var(--body);
+  color: var(--color-text-secondary);
   font-size: 0.8rem;
 }
 
@@ -166,11 +164,11 @@
   flex-direction: column;
   gap: 3px;
   padding-left: 16px;
-  border-left: 2px solid var(--line);
+  border-left: 2px solid var(--color-border);
 }
 
 .linkList a {
-  color: var(--accent);
+  color: var(--color-accent);
   font-size: 0.94rem;
   font-weight: 700;
   overflow-wrap: anywhere;
@@ -194,14 +192,14 @@
 .imageSet img {
   width: 100%;
   height: auto;
-  border: 1px solid var(--line-hair);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: var(--surface-sunk);
+  background: var(--color-muted);
   object-fit: cover;
 }
 
 .imageSet span {
-  color: var(--body);
+  color: var(--color-text-secondary);
   font-size: 0.76rem;
   line-height: 1.35;
   overflow-wrap: anywhere;
@@ -214,9 +212,7 @@
 .entryTable {
   width: 100%;
   border-collapse: collapse;
-  /* Fixed columns. Left to fit its own content, a table of 285 entries hands
-     the width to whichever row carries the longest key list and squeezes the
-     names beside it down to a letter a line. */
+  /* Fixed columns keep long key lists from squeezing names. */
   table-layout: fixed;
   text-align: left;
 }
@@ -233,8 +229,8 @@
 
 .entryTable th {
   padding: 0 12px 8px 0;
-  border-bottom: 1px solid var(--line);
-  color: var(--muted);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.1em;
@@ -250,15 +246,15 @@
 
 .entryTable td {
   padding: 14px 12px 14px 0;
-  border-bottom: 1px solid var(--line-hair);
-  color: var(--body);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
   font-size: 0.9rem;
   line-height: 1.6;
   vertical-align: top;
 }
 
 .entryTable tr[data-off] td {
-  color: var(--faint);
+  color: var(--color-text-secondary);
 }
 
 .entryTable td p {
@@ -267,16 +263,14 @@
 }
 
 .entryName {
-  color: var(--ink-strong);
+  color: var(--color-text-primary);
   font-size: 0.88rem;
   font-weight: 700;
-  /* A name breaks between its words, and inside one only where a single word
-     is wider than the column. */
   overflow-wrap: break-word;
 }
 
 .entryTable tr[data-off] .entryName {
-  color: var(--muted);
+  color: var(--color-text-secondary);
 }
 
 .entryKeys {
@@ -289,20 +283,18 @@
 .entryKeys > li {
   padding: 3px 8px;
   border-radius: var(--radius-pill);
-  background: var(--surface-sunk);
-  color: var(--body);
+  background: var(--color-muted);
+  color: var(--color-text-secondary);
   font-family: var(--font-mono);
   font-size: 0.72rem;
   overflow-wrap: anywhere;
 }
 
 .entryNoKeys {
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 0.78rem;
 }
 
-/* Four columns need a section wide enough to hold them. Below that the row
-   becomes the stacked list a reader can actually follow. */
 @container block (max-width: 620px) {
   .entryTable thead {
     display: none;
@@ -311,7 +303,7 @@
   .entryTable tr {
     display: block;
     padding-block: 16px;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--color-border);
   }
 
   .entryTable td {
@@ -328,7 +320,7 @@
   .entryTable td[data-column="State"]::before {
     display: block;
     margin-bottom: 4px;
-    color: var(--muted);
+    color: var(--color-text-secondary);
     content: attr(data-column);
     font-size: 0.66rem;
     font-weight: 800;
@@ -344,8 +336,6 @@
   }
 }
 
-/* An element in one slot of a trio has room for a heading or a button on a
-   line, not both. */
 @container element (max-width: 330px) {
   .heading {
     flex-direction: column;
@@ -366,8 +356,6 @@
   gap: 26px;
 }
 
-/* A run under a heading is set in from the ones with no heading, so where the
-   heading stops owning fragments is visible. */
 .promptGroup:has(> h4) .fragments {
   padding-left: 18px;
 }
@@ -375,8 +363,8 @@
 .promptGroup > h4 {
   margin-bottom: 12px;
   padding-bottom: 7px;
-  border-bottom: 1px solid var(--line);
-  color: var(--ink-strong);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-primary);
   font-family: var(--font-display);
   font-size: 1.12rem;
   font-weight: 500;
@@ -392,7 +380,7 @@
 
 .fragments > li {
   padding-left: 16px;
-  border-left: 2px solid var(--line);
+  border-left: 2px solid var(--color-border);
 }
 
 .fragments > li[data-off] {
@@ -409,19 +397,19 @@
 }
 
 .fragmentName {
-  color: var(--ink-strong);
+  color: var(--color-text-primary);
   font-size: 0.82rem;
   font-weight: 800;
   overflow-wrap: anywhere;
 }
 
 .fragmentTags {
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 0.74rem;
 }
 
 .fragmentMarker {
-  color: var(--faint);
+  color: var(--color-text-secondary);
   font-family: var(--font-display);
   font-size: 0.95rem;
   font-style: italic;
@@ -438,7 +426,7 @@
 .variables > li,
 .scripts > li {
   padding-left: 16px;
-  border-left: 2px solid var(--line);
+  border-left: 2px solid var(--color-border);
 }
 
 .scripts > li[data-off] {
@@ -457,8 +445,8 @@
 .choices > li {
   padding: 3px 9px;
   border-radius: var(--radius-pill);
-  background: var(--surface-sunk);
-  color: var(--body);
+  background: var(--color-muted);
+  color: var(--color-text-secondary);
   font-size: 0.74rem;
   overflow-wrap: anywhere;
 }
@@ -473,9 +461,9 @@
 
 .pattern code {
   padding: 3px 9px;
-  border: 1px solid var(--line-hair);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: var(--surface-code);
+  background: var(--color-muted);
   font-family: var(--font-mono);
   font-size: 0.78rem;
   overflow-wrap: anywhere;
@@ -483,5 +471,5 @@
 }
 
 .pattern span {
-  color: var(--muted);
+  color: var(--color-text-secondary);
 }

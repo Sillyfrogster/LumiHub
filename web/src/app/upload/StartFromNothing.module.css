@@ -1,13 +1,13 @@
 .panel {
   position: relative;
   padding: clamp(24px, 4vw, 38px);
-  border-top: 1px solid var(--line-soft);
-  border-bottom: 1px solid var(--line-soft);
-  background: rgba(255, 255, 255, 0.76);
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 76%, transparent);
 }
 
 .panel h2 {
-  color: var(--ink);
+  color: var(--color-text-primary);
   font-family: var(--font-display);
   font-size: 1.35rem;
   font-weight: 500;
@@ -17,7 +17,7 @@
 .panel > p {
   max-width: 56ch;
   margin-top: 10px;
-  color: var(--body);
+  color: var(--color-text-secondary);
   font-size: 0.95rem;
   line-height: 1.72;
 }
@@ -35,10 +35,10 @@
   align-items: center;
   gap: 9px;
   padding-inline: 22px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-md);
-  background: var(--surface);
-  color: var(--ink-strong);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
   font-size: 0.88rem;
   font-weight: 700;
   transition:
@@ -48,7 +48,7 @@
 
 .kinds button:hover:not(:disabled) {
   transform: translateY(-1px);
-  border-color: var(--faint);
+  border-color: var(--color-text-secondary);
 }
 
 .kinds button:disabled {
@@ -57,25 +57,25 @@
 
 .error {
   margin-top: 14px;
-  color: var(--ink-strong);
+  color: var(--color-text-primary);
   font-size: 0.86rem;
 }
 
 .kinds button[aria-expanded="true"] {
-  border-color: var(--accent);
+  border-color: var(--color-accent);
 }
 
 .apps {
   margin-top: 18px;
   padding: 18px 20px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  background: var(--surface);
+  background: var(--color-surface);
 }
 
 .appQuestion {
   max-width: 62ch;
-  color: var(--body);
+  color: var(--color-text-secondary);
   font-size: 0.9rem;
   line-height: 1.65;
 }
@@ -92,10 +92,10 @@
   min-height: 46px;
   align-items: center;
   padding-inline: 22px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-md);
-  background: var(--surface-quiet);
-  color: var(--ink-strong);
+  background: var(--color-muted);
+  color: var(--color-text-primary);
   font-size: 0.88rem;
   font-weight: 700;
   transition:
@@ -105,7 +105,7 @@
 
 .appChoices button:hover:not(:disabled) {
   transform: translateY(-1px);
-  border-color: var(--accent);
+  border-color: var(--color-accent);
 }
 
 .appChoices button:disabled {

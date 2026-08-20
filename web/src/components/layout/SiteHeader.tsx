@@ -8,6 +8,7 @@ import { BrandMark } from "@/components/brand/BrandMark";
 import { useAuth } from "@/lib/auth";
 import { Shell } from "./Shell";
 import styles from "./SiteHeader.module.css";
+import { ThemeControl } from "./ThemeControl";
 
 const NAV = [{ label: "Browse", href: "/browse" }];
 
@@ -55,6 +56,8 @@ export function SiteHeader() {
             Upload
           </Link>
         ) : null}
+
+        <ThemeControl />
 
         <div className={styles.account} aria-live="polite">
           {account === undefined ? (

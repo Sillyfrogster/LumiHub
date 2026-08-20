@@ -2,10 +2,14 @@
   position: relative;
   min-height: calc(100svh - var(--header-height));
   overflow: hidden;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--color-border);
   background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.58), transparent 48%),
-    var(--ground);
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--color-surface) 58%, transparent),
+      transparent 48%
+    ),
+    var(--color-background);
 }
 
 .layout {
@@ -25,7 +29,7 @@
 }
 
 .eyebrow {
-  color: var(--accent);
+  color: var(--color-accent);
   font-size: 0.7rem;
   font-weight: 900;
   letter-spacing: 0.18em;
@@ -43,14 +47,14 @@
 }
 
 .title em {
-  color: var(--accent);
+  color: var(--color-accent);
   font-weight: 500;
 }
 
 .lede {
   max-width: 49ch;
   margin-top: 26px;
-  color: var(--body);
+  color: var(--color-text-secondary);
   font-size: 1rem;
   line-height: 1.75;
 }
@@ -66,14 +70,14 @@
 
 .rule span {
   height: 1px;
-  background: var(--line-soft);
+  background: var(--color-border);
   flex: 1;
 }
 
 .note {
   max-width: 45ch;
   margin-top: 24px;
-  color: var(--body);
+  color: var(--color-text-secondary);
   font-family: var(--font-display);
   font-size: 1rem;
   font-style: italic;
@@ -83,8 +87,8 @@
 .formArea {
   position: relative;
   padding: clamp(30px, 4vw, 48px);
-  border: 1px solid rgba(199, 212, 232, 0.72);
-  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 76%, transparent);
   box-shadow: var(--shadow-soft);
   backdrop-filter: blur(8px);
   animation: lhRise 0.8s 0.12s var(--ease) both;
@@ -102,15 +106,15 @@
 .formArea::before {
   top: 10px;
   left: 10px;
-  border-top: 1px solid var(--accent);
-  border-left: 1px solid var(--accent);
+  border-top: 1px solid var(--color-accent);
+  border-left: 1px solid var(--color-accent);
 }
 
 .formArea::after {
   right: 10px;
   bottom: 10px;
-  border-right: 1px solid var(--accent);
-  border-bottom: 1px solid var(--accent);
+  border-right: 1px solid var(--color-accent);
+  border-bottom: 1px solid var(--color-accent);
 }
 
 .wash {
@@ -118,8 +122,8 @@
   top: -160px;
   left: -250px;
   opacity: 0.42;
-  mix-blend-mode: multiply;
-  mask-image: radial-gradient(ellipse, #000 35%, transparent 72%);
+  mix-blend-mode: var(--art-wash-blend);
+  mask-image: radial-gradient(ellipse, var(--mask-opaque) 35%, transparent 72%);
 }
 
 .birds {

@@ -1,0 +1,44 @@
+.material,
+.paper,
+.night {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.material {
+  z-index: 200;
+}
+
+.paper {
+  mix-blend-mode: multiply;
+  opacity: 0.3;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.42'/%3E%3C/svg%3E");
+}
+
+.night {
+  opacity: 0;
+  background: radial-gradient(
+    circle at 50% -20%,
+    color-mix(in srgb, var(--color-accent) 8%, transparent),
+    transparent 52%
+  );
+}
+
+:global(:root[data-theme="dark"]) .paper {
+  opacity: 0;
+}
+
+:global(:root[data-theme="dark"]) .night {
+  opacity: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme])) .paper {
+    opacity: 0;
+  }
+
+  :global(:root:not([data-theme])) .night {
+    opacity: 1;
+  }
+}

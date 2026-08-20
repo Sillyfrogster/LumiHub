@@ -1,10 +1,10 @@
 .panel {
   padding: 22px;
-  border: 1px solid #2a2a2d;
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
-  background: var(--detail-dark-raised);
-  color: var(--detail-dark-text);
-  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.12);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-soft);
 }
 
 .panel h2 {
@@ -16,7 +16,7 @@
 
 .none {
   margin-top: 8px;
-  color: var(--detail-dark-muted);
+  color: var(--color-text-secondary);
   font-size: 0.8rem;
   line-height: 1.55;
 }
@@ -31,9 +31,9 @@
 
 .format {
   padding: 12px 13px;
-  border: 1px solid var(--detail-dark-line);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--color-surface) 3%, transparent);
 }
 
 .label {
@@ -41,16 +41,16 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  color: var(--detail-dark-text);
+  color: var(--color-text-primary);
   font-size: 0.82rem;
   font-weight: 800;
 }
 
 .recommended {
   padding: 2px 8px;
-  border: 1px solid rgba(167, 139, 250, 0.5);
+  border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-pill);
-  color: var(--detail-dark-accent);
+  color: var(--color-accent);
   font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -67,8 +67,8 @@
   margin-top: 11px;
   padding-inline: 13px;
   border-radius: var(--radius-md);
-  background: #f5f5f7;
-  color: #151517;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
   font-size: 0.75rem;
   font-weight: 800;
   transition:
@@ -81,12 +81,16 @@
 .takeOriginal:hover,
 .takeOriginal:focus-visible {
   transform: translateY(-1px);
-  background: #fff;
+  background: color-mix(
+    in srgb,
+    var(--color-accent) 86%,
+    var(--color-text-primary)
+  );
 }
 
 .cost {
   margin-top: 6px;
-  color: var(--detail-dark-muted);
+  color: var(--color-text-secondary);
   font-size: 0.74rem;
 }
 
@@ -95,7 +99,7 @@
 }
 
 .detail summary {
-  color: var(--detail-dark-muted);
+  color: var(--color-text-secondary);
   cursor: pointer;
   font-size: 0.74rem;
   list-style-position: inside;
@@ -103,7 +107,7 @@
 
 .detail summary:hover,
 .detail summary:focus-visible {
-  color: var(--detail-dark-text);
+  color: var(--color-text-primary);
 }
 
 .losses {
@@ -112,24 +116,24 @@
   gap: 12px;
   margin-top: 11px;
   padding-top: 11px;
-  border-top: 1px solid var(--detail-dark-line);
+  border-top: 1px solid var(--color-border);
   list-style: none;
 }
 
 .lossName {
-  color: var(--detail-dark-text);
+  color: var(--color-text-primary);
   font-size: 0.74rem;
   font-weight: 700;
 }
 
 .lossCount {
-  color: var(--detail-dark-muted);
+  color: var(--color-text-secondary);
   font-weight: 400;
 }
 
 .lossWhy {
   margin-top: 2px;
-  color: var(--detail-dark-muted);
+  color: var(--color-text-secondary);
   font-size: 0.72rem;
   line-height: 1.5;
 }
@@ -141,7 +145,7 @@
 
 .examples li {
   overflow: hidden;
-  color: var(--detail-dark-muted);
+  color: var(--color-text-secondary);
   font-size: 0.7rem;
   line-height: 1.7;
   text-overflow: ellipsis;
@@ -173,11 +177,11 @@
 .original {
   margin-top: 18px;
   padding-top: 16px;
-  border-top: 1px solid var(--detail-dark-line);
+  border-top: 1px solid var(--color-border);
 }
 
 .original h3 {
-  color: var(--detail-dark-text);
+  color: var(--color-text-primary);
   font-family: var(--font-display);
   font-size: 1rem;
   font-weight: 500;
@@ -185,25 +189,25 @@
 
 .original p {
   margin-top: 5px;
-  color: var(--detail-dark-muted);
+  color: var(--color-text-secondary);
   font-size: 0.74rem;
   line-height: 1.5;
 }
 
 .sinceThen {
-  color: var(--detail-dark-muted);
+  color: var(--color-text-secondary);
 }
 
 .takeOriginal {
-  border: 1px solid var(--detail-dark-line);
+  border: 1px solid var(--color-accent-border);
   background: transparent;
-  color: var(--detail-dark-text);
+  color: var(--color-text-primary);
 }
 
 .takeOriginal:hover,
 .takeOriginal:focus-visible {
-  background: rgba(255, 255, 255, 0.07);
-  color: var(--detail-dark-text);
+  background: color-mix(in srgb, var(--color-surface) 7%, transparent);
+  color: var(--color-text-primary);
 }
 
 @media (prefers-reduced-motion: reduce) {

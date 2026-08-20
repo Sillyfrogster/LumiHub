@@ -1,21 +1,15 @@
 import type { Metadata } from "next";
-import { Inter, Lato, Playfair_Display } from "next/font/google";
-import { PaperGrain } from "@/components/layout/PaperGrain";
+import { Inter, Playfair_Display } from "next/font/google";
+import { PageMaterial } from "@/components/layout/PageMaterial";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader } from "@/components/layout/SiteHeader";
+import { THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme";
 import { Providers } from "./providers";
 import "./globals.css";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
   subsets: ["latin"],
-  style: ["normal", "italic"],
-});
-
-const lato = Lato({
-  variable: "--font-lato",
-  subsets: ["latin"],
-  weight: ["300", "400", "700", "900"],
   style: ["normal", "italic"],
 });
 
@@ -38,10 +32,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${playfair.variable} ${lato.variable} ${inter.variable}`}
+      className={`${playfair.variable} ${inter.variable}`}
+      suppressHydrationWarning
     >
+      <head>
+        <meta name="color-scheme" content="light dark" />
+        <script>{THEME_BOOTSTRAP_SCRIPT}</script>
+      </head>
       <body>
-        <PaperGrain />
+        <PageMaterial />
         <Providers>
           <SiteHeader />
           <main>{children}</main>

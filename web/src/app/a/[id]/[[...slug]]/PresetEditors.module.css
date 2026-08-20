@@ -5,7 +5,7 @@
 }
 
 .quiet {
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 0.85rem;
   line-height: 1.55;
 }
@@ -37,10 +37,10 @@
   flex: 1 1 auto;
   min-width: 0;
   padding: 10px 13px;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-md);
-  background: var(--surface-quiet);
-  color: var(--ink);
+  background: var(--color-muted);
+  color: var(--color-text-primary);
   font: inherit;
 }
 
@@ -49,8 +49,8 @@
 .addSetting input:focus,
 .addSetting select:focus,
 .option input:focus {
-  border-color: var(--accent);
-  background: var(--surface);
+  border-color: var(--color-accent);
+  background: var(--color-surface);
 }
 
 .addGroup,
@@ -70,10 +70,10 @@
   align-items: center;
   gap: 7px;
   padding-inline: 14px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-md);
-  background: var(--surface);
-  color: var(--body);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
   font-size: 0.76rem;
   font-weight: 700;
 }
@@ -90,15 +90,13 @@
   align-items: center;
   gap: 6px;
   padding-inline: 10px;
-  color: #8a4444;
+  color: var(--color-highlight-strong);
   font-size: 0.74rem;
   font-weight: 700;
 }
 
 .settings {
   display: flex;
-  /* A form reads down a column, so it stops widening past a comfortable
-     measure however much room the full-screen surface has. */
   max-width: 880px;
   flex-direction: column;
   gap: 4px;
@@ -108,15 +106,13 @@
   display: grid;
   align-items: center;
   padding: 12px 0;
-  border-bottom: 1px solid var(--line-hair);
+  border-bottom: 1px solid var(--color-border);
   gap: 8px 18px;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) auto;
 }
 
-/* A slot nobody filled in is what a writer leaves out of the file, so it reads
-   as a name waiting rather than as a value that happens to be blank. */
 .setting[data-unset] .settingName span {
-  color: var(--muted);
+  color: var(--color-text-secondary);
 }
 
 .settingName {
@@ -127,7 +123,7 @@
 }
 
 .settingName span {
-  color: var(--ink-strong);
+  color: var(--color-text-primary);
   font-family: var(--font-mono);
   font-size: 0.82rem;
   line-height: 1.35;
@@ -135,7 +131,7 @@
 }
 
 .settingName small {
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -152,10 +148,10 @@
   width: 100%;
   min-height: 42px;
   padding: 9px 12px;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-md);
-  background: var(--surface-quiet);
-  color: var(--ink);
+  background: var(--color-muted);
+  color: var(--color-text-primary);
   font: inherit;
   line-height: 1.5;
 }
@@ -167,12 +163,12 @@
 .settingValue input:focus,
 .settingValue select:focus,
 .settingValue textarea:focus {
-  border-color: var(--accent);
-  background: var(--surface);
+  border-color: var(--color-accent);
+  background: var(--color-surface);
 }
 
 .unset {
-  color: var(--faint);
+  color: var(--color-text-secondary);
   font-family: var(--font-display);
   font-size: 0.92rem;
   font-style: italic;
@@ -188,10 +184,10 @@
 .settingActions > button:first-child {
   min-height: 40px;
   padding-inline: 12px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-md);
-  background: var(--surface);
-  color: var(--body);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
   font-size: 0.72rem;
   font-weight: 700;
   white-space: nowrap;

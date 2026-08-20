@@ -1,12 +1,11 @@
 .item {
-  --browse-muted: #5f708f;
   min-width: 0;
   list-style: none;
 }
 
 .card {
   display: block;
-  color: var(--ink);
+  color: var(--color-text-primary);
 }
 
 .cover {
@@ -15,8 +14,8 @@
   overflow: hidden;
   border: 0;
   border-radius: 4px 18px 4px 4px;
-  background: #edf3f9;
-  box-shadow: 0 12px 34px rgba(8, 29, 58, 0.09);
+  background: var(--color-muted);
+  box-shadow: var(--shadow-soft);
   transition:
     transform 0.38s var(--ease),
     box-shadow 0.38s var(--ease);
@@ -28,17 +27,17 @@
   inset: 0;
   pointer-events: none;
   box-shadow:
-    inset 7px 0 12px rgba(8, 29, 58, 0.055),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.38);
+    inset 7px 0 12px color-mix(in srgb, var(--color-shadow) 6%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--color-surface) 38%, transparent);
 }
 
 .card:hover {
-  color: var(--ink);
+  color: var(--color-text-primary);
 }
 
 .card:hover .cover {
   transform: translateY(-5px);
-  box-shadow: 0 20px 42px rgba(8, 29, 58, 0.16);
+  box-shadow: var(--shadow-lift);
 }
 
 .art,
@@ -65,9 +64,9 @@
   display: inline-flex;
   align-items: center;
   min-height: 27px;
-  border: 1px solid rgba(255, 255, 255, 0.58);
-  background: rgba(8, 29, 58, 0.86);
-  color: white;
+  border: 1px solid var(--color-media-border);
+  background: color-mix(in srgb, var(--color-media-surface) 86%, transparent);
+  color: var(--color-media-text);
   font-size: 0.66rem;
   font-weight: 900;
   letter-spacing: 0.1em;
@@ -89,13 +88,16 @@
   gap: 5px;
   padding: 5px 8px;
   border-radius: 8px 2px 2px 2px;
-  background: rgba(110, 55, 67, 0.88);
+  background: color-mix(
+    in srgb,
+    var(--color-media-surface) 78%,
+    var(--color-highlight)
+  );
   letter-spacing: 0.06em;
 }
 
-/* An unanswered question is neutral. Reading it as a no would be an answer. */
 .unrated {
-  background: rgba(8, 29, 58, 0.86);
+  background: color-mix(in srgb, var(--color-media-surface) 86%, transparent);
 }
 
 .ownerState {
@@ -103,7 +105,11 @@
   top: 13px;
   padding: 5px 8px;
   border-radius: 8px 2px 2px 2px;
-  background: rgba(89, 74, 45, 0.88);
+  background: color-mix(
+    in srgb,
+    var(--color-media-surface) 78%,
+    var(--color-accent)
+  );
 }
 
 .identity {
@@ -112,7 +118,7 @@
 
 .identity h3 {
   overflow: hidden;
-  color: var(--ink-strong);
+  color: var(--color-text-primary);
   font-family: var(--font-display);
   font-size: 1.15rem;
   font-weight: 600;
@@ -124,7 +130,7 @@
 .identity p {
   margin-top: 5px;
   overflow: hidden;
-  color: var(--browse-muted);
+  color: var(--color-text-secondary);
   font-size: 0.76rem;
   line-height: 1.35;
   text-overflow: ellipsis;
@@ -136,8 +142,8 @@
   gap: 3px;
   margin: 8px 4px 0;
   padding-top: 9px;
-  border-top: 1px solid rgba(163, 135, 77, 0.24);
-  color: #664f25;
+  border-top: 1px solid var(--color-accent-border);
+  color: var(--color-accent-strong);
   font-size: 0.7rem;
   line-height: 1.4;
 }
@@ -150,7 +156,7 @@
 }
 
 .withhold span {
-  color: #75613a;
+  color: var(--color-text-secondary);
 }
 
 @media (max-width: 560px) {

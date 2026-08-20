@@ -6,7 +6,7 @@
   max-width: 56ch;
   margin-top: 34px;
   padding-top: 24px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--color-border);
 }
 
 .control > button {
@@ -20,19 +20,19 @@
   height: 38px;
   place-items: center;
   border-radius: 50%;
-  background: var(--accent-bg);
-  color: var(--accent);
+  background: var(--color-focus-ring);
+  color: var(--color-accent);
 }
 
 .copy h2 {
-  color: var(--ink-strong);
+  color: var(--color-text-primary);
   font-size: 0.78rem;
   font-weight: 900;
 }
 
 .copy p {
   margin-top: 4px;
-  color: var(--body);
+  color: var(--color-text-secondary);
   font-size: 0.78rem;
   line-height: 1.55;
 }
@@ -40,10 +40,10 @@
 .control button {
   min-height: 44px;
   padding-inline: 15px;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--ink-strong);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
   font-size: 0.76rem;
   font-weight: 900;
   white-space: nowrap;
@@ -53,8 +53,8 @@
 }
 
 .control button:hover:not(:disabled) {
-  border-color: var(--faint);
-  background: var(--surface-frame);
+  border-color: var(--color-text-secondary);
+  background: var(--color-muted);
 }
 
 .control button:disabled {
@@ -63,7 +63,7 @@
 }
 
 .copy .error {
-  color: #813f3f;
+  color: var(--color-highlight-strong);
 }
 
 @media (max-width: 560px) {

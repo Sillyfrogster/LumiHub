@@ -7,7 +7,7 @@
 }
 
 .panel > svg {
-  color: var(--accent);
+  color: var(--color-accent);
 }
 
 .panel h2 {
@@ -18,7 +18,7 @@
 }
 
 .panel > p {
-  color: var(--body);
+  color: var(--color-text-secondary);
   font-size: 0.92rem;
   line-height: 1.7;
 }
@@ -28,10 +28,10 @@
   width: 44px;
   height: 44px;
   place-items: center;
-  border: 1px solid rgba(76, 122, 92, 0.34);
+  border: 1px solid var(--color-accent-border);
   border-radius: 50%;
-  background: var(--pass-bg);
-  color: var(--pass);
+  background: var(--color-muted);
+  color: var(--color-text-primary);
 }
 
 .primaryLink {
@@ -41,15 +41,15 @@
   margin-top: 8px;
   padding-inline: 20px;
   border-radius: var(--radius-sm);
-  background: var(--action);
-  color: #fff;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
   box-shadow: var(--shadow-button);
   font-size: 0.82rem;
   font-weight: 900;
 }
 
 .primaryLink:hover {
-  color: #fff;
+  color: var(--color-on-accent);
   box-shadow: var(--shadow-button-hover);
 }
 
@@ -66,11 +66,11 @@
   width: 100%;
   margin-top: 12px;
   padding-top: 22px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--color-border);
 }
 
 .changeForm label {
-  color: var(--ink-strong);
+  color: var(--color-text-primary);
   font-size: 0.75rem;
   font-weight: 900;
   letter-spacing: 0.06em;
@@ -87,20 +87,20 @@
   min-height: 44px;
   flex: 1;
   padding-inline: 12px;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--ink-strong);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
   font-size: 0.87rem;
 }
 
 .changeRow button {
   min-height: 44px;
   padding-inline: 14px;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-sm);
-  background: var(--surface-sunk);
-  color: var(--ink-strong);
+  background: var(--color-muted);
+  color: var(--color-text-primary);
   font-size: 0.78rem;
   font-weight: 900;
 }
@@ -111,11 +111,11 @@
 }
 
 .panel > .error {
-  color: #7f3434;
+  color: var(--color-highlight-strong);
 }
 
 .panel > .message {
-  color: var(--pass);
+  color: var(--color-text-primary);
   font-size: 0.92rem;
   font-weight: 700;
   line-height: 1.7;

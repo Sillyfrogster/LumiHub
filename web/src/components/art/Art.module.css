@@ -1,6 +1,6 @@
 .art {
   height: auto;
-  mix-blend-mode: multiply;
+  mix-blend-mode: var(--art-wash-blend);
   pointer-events: none;
   user-select: none;
 }

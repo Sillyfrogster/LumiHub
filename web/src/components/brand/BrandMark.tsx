@@ -9,12 +9,11 @@ const INNER_STAR =
   "M12 3.6 12.8 11.2 20.4 12 12.8 12.8 12 20.4 11.2 12.8 3.6 12 11.2 11.2Z";
 
 const FILL = {
-  full: "var(--ink-strong)",
-  accent: "var(--accent)",
-  faint: "var(--faint)",
+  full: "var(--color-text-primary)",
+  accent: "var(--color-accent)",
+  faint: "var(--color-text-secondary)",
 } as const;
 
-/** The LumiHub star */
 export function BrandMark({ size = 24, tone = "full" }: BrandMarkProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
@@ -22,7 +21,7 @@ export function BrandMark({ size = 24, tone = "full" }: BrandMarkProps) {
       {tone === "full" && (
         <path
           d={INNER_STAR}
-          fill="var(--accent)"
+          fill="var(--color-accent)"
           opacity="0.55"
           transform="rotate(45 12 12)"
         />

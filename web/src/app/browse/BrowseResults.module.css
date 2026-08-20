@@ -1,5 +1,4 @@
 .shell {
-  --browse-muted: #5f708f;
   padding-block: 38px 100px;
 }
 
@@ -9,7 +8,7 @@
   gap: clamp(40px, 5vw, 74px);
   align-items: start;
   padding-bottom: 20px;
-  border-bottom: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .resultsHeaderContent {
@@ -29,7 +28,7 @@
 
 .resultsHeader p {
   margin-top: 5px;
-  color: var(--browse-muted);
+  color: var(--color-text-secondary);
   font-size: 0.76rem;
 }
 
@@ -43,16 +42,16 @@
   width: 100%;
   min-height: 46px;
   padding: 4px 5px 4px 15px;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--color-accent-border);
   border-radius: 4px 13px 4px 4px;
-  background: rgba(255, 255, 255, 0.72);
-  color: var(--browse-muted);
+  background: color-mix(in srgb, var(--color-surface) 72%, transparent);
+  color: var(--color-text-secondary);
 }
 
 .searchForm:focus-within {
-  border-color: #9bb9da;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 8px 24px rgba(8, 29, 58, 0.06);
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-surface) 94%, transparent);
+  box-shadow: var(--shadow-card);
 }
 
 .searchForm input {
@@ -61,13 +60,13 @@
   border: 0;
   outline: 0;
   background: transparent;
-  color: var(--ink-strong);
+  color: var(--color-text-primary);
   padding: 8px 11px;
   font-size: 0.92rem;
 }
 
 .searchForm input::placeholder {
-  color: var(--browse-muted);
+  color: var(--color-text-secondary);
 }
 
 .clearSearch {
@@ -77,12 +76,12 @@
   flex: none;
   place-items: center;
   border-radius: 50%;
-  color: var(--browse-muted);
+  color: var(--color-text-secondary);
 }
 
 .clearSearch:hover {
-  background: var(--surface-sunk);
-  color: var(--ink);
+  background: var(--color-muted);
+  color: var(--color-text-primary);
 }
 
 .searchButton,
@@ -94,8 +93,8 @@
   justify-content: center;
   padding-inline: 20px;
   border-radius: 4px 10px 4px 4px;
-  background: var(--action);
-  color: white;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
   font-size: 0.76rem;
   font-weight: 900;
   letter-spacing: 0.05em;
@@ -114,13 +113,13 @@
 
 .searchHint {
   margin-top: 7px;
-  color: var(--browse-muted);
+  color: var(--color-text-secondary);
   font-size: 0.72rem;
   text-align: right;
 }
 
 .searchHint code {
-  color: var(--body);
+  color: var(--color-text-secondary);
   font-family: var(--font-body);
   font-weight: 700;
 }
@@ -149,21 +148,21 @@
   justify-content: space-between;
   gap: 12px;
   padding-bottom: 14px;
-  border-bottom: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .filterHeading span {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--ink-strong);
+  color: var(--color-text-primary);
   font-family: var(--font-display);
   font-size: 1rem;
   font-weight: 600;
 }
 
 .filterHeading button {
-  color: var(--accent);
+  color: var(--color-accent);
   font-size: 0.68rem;
   font-weight: 700;
 }
@@ -180,7 +179,7 @@
 .filterGroup legend {
   width: 100%;
   margin-bottom: 11px;
-  color: var(--ink-strong);
+  color: var(--color-text-primary);
   font-size: 0.7rem;
   font-weight: 900;
   letter-spacing: 0.11em;
@@ -196,23 +195,23 @@
 .filterButton {
   min-height: 34px;
   padding-inline: 11px;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--color-accent-border);
   border-radius: 3px 9px 3px 3px;
-  background: rgba(255, 255, 255, 0.7);
-  color: var(--body);
+  background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+  color: var(--color-text-secondary);
   font-size: 0.72rem;
   font-weight: 700;
 }
 
 .filterButton:hover {
-  border-color: var(--faint);
-  color: var(--ink);
+  border-color: var(--color-text-secondary);
+  color: var(--color-text-primary);
 }
 
 .filterButton[aria-pressed="true"] {
-  border-color: var(--ink-strong);
-  background: var(--ink-strong);
-  color: white;
+  border-color: var(--color-text-primary);
+  background: var(--color-text-primary);
+  color: var(--color-on-accent);
 }
 
 .option {
@@ -221,7 +220,7 @@
   gap: 9px;
   align-items: center;
   min-height: 31px;
-  color: var(--body);
+  color: var(--color-text-secondary);
   cursor: pointer;
   font-size: 0.76rem;
 }
@@ -229,17 +228,17 @@
 .option input {
   width: 14px;
   height: 14px;
-  accent-color: var(--accent);
+  accent-color: var(--color-accent);
 }
 
 .option small {
-  color: var(--browse-muted);
+  color: var(--color-text-secondary);
   font-size: 0.68rem;
   font-variant-numeric: tabular-nums;
 }
 
 .option[data-disabled] {
-  color: var(--faint);
+  color: var(--color-text-secondary);
   cursor: not-allowed;
 }
 
@@ -247,15 +246,15 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   overflow: hidden;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--color-accent-border);
   border-radius: 3px 9px 3px 3px;
-  background: rgba(255, 255, 255, 0.72);
+  background: color-mix(in srgb, var(--color-surface) 72%, transparent);
 }
 
 .visibilityOptions button {
   min-height: 34px;
-  border-right: 1px solid var(--line-soft);
-  color: var(--body);
+  border-right: 1px solid var(--color-accent-border);
+  color: var(--color-text-secondary);
   font-size: 0.69rem;
   font-weight: 700;
 }
@@ -265,8 +264,8 @@
 }
 
 .visibilityOptions button[aria-pressed="true"] {
-  background: var(--ink-strong);
-  color: white;
+  background: var(--color-text-primary);
+  color: var(--color-on-accent);
 }
 
 .visibilityOptions button:disabled {
@@ -276,13 +275,13 @@
 .preferenceNote,
 .preferenceError {
   margin-top: 9px;
-  color: var(--browse-muted);
+  color: var(--color-text-secondary);
   font-size: 0.65rem;
   line-height: 1.45;
 }
 
 .preferenceError {
-  color: #8c3d4d;
+  color: var(--color-highlight-strong);
 }
 
 .results {
@@ -297,10 +296,10 @@
   gap: 18px;
   margin-bottom: 20px;
   padding: 12px 12px 12px 16px;
-  border: 1px solid rgba(115, 147, 184, 0.32);
+  border: 1px solid var(--color-accent-border);
   border-radius: 3px 12px 3px 3px;
-  background: rgba(215, 227, 241, 0.46);
-  color: var(--body);
+  background: var(--color-accent-soft);
+  color: var(--color-text-secondary);
   font-size: 0.75rem;
   line-height: 1.5;
 }
@@ -317,7 +316,7 @@
 .settingLink {
   display: inline-block;
   margin-top: 3px;
-  color: var(--accent);
+  color: var(--color-accent);
   font-size: inherit;
   font-weight: 800;
   text-decoration: underline;
@@ -332,12 +331,12 @@
   flex: none;
   place-items: center;
   border-radius: 50%;
-  color: var(--browse-muted);
+  color: var(--color-text-secondary);
 }
 
 .dismissSuppression:hover {
-  background: rgba(255, 255, 255, 0.72);
-  color: var(--ink-strong);
+  background: color-mix(in srgb, var(--color-surface) 72%, transparent);
+  color: var(--color-text-primary);
 }
 
 .grid,
@@ -355,11 +354,11 @@
     linear-gradient(
       105deg,
       transparent 35%,
-      rgba(255, 255, 255, 0.78) 50%,
+      color-mix(in srgb, var(--color-accent) 18%, transparent) 50%,
       transparent 65%
     )
     0 0 / 220% 100%,
-    var(--surface-sunk);
+    var(--color-muted);
   animation: shimmer 1.4s linear infinite;
 }
 
@@ -376,15 +375,15 @@
   align-items: center;
   justify-content: center;
   padding: 60px 24px;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--color-border);
   border-radius: 5px 22px 5px 5px;
   background:
     radial-gradient(
       circle at 50% 42%,
-      rgba(220, 234, 247, 0.58),
+      color-mix(in srgb, var(--color-accent) 10%, transparent),
       transparent 34%
     ),
-    rgba(255, 255, 255, 0.7);
+    color-mix(in srgb, var(--color-surface) 70%, transparent);
   text-align: center;
 }
 
@@ -398,7 +397,7 @@
 .message p {
   max-width: 440px;
   margin-top: 13px;
-  color: var(--body);
+  color: var(--color-text-secondary);
   line-height: 1.65;
 }
 
@@ -510,10 +509,10 @@
     justify-content: space-between;
     gap: 16px;
     padding-inline: 14px;
-    border: 1px solid var(--line-soft);
+    border: 1px solid var(--color-accent-border);
     border-radius: 4px 13px 4px 4px;
-    background: rgba(255, 255, 255, 0.72);
-    color: var(--ink-strong);
+    background: color-mix(in srgb, var(--color-surface) 72%, transparent);
+    color: var(--color-text-primary);
   }
 
   .filterToggle > span {
@@ -526,7 +525,7 @@
   }
 
   .filterToggle small {
-    color: var(--accent);
+    color: var(--color-accent);
     font-size: 0.7rem;
     font-weight: 800;
   }
@@ -537,9 +536,9 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0 28px;
     padding: 19px;
-    border: 1px solid var(--line-soft);
+    border: 1px solid var(--color-border);
     border-radius: 4px 16px 4px 4px;
-    background: rgba(255, 255, 255, 0.66);
+    background: color-mix(in srgb, var(--color-surface) 66%, transparent);
   }
 
   .filters[data-mobile-hidden] {

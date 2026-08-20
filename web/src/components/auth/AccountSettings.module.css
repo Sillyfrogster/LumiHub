@@ -1,8 +1,8 @@
 .settings {
   position: relative;
-  border-top: 1px solid var(--line-soft);
-  border-bottom: 1px solid var(--line-soft);
-  background: rgba(255, 255, 255, 0.72);
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 72%, transparent);
 }
 
 .summary,
@@ -16,11 +16,11 @@
 }
 
 .summary {
-  background: rgba(238, 243, 250, 0.7);
+  background: color-mix(in srgb, var(--color-muted) 70%, transparent);
 }
 
 .summary p {
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 0.7rem;
   font-weight: 900;
   letter-spacing: 0.1em;
@@ -40,7 +40,7 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  color: var(--pass);
+  color: var(--color-text-primary);
   font-size: 0.76rem;
   font-weight: 900;
 }
@@ -48,7 +48,7 @@
 .method,
 .password {
   grid-template-columns: 44px minmax(0, 1fr) auto;
-  border-top: 1px solid var(--line-hair);
+  border-top: 1px solid var(--color-border);
 }
 
 .methodIcon {
@@ -56,21 +56,21 @@
   width: 42px;
   height: 42px;
   place-items: center;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--color-border);
   border-radius: 50%;
-  background: var(--surface-quiet);
-  color: var(--accent);
+  background: var(--color-muted);
+  color: var(--color-accent);
 }
 
 .methodCopy h3 {
-  color: var(--ink-strong);
+  color: var(--color-text-primary);
   font-size: 0.92rem;
   font-weight: 900;
 }
 
 .methodCopy p {
   margin-top: 5px;
-  color: var(--body);
+  color: var(--color-text-secondary);
   font-size: 0.9rem;
   font-weight: 700;
   overflow-wrap: anywhere;
@@ -80,7 +80,7 @@
 .password .methodCopy p {
   display: block;
   margin-top: 4px;
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 0.78rem;
   font-weight: 400;
   line-height: 1.5;
@@ -108,15 +108,15 @@
 .primaryAction,
 .passwordControl button,
 .signedOut a {
-  background: var(--action);
-  color: #fff;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
   box-shadow: var(--shadow-button);
 }
 
 .primaryAction:hover,
 .passwordControl button:hover:not(:disabled),
 .signedOut a:hover {
-  color: #fff;
+  color: var(--color-on-accent);
   box-shadow: var(--shadow-button-hover);
   transform: translateY(-1px);
 }
@@ -127,14 +127,14 @@
 }
 
 .secondaryAction {
-  border: 1px solid var(--line-soft);
-  background: var(--surface);
-  color: var(--ink-strong);
+  border: 1px solid var(--color-accent-border);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
 }
 
 .secondaryAction:hover:not(:disabled) {
-  border-color: var(--faint);
-  color: var(--ink-strong);
+  border-color: var(--color-text-secondary);
+  color: var(--color-text-primary);
 }
 
 .secondaryAction:disabled,
@@ -148,17 +148,17 @@
   display: block;
   margin: 20px 32px 0;
   padding: 11px 13px;
-  border: 1px solid var(--line-soft);
-  background: var(--surface-quiet);
-  color: var(--body);
+  border: 1px solid var(--color-border);
+  background: var(--color-muted);
+  color: var(--color-text-secondary);
   font-size: 0.8rem;
   line-height: 1.5;
 }
 
 .requirement {
   margin-top: 0;
-  border-color: rgba(169, 124, 53, 0.25);
-  background: rgba(242, 197, 97, 0.1);
+  border-color: var(--color-accent-border);
+  background: var(--color-accent-soft);
 }
 
 .passwordControl {
@@ -171,18 +171,18 @@
   width: min(24vw, 230px);
   min-height: 42px;
   padding-inline: 12px;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--ink-strong);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
 }
 
 .passwordControl input:hover {
-  border-color: var(--faint);
+  border-color: var(--color-text-secondary);
 }
 
 .passwordControl input:focus-visible {
-  border-color: var(--accent);
+  border-color: var(--color-accent);
 }
 
 .loading,
@@ -192,9 +192,9 @@
   align-content: center;
   justify-items: center;
   gap: 14px;
-  border-top: 1px solid var(--line-soft);
-  border-bottom: 1px solid var(--line-soft);
-  background: rgba(255, 255, 255, 0.72);
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 72%, transparent);
   text-align: center;
 }
 
@@ -202,7 +202,7 @@
   width: min(100%, 420px);
   height: 18px;
   border-radius: var(--radius-sm);
-  background: var(--surface-sunk);
+  background: var(--color-muted);
 }
 
 .loading span:nth-child(2) {
@@ -215,7 +215,7 @@
 
 .loading p,
 .signedOut p {
-  color: var(--body);
+  color: var(--color-text-secondary);
   font-size: 0.86rem;
 }
 
@@ -224,7 +224,7 @@
 }
 
 .signedOut > svg {
-  color: var(--accent);
+  color: var(--color-accent);
 }
 
 .signedOut h2 {

@@ -11,9 +11,9 @@
 }
 
 .panel {
-  border-top: 1px solid var(--line-soft);
-  border-bottom: 1px solid var(--line-soft);
-  background: rgba(255, 255, 255, 0.72);
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 72%, transparent);
 }
 
 .heading h2 {
@@ -26,7 +26,7 @@
 .heading p {
   max-width: 58ch;
   margin-top: 10px;
-  color: var(--body);
+  color: var(--color-text-secondary);
   font-size: 0.88rem;
   line-height: 1.65;
 }
@@ -44,7 +44,7 @@
 }
 
 .list li + li {
-  border-top: 1px solid var(--line-hair);
+  border-top: 1px solid var(--color-border);
 }
 
 .revoked {
@@ -56,18 +56,18 @@
   width: 42px;
   height: 42px;
   place-items: center;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--color-border);
   border-radius: 50%;
-  background: var(--surface-quiet);
-  color: var(--accent);
+  background: var(--color-muted);
+  color: var(--color-accent);
 }
 
 .revoked .mark {
-  color: var(--muted);
+  color: var(--color-text-secondary);
 }
 
 .about h3 {
-  color: var(--ink-strong);
+  color: var(--color-text-primary);
   font-size: 0.98rem;
   font-weight: 900;
   overflow-wrap: anywhere;
@@ -75,7 +75,7 @@
 
 .prefix {
   margin-top: 5px;
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-family: var(--font-mono);
   font-size: 0.78rem;
   letter-spacing: 0.14em;
@@ -83,7 +83,7 @@
 
 .when {
   margin-top: 6px;
-  color: var(--body);
+  color: var(--color-text-secondary);
   font-size: 0.82rem;
 }
 
@@ -98,10 +98,10 @@
 .scopes li {
   display: block;
   padding: 4px 10px;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-pill);
-  background: var(--surface-quiet);
-  color: var(--body);
+  background: var(--color-muted);
+  color: var(--color-text-secondary);
   font-size: 0.74rem;
   font-weight: 700;
 }
@@ -112,10 +112,10 @@
   align-items: center;
   justify-content: center;
   padding-inline: 16px;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--ink-strong);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
   font-size: 0.78rem;
   font-weight: 900;
   white-space: nowrap;
@@ -125,8 +125,8 @@
 }
 
 .action:hover:not(:disabled) {
-  border-color: var(--faint);
-  color: var(--ink-strong);
+  border-color: var(--color-text-secondary);
+  color: var(--color-text-primary);
 }
 
 .action:disabled {
@@ -135,7 +135,7 @@
 }
 
 .cut {
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 0.76rem;
   font-weight: 900;
   letter-spacing: 0.06em;
@@ -148,12 +148,12 @@
   gap: 14px;
   align-items: start;
   padding: 30px 32px;
-  color: var(--body);
+  color: var(--color-text-secondary);
 }
 
 .empty svg {
   margin-top: 1px;
-  color: var(--faint);
+  color: var(--color-text-secondary);
 }
 
 .empty p {
@@ -164,7 +164,7 @@
 
 .waiting {
   padding: 30px 32px;
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 0.88rem;
 }
 
@@ -172,16 +172,16 @@
   display: block;
   margin-top: 18px;
   padding: 11px 13px;
-  border: 1px solid var(--line-soft);
-  background: var(--surface-quiet);
-  color: var(--body);
+  border: 1px solid var(--color-border);
+  background: var(--color-muted);
+  color: var(--color-text-secondary);
   font-size: 0.82rem;
   line-height: 1.5;
 }
 
 .footnote {
   margin-top: 18px;
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 0.82rem;
   line-height: 1.7;
 }

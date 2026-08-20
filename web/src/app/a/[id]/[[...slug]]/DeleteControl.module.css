@@ -6,7 +6,7 @@
   max-width: 56ch;
   margin-top: 26px;
   padding-top: 24px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--color-border);
 }
 
 .control > button {
@@ -20,19 +20,19 @@
   height: 38px;
   place-items: center;
   border-radius: 50%;
-  background: rgba(129, 63, 63, 0.08);
-  color: #813f3f;
+  background: var(--color-highlight-soft);
+  color: var(--color-highlight-strong);
 }
 
 .copy h2 {
-  color: var(--ink-strong);
+  color: var(--color-text-primary);
   font-size: 0.78rem;
   font-weight: 900;
 }
 
 .copy p {
   margin-top: 4px;
-  color: var(--body);
+  color: var(--color-text-secondary);
   font-size: 0.78rem;
   line-height: 1.55;
 }
@@ -40,10 +40,10 @@
 .control button {
   min-height: 44px;
   padding-inline: 15px;
-  border: 1px solid rgba(129, 63, 63, 0.28);
+  border: 1px solid var(--color-highlight-border);
   border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: #713636;
+  background: var(--color-surface);
+  color: var(--color-highlight-strong);
   font-size: 0.76rem;
   font-weight: 900;
   white-space: nowrap;
@@ -53,8 +53,8 @@
 }
 
 .control button:hover:not(:disabled) {
-  border-color: rgba(129, 63, 63, 0.52);
-  background: rgba(129, 63, 63, 0.04);
+  border-color: var(--color-highlight);
+  background: var(--color-highlight-soft);
 }
 
 .control button:disabled {
@@ -73,17 +73,17 @@
 .confirmation p {
   width: 100%;
   margin-top: 0;
-  color: var(--ink-strong);
+  color: var(--color-text-primary);
   font-weight: 700;
 }
 
 .confirmation .cancel {
-  border-color: var(--line-soft);
-  color: var(--ink-strong);
+  border-color: var(--color-accent-border);
+  color: var(--color-text-primary);
 }
 
 .copy .error {
-  color: #813f3f;
+  color: var(--color-highlight-strong);
 }
 
 @media (max-width: 560px) {

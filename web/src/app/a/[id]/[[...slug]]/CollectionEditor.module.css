@@ -13,24 +13,24 @@
   flex-direction: column;
   gap: 12px;
   padding: 14px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  background: var(--surface-quiet);
+  background: var(--color-muted);
 }
 
 .search input {
   width: 100%;
   min-height: 44px;
   padding: 10px 13px;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-md);
-  background: var(--surface);
-  color: var(--ink);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
   font: inherit;
 }
 
 .search input:focus {
-  border-color: var(--accent);
+  border-color: var(--color-accent);
 }
 
 .hiddenLabel {
@@ -60,21 +60,21 @@
   padding: 9px 11px;
   border: 1px solid transparent;
   border-radius: var(--radius-md);
-  color: var(--body);
+  color: var(--color-text-secondary);
   text-align: left;
 }
 
 .entries button:hover {
-  background: var(--surface);
+  background: var(--color-surface);
 }
 
 .entries button[aria-current="true"] {
-  border-color: var(--line);
-  background: var(--surface);
+  border-color: var(--color-accent-border);
+  background: var(--color-surface);
 }
 
 .entryName {
-  color: var(--ink-strong);
+  color: var(--color-text-primary);
   font-size: 0.86rem;
   font-weight: 700;
   line-height: 1.3;
@@ -82,7 +82,7 @@
 }
 
 .entryKeys {
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 0.72rem;
   line-height: 1.35;
   overflow-wrap: anywhere;
@@ -93,15 +93,15 @@
   margin-top: 3px;
   padding: 2px 7px;
   border-radius: var(--radius-pill);
-  background: var(--surface-sunk);
-  color: var(--muted);
+  background: var(--color-muted);
+  color: var(--color-text-secondary);
   font-size: 0.66rem;
   font-weight: 700;
 }
 
 .nothing {
   padding: 10px 2px;
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 0.85rem;
   line-height: 1.55;
 }
@@ -120,14 +120,14 @@
   align-self: flex-start;
   flex: 0 0 auto;
   padding-inline: 14px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-md);
-  background: var(--surface);
-  color: var(--body);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
 }
 
 .removeEntry {
-  color: #8a4444;
+  color: var(--color-highlight-strong);
 }
 
 .detail {
@@ -137,8 +137,6 @@
 
 .fields {
   display: flex;
-  /* Room to write in, and a stop before a one-line field runs the width of a
-     wide monitor. */
   max-width: 1080px;
   flex-direction: column;
   gap: 18px;
@@ -152,7 +150,7 @@
 }
 
 .detailHeading h4 {
-  color: var(--ink-strong);
+  color: var(--color-text-primary);
   font-family: var(--font-display);
   font-size: 1.25rem;
   font-weight: 500;
@@ -167,13 +165,13 @@
 .field > span {
   display: block;
   margin-bottom: 7px;
-  color: var(--body);
+  color: var(--color-text-secondary);
   font-size: 0.78rem;
   font-weight: 700;
 }
 
 .field small {
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: inherit;
   font-weight: 400;
 }
@@ -182,10 +180,10 @@
 .field textarea,
 .field select {
   width: 100%;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-md);
-  background: var(--surface-quiet);
-  color: var(--ink);
+  background: var(--color-muted);
+  color: var(--color-text-primary);
   font: inherit;
   line-height: 1.6;
 }
@@ -204,8 +202,8 @@
 .field input:focus,
 .field textarea:focus,
 .field select:focus {
-  border-color: var(--accent);
-  background: var(--surface);
+  border-color: var(--color-accent);
+  background: var(--color-surface);
 }
 
 .group {
@@ -213,13 +211,13 @@
   flex-direction: column;
   gap: 14px;
   padding: 18px 20px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
 }
 
 .group legend {
   padding-inline: 8px;
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 0.7rem;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -244,21 +242,21 @@
   height: 20px;
   flex: 0 0 auto;
   margin-top: 2px;
-  accent-color: var(--accent);
+  accent-color: var(--color-accent);
 }
 
 .switch > span {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  color: var(--ink-strong);
+  color: var(--color-text-primary);
   font-size: 0.84rem;
   font-weight: 700;
   line-height: 1.4;
 }
 
 .switch small {
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 0.75rem;
   font-weight: 400;
   line-height: 1.45;

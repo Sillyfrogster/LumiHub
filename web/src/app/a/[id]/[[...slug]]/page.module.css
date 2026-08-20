@@ -1,31 +1,28 @@
 .page {
-  --font-body: var(--font-inter), system-ui, sans-serif;
-  --detail-dark: #0d0d0f;
-  --detail-dark-raised: #151517;
-  --detail-dark-line: rgba(255, 255, 255, 0.14);
-  --detail-dark-text: #f5f5f7;
-  --detail-dark-muted: #a1a1aa;
-  --detail-dark-accent: #a78bfa;
   position: relative;
   overflow-x: clip;
-  background: #fafafb;
+  background: var(--color-background);
 }
 
 .hero {
   position: relative;
   overflow: hidden;
-  border-bottom: 1px solid #2a2a2d;
+  border-bottom: 1px solid var(--color-border);
   background:
-    radial-gradient(circle at 82% 24%, rgba(182, 92, 255, 0.1), transparent 34%),
-    var(--detail-dark);
-  color: var(--detail-dark-text);
+    radial-gradient(
+      circle at 82% 24%,
+      color-mix(in srgb, var(--color-accent) 10%, transparent),
+      transparent 34%
+    ),
+    var(--color-background);
+  color: var(--color-text-primary);
 }
 
 .hero::after {
   position: absolute;
   inset: auto -10% -70px 42%;
   height: 150px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--color-border);
   border-radius: 50%;
   content: "";
   transform: rotate(-4deg);
@@ -43,13 +40,13 @@
   min-height: 44px;
   align-items: center;
   gap: 8px;
-  color: var(--detail-dark-muted);
+  color: var(--color-text-secondary);
   font-size: 0.8rem;
   transition: color 160ms var(--ease);
 }
 
 .back:hover {
-  color: var(--detail-dark-text);
+  color: var(--color-text-primary);
 }
 
 .heroLayout {
@@ -76,22 +73,22 @@
 .kind,
 .rating {
   padding: 5px 10px;
-  border: 1px solid var(--detail-dark-line);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-pill);
-  color: var(--detail-dark-muted);
+  color: var(--color-text-secondary);
   font-size: 0.7rem;
   line-height: 1;
 }
 
 .kind {
-  border-color: rgba(182, 92, 255, 0.32);
-  color: var(--detail-dark-accent);
+  border-color: var(--color-highlight-border);
+  color: var(--color-accent);
 }
 
 .identity h1 {
   max-width: 14ch;
   margin-top: 18px;
-  color: var(--detail-dark-text);
+  color: var(--color-text-primary);
   font-family: var(--font-display);
   font-size: clamp(3rem, 6vw, 5.25rem);
   font-weight: 500;
@@ -101,7 +98,7 @@
 }
 
 .unnamed {
-  color: var(--detail-dark-muted);
+  color: var(--color-text-secondary);
   font-style: italic;
 }
 
@@ -110,27 +107,27 @@
   flex-wrap: wrap;
   gap: 6px;
   margin-top: 19px;
-  color: var(--detail-dark-muted);
+  color: var(--color-text-secondary);
   font-size: 0.9rem;
 }
 
 .creator {
-  color: var(--detail-dark-text);
+  color: var(--color-text-primary);
   font-weight: 700;
   text-decoration: underline;
-  text-decoration-color: rgba(182, 92, 255, 0.55);
+  text-decoration-color: var(--color-accent);
   text-underline-offset: 4px;
 }
 
 .creator:hover {
-  color: var(--detail-dark-accent);
+  color: var(--color-accent);
 }
 
 .blurb,
 .noBlurb {
   max-width: 65ch;
   margin-top: 28px;
-  color: var(--detail-dark-muted);
+  color: var(--color-text-secondary);
   font-size: 1.05rem;
   line-height: 1.7;
 }
@@ -140,7 +137,7 @@
 }
 
 .noBlurb {
-  color: var(--detail-dark-muted);
+  color: var(--color-text-secondary);
   font-family: var(--font-display);
   font-style: italic;
 }
@@ -158,9 +155,9 @@
   min-height: 36px;
   align-content: center;
   padding-inline: 12px;
-  border: 1px solid var(--detail-dark-line);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-pill);
-  color: var(--detail-dark-muted);
+  color: var(--color-text-secondary);
   font-size: 0.75rem;
   transition:
     border-color 160ms var(--ease),
@@ -168,8 +165,8 @@
 }
 
 .tags a:hover {
-  border-color: rgba(182, 92, 255, 0.5);
-  color: var(--detail-dark-text);
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
 }
 
 .contentShell {
@@ -200,9 +197,9 @@
 .facts,
 .creatorTools {
   padding: 22px;
-  border: 1px solid #e6e8ec;
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
-  background: #fff;
+  background: var(--color-surface);
 }
 
 .facts dl {
@@ -214,30 +211,30 @@
   grid-template-columns: 78px minmax(0, 1fr);
   gap: 10px;
   padding-block: 10px;
-  border-top: 1px solid #eff0f2;
+  border-top: 1px solid var(--color-border);
   font-size: 0.78rem;
   line-height: 1.45;
 }
 
 .facts dt {
-  color: #64748b;
+  color: var(--color-text-secondary);
 }
 
 .facts dd {
-  color: #0f172a;
+  color: var(--color-text-primary);
   font-weight: 700;
 }
 
 .facts dd a {
   color: inherit;
   text-decoration: underline;
-  text-decoration-color: #c9cdd3;
+  text-decoration-color: var(--color-accent);
   text-underline-offset: 3px;
 }
 
 .creatorTools > h2 {
   padding-bottom: 14px;
-  border-bottom: 1px solid #e6e8ec;
+  border-bottom: 1px solid var(--color-border);
 }
 
 @media (max-width: 900px) {

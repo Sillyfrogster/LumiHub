@@ -8,10 +8,10 @@
   align-items: center;
   justify-content: center;
   gap: 9px;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--ink-strong);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
   font-size: 0.85rem;
   font-weight: 900;
   letter-spacing: 0.025em;
@@ -22,9 +22,9 @@
 }
 
 .discord:hover {
-  border-color: var(--faint);
-  background: var(--surface-quiet);
-  color: var(--ink-strong);
+  border-color: var(--color-text-secondary);
+  background: var(--color-muted);
+  color: var(--color-text-primary);
   transform: translateY(-1px);
 }
 
@@ -37,7 +37,7 @@
   grid-template-columns: 1fr auto 1fr;
   gap: 12px;
   align-items: center;
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -46,7 +46,7 @@
 
 .divider span {
   height: 1px;
-  background: var(--line-soft);
+  background: var(--color-border);
 }
 
 .fieldLabel {
@@ -64,27 +64,27 @@
 .handleField {
   width: 100%;
   min-height: 48px;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.9);
-  color: var(--ink-strong);
+  background: color-mix(in srgb, var(--color-surface) 90%, transparent);
+  color: var(--color-text-primary);
   transition:
     border-color 180ms var(--ease),
     box-shadow 180ms var(--ease);
 }
 
 .handleField:hover {
-  border-color: var(--faint);
+  border-color: var(--color-text-secondary);
 }
 
 .handleField:focus-within {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-bg);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
   outline: none;
 }
 
 .handleField[data-error="true"] {
-  border-color: #a34b4b;
+  border-color: var(--color-highlight);
 }
 
 .handleField {
@@ -94,7 +94,7 @@
 
 .handleField span {
   padding-left: 14px;
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-family: var(--font-display);
   font-size: 1.1rem;
 }
@@ -106,18 +106,18 @@
   border: 0;
   outline: 0;
   background: transparent;
-  color: var(--ink-strong);
+  color: var(--color-text-primary);
   font: inherit;
 }
 
 .hint {
-  color: var(--body);
+  color: var(--color-text-secondary);
   font-size: 0.75rem;
   line-height: 1.45;
 }
 
 .alternative {
-  color: var(--body);
+  color: var(--color-text-secondary);
   font-size: 0.82rem;
   text-align: center;
 }

@@ -13,25 +13,25 @@
 }
 
 .solid {
-  background: var(--action);
-  color: #fff;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
   box-shadow: var(--shadow-cta);
 }
 
 .solid:hover {
   box-shadow: var(--shadow-cta-hover);
-  color: #fff;
+  color: var(--color-on-accent);
 }
 
 .outline {
-  background: var(--surface);
-  border: 1px solid var(--line-soft);
-  color: var(--ink-strong);
+  background: var(--color-surface);
+  border: 1px solid var(--color-accent-border);
+  color: var(--color-text-primary);
 }
 
 .outline:hover {
-  border-color: var(--faint);
-  color: var(--ink-strong);
+  border-color: var(--color-text-secondary);
+  color: var(--color-text-primary);
 }
 
 .large {

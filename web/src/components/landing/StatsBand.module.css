@@ -2,8 +2,8 @@
   position: relative;
   margin-top: 80px;
   padding: 64px 0;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
   overflow: hidden;
 }
 
@@ -32,7 +32,7 @@
 
 .stat {
   text-align: center;
-  border-left: 1px solid rgba(167, 183, 214, 0.45);
+  border-left: 1px solid var(--color-border);
   padding-inline: 20px;
 }
 
@@ -40,7 +40,7 @@
   font-family: var(--font-display);
   font-size: 46px;
   font-weight: 600;
-  color: var(--ink-strong);
+  color: var(--color-text-primary);
   letter-spacing: -0.02em;
 }
 
@@ -49,6 +49,6 @@
   font-size: 10.5px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-weight: 700;
 }

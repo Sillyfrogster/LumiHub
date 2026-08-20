@@ -1,8 +1,8 @@
 .section {
   scroll-margin-top: calc(var(--header-height) + 24px);
   padding-block: 68px 88px;
-  border-top: 1px solid var(--line-soft);
-  background: rgba(239, 245, 251, 0.44);
+  border-top: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-muted) 44%, transparent);
 }
 
 .heading {
@@ -11,11 +11,11 @@
   justify-content: space-between;
   gap: 24px;
   max-width: 760px;
-  color: var(--accent);
+  color: var(--color-accent);
 }
 
 .heading h2 {
-  color: var(--ink-strong);
+  color: var(--color-text-primary);
   font-family: var(--font-display);
   font-size: clamp(2rem, 4vw, 3rem);
   font-weight: 500;
@@ -26,7 +26,7 @@
 .empty {
   max-width: 58ch;
   margin-top: 8px;
-  color: var(--body);
+  color: var(--color-text-secondary);
   font-size: 0.88rem;
   line-height: 1.65;
 }
@@ -34,7 +34,7 @@
 .list {
   max-width: 760px;
   margin-top: 30px;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--color-border);
   list-style: none;
 }
 
@@ -45,7 +45,7 @@
   align-items: center;
   min-height: 104px;
   padding-block: 20px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .identity {
@@ -53,7 +53,7 @@
 }
 
 .identity span {
-  color: var(--accent);
+  color: var(--color-accent);
   font-size: 0.66rem;
   font-weight: 900;
   letter-spacing: 0.12em;
@@ -63,7 +63,7 @@
 .identity h3 {
   overflow: hidden;
   margin-top: 5px;
-  color: var(--ink-strong);
+  color: var(--color-text-primary);
   font-family: var(--font-display);
   font-size: 1.18rem;
   font-weight: 600;
@@ -72,7 +72,7 @@
 }
 
 .list li > p {
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 0.76rem;
   white-space: nowrap;
 }
@@ -83,10 +83,10 @@
   align-items: center;
   gap: 8px;
   padding-inline: 16px;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--ink-strong);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
   font-size: 0.76rem;
   font-weight: 900;
   transition:
@@ -95,8 +95,8 @@
 }
 
 .list button:hover:not(:disabled) {
-  border-color: var(--faint);
-  background: var(--surface-frame);
+  border-color: var(--color-text-secondary);
+  background: var(--color-muted);
 }
 
 .list button:disabled {
@@ -107,7 +107,7 @@
 .error {
   max-width: 760px;
   margin-top: 22px;
-  color: #813f3f;
+  color: var(--color-highlight-strong);
   font-size: 0.82rem;
 }
 

@@ -13,10 +13,10 @@
   align-items: center;
   gap: 8px;
   padding: 0 11px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-md);
-  background: var(--surface);
-  color: var(--body);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
   cursor: pointer;
   font-size: 0.75rem;
   font-weight: 700;
@@ -34,9 +34,9 @@
 
 .trigger:hover,
 .picker[open] .trigger {
-  border-color: var(--faint);
-  background: var(--surface-quiet);
-  color: var(--ink);
+  border-color: var(--color-text-secondary);
+  background: var(--color-muted);
+  color: var(--color-text-primary);
 }
 
 .chevron {
@@ -53,9 +53,9 @@
   right: 0;
   width: min(330px, calc(100vw - 40px));
   padding: 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
-  background: var(--surface);
+  background: var(--color-surface);
   box-shadow: var(--shadow-lift);
 }
 
@@ -83,14 +83,14 @@
 }
 
 .menuHeading strong {
-  color: var(--ink);
+  color: var(--color-text-primary);
   font-size: 0.875rem;
   line-height: 1.25rem;
 }
 
 .menuHeading span {
   margin-top: 3px;
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 0.75rem;
   line-height: 1rem;
 }
@@ -114,7 +114,7 @@
 
 .option:hover,
 .option[aria-pressed="true"] {
-  background: var(--surface-quiet);
+  background: var(--color-muted);
 }
 
 .option:disabled {
@@ -128,20 +128,20 @@
 }
 
 .optionCopy strong {
-  color: var(--ink);
+  color: var(--color-text-primary);
   font-size: 0.875rem;
   line-height: 1.25rem;
 }
 
 .optionCopy small {
   margin-top: 2px;
-  color: var(--muted);
+  color: var(--color-text-secondary);
   font-size: 0.75rem;
   line-height: 1rem;
 }
 
 .check {
-  color: var(--accent);
+  color: var(--color-accent);
 }
 
 .widthBars {
@@ -154,11 +154,11 @@
 .widthBars > span {
   height: 11px;
   border-radius: 2px;
-  background: var(--line);
+  background: var(--color-border);
 }
 
 .widthBars > .filledBar {
-  background: var(--accent);
+  background: var(--color-accent);
 }
 
 .trigger .widthBars {
@@ -177,9 +177,9 @@
 }
 
 .layoutGlyph > span {
-  border: 1px solid var(--line-check);
+  border: 1px solid var(--color-border);
   border-radius: 3px;
-  background: var(--surface-frame);
+  background: var(--color-muted);
 }
 
 .single {
