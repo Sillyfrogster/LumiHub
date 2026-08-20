@@ -9,31 +9,31 @@
 .layout {
   position: relative;
   z-index: 2;
-  width: min(100%, 980px);
-  padding-block: clamp(60px, 7vw, 96px) clamp(84px, 10vw, 132px);
+  width: min(100%, 820px);
+  padding-block: clamp(48px, 5.5vw, 72px) clamp(72px, 8vw, 104px);
 }
 
 .heading {
-  max-width: 730px;
-  margin-bottom: 42px;
+  max-width: 780px;
+  margin-bottom: clamp(28px, 3.5vw, 38px);
 }
 
 .heading h1 {
-  max-width: 12ch;
+  max-width: 18ch;
   font-family: var(--font-display);
-  font-size: clamp(3rem, 6.6vw, 5.2rem);
+  font-size: clamp(2.8rem, 5vw, 4.2rem);
   font-weight: 500;
   letter-spacing: -0.035em;
-  line-height: 0.98;
+  line-height: 1;
   text-wrap: balance;
 }
 
 .heading p {
   max-width: 66ch;
-  margin-top: 22px;
+  margin-top: 16px;
   color: var(--color-text-secondary);
   font-size: 1rem;
-  line-height: 1.75;
+  line-height: 1.65;
 }
 
 .wash {
@@ -53,6 +53,14 @@
   transform: rotate(-8deg);
 }
 
+.flow {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--color-surface) 76%, transparent);
+}
+
 .form,
 .operation,
 .success,
@@ -60,13 +68,44 @@
 .accountState,
 .sessionState {
   position: relative;
-  border-top: 1px solid var(--color-border);
-  border-bottom: 1px solid var(--color-border);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
   background: color-mix(in srgb, var(--color-surface) 76%, transparent);
 }
 
+.flow > .form {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
 .form {
-  padding: clamp(24px, 4vw, 38px);
+  padding: clamp(22px, 3.5vw, 30px);
+}
+
+.formIntro {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.formIntro h2 {
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.12;
+}
+
+.formIntro p {
+  max-width: 56ch;
+  margin-top: 6px;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.6;
 }
 
 .fileField input {
@@ -79,10 +118,10 @@
 
 .fileField label {
   display: grid;
-  min-height: 150px;
+  min-height: 116px;
   place-items: center;
   align-content: center;
-  gap: 9px;
+  gap: 7px;
   border: 1px dashed var(--color-accent-border);
   border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--color-muted) 72%, transparent);
@@ -123,8 +162,8 @@
 .catalogFields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px 20px;
-  margin-top: 30px;
+  gap: 18px 16px;
+  margin-top: 24px;
 }
 
 .catalogFields label,
@@ -146,8 +185,8 @@
 .kindForm input,
 .kindForm select {
   width: 100%;
-  min-height: 48px;
-  padding: 12px 14px;
+  min-height: 44px;
+  padding: 10px 12px;
   border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-sm);
   outline: none;
@@ -185,9 +224,9 @@
 
 .checks {
   display: grid;
-  gap: 12px;
-  margin-top: 28px;
-  padding-block: 20px;
+  gap: 10px;
+  margin-top: 22px;
+  padding-block: 16px;
   border-top: 1px solid var(--color-border);
   border-bottom: 1px solid var(--color-border);
 }
@@ -229,8 +268,9 @@
 }
 
 .submit {
-  min-width: 180px;
-  margin-top: 26px;
+  min-width: 160px;
+  margin-top: 22px;
+  margin-left: auto;
 }
 
 .submit:hover:not(:disabled),
@@ -295,8 +335,7 @@
 
 .operationCopy p,
 .processing p,
-.accountState p,
-.createdBlurb {
+.accountState p {
   max-width: 62ch;
   margin-top: 10px;
   color: var(--color-text-secondary);
@@ -348,36 +387,96 @@
   text-align: center;
 }
 
+.success {
+  display: block;
+  min-height: 0;
+  padding: clamp(24px, 3.5vw, 34px);
+  text-align: left;
+}
+
 .successMark {
-  margin-bottom: 18px;
   border-color: var(--color-accent-border);
   background: var(--color-muted);
   color: var(--color-text-primary);
 }
 
-.kind {
-  margin-bottom: 8px;
-  color: var(--color-accent);
-  font-size: 0.72rem;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.receiptHeader {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  width: 100%;
+  max-width: 700px;
 }
 
-.createdBlurb {
-  margin-inline: auto;
+.receiptHeader h2 {
+  max-width: 24ch;
+  font-size: clamp(1.85rem, 3.5vw, 2.7rem);
 }
 
-.createdBlurb > * + * {
-  margin-top: 10px;
+.receiptName {
+  max-width: 60ch;
+  margin-top: 7px;
+  overflow-wrap: anywhere;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.receipt {
+  width: calc(100% - 64px);
+  max-width: 620px;
+  margin: 24px 0 0 64px;
+  padding-top: 18px;
+  border-top: 1px solid var(--color-border);
+}
+
+.receipt h3 {
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+
+.receiptLead,
+.receiptNote,
+.receiptPending,
+.receiptClear {
+  margin-top: 7px;
+  color: var(--color-text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.receiptPending,
+.receiptClear {
+  color: var(--color-text-primary);
+  font-style: italic;
+}
+
+.carriedSummary {
+  margin-top: 14px;
+  color: var(--color-text-primary);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.receiptNote {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.76rem;
 }
 
 .successActions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  justify-content: center;
-  margin-top: 28px;
+  gap: 8px;
+  justify-content: flex-start;
+  width: calc(100% - 64px);
+  margin: 24px 0 0 64px;
 }
 
 .processing svg {
@@ -410,7 +509,8 @@
 
 @media (max-width: 720px) {
   .layout {
-    padding-block: 48px 76px;
+    width: min(100%, 680px);
+    padding-block: 44px 68px;
   }
 
   .heading {
@@ -418,7 +518,11 @@
   }
 
   .heading h1 {
-    font-size: 3rem;
+    font-size: clamp(2.8rem, 11vw, 4rem);
+  }
+
+  .formIntro {
+    gap: 16px;
   }
 
   .catalogFields,
@@ -443,6 +547,16 @@
   .operation > .error,
   .operation > .secondary {
     grid-column: 1;
+  }
+
+  .receipt,
+  .successActions {
+    margin-left: 0;
+  }
+
+  .receiptHeader {
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 16px;
   }
 
   .sprig {

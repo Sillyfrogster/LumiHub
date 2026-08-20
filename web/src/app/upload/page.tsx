@@ -1,6 +1,5 @@
 import { Art } from "@/components/art/Art";
 import { Shell } from "@/components/layout/Shell";
-import { StartFromNothing } from "./StartFromNothing";
 import { UploadFlow } from "./UploadFlow";
 import styles from "./UploadPage.module.css";
 
@@ -13,13 +12,10 @@ export default function UploadPage() {
         <header className={styles.heading}>
           <h1>Bring your creation into the library</h1>
           <p>
-            Choose the original file and check how its catalog entry will read.
-            LumiHub keeps those bytes untouched while it works out what they
-            are.
+            Bring in the original file for a creation you want to keep shaping.
           </p>
         </header>
         <UploadFlow />
-        <StartFromNothing />
       </Shell>
     </section>
   );

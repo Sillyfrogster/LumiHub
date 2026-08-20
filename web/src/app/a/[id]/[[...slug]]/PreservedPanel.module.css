@@ -1,91 +1,122 @@
-.panel {
-  padding: 22px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  background: var(--color-surface);
+.control {
+  margin-top: 14px;
+  border-top: 1px solid var(--color-border);
 }
 
-.panel h2 {
+.launch {
+  display: flex;
+  width: 100%;
+  min-height: 62px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding-block: 13px;
   color: var(--color-text-primary);
-  font-family: var(--font-display);
-  font-size: 1.22rem;
-  font-weight: 500;
-  letter-spacing: -0.015em;
+  text-align: left;
 }
 
-.lead {
-  margin-top: 8px;
+.launch:hover,
+.launch:focus-visible {
+  color: var(--color-accent);
+}
+
+.launchCopy {
+  display: grid;
+  gap: 3px;
+}
+
+.launchCopy strong {
+  color: currentColor;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.launchCopy span {
   color: var(--color-text-secondary);
-  font-size: 0.8rem;
-  line-height: 1.55;
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.launch > svg {
+  flex: none;
+  color: var(--color-text-secondary);
+  transition: transform 160ms var(--ease);
+}
+
+.chevronOpen {
+  transform: rotate(90deg);
+}
+
+.menu {
+  padding: 2px 0 14px;
+}
+
+.menuLead,
+.menuState {
+  color: var(--color-text-secondary);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.menuState {
+  margin-top: 12px;
+  font-style: italic;
 }
 
 .namespaces {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 17px;
-  padding-top: 15px;
+  margin-top: 12px;
   border-top: 1px solid var(--color-border);
   list-style: none;
 }
 
 .namespaces li {
   display: flex;
+  min-height: 52px;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 9px 11px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-muted);
+  border-bottom: 1px solid var(--color-border);
 }
 
-.namespaces strong {
-  display: block;
-  overflow-wrap: anywhere;
+.namespaces li > span {
   color: var(--color-text-primary);
-  font-size: 0.78rem;
-  font-weight: 800;
+  font-size: 0.74rem;
+  line-height: 1.4;
 }
 
-.size {
-  display: block;
-  margin-top: 2px;
-  color: var(--color-text-secondary);
-  font-size: 0.7rem;
-}
-
-.namespaces button {
+.remove {
   display: inline-grid;
-  width: 44px;
-  height: 44px;
+  width: 38px;
+  height: 38px;
   flex: none;
   place-items: center;
-  border: 1px solid var(--color-accent-border);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: var(--color-surface);
   color: var(--color-text-secondary);
-  transition:
-    border-color 160ms var(--ease),
-    color 160ms var(--ease);
 }
 
-.namespaces button:hover,
-.namespaces button:focus-visible {
+.remove:hover,
+.remove:focus-visible {
+  border-color: var(--color-highlight-border);
+  color: var(--color-highlight-strong);
+}
+
+.retry {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 7px;
+  margin-top: 12px;
+  padding-inline: 11px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.retry:hover {
   border-color: var(--color-accent);
-  color: var(--color-accent-strong);
-}
-
-.buttonLabel {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
 }
 
 .error {
@@ -121,30 +152,33 @@
 
 .dialog h2 {
   margin-top: 3px;
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
   font-size: 1.8rem;
+  font-weight: 500;
   letter-spacing: -0.02em;
+  line-height: 1.12;
   text-wrap: balance;
 }
 
 .dialogBody > p {
   max-width: 62ch;
-  margin-top: 7px;
+  margin-top: 9px;
   color: var(--color-text-secondary);
   font-size: 0.8rem;
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
-.dialogBody strong {
-  color: var(--color-text-primary);
-}
-
-.context {
+.dialogBody > .context {
   color: var(--color-text-secondary);
   font-size: 0.68rem;
   font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
-.noCopy {
+.dialogBody > .noCopy {
+  color: var(--color-text-primary);
   font-weight: 700;
 }
 
@@ -179,5 +213,16 @@
 }
 
 .dialogFooter button:disabled {
+  cursor: not-allowed;
   opacity: 0.55;
+}
+
+@media (max-width: 680px) {
+  .dialogBody {
+    padding-inline: 22px;
+  }
+
+  .dialogFooter {
+    padding-inline: 22px;
+  }
 }

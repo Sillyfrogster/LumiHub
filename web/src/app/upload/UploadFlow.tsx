@@ -2,22 +2,27 @@
 
 import { AlertCircle, Check, FileArchive, Upload } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   type ChangeEvent,
   type FormEvent,
+  type RefObject,
   useEffect,
   useRef,
   useState,
 } from "react";
-import { FormattingNotice, RichText } from "@/components/ui/RichText";
+import {
+  fetchPreservedNamespaces,
+  type PreservedNamespace,
+} from "@/lib/api/query";
 import type { components } from "@/lib/api/schema";
 import { assetHref } from "@/lib/asset-url";
 import { useAuth } from "@/lib/auth";
-import { formattingWasRemoved } from "@/lib/rich-text";
+import { describePreservedNamespaces } from "@/lib/preserved";
+import { StartFromNothing } from "./StartFromNothing";
 import styles from "./UploadPage.module.css";
 
 type IngestOperation = components["schemas"]["IngestOperation"];
+type CreatedAsset = NonNullable<IngestOperation["asset"]>;
 type ErrorAnswer = { error?: string };
 
 const KIND_LABELS = {
@@ -37,13 +42,13 @@ function operationPath(url: string) {
 }
 
 export function UploadFlow() {
-  const router = useRouter();
   const { account } = useAuth();
   const fileInput = useRef<HTMLInputElement>(null);
   const operationHeading = useRef<HTMLHeadingElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState("");
   const [operation, setOperation] = useState<IngestOperation | null>(null);
+  const [preserved, setPreserved] = useState<PreservedNamespace[] | null>(null);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -97,11 +102,22 @@ export function UploadFlow() {
     };
   }, [operation]);
 
+  const importedAssetId =
+    operation?.status === "success" && operation.asset
+      ? operation.asset.id
+      : null;
+
   useEffect(() => {
-    if (operation?.status === "success" && operation.asset) {
-      router.replace(assetHref(operation.asset.id, operation.asset.name));
-    }
-  }, [operation, router]);
+    if (!importedAssetId) return;
+    let active = true;
+    setPreserved(null);
+    void fetchPreservedNamespaces(importedAssetId).then((found) => {
+      if (active) setPreserved(found);
+    });
+    return () => {
+      active = false;
+    };
+  }, [importedAssetId]);
 
   useEffect(() => {
     if (
@@ -183,6 +199,7 @@ export function UploadFlow() {
 
   function beginAgain() {
     setOperation(null);
+    setPreserved(null);
     setFile(null);
     setName("");
     setMessage("");
@@ -242,34 +259,13 @@ export function UploadFlow() {
   }
 
   if (operation?.status === "success" && operation.asset) {
-    const created = operation.asset;
     return (
-      <section className={styles.success} aria-labelledby="success-heading">
-        <div className={styles.successMark}>
-          <Check size={30} strokeWidth={1.5} aria-hidden="true" />
-        </div>
-        <p className={styles.kind}>
-          {KIND_LABELS[created.kind as keyof typeof KIND_LABELS] ??
-            created.kind}
-        </p>
-        <h2 ref={operationHeading} id="success-heading" tabIndex={-1}>
-          {created.name}
-        </h2>
-        {created.blurb ? (
-          <div className={styles.createdBlurb}>
-            <RichText text={created.blurb} />
-            {formattingWasRemoved([created.blurb]) ? (
-              <FormattingNotice />
-            ) : null}
-          </div>
-        ) : null}
-        <div className={styles.successActions}>
-          <a href={`/download/${created.id}`}>Download source file</a>
-          <button type="button" onClick={beginAgain}>
-            Upload another
-          </button>
-        </div>
-      </section>
+      <ImportReceipt
+        asset={operation.asset}
+        preserved={preserved}
+        headingRef={operationHeading}
+        onBeginAgain={beginAgain}
+      />
     );
   }
 
@@ -312,87 +308,173 @@ export function UploadFlow() {
   }
 
   return (
-    <form className={styles.form} onSubmit={upload}>
-      <div className={styles.fileField}>
-        <input
-          ref={fileInput}
-          id="asset-file"
-          name="file"
-          type="file"
-          required
-          onChange={chooseFile}
-        />
-        <label htmlFor="asset-file">
-          <Upload size={25} strokeWidth={1.35} aria-hidden="true" />
-          <span>{file ? file.name : "Choose the original file"}</span>
-          <small>
-            {file ? "Choose a different file" : "Any safe format up to 32 MB"}
-          </small>
-        </label>
-      </div>
+    <div className={styles.flow}>
+      <form className={styles.form} onSubmit={upload}>
+        <div className={styles.formIntro}>
+          <div>
+            <h2>Start with an original file</h2>
+            <p>Choose the file, then give its catalog entry a name.</p>
+          </div>
+        </div>
 
-      <div className={styles.catalogFields}>
-        <label className={styles.wideField}>
-          Catalog name
+        <div className={styles.fileField}>
           <input
-            name="name"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
+            ref={fileInput}
+            id="asset-file"
+            name="file"
+            type="file"
             required
-            autoComplete="off"
-            placeholder="What readers will call it"
+            onChange={chooseFile}
           />
-        </label>
-        <label className={styles.wideField}>
-          Blurb
-          <textarea
-            name="blurb"
-            rows={4}
-            placeholder="A short invitation written for a person"
-          />
-        </label>
-        <label>
-          Tags
-          <input
-            name="tags"
-            autoComplete="off"
-            placeholder="fantasy, cozy, mystery"
-          />
-          <small>Separate free-text tags with commas.</small>
-        </label>
-        <label>
-          Discovery
-          <select name="discovery" defaultValue="listed">
-            <option value="listed">Listed in the catalog</option>
-            <option value="unlisted">Unlisted, reachable by its link</option>
-          </select>
-        </label>
+          <label htmlFor="asset-file">
+            <Upload size={25} strokeWidth={1.35} aria-hidden="true" />
+            <span>{file ? file.name : "Choose the original file"}</span>
+            <small>
+              {file
+                ? "Choose a different file"
+                : "Original file, within the upload limit"}
+            </small>
+          </label>
+        </div>
+
+        <div className={styles.catalogFields}>
+          <label>
+            Catalog name
+            <input
+              name="name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              required
+              autoComplete="off"
+              placeholder="What readers will call it"
+            />
+          </label>
+          <label>
+            Discovery
+            <select name="discovery" defaultValue="listed">
+              <option value="listed">Listed in the catalog</option>
+              <option value="unlisted">Unlisted, reachable by its link</option>
+            </select>
+          </label>
+          <label className={styles.wideField}>
+            Blurb
+            <textarea
+              name="blurb"
+              rows={4}
+              placeholder="A short invitation written for a person"
+            />
+          </label>
+          <label>
+            Tags
+            <input
+              name="tags"
+              autoComplete="off"
+              placeholder="fantasy, cozy, mystery"
+            />
+            <small>Separate free-text tags with commas.</small>
+          </label>
+        </div>
+
+        <div className={styles.checks}>
+          <label>
+            <input name="isNsfw" type="checkbox" />
+            <span>Mark this catalog entry as NSFW</span>
+          </label>
+          <label>
+            <input name="confirmed" type="checkbox" required />
+            <span>I have checked the name, blurb, tags and NSFW flag.</span>
+          </label>
+        </div>
+
+        {message ? (
+          <p className={styles.error} role="alert">
+            {message}
+          </p>
+        ) : null}
+
+        <button
+          className={styles.submit}
+          type="submit"
+          disabled={pending || !file}
+        >
+          {pending ? "Handing over the file…" : "Begin ingest"}
+        </button>
+      </form>
+      <StartFromNothing />
+    </div>
+  );
+}
+
+function ImportReceipt({
+  asset,
+  preserved,
+  headingRef,
+  onBeginAgain,
+}: {
+  asset: CreatedAsset;
+  preserved: PreservedNamespace[] | null;
+  headingRef: RefObject<HTMLHeadingElement | null>;
+  onBeginAgain: () => void;
+}) {
+  const kind =
+    KIND_LABELS[asset.kind as keyof typeof KIND_LABELS] ?? asset.kind;
+  const carriedDescription =
+    preserved && preserved.length > 0
+      ? describePreservedNamespaces(preserved.map(({ name }) => name))
+      : null;
+
+  return (
+    <section className={styles.success} aria-labelledby="success-heading">
+      <div className={styles.receiptHeader}>
+        <div className={styles.successMark}>
+          <Check size={30} strokeWidth={1.5} aria-hidden="true" />
+        </div>
+        <div>
+          <h2 ref={headingRef} id="success-heading" tabIndex={-1}>
+            Your file is ready to shape
+          </h2>
+          <p className={styles.receiptName}>{asset.name}</p>
+        </div>
       </div>
 
-      <div className={styles.checks}>
-        <label>
-          <input name="isNsfw" type="checkbox" />
-          <span>Mark this catalog entry as NSFW</span>
-        </label>
-        <label>
-          <input name="confirmed" type="checkbox" required />
-          <span>I have checked the name, blurb, tags and NSFW flag.</span>
-        </label>
-      </div>
-
-      {message ? (
-        <p className={styles.error} role="alert">
-          {message}
+      <div className={styles.receipt}>
+        <h3>What came across</h3>
+        <p className={styles.receiptLead}>
+          Illarin read the parts it knows how to edit. The rest stays with your
+          original and travels back out in downloads for its format.
         </p>
-      ) : null}
+        {preserved === null ? (
+          <p className={styles.receiptPending}>
+            Reading what your file carried…
+          </p>
+        ) : carriedDescription ? (
+          <p className={styles.carriedSummary}>
+            Your file also carried {carriedDescription}. Illarin keeps those
+            details with the original and sends them back out in compatible
+            downloads.
+          </p>
+        ) : (
+          <p className={styles.receiptClear}>
+            Everything your file carried is ready to edit. Nothing extra needs
+            to be kept.
+          </p>
+        )}
+        <p className={styles.receiptNote}>
+          You can manage carried data later from Creator tools on the page.
+        </p>
+      </div>
 
-      <button
-        className={styles.submit}
-        type="submit"
-        disabled={pending || !file}
-      >
-        {pending ? "Handing over the file…" : "Begin ingest"}
-      </button>
-    </form>
+      <div className={styles.successActions}>
+        <Link
+          className={styles.openPage}
+          href={assetHref(asset.id, asset.name)}
+        >
+          Open the {kind.toLowerCase()} page
+        </Link>
+        <button type="button" onClick={onBeginAgain}>
+          Upload another
+        </button>
+      </div>
+    </section>
   );
 }

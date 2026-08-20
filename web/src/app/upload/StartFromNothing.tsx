@@ -52,9 +52,8 @@ export function StartFromNothing() {
     <section className={styles.panel} aria-labelledby="start-heading">
       <h2 id="start-heading">Or start from nothing</h2>
       <p>
-        Pick what you are making and get a page with the sections it needs,
-        empty and waiting. It stays a draft that only you can open until you
-        publish it.
+        Choose a kind and begin with its sections ready to shape. It stays a
+        private draft until you publish it.
       </p>
       <div className={styles.kinds}>
         {BUILDABLE_KINDS.map((kind) => (

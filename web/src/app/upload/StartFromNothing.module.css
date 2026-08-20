@@ -1,9 +1,8 @@
 .panel {
   position: relative;
-  padding: clamp(24px, 4vw, 38px);
+  padding: clamp(22px, 3.5vw, 30px);
   border-top: 1px solid var(--color-border);
-  border-bottom: 1px solid var(--color-border);
-  background: color-mix(in srgb, var(--color-surface) 76%, transparent);
+  background: transparent;
 }
 
 .panel h2 {

@@ -1,45 +1,35 @@
 "use client";
 
-import { Trash2 } from "lucide-react";
+import { ChevronRight, RotateCcw, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
   deletePreservedNamespace,
   fetchPreservedNamespaces,
   type PreservedNamespace,
 } from "@/lib/api/query";
+import { describePreservedNamespace } from "@/lib/preserved";
 import styles from "./PreservedPanel.module.css";
 
-/** How much a namespace holds, in the units a person reads. */
-function sizeLabel(bytes: number): string {
-  if (bytes < 1024) return `${bytes} bytes`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 /**
- * What the file carried that Illarin does not understand. The panel names it
- * and deletes it, and never offers to edit it: there is no way to check JSON
- * Illarin cannot read, so an editor here would be a foot-gun with no upside.
- *
- * It is absent rather than empty when the asset carries nothing.
+ * The source file's unread remainder is an owner tool, not page content. It
+ * stays closed until a creator asks for it.
  */
 export function PreservedPanel({ assetId }: { assetId: string }) {
-  const [namespaces, setNamespaces] = useState<PreservedNamespace[]>([]);
+  const [open, setOpen] = useState(false);
+  const [namespaces, setNamespaces] = useState<PreservedNamespace[] | null>(
+    null,
+  );
   const [deleting, setDeleting] = useState<PreservedNamespace | null>(null);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
 
-  useEffect(() => {
-    let current = true;
-    void fetchPreservedNamespaces(assetId).then((found) => {
-      if (current) setNamespaces(found);
-    });
-    return () => {
-      current = false;
-    };
-  }, [assetId]);
-
-  if (namespaces.length === 0) return null;
+  async function openMenu() {
+    setOpen(true);
+    if (namespaces !== null) return;
+    setMessage("");
+    const found = await fetchPreservedNamespaces(assetId);
+    setNamespaces(found);
+  }
 
   async function remove(namespace: string) {
     if (pending) return;
@@ -47,8 +37,9 @@ export function PreservedPanel({ assetId }: { assetId: string }) {
     setMessage("");
     try {
       await deletePreservedNamespace(assetId, namespace);
-      setNamespaces((current) =>
-        current.filter((held) => held.name !== namespace),
+      setNamespaces(
+        (current) =>
+          current?.filter((held) => held.name !== namespace) ?? current,
       );
       setDeleting(null);
     } catch (error) {
@@ -63,39 +54,87 @@ export function PreservedPanel({ assetId }: { assetId: string }) {
   }
 
   return (
-    <section className={styles.panel} aria-labelledby="preserved-heading">
-      <h2 id="preserved-heading">Carried from your file</h2>
-      <p className={styles.lead}>
-        Your file brought data Illarin does not read. It is kept exactly as it
-        arrived and goes back into your downloads untouched.
-      </p>
-      <ul className={styles.namespaces}>
-        {namespaces.map((namespace) => (
-          <li key={namespace.name}>
-            <span>
-              <strong>{namespace.name}</strong>
-              <span className={styles.size}>{sizeLabel(namespace.bytes)}</span>
-            </span>
+    <div className={styles.control}>
+      <button
+        className={styles.launch}
+        type="button"
+        aria-expanded={open}
+        aria-controls="preserved-menu"
+        onClick={() => {
+          if (open) {
+            setOpen(false);
+          } else {
+            void openMenu();
+          }
+        }}
+      >
+        <span className={styles.launchCopy}>
+          <strong>Manage file extras</strong>
+          <span>Review what your upload kept for compatible downloads</span>
+        </span>
+        <ChevronRight
+          className={open ? styles.chevronOpen : undefined}
+          size={18}
+          aria-hidden="true"
+        />
+      </button>
+
+      {open ? (
+        <div className={styles.menu} id="preserved-menu">
+          <p className={styles.menuLead}>
+            These details came with the original file but are not part of the
+            editable page. Removing one stops it travelling in downloads for
+            that format.
+          </p>
+          {namespaces === null ? (
+            <p className={styles.menuState}>Reading the file extras…</p>
+          ) : namespaces.length === 0 ? (
+            <p className={styles.menuState}>
+              Nothing extra is being kept with this upload.
+            </p>
+          ) : (
+            <ul className={styles.namespaces}>
+              {namespaces.map((namespace) => (
+                <li key={namespace.name}>
+                  <span>{describePreservedNamespace(namespace.name)}</span>
+                  <button
+                    className={styles.remove}
+                    type="button"
+                    onClick={() => {
+                      setMessage("");
+                      setDeleting(namespace);
+                    }}
+                  >
+                    <Trash2 size={15} aria-hidden="true" />
+                    <span className="sr-only">
+                      Remove {describePreservedNamespace(namespace.name)}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {message ? (
+            <p className={styles.error} role="alert">
+              {message}
+            </p>
+          ) : null}
+          {namespaces === null ? (
             <button
+              className={styles.retry}
               type="button"
               onClick={() => {
-                setMessage("");
-                setDeleting(namespace);
+                setNamespaces(null);
+                void openMenu();
               }}
             >
-              <Trash2 size={15} aria-hidden="true" />
-              <span className={styles.buttonLabel}>
-                Delete {namespace.name}
-              </span>
+              <RotateCcw size={14} aria-hidden="true" />
+              Try again
             </button>
-          </li>
-        ))}
-      </ul>
-      {message ? (
-        <p className={styles.error} role="alert">
-          {message}
-        </p>
+          ) : null}
+        </div>
       ) : null}
+
       {deleting ? (
         <DeleteNamespaceDialog
           namespace={deleting}
@@ -104,11 +143,10 @@ export function PreservedPanel({ assetId }: { assetId: string }) {
           onDelete={() => void remove(deleting.name)}
         />
       ) : null}
-    </section>
+    </div>
   );
 }
 
-/** The same confirmation removing a section gets, for the same reason. */
 function DeleteNamespaceDialog({
   namespace,
   pending,
@@ -121,6 +159,8 @@ function DeleteNamespaceDialog({
   onDelete: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const description = describePreservedNamespace(namespace.name);
+
   useEffect(() => dialog.current?.showModal(), []);
 
   return (
@@ -133,21 +173,20 @@ function DeleteNamespaceDialog({
       }}
     >
       <div className={styles.dialogBody}>
-        <p className={styles.context}>Delete carried data</p>
-        <h2>Delete “{namespace.name}”?</h2>
+        <p className={styles.context}>Remove file extras</p>
+        <h2>Remove {description}?</h2>
         <p>
-          This deletes {sizeLabel(namespace.bytes)} of data your file carried
-          under <strong>{namespace.name}</strong>. It will stop travelling in
-          your downloads.
+          This detail came with your original file. Removing it means it will
+          stop travelling in downloads made for that format.
         </p>
         <p className={styles.noCopy}>
-          There is nowhere else this is kept. Deleting it is permanent, and
-          re-uploading the original file is the only way back.
+          This cannot be undone here. Re-upload the original file if you need it
+          back.
         </p>
       </div>
       <footer className={styles.dialogFooter}>
         <button type="button" onClick={onCancel} disabled={pending}>
-          Cancel
+          Keep it
         </button>
         <button
           type="button"
@@ -156,7 +195,7 @@ function DeleteNamespaceDialog({
           disabled={pending}
         >
           <Trash2 size={17} aria-hidden="true" />
-          {pending ? "Deleting…" : "Delete permanently"}
+          {pending ? "Removing…" : "Remove permanently"}
         </button>
       </footer>
     </dialog>

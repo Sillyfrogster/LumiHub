@@ -203,8 +203,6 @@ export default async function AssetPage({
                 images={asset.media}
               />
 
-              {asset.isOwner ? <PreservedPanel assetId={asset.id} /> : null}
-
               {asset.isOwner ? (
                 <IdentityPanel
                   assetId={asset.id}
@@ -257,6 +255,9 @@ export default async function AssetPage({
                     isDraft={isDraft}
                     frozen={Boolean(asset.withhold)}
                   />
+                  {asset.original ? (
+                    <PreservedPanel assetId={asset.id} />
+                  ) : null}
                 </section>
               ) : null}
 

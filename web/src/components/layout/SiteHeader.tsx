@@ -135,6 +135,16 @@ export function SiteHeader() {
             >
               {account?.emailVerified ? "Publish an asset" : "Create account"}
             </Link>
+            {account ? (
+              <button
+                className={styles.mobileSignOut}
+                type="button"
+                onClick={() => void handleSignOut()}
+                disabled={signingOut}
+              >
+                {signingOut ? "Leaving…" : "Sign out"}
+              </button>
+            ) : null}
           </Shell>
         </nav>
       ) : null}
