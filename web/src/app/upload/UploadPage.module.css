@@ -368,6 +368,10 @@
   margin-inline: auto;
 }
 
+.createdBlurb > * + * {
+  margin-top: 10px;
+}
+
 .successActions {
   display: flex;
   flex-wrap: wrap;

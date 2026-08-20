@@ -135,6 +135,10 @@
   line-height: 1.7;
 }
 
+.blurb > * + * {
+  margin-top: 12px;
+}
+
 .noBlurb {
   color: var(--detail-dark-muted);
   font-family: var(--font-display);

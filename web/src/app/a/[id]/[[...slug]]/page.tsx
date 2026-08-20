@@ -5,11 +5,13 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { Shell } from "@/components/layout/Shell";
+import { FormattingNotice, RichText } from "@/components/ui/RichText";
 import { type AssetDetail, fetchAsset } from "@/lib/api/query";
 import { assetMetadata } from "@/lib/asset-metadata";
 import { assetDisplayName } from "@/lib/asset-name";
 import { assetRedirect } from "@/lib/asset-url";
 import { KIND_LABELS } from "@/lib/kinds";
+import { formattingWasRemoved } from "@/lib/rich-text";
 import { AssetBlocks } from "./AssetBlocks";
 import { AssetMedia } from "./AssetMedia";
 import { DeleteControl } from "./DeleteControl";
@@ -111,7 +113,12 @@ export default async function AssetPage({
                 </p>
 
                 {asset.blurb ? (
-                  <p className={styles.blurb}>{asset.blurb}</p>
+                  <div className={styles.blurb}>
+                    <RichText text={asset.blurb} />
+                    {formattingWasRemoved([asset.blurb]) ? (
+                      <FormattingNotice />
+                    ) : null}
+                  </div>
                 ) : (
                   <p className={styles.noBlurb}>
                     The creator has not written a blurb for this{" "}

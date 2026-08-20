@@ -10,9 +10,11 @@ import {
   useRef,
   useState,
 } from "react";
+import { FormattingNotice, RichText } from "@/components/ui/RichText";
 import type { components } from "@/lib/api/schema";
 import { assetHref } from "@/lib/asset-url";
 import { useAuth } from "@/lib/auth";
+import { formattingWasRemoved } from "@/lib/rich-text";
 import styles from "./UploadPage.module.css";
 
 type IngestOperation = components["schemas"]["IngestOperation"];
@@ -254,7 +256,12 @@ export function UploadFlow() {
           {created.name}
         </h2>
         {created.blurb ? (
-          <p className={styles.createdBlurb}>{created.blurb}</p>
+          <div className={styles.createdBlurb}>
+            <RichText text={created.blurb} />
+            {formattingWasRemoved([created.blurb]) ? (
+              <FormattingNotice />
+            ) : null}
+          </div>
         ) : null}
         <div className={styles.successActions}>
           <a href={`/download/${created.id}`}>Download source file</a>

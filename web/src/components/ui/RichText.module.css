@@ -1,0 +1,79 @@
+.rich > * + * {
+  margin-top: 0.85em;
+}
+
+.rich > * + .heading {
+  margin-top: 1.5em;
+}
+
+.heading {
+  color: var(--ink-strong);
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+h4.heading {
+  font-size: 1.1em;
+}
+
+h5.heading,
+h6.heading {
+  font-size: 1em;
+}
+
+.list {
+  padding-left: 1.35em;
+  list-style: disc;
+}
+
+ol.list {
+  list-style: decimal;
+}
+
+.list li + li {
+  margin-top: 0.35em;
+}
+
+.list .list {
+  margin-top: 0.35em;
+  list-style: circle;
+}
+
+ol.list ol.list {
+  list-style: lower-alpha;
+}
+
+.quote {
+  padding-left: 1em;
+  border-left: 2px solid var(--line);
+  color: var(--muted);
+  font-style: italic;
+}
+
+.code {
+  padding: 0.1em 0.35em;
+  border: 1px solid var(--line-hair);
+  border-radius: var(--radius-xs);
+  background: var(--surface-code);
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  overflow-wrap: anywhere;
+}
+
+.link {
+  color: var(--accent);
+  overflow-wrap: anywhere;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* The note sits on the page ground in one place and on the dark header in
+   another, so it takes its colour from whatever it was put on. */
+.notice {
+  display: block;
+  color: inherit;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  opacity: 0.72;
+}

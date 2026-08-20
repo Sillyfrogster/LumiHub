@@ -1,6 +1,7 @@
 .element {
   display: flex;
   min-width: 0;
+  color: var(--body);
   container-name: element;
   container-type: inline-size;
   flex-direction: column;
@@ -133,9 +134,24 @@
 .fieldList dd {
   margin-top: 4px;
   color: var(--ink-strong);
+  overflow-wrap: anywhere;
+}
+
+/* A field value and a link's note are a line beside a label, so prose in them
+   keeps the size of the label rather than the size of the page. */
+.tight p,
+.note p {
   font-size: 0.92rem;
   line-height: 1.45;
-  overflow-wrap: anywhere;
+}
+
+.fieldList dd p {
+  color: var(--ink-strong);
+}
+
+.note p {
+  color: var(--body);
+  font-size: 0.8rem;
 }
 
 .linkList {
@@ -160,12 +176,6 @@
   overflow-wrap: anywhere;
   text-decoration: underline;
   text-underline-offset: 3px;
-}
-
-.linkList span {
-  color: var(--body);
-  font-size: 0.8rem;
-  line-height: 1.45;
 }
 
 .imageSet {

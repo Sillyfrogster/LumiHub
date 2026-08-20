@@ -3,6 +3,7 @@
 import { Maximize2 } from "lucide-react";
 import Image from "next/image";
 import type { CSSProperties } from "react";
+import { FormattingNotice, RichText } from "@/components/ui/RichText";
 import type {
   AssetElement,
   AssetImage,
@@ -14,6 +15,7 @@ import type {
   TypedValue,
 } from "@/lib/api/query";
 import { fitsInTheSheet, opensFullScreen } from "@/lib/page-arrangement";
+import { formattingWasRemoved, richTextsOf } from "@/lib/rich-text";
 import styles from "./ElementBody.module.css";
 
 /** The image sizes an element can draw its items at, as a rendered width. */
@@ -74,7 +76,12 @@ export function ElementBody({
       {element.isEmpty ? (
         <p className={styles.blank}>Nothing written here yet.</p>
       ) : (
-        <ElementContent element={element} images={images} />
+        <>
+          <ElementContent element={element} images={images} />
+          {formattingWasRemoved(richTextsOf(element)) ? (
+            <FormattingNotice />
+          ) : null}
+        </>
       )}
     </section>
   );
@@ -93,17 +100,22 @@ function ElementContent({
     return element.display === "verbatim" ? (
       <pre className={styles.verbatim}>{content.text}</pre>
     ) : (
-      <Paragraphs text={content.text} />
+      <RichText text={content.text} />
     );
   }
 
   if (element.type === "text_set" && "texts" in content) {
+    const verbatim = element.display === "verbatim";
     return (
       <ol className={styles.textSet}>
         {content.texts.map((item, index) => (
           <li key={`${index}-${item.name ?? ""}`}>
             {item.name ? <p className={styles.itemName}>{item.name}</p> : null}
-            <Paragraphs text={item.text} />
+            {verbatim ? (
+              <pre className={styles.verbatim}>{item.text}</pre>
+            ) : (
+              <RichText text={item.text} />
+            )}
           </li>
         ))}
       </ol>
@@ -116,7 +128,7 @@ function ElementContent({
         {content.turns.map((turn, index) => (
           <li key={`${index}-${turn.speaker}`}>
             <p className={styles.speaker}>{turn.speaker}</p>
-            <Paragraphs text={turn.text} />
+            <RichText text={turn.text} />
           </li>
         ))}
       </ol>
@@ -129,7 +141,9 @@ function ElementContent({
         {content.fields.map((field, index) => (
           <div key={`${index}-${field.name ?? ""}`}>
             <dt>{field.name || "Unnamed"}</dt>
-            <dd>{field.value}</dd>
+            <dd>
+              <RichText text={field.value} className={styles.tight} />
+            </dd>
           </div>
         ))}
       </dl>
@@ -144,7 +158,9 @@ function ElementContent({
             <a href={link.url} rel="noreferrer nofollow" target="_blank">
               {link.label || link.url}
             </a>
-            {link.note ? <span>{link.note}</span> : null}
+            {link.note ? (
+              <RichText text={link.note} className={styles.note} />
+            ) : null}
           </li>
         ))}
       </ul>
@@ -320,7 +336,9 @@ function VariableSchema({ variables }: { variables: PresetVariable[] }) {
           <p className={styles.itemName}>
             {variable.label?.trim() || variable.name}
           </p>
-          {variable.description ? <p>{variable.description}</p> : null}
+          {variable.description ? (
+            <RichText text={variable.description} />
+          ) : null}
           {variable.options && variable.options.length > 0 ? (
             <ul className={styles.choices}>
               {variable.options.map((option, position) => (
@@ -402,7 +420,7 @@ function EntryTable({ entries }: { entries: LorebookEntry[] }) {
                 )}
               </td>
               <td data-column="Text">
-                <Paragraphs text={entry.text} />
+                <RichText text={entry.text} />
               </td>
               <td data-column="State">{entry.enabled ? "On" : "Off"}</td>
             </tr>
@@ -413,6 +431,11 @@ function EntryTable({ entries }: { entries: LorebookEntry[] }) {
   );
 }
 
+/**
+ * A prompt fragment, as its own text. Nothing here is read as markdown or as
+ * markup, because these are the exact words an app sends to a model and a tag
+ * in them is usually the creator telling the model where something begins.
+ */
 function Paragraphs({ text }: { text: string }) {
   const paragraphs = text.split(/\n{2,}/).filter((line) => line.trim() !== "");
   return (
