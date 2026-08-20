@@ -166,7 +166,7 @@
   inset: -2px 0 auto;
   height: 3px;
   border-radius: var(--radius-pill);
-  background: var(--highlight);
+  background: var(--color-accent);
   content: "";
 }
 

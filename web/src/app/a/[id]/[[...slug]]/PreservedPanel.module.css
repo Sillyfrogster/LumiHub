@@ -73,8 +73,8 @@
 
 .namespaces button:hover,
 .namespaces button:focus-visible {
-  border-color: var(--color-highlight);
-  color: var(--color-highlight-strong);
+  border-color: var(--color-accent);
+  color: var(--color-accent-strong);
 }
 
 .buttonLabel {

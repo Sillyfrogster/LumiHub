@@ -116,8 +116,8 @@
   min-height: 44px;
   padding: 0 22px;
   border-radius: var(--radius-md);
-  background: var(--color-text-primary);
-  color: var(--color-surface);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
   font-size: 0.82rem;
   font-weight: 800;
 }

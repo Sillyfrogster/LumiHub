@@ -37,20 +37,23 @@
 .large {
   height: 46px;
   padding-inline: 24px;
-  font-size: 13.5px;
+  font-size: var(--type-secondary-size);
+  line-height: var(--type-secondary-leading);
 }
 
 .medium {
   height: 38px;
   padding-inline: 18px;
-  font-size: 12.5px;
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-leading);
 }
 
 .small {
   height: 34px;
   padding-inline: 15px;
   gap: 7px;
-  font-size: 12px;
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-leading);
 }
 
 .block {

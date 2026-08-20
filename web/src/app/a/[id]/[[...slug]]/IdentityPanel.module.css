@@ -72,9 +72,9 @@
 }
 
 .answers button[aria-pressed="true"] {
-  border-color: var(--color-text-primary);
-  background: var(--color-muted);
-  color: var(--color-text-primary);
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
 }
 
 .note {

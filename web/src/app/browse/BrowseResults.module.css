@@ -209,8 +209,8 @@
 }
 
 .filterButton[aria-pressed="true"] {
-  border-color: var(--color-text-primary);
-  background: var(--color-text-primary);
+  border-color: var(--color-accent);
+  background: var(--color-accent);
   color: var(--color-on-accent);
 }
 
@@ -264,7 +264,7 @@
 }
 
 .visibilityOptions button[aria-pressed="true"] {
-  background: var(--color-text-primary);
+  background: var(--color-accent);
   color: var(--color-on-accent);
 }
 

@@ -112,9 +112,14 @@
   text-align: left;
 }
 
-.option:hover,
-.option[aria-pressed="true"] {
+.option:hover {
   background: var(--color-muted);
+}
+
+.option[aria-pressed="true"] {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
+  box-shadow: inset 0 0 0 1px var(--color-accent-border);
 }
 
 .option:disabled {

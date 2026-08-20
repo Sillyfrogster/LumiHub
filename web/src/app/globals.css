@@ -143,6 +143,9 @@ body {
 body {
   color: var(--color-text-primary);
   font-family: var(--font-body);
+  font-size: var(--type-body-size);
+  font-weight: 400;
+  line-height: var(--type-body-leading);
   -webkit-font-smoothing: antialiased;
   text-wrap: pretty;
 }

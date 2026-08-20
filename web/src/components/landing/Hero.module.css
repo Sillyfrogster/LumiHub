@@ -74,9 +74,9 @@
 
 .title {
   font-family: var(--font-display);
-  font-size: clamp(42px, 5.2vw, 76px);
+  font-size: clamp(var(--type-display-size), 5.2vw, 76px);
   font-weight: 600;
-  line-height: 1.02;
+  line-height: clamp(var(--type-display-leading), 5.4vw, 78px);
   letter-spacing: -0.025em;
 }
 
@@ -98,8 +98,9 @@
   max-width: 460px;
   margin-top: 26px;
   color: var(--color-text-secondary);
-  font-size: 1.03rem;
-  line-height: 1.72;
+  font-size: var(--type-lead-size);
+  font-weight: var(--type-lead-weight);
+  line-height: var(--type-lead-leading);
   animation: lhRise 1s 0.5s both;
 }
 
@@ -173,8 +174,6 @@
   .lede {
     max-width: 35ch;
     margin-top: 20px;
-    font-size: 0.98rem;
-    line-height: 1.62;
   }
 
   .actions {

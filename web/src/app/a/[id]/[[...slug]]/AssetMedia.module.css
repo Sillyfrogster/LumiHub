@@ -104,7 +104,7 @@
 }
 
 .pickedThumb {
-  border-color: var(--color-highlight);
+  border-color: var(--color-accent);
 }
 
 .thumb img,

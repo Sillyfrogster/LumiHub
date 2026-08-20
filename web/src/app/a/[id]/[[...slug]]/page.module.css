@@ -81,7 +81,7 @@
 }
 
 .kind {
-  border-color: var(--color-highlight-border);
+  border-color: var(--color-accent-border);
   color: var(--color-accent);
 }
 
