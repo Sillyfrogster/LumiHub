@@ -34,6 +34,28 @@
   );
 }
 
+.heroNight {
+  display: none;
+}
+
+:global(:root[data-theme="dark"]) .heroDay {
+  display: none;
+}
+
+:global(:root[data-theme="dark"]) .heroNight {
+  display: block;
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme])) .heroDay {
+    display: none;
+  }
+
+  :global(:root:not([data-theme])) .heroNight {
+    display: block;
+  }
+}
+
 .wash {
   position: absolute;
   z-index: 1;

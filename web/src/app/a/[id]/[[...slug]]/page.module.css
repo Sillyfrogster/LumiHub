@@ -18,14 +18,22 @@
   color: var(--color-text-primary);
 }
 
-.hero::after {
+.detailArtwork {
   position: absolute;
-  inset: auto -10% -70px 42%;
-  height: 150px;
-  border: 1px solid var(--color-border);
-  border-radius: 50%;
-  content: "";
-  transform: rotate(-4deg);
+  z-index: 0;
+  right: clamp(-150px, -7vw, -72px);
+  bottom: -88px;
+  width: clamp(420px, 42vw, 650px);
+  height: auto;
+  max-width: none;
+  opacity: 0.28;
+  mask-image: linear-gradient(
+    115deg,
+    transparent 2%,
+    var(--mask-opaque) 34%,
+    var(--mask-opaque) 88%,
+    transparent 100%
+  );
   pointer-events: none;
 }
 
@@ -263,6 +271,13 @@
 }
 
 @media (max-width: 680px) {
+  .detailArtwork {
+    right: -125px;
+    bottom: -18px;
+    width: 320px;
+    opacity: 0.16;
+  }
+
   .heroShell {
     padding-bottom: 42px;
   }

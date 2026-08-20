@@ -1,19 +1,32 @@
 import { ArrowRight, Feather } from "lucide-react";
+import Image from "next/image";
+import heroLumiDay from "@/assets/art/full/hero-lumi.webp";
+import heroLumiNight from "@/assets/art/full/hero-lumi-night.webp";
 import { Art } from "@/components/art/Art";
 import { Shell } from "@/components/layout/Shell";
 import { Parallax } from "@/components/motion/Parallax";
 import { Button } from "@/components/ui/Button";
 import styles from "./Hero.module.css";
 
+const HERO_ART_PROPS = {
+  alt: "Lumi, the guide of LumiHub",
+  sizes: "(max-width: 1100px) 100vw, 56vw",
+  fetchPriority: "high" as const,
+};
+
 export function Hero() {
   return (
     <section className={styles.hero}>
       <Parallax speed={-0.035} className={styles.heroArt}>
-        <Art
-          name="hero-lumi"
-          alt="Lumi, the guide of LumiHub"
-          sizes="(max-width: 1100px) 100vw, 56vw"
-          preload
+        <Image
+          {...HERO_ART_PROPS}
+          src={heroLumiDay}
+          className={styles.heroDay}
+        />
+        <Image
+          {...HERO_ART_PROPS}
+          src={heroLumiNight}
+          className={styles.heroNight}
         />
       </Parallax>
 

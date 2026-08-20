@@ -25,6 +25,10 @@ export function Art({
   preload,
   loading,
 }: ArtProps) {
+  const classes = className
+    ? `${styles.art} ${styles.darkInk} ${className}`
+    : `${styles.art} ${styles.darkInk}`;
+
   return (
     <Image
       src={ART[name]}
@@ -33,7 +37,7 @@ export function Art({
       sizes={sizes ?? (width ? `${width}px` : "100vw")}
       preload={preload}
       loading={loading}
-      className={className ? `${styles.art} ${className}` : styles.art}
+      className={classes}
       style={width ? { width, height: "auto", ...style } : style}
     />
   );

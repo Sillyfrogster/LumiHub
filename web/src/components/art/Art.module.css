@@ -1,6 +1,15 @@
 .art {
   height: auto;
-  mix-blend-mode: var(--art-wash-blend);
   pointer-events: none;
   user-select: none;
+}
+
+:global(:root[data-theme="dark"]) .darkInk {
+  filter: url("#watercolor-dark-ink");
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme])) .darkInk {
+    filter: url("#watercolor-dark-ink");
+  }
 }

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
+import { ArtFilters } from "@/components/art/ArtFilters";
 import { PageMaterial } from "@/components/layout/PageMaterial";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader } from "@/components/layout/SiteHeader";
@@ -40,6 +41,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script>{THEME_BOOTSTRAP_SCRIPT}</script>
       </head>
       <body>
+        <ArtFilters />
         <PageMaterial />
         <Providers>
           <SiteHeader />
