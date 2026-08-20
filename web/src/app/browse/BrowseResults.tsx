@@ -450,11 +450,12 @@ export function BrowseResults({
           ) : null}
           {assets.length ? (
             <ul className={styles.grid}>
-              {assets.map((asset) => (
+              {assets.map((asset, index) => (
                 <BrowseCard
                   key={asset.id}
                   asset={asset}
                   visibility={activeVisibility}
+                  eager={index === 0}
                 />
               ))}
             </ul>

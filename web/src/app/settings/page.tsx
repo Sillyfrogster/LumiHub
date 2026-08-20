@@ -26,7 +26,7 @@ export default async function SettingsPage({
   return (
     <section className={styles.page}>
       <Art name="wash" width={760} className={styles.wash} />
-      <Art name="sprig" width={250} className={styles.sprig} />
+      <Art name="sprig" width={250} className={styles.sprig} loading="eager" />
       <Shell className={styles.layout}>
         <header className={styles.heading}>
           <h1>Account settings</h1>

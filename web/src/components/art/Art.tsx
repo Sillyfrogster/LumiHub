@@ -12,6 +12,7 @@ type ArtProps = {
   style?: CSSProperties;
   alt?: string;
   preload?: boolean;
+  loading?: "eager";
 };
 
 export function Art({
@@ -22,6 +23,7 @@ export function Art({
   style,
   alt,
   preload,
+  loading,
 }: ArtProps) {
   return (
     <Image
@@ -30,6 +32,7 @@ export function Art({
       aria-hidden={alt ? undefined : true}
       sizes={sizes ?? (width ? `${width}px` : "100vw")}
       preload={preload}
+      loading={loading}
       className={className ? `${styles.art} ${className}` : styles.art}
       style={width ? { width, height: "auto", ...style } : style}
     />

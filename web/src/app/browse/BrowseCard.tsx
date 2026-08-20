@@ -13,9 +13,11 @@ import styles from "./BrowseCard.module.css";
 export function BrowseCard({
   asset,
   visibility,
+  eager = false,
 }: {
   asset: BrowseAsset;
   visibility: NsfwVisibility;
+  eager?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
   const creatorCover = failed ? null : asset.cover;
@@ -40,6 +42,7 @@ export function BrowseCard({
             className={usesDefault ? styles.defaultArt : styles.art}
             onError={usesDefault ? undefined : () => setFailed(true)}
             unoptimized={!usesDefault}
+            loading={eager ? "eager" : "lazy"}
           />
           <span className={styles.kind}>{KIND_LABELS[asset.kind]}</span>
           {asset.isNsfw === null ? (
