@@ -5,11 +5,9 @@ import { useId, useMemo, useState } from "react";
 import type { AddableSection, AssetBlock, ElementType } from "@/lib/api/query";
 import styles from "./AddSectionTray.module.css";
 
-/**
- * The sections a creator can still add, collapsed at the foot of the page.
- * It stays shut until it is wanted, so a sparse asset does not read as a
- * decision somebody has to make now.
- */
+type SectionOffer = { section: AddableSection; present: boolean };
+type SectionGroup = { key: string; title: string; offers: SectionOffer[] };
+
 export function AddSectionTray({
   sections,
   blocks,
@@ -25,40 +23,39 @@ export function AddSectionTray({
   const [search, setSearch] = useState("");
   const searchId = useId();
 
-  const offers = useMemo(
-    () =>
-      sections.map((section) => ({
-        section,
-        present:
-          !section.repeatable &&
-          blocks.some((block) => block.definition === section.definition),
-      })),
-    [sections, blocks],
-  );
+  const offers = useMemo(() => {
+    const present = new Set(blocks.map((block) => block.definition));
+    return sections.map((section) => ({
+      section,
+      present: !section.repeatable && present.has(section.definition),
+    }));
+  }, [sections, blocks]);
   const available = offers.filter((offer) => !offer.present).length;
 
   const wanted = search.trim().toLowerCase();
-  const matching = wanted
-    ? offers.filter(
-        ({ section }) =>
-          section.title.toLowerCase().includes(wanted) ||
-          section.summary.toLowerCase().includes(wanted),
-      )
-    : offers;
-
-  const groups = matching.reduce<
-    { key: string; title: string; offers: typeof matching }[]
-  >((collected, offer) => {
-    const group = collected.find((item) => item.key === offer.section.group);
-    if (group) group.offers.push(offer);
-    else
-      collected.push({
-        key: offer.section.group,
-        title: offer.section.groupTitle,
-        offers: [offer],
-      });
-    return collected;
-  }, []);
+  const groups = useMemo(() => {
+    const grouped = new Map<string, SectionGroup>();
+    for (const offer of offers) {
+      const { section } = offer;
+      if (
+        wanted &&
+        !section.title.toLowerCase().includes(wanted) &&
+        !section.summary.toLowerCase().includes(wanted)
+      ) {
+        continue;
+      }
+      const group = grouped.get(section.group);
+      if (group) group.offers.push(offer);
+      else {
+        grouped.set(section.group, {
+          key: section.group,
+          title: section.groupTitle,
+          offers: [offer],
+        });
+      }
+    }
+    return [...grouped.values()];
+  }, [offers, wanted]);
 
   if (sections.length === 0) return null;
 

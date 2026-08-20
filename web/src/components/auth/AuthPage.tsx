@@ -18,7 +18,7 @@ export function AuthPage({
 }: AuthPageProps) {
   return (
     <section className={styles.page}>
-      <Art name="wash" width={760} className={styles.wash} loading="eager" />
+      <Art name="wash" width={760} className={styles.wash} />
       <Art name="birds" width={210} className={styles.birds} />
       <Shell className={styles.layout}>
         <div className={styles.introduction}>

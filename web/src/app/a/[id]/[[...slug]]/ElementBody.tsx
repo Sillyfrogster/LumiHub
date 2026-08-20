@@ -18,15 +18,8 @@ import { fitsInTheSheet, opensFullScreen } from "@/lib/page-arrangement";
 import { formattingWasRemoved, richTextsOf } from "@/lib/rich-text";
 import styles from "./ElementBody.module.css";
 
-/** The image sizes an element can draw its items at, as a rendered width. */
 const ITEM_WIDTHS = { small: "120px", medium: "180px", large: "260px" };
 
-/**
- * One element on the page. An empty one renders nothing to a reader and a
- * labelled placeholder to its owner. A heading appears only where it says
- * something the section's own title does not, because a section holding one
- * element is already named by that title.
- */
 export function ElementBody({
   element,
   isOwner,
@@ -46,7 +39,6 @@ export function ElementBody({
     element.role && element.label && element.label !== blockTitle
       ? element.label
       : null;
-  // Size earns a line on the page once the content is past a glance.
   const facts = fitsInTheSheet(element) ? [] : element.facts;
   const expandable = isOwner && onExpand && opensFullScreen(element.type);
 
@@ -169,15 +161,14 @@ function ElementContent({
 
   if (element.type === "image_set" && "images" in content) {
     const width = ITEM_WIDTHS[element.itemSize ?? "medium"];
+    const imagesById = new Map(images.map((image) => [image.id, image]));
     return (
       <ul
         className={styles.imageSet}
         style={{ "--item-width": width } as CSSProperties}
       >
         {content.images.map((item) => {
-          const image = images.find(
-            (candidate) => candidate.id === item.mediaId,
-          );
+          const image = imagesById.get(item.mediaId);
           if (!image) return null;
           return (
             <li key={item.mediaId}>
@@ -234,18 +225,16 @@ const PLACEMENT_LABELS: Record<string, string> = {
   post_history: "After the conversation",
 };
 
-/**
- * A preset as its prompt, in the order it is sent. A heading appears wherever
- * the fragment under it belongs to a different one than the fragment before,
- * so the grouping shows without the order moving to make it show.
- */
 function PromptList({ content }: { content: PromptListContent }) {
   const groups = content.groups ?? [];
   const fragments = content.fragments ?? [];
+  const groupNames = new Map(groups.map((group) => [group.id, group.name]));
   const runs: { group?: string; fragments: PromptListContent["fragments"] }[] =
     [];
   for (const fragment of fragments) {
-    const name = groups.find((group) => group.id === fragment.groupId)?.name;
+    const name = fragment.groupId
+      ? groupNames.get(fragment.groupId)
+      : undefined;
     const open = runs.at(-1);
     if (open && open.group === name) open.fragments.push(fragment);
     else runs.push({ group: name, fragments: [fragment] });
@@ -300,8 +289,6 @@ function Fragments({
   );
 }
 
-/** Only the settings somebody filled in. A named slot with nothing in it is
- * a form its owner has yet to fill, not something to show a reader. */
 function SettingGroup({ settings }: { settings: PresetSetting[] }) {
   const supplied = settings.filter((setting) => setting.value != null);
   if (supplied.length === 0) return null;
@@ -327,7 +314,6 @@ function writeValue(value: TypedValue | undefined): string {
   return value.text ?? "";
 }
 
-/** What a reader is asked before they use the preset. */
 function VariableSchema({ variables }: { variables: PresetVariable[] }) {
   return (
     <ul className={styles.variables}>
@@ -353,7 +339,6 @@ function VariableSchema({ variables }: { variables: PresetVariable[] }) {
   );
 }
 
-/** What the preset rewrites, as a find beside its replacement. */
 function ScriptList({ scripts }: { scripts: RegexScript[] }) {
   return (
     <ul className={styles.scripts}>
@@ -379,11 +364,6 @@ function ScriptList({ scripts }: { scripts: RegexScript[] }) {
   );
 }
 
-/**
- * A book as its entries. Four columns where the section is wide enough to hold
- * them, and a stacked list where it is not, because four columns in 430 pixels
- * is not a table anybody can read.
- */
 function EntryTable({ entries }: { entries: LorebookEntry[] }) {
   return (
     <div className={styles.entryTableScroll}>
@@ -431,11 +411,7 @@ function EntryTable({ entries }: { entries: LorebookEntry[] }) {
   );
 }
 
-/**
- * A prompt fragment, as its own text. Nothing here is read as markdown or as
- * markup, because these are the exact words an app sends to a model and a tag
- * in them is usually the creator telling the model where something begins.
- */
+// Prompt fragments are sent to models verbatim.
 function Paragraphs({ text }: { text: string }) {
   const paragraphs = text.split(/\n{2,}/).filter((line) => line.trim() !== "");
   return (

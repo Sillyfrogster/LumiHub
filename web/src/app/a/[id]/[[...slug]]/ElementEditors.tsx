@@ -2,7 +2,7 @@
 
 import { ImagePlus, Maximize2, Plus, Trash2 } from "lucide-react";
 import Image from "next/image";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   type AssetElement,
   type AssetImage,
@@ -25,11 +25,6 @@ type FieldItem = { name?: string; value: string };
 type LinkItem = { label?: string; url: string; note?: string };
 type ImageItem = { mediaId: string; name?: string };
 
-/**
- * One element inside a section sheet. Small content is edited here. Content
- * past what a sheet can hold says so and sends the creator to the full-screen
- * surface, which stays available either way.
- */
 export function ElementEditor({
   assetId,
   element,
@@ -102,7 +97,6 @@ export function ElementEditor({
   );
 }
 
-/** The editing fields for one element, at whatever width it is given. */
 export function ElementFields({
   assetId,
   element,
@@ -210,7 +204,6 @@ export function ElementFields({
         items={element.content.images}
         images={images}
         pending={pending}
-        // Putting an image in an expression set is what identifies it as one.
         mediaRole={element.role === "expressions" ? "expression" : "gallery"}
         onAdded={onImageAdded}
         onChange={(added) =>
@@ -475,6 +468,10 @@ function ImageEditor({
   const [message, setMessage] = useState("");
   const [previews, setPreviews] = useState<Record<string, string>>({});
   const file = useRef<HTMLInputElement>(null);
+  const imagesById = useMemo(
+    () => new Map(images.map((image) => [image.id, image])),
+    [images],
+  );
 
   async function upload(chosen: File | null) {
     if (!chosen || uploading) return;
@@ -505,9 +502,7 @@ function ImageEditor({
       {items.length > 0 ? (
         <ol className={styles.imageItems}>
           {items.map((item, index) => {
-            const stored = images.find(
-              (candidate) => candidate.id === item.mediaId,
-            );
+            const stored = imagesById.get(item.mediaId);
             const source = previews[item.mediaId] ?? stored?.thumbUrl;
             return (
               <li key={item.mediaId}>

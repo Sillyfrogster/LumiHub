@@ -8,12 +8,10 @@ type RoleVerdict = DownloadTarget["roles"][number];
 type OriginalUpload = NonNullable<AssetDetail["original"]>;
 type AssetImage = AssetDetail["media"][number];
 
-/** What a verdict costs. A destination note is a fact, never a loss. */
 function costs(role: RoleVerdict): boolean {
   return role.verdict !== "carried";
 }
 
-/** The line under a format: either everything travels, or how much does not. */
 function costLine(target: DownloadTarget): string {
   const lost = target.roles.filter(costs).length;
   if (lost === 0) return "Everything travels";
@@ -22,7 +20,6 @@ function costLine(target: DownloadTarget): string {
     : `${lost} things do not travel`;
 }
 
-/** What one role loses, said plainly enough to decide on. */
 function verdictLine(role: RoleVerdict): string {
   if (role.verdict === "dropped") return "Not in this file.";
   if (role.verdict === "reduced") {
@@ -35,7 +32,6 @@ function itemCount(count: number): string {
   return count === 1 ? "1 item" : `${count} items`;
 }
 
-/** The file kind in the word a reader would use for it. */
 function fileWord(mediaType: string): string {
   if (mediaType.startsWith("image/")) {
     return mediaType.slice("image/".length).toUpperCase();
@@ -53,15 +49,6 @@ function arrivalDate(when: string): string {
   });
 }
 
-/**
- * The download menu: one line per format Illarin can produce for this asset,
- * each saying what the trip costs before anybody clicks. A format Illarin
- * cannot produce is absent rather than greyed out, so this is a list of
- * choices and not a capability report.
- *
- * The creator sees this component, with these words. There is no
- * creator-flavoured paraphrase of the same facts.
- */
 export function DownloadPanel({
   assetId,
   downloads,
@@ -74,6 +61,7 @@ export function DownloadPanel({
   images: AssetImage[];
 }) {
   if (downloads.length === 0 && !original) return null;
+  const imagesById = new Map(images.map((image) => [image.id, image]));
 
   return (
     <section className={styles.panel} aria-labelledby="downloads-heading">
@@ -82,7 +70,11 @@ export function DownloadPanel({
         <ul className={styles.formats}>
           {downloads.map((target) => (
             <li key={target.format}>
-              <FormatLine assetId={assetId} target={target} images={images} />
+              <FormatLine
+                assetId={assetId}
+                target={target}
+                imagesById={imagesById}
+              />
             </li>
           ))}
         </ul>
@@ -100,11 +92,11 @@ export function DownloadPanel({
 function FormatLine({
   assetId,
   target,
-  images,
+  imagesById,
 }: {
   assetId: string;
   target: DownloadTarget;
-  images: AssetImage[];
+  imagesById: ReadonlyMap<string, AssetImage>;
 }) {
   const lost = target.roles.filter(costs);
   const notes = target.roles.filter((role) => !costs(role) && role.destination);
@@ -133,7 +125,7 @@ function FormatLine({
                   </span>
                 </p>
                 <p className={styles.lossWhy}>{verdictLine(role)}</p>
-                <Sample role={role} images={images} />
+                <Sample role={role} imagesById={imagesById} />
               </li>
             ))}
           </ul>
@@ -147,13 +139,15 @@ function FormatLine({
   );
 }
 
-/**
- * A glance at what is at stake — entry names, greeting openings, a strip of
- * the pictures — so somebody recognises in two seconds whether they care.
- */
-function Sample({ role, images }: { role: RoleVerdict; images: AssetImage[] }) {
+function Sample({
+  role,
+  imagesById,
+}: {
+  role: RoleVerdict;
+  imagesById: ReadonlyMap<string, AssetImage>;
+}) {
   const pictures = (role.sample.images ?? [])
-    .map((id) => images.find((image) => image.id === id))
+    .map((id) => imagesById.get(id))
     .filter((image): image is AssetImage => image !== undefined);
   if (pictures.length > 0) {
     return (
@@ -184,11 +178,6 @@ function Sample({ role, images }: { role: RoleVerdict; images: AssetImage[] }) {
   );
 }
 
-/**
- * The creator's own upload, on its own below the generated downloads. It is
- * never in the list beside them and never recommended, because a year-old file
- * is not the current work.
- */
 function Original({
   assetId,
   original,

@@ -87,7 +87,6 @@ export function fragmentName(
   return `Fragment ${position + 1}`;
 }
 
-/** A preset's prompt, one fragment at a time. */
 export function PromptListEditor({
   content,
   pending,
@@ -100,6 +99,7 @@ export function PromptListEditor({
   const [selected, setSelected] = useState(0);
   const groups = content.groups ?? [];
   const fragments = content.fragments ?? [];
+  const groupNames = new Map(groups.map((group) => [group.id, group.name]));
   const current = fragments[selected];
 
   function replaceCurrent(changes: Partial<PromptFragment>) {
@@ -131,7 +131,9 @@ export function PromptListEditor({
         }
         rows={fragments.map((fragment, index) => ({
           name: fragmentName(fragment, index),
-          detail: groupName(groups, fragment.groupId),
+          detail: fragment.groupId
+            ? groupNames.get(fragment.groupId)
+            : undefined,
           off: !fragment.enabled,
           search: [
             fragmentName(fragment, index),
@@ -166,18 +168,6 @@ export function PromptListEditor({
   );
 }
 
-function groupName(
-  groups: PromptGroup[],
-  groupId: string | undefined,
-): string | undefined {
-  if (!groupId) return undefined;
-  return groups.find((group) => group.id === groupId)?.name;
-}
-
-/**
- * The headings fragments sit under. Removing one takes its fragments out of it
- * rather than taking the fragments with it.
- */
 function GroupEditor({
   groups,
   fragments,
@@ -251,8 +241,7 @@ function GroupEditor({
           type="button"
           onClick={() => {
             if (adding.trim() === "") return;
-            // The id is minted here so a fragment can be put under the
-            // heading straight away rather than after the next save.
+            // Fragments can reference this group before the next save.
             onChange({
               groups: [
                 ...groups,
@@ -416,11 +405,6 @@ function FragmentFields({
   );
 }
 
-/**
- * One app's settings as a form. The names are the app's own and Illarin models
- * nothing about what any of them controls, so this asks for a value and says
- * nothing about what the value will do.
- */
 export function SettingGroupEditor({
   settings,
   pending,
@@ -574,7 +558,6 @@ function emptyValue(type: PresetSetting["type"]): TypedValue {
   }
 }
 
-/** The control for one typed value, which a setting and a variable share. */
 function ValueField({
   type,
   choices,
@@ -666,7 +649,6 @@ export function variableName(
   return `Variable ${position + 1}`;
 }
 
-/** The form a reader fills in, built one variable at a time. */
 export function VariableSchemaEditor({
   variables,
   pending,
@@ -936,7 +918,6 @@ export function scriptName(script: RegexScript, position: number): string {
   return `Script ${position + 1}`;
 }
 
-/** Find and replace, one script at a time. */
 export function ScriptListEditor({
   scripts,
   pending,

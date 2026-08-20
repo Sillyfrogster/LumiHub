@@ -11,7 +11,7 @@ export const metadata = {
 export default function LinkPage() {
   return (
     <section className={styles.page}>
-      <Art name="wash" width={720} className={styles.wash} loading="eager" />
+      <Art name="wash" width={720} className={styles.wash} />
       <Art name="city" width={520} className={styles.city} />
       <Shell className={styles.layout}>
         <div className={styles.introduction}>

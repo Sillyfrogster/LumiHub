@@ -18,7 +18,7 @@ export function Hero() {
       </Parallax>
 
       <Parallax speed={-0.06} className={styles.wash}>
-        <Art name="wash" width={520} preload />
+        <Art name="wash" width={520} />
       </Parallax>
       <Art name="birds" width={200} className={styles.birds} />
       <Art name="sparkles" width={230} className={styles.sparkles} />
