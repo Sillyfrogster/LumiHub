@@ -1,9 +1,4 @@
-// Package keys reads and writes the raw JSON keys of a source file.
-//
-// A module takes the keys it models out of a payload and hands back whatever
-// is left, so what a file carries that Illarin has no place for travels back
-// out untouched. Every module does that, which is why the handful of moves it
-// takes live here rather than once per module.
+// Package keys moves modeled fields in and out of raw JSON payloads.
 package keys
 
 import (
@@ -12,13 +7,8 @@ import (
 	"fmt"
 )
 
-// Take reads one key into target and takes it out of the source, reporting
-// whether it did.
-//
-// A key written as the wrong shape is left where it is, and so is one written
-// as null. Neither is a value this module read, so both stay in the source and
-// come back out exactly as they arrived. That is what keeps a bad value costing
-// its own field and nothing more.
+// Take decodes and removes a valid, non-null key. Invalid values stay untouched
+// so they can round-trip through preservation.
 func Take[T any](source map[string]json.RawMessage, key string, target *T) bool {
 	raw, present := source[key]
 	if !present || IsNull(raw) || json.Unmarshal(raw, target) != nil {

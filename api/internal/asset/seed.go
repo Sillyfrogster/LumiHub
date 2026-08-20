@@ -5,12 +5,8 @@ import (
 	"github.com/Sillyfrogster/LumiHub/api/internal/format/preset"
 )
 
-// kindsAskedForAnApp are the kinds whose settings have names only an app can
-// give them. Creating one from nothing asks which app it is for, once, and the
-// answer seeds those names and is stored nowhere.
-//
-// Every other kind is asked nothing, and an answer sent for one is refused
-// rather than quietly ignored.
+// kindsAskedForAnApp lists kinds whose initial slot names depend on an app. The
+// choice seeds content but is not stored.
 var kindsAskedForAnApp = map[string]struct{}{"preset": {}}
 
 // KindAsksForAnApp reports whether creating this kind from nothing asks which

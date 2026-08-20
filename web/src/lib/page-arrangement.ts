@@ -109,11 +109,6 @@ export function packBlockRows<T extends { hidden: boolean; width: BlockWidth }>(
   return rows;
 }
 
-/**
- * The element types with a full-screen editing surface. Each one holds a
- * collection that can run to hundreds of items, and none of them fits a page
- * column however wide it is.
- */
 export const FULL_SCREEN_TYPES = [
   "entry_table",
   "image_set",
@@ -129,11 +124,6 @@ export function opensFullScreen(type: string): boolean {
   return (FULL_SCREEN_TYPES as readonly string[]).includes(type);
 }
 
-/**
- * Past this many items a section sheet is a scroll rather than a form, and the
- * full-screen surface is where the editing belongs. Below it editing stays in
- * place, because a two-item list is not a full-screen event.
- */
 export const INLINE_ITEM_LIMIT = 8;
 
 export function fitsInTheSheet(element: {

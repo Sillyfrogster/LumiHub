@@ -11,11 +11,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// Both preset files keep what Illarin has no place for in the same two
-// places: the file's own top level, and an `extensions` object whose every key
-// belongs to whoever wrote it. The names differ and nothing else does, so the
-// moves are here and each module supplies its own names.
-
 // itemLeftover is what one item carried that Illarin has no place for, and the
 // namespace it belongs under.
 type itemLeftover struct {
@@ -48,10 +43,7 @@ func (p preservation) remainder(
 			extensions = make(map[string]json.RawMessage)
 		}
 	}
-	// An extensions key named for one of this module's own namespaces would
-	// ask for two namespaces of one name. It travels back out whole either
-	// way, so it stays where it is rather than being split out beside its
-	// namesake.
+	// Keep collisions nested so they cannot shadow the module's namespaces.
 	clashes := make(map[string]json.RawMessage)
 	for _, name := range p.reserved {
 		if collision, clash := extensions[name]; clash {
@@ -124,13 +116,8 @@ func scriptLeftovers(
 	return leftovers
 }
 
-// kept is an asset's preserved data, sorted into what owns it. A writer asks it
-// for one namespace at a time rather than walking the rows itself.
-//
-// An asset's namespaces stay as the bytes they were stored as, because a
-// namespace holds whatever the file put there and not every one of them is an
-// object. An item's are read as keys, which is the only shape a module ever
-// preserves for one item.
+// kept indexes preserved data by owner and namespace. Asset payloads remain raw
+// because not every namespace is an object.
 type kept struct {
 	asset map[string]json.RawMessage
 	items map[string]map[uuid.UUID]map[string]json.RawMessage

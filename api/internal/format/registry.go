@@ -83,16 +83,8 @@ func (r *Registry) ValidateDeclarations() error {
 	return nil
 }
 
-// signaturesOverlap reports whether one module's structural signature could
-// never be told apart from another's. That is what happens when one asks for a
-// part of what the other asks for, at the same types, on a container they
-// share: every payload the stricter signature matches, the looser one matches
-// as well, so the looser one shadows it on every file.
-//
-// Two signatures that each require a key the other does not are told apart by
-// those keys, which is how the formats with no marker of their own separate. A
-// file carrying both key sets is genuinely ambiguous rather than misdeclared,
-// and resolving it fails closed on equally strong claims.
+// signaturesOverlap reports whether one structural signature shadows another.
+// Distinct required keys are separable; equal-strength matches fail closed.
 func signaturesOverlap(first, second []Recognition) bool {
 	for _, a := range first {
 		if a.Kind != RecognitionSignature {

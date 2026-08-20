@@ -1,8 +1,5 @@
-// Package block holds an asset's content model. A block is a titled container
-// and the elements inside it carry the content.
-//
-// Semantic identity sits on the element and never on the block, so an exporter
-// asks for elements by role and takes them wherever the creator put them.
+// Package block holds the asset content model. Elements carry semantic roles;
+// blocks only arrange them.
 package block
 
 import (
@@ -56,10 +53,7 @@ const (
 	// free text and an exporter maps them. Illarin holds no vocabulary of
 	// emotions to check them against.
 	RoleExpressions Role = "expressions"
-	// RoleLorebookEntries is one role for a character's embedded book and for
-	// a standalone lorebook alike. It was named for the field CCv2 uses while
-	// character was the only kind that had one, and it is named for the
-	// content now.
+	// RoleLorebookEntries covers both embedded and standalone lorebooks.
 	RoleLorebookEntries Role = "lorebook_entries"
 	// The preset roles. Four of them are settings a creator fills in and three
 	// are content they write, which is why they are seven roles and not one.

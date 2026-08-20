@@ -6,14 +6,8 @@ import (
 	"github.com/google/uuid"
 )
 
-// Illarin mints an id for every item inside an element the moment the item is
-// created, and never reads one out of a source file. A format's own identifier
-// is preserved data like anything else: a file's id says nothing about items a
-// creator adds afterwards in the builder, and nothing makes it unique.
-//
-// Preserved data keys against these ids rather than against a position, so
-// reordering a book or deleting one entry cannot move a preserved field onto
-// the entry next to it.
+// Item IDs are minted locally and never imported. Preserved fields key by them
+// so reorder and deletion cannot attach data to a neighboring item.
 
 // NewItemID mints the id one new item carries for the rest of its life.
 func NewItemID() uuid.UUID { return uuid.New() }
@@ -26,10 +20,7 @@ func itemID(supplied uuid.UUID) uuid.UUID {
 	return NewItemID()
 }
 
-// ItemIDs returns the ids of the items inside one element, in order. An
-// element whose content is a single body has none. A block save reconciles
-// preserved data against this list, so an item that has gone takes its
-// preserved data with it.
+// ItemIDs returns an element's item IDs in order for preservation cleanup.
 func ItemIDs(content Content) []uuid.UUID {
 	switch held := content.(type) {
 	case TextSet:

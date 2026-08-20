@@ -1,14 +1,4 @@
-// Package lorebook reads and writes the two standalone lorebook files.
-//
-// One is the same object a character card carries under `character_book`,
-// hoisted to the top level of a document of its own, so its entry vocabulary
-// is the shared one and only the surroundings differ. The other is what
-// SillyTavern's World Info panel exports, which spells every field its own way
-// and keys its entries rather than listing them.
-//
-// Neither names itself, so each is recognised by the one structure it always
-// has. That is also the one thing that differs between them, so a file can
-// only ever match one of the two.
+// Package lorebook reads and writes listed and keyed standalone lorebooks.
 package lorebook
 
 import (
@@ -52,10 +42,7 @@ func (Module) Declaration() format.Declaration {
 	return format.Declaration{
 		ID: ID, Label: "Lorebook", Kind: Kind,
 		Direction: format.Direction{Read: true, Write: true},
-		// No lorebook file says what it is. A document holding a list of
-		// entries is the whole of the evidence, and it is evidence no other
-		// module asks for: a character card keeps its book nested under
-		// `character_book` and never at its own top level.
+		// Listed lorebooks are identified by a top-level entries array.
 		Recognition: []format.Recognition{{
 			Kind:       format.RecognitionSignature,
 			Containers: []probe.Container{probe.JSON},
@@ -89,10 +76,7 @@ func (Module) Declaration() format.Declaration {
 			PayloadBytes: block.MaxPayloadBytes, CollectionItems: block.MaxCollectionItems,
 			ItemBytes: block.MaxItemBytes,
 		},
-		// The document's own keys this module turns into content. Everything
-		// else it carries is preserved, which is what makes the remainder a
-		// per-key answer rather than a per-namespace one. A book's description
-		// is not among them.
+		// Description seeds the blurb but stays preserved for round trips.
 		ConsumedKeys: []string{entriesKey, "name"},
 		// No boilerplate. A book is written by hand or by whatever exported
 		// it, and no tool in the corpus stamps a namespace onto every one, so
@@ -112,12 +96,7 @@ func (m Module) Claim(file probe.Inspection) (format.Claim, bool) {
 	return format.ClaimByDeclaration(file, m.Declaration())
 }
 
-// Parse reads the document into the one role a lorebook has, plus the name
-// above it and everything else the file carried.
-//
-// The entry list is the required part. If it will not parse the import is
-// refused and nothing is stored; past that point a failure costs only what
-// failed, so three bad values in 285 entries leave the other 282 whole.
+// Parse reads a listed lorebook and preserves fields it cannot model.
 func (m Module) Parse(
 	_ context.Context,
 	file probe.Inspection,
@@ -149,12 +128,7 @@ func (m Module) Parse(
 	if named {
 		delete(source, "name")
 	}
-	// The book's own description stays in the file rather than becoming a
-	// field. It seeds the line a reader sees while browsing, and the creator
-	// confirms that line, so a description longer than a browse card can hold
-	// is prefilled short and travels back out in full.
-	//
-	// It is taken before the remainder, which edits the same map.
+	// Preserve the full description; only its shortened copy seeds the blurb.
 	seeded := blurb(source)
 	return format.Parsed{
 		Kind: Kind, Format: ID,
@@ -180,10 +154,7 @@ func remainder(
 			extensions = make(map[string]json.RawMessage)
 		}
 	}
-	// A document whose extensions carry a key named for the book itself would
-	// ask for two namespaces of one name. It travels back out whole either
-	// way, so it stays where it is rather than being split out beside its
-	// namesake.
+	// Keep a collision nested so it cannot shadow the document namespace.
 	if collision, clash := extensions[bookNamespace]; clash {
 		source[extensionsKey], _ = json.Marshal(
 			map[string]json.RawMessage{bookNamespace: collision},

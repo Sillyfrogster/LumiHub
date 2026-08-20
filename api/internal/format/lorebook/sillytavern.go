@@ -17,15 +17,8 @@ import (
 	"github.com/google/uuid"
 )
 
-// SillyTavern writes the book its World Info panel exports, which is the file
-// most creators actually have. It is a different format from the book a
-// character card carries rather than a dialect of it. The entries are keyed
-// rather than listed, every field is spelled its own way, and its switch is
-// the opposite way round.
-//
-// The two are told apart by the one thing that differs at the top level, and
-// each writes only its own names, so neither ever produces a hybrid file.
 const (
+	// SillyTavernID identifies SillyTavern's keyed World Info format.
 	SillyTavernID = "lorebook_sillytavern"
 	// Where a World Info file's leftovers sit. It has no `extensions` of its
 	// own, so an entry's own keys are the whole of the remainder.
@@ -67,10 +60,7 @@ func (SillyTavernModule) Declaration() format.Declaration {
 	return format.Declaration{
 		ID: SillyTavernID, Label: "SillyTavern lorebook", Kind: Kind,
 		Direction: format.Direction{Read: true, Write: true},
-		// A World Info file names itself nowhere either. What it always has is
-		// entries keyed by their position, and no other module asks for that:
-		// the listed book requires the same key as a list, and a character
-		// card keeps its book nested under `character_book`.
+		// World Info is identified by its top-level entries object.
 		Recognition: []format.Recognition{{
 			Kind:       format.RecognitionSignature,
 			Containers: []probe.Container{probe.JSON},
@@ -112,10 +102,7 @@ func (m SillyTavernModule) Claim(file probe.Inspection) (format.Claim, bool) {
 	return format.ClaimByDeclaration(file, m.Declaration())
 }
 
-// Parse reads the keyed entries into the one role a lorebook has.
-//
-// The entries are the required part. Past them a failure costs only what
-// failed, so one bad value leaves every other entry whole.
+// Parse reads a keyed World Info file and preserves fields it cannot model.
 func (m SillyTavernModule) Parse(
 	_ context.Context,
 	file probe.Inspection,

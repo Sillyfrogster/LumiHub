@@ -21,7 +21,6 @@ export function entryName(entry: LorebookEntry, position: number): string {
   return `Entry ${position + 1}`;
 }
 
-/** A lorebook, one entry at a time. */
 export function EntryTableEditor({
   entries,
   pending,

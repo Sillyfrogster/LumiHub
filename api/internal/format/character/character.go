@@ -49,10 +49,7 @@ func exportTargets() []format.BrowseOption {
 	}
 }
 
-// browsableExtensions are the namespaces browse offers as filters. A card gets
-// a facet for every namespace it carries; these are the ones worth putting in
-// front of a reader, because each names something the card can do rather than a
-// colour, a bookmark or a tool's watermark.
+// browsableExtensions are functional namespaces worth exposing as filters.
 var browsableExtensions = []format.BrowseOption{
 	{Value: "depth_prompt", Label: "Depth prompt"},
 	{Value: "regex_scripts", Label: "Regex scripts"},
@@ -126,11 +123,7 @@ func declaration(id string) format.Declaration {
 			Write: format.RoleSupport{Grade: format.SupportFull},
 		}
 	}
-	// A card holds its greetings as plain strings and its example exchange as
-	// one run of lines, so both carry whole until an asset uses a part of
-	// Illarin's own model that the card has no room for. Neither condition
-	// fires on an imported card, which is the point of stating them as
-	// conditions rather than as a sentence every character would show.
+	// Imported cards fit these shapes; only builder-only structure triggers loss.
 	roles[block.RoleGreetings] = format.DirectionalRoleSupport{
 		Read: format.RoleSupport{Grade: format.SupportFull},
 		Write: format.RoleSupport{
@@ -178,14 +171,7 @@ func declaration(id string) format.Declaration {
 			" asset, which only a client that knows the type will show"
 		roles[block.RoleGallery] = gallery
 	}
-	// The keys this module turns into content. Everything else the card
-	// carries is preserved, which is what makes the remainder a per-key
-	// answer rather than a per-namespace one.
-	//
-	// `assets` is not one of them. A CharX card's asset list names files, and
-	// Illarin holds those pictures as media of its own, but the list also
-	// names a reader's own icon and files that live elsewhere. Reading part of
-	// it is not consuming it, so the whole list is preserved.
+	// Keep `assets` preserved because only part of the list maps to Illarin media.
 	consumedKeys := []string{
 		"name", "nickname", "character_version", "creator", "description",
 		"personality", "scenario", "first_mes", "alternate_greetings",
@@ -213,10 +199,7 @@ func declaration(id string) format.Declaration {
 			ItemBytes: block.MaxItemBytes,
 		},
 		ConsumedKeys: consumedKeys,
-		// SillyTavern stamps these four onto every card it writes, whether or
-		// not the creator touched them, so half a real corpus carries four
-		// namespaces that record nothing. They are stored like everything
-		// else; this list only keeps them out of the creator's panel.
+		// Hide stamped empty namespaces from the panel without dropping them.
 		Boilerplate: []format.Boilerplate{
 			{Namespace: "depth_prompt", Path: []string{"prompt"}},
 			{Namespace: "world"},
@@ -226,12 +209,8 @@ func declaration(id string) format.Declaration {
 		Preservation: format.PreservationDeclaration{
 			Body: cardNamespace, Container: []string{extensionsKey},
 		},
-		// The three card standards share one field vocabulary, and the writers
-		// build a file out of roles rather than out of another format's bytes,
-		// so every character origin is a tested origin for every character
-		// writer. That is a deliberate addition to the default of one's own
-		// format and Illarin-authored assets (ADR-0020), and the round trips
-		// that back it are in this package's tests.
+		// Shared roles make all character origins tested across card writers
+		// (ADR-0020).
 		TestedOrigins: []string{V2, V3, CharX, format.OriginIllarin},
 	}
 }
@@ -258,10 +237,8 @@ func readCard(file probe.Inspection, claim format.Claim, implemented int, module
 	return card{fields: fields}, nil
 }
 
-// readableVersion checks what the payload says about itself against the version
-// this module implements. A later major version may have changed what a field
-// means, so it is refused rather than guessed at. A later minor version only
-// adds, so it is read and the additions are left alone.
+// readableVersion rejects later major versions and preserves additions from
+// later minor versions.
 func readableVersion(payload probe.Payload, implemented int) error {
 	declared, ok := payload.String("spec_version")
 	if !ok || declared == "" {
@@ -315,14 +292,8 @@ func (c card) parsed(formatID string, pictures []format.Media) (format.Parsed, e
 	}, nil
 }
 
-// remainder is everything the card carried that did not become content, one
-// namespace at a time.
-//
-// It is computed per key. The declaration names the keys this module consumes;
-// a declared key whose value did not fit is not consumed, so a bad value
-// degrades into preservation instead of being lost. Every key of `extensions`
-// becomes a namespace of its own, which is how a namespace Illarin half
-// understands is split rather than kept twice.
+// remainder groups unconsumed fields by namespace. Invalid modeled fields stay
+// preserved instead of being discarded.
 func (c card) remainder(
 	formatID string,
 	book lorebook,
@@ -339,10 +310,7 @@ func (c card) remainder(
 		}
 		body[key] = raw
 	}
-	// A card whose extensions carry a key named for the card body itself
-	// would ask for two namespaces of one name. Nothing in a real corpus does,
-	// and the key travels back out whole either way, so it stays where it is
-	// rather than being split out beside its namesake.
+	// Keep a collision nested so it cannot shadow the card namespace.
 	if collision, clash := extensions[cardNamespace]; clash {
 		body[extensionsKey], _ = json.Marshal(map[string]json.RawMessage{cardNamespace: collision})
 		delete(extensions, cardNamespace)

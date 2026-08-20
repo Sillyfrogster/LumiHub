@@ -1,8 +1,4 @@
-// Package preset holds what Illarin knows about the two preset formats.
-//
-// Today that is the named slots each app reads. A preset created from nothing
-// is seeded with them, so the settings a creator fills in have names their app
-// understands. The modules that read and write the files sit beside this.
+// Package preset holds the supported preset formats and their named slots.
 package preset
 
 import (
@@ -12,11 +8,8 @@ import (
 	"github.com/google/uuid"
 )
 
-// App is one of the two apps a preset can be built for. It is asked once, when
-// a preset is created from nothing, and stored nowhere. It is not identity,
-// there is no switcher, and origin_format stays null. A creator who later fills
-// in the other app's slots by hand makes that writer's required slots
-// non-empty, and the export gates let it through on their own.
+// App selects the initial slot names for a preset built from nothing. The
+// choice is not stored as preset identity.
 type App string
 
 const (
@@ -42,12 +35,7 @@ func (a App) Known() bool {
 	return ok
 }
 
-// slot is one named setting an app reads and the type of what goes in it.
-//
-// A slot carries no wording of its own and no set of allowed values. Slot names
-// are taken at face value and Illarin models nothing about what any of them
-// controls, so inventing a label or a list of choices here would be inventing
-// knowledge Illarin does not have.
+// slot is one setting name and value type an app reads.
 type slot struct {
 	name        string
 	settingType block.SettingType
@@ -163,13 +151,7 @@ var slotsByApp = map[App]namedSlots{
 	},
 }
 
-// Seed returns the elements a preset built for this app starts with. That is
-// its three settings groups with every slot named and none of them filled in,
-// and its nudges named the same way.
-//
-// Nothing here is a value. A slot nobody has filled in stays a slot nobody has
-// filled in, which is what a writer leaves out of the file rather than writing
-// a zero into.
+// Seed returns the app's empty settings groups and named nudges.
 func Seed(app App) ([]block.Element, error) {
 	named, ok := slotsByApp[app]
 	if !ok {

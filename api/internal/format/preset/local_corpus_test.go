@@ -11,14 +11,8 @@ import (
 	"github.com/Sillyfrogster/LumiHub/api/internal/block"
 )
 
-// TestEveryLocalPresetSurvivesADownload reads every real preset on this
-// machine, writes it back and reads it again. Nothing here is in the
-// repository: the corpus is a local directory and the test skips where it is
-// not present.
-//
-// It is the only place the two modules meet real files, which is where the
-// awkward parts live — a heading nobody put a fragment under, a settings name
-// belonging to the other app, and a payload over a megabyte.
+// TestEveryLocalPresetSurvivesADownload exercises optional local fixtures and
+// skips when the corpus is absent.
 func TestEveryLocalPresetSurvivesADownload(t *testing.T) {
 	root := filepath.Clean("../../../../.ai/probe-corpus/full")
 	entries, err := os.ReadDir(root)

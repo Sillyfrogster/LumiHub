@@ -13,11 +13,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// LumiverseModule reads and writes the preset Lumiverse exports.
-//
-// The file carries no format name. What it does carry is a schema version, at
-// 1 or 2, and that is a marker rather than a version this module could refuse:
-// there is one Lumiverse preset behind both numbers.
+// LumiverseID identifies presets whose schema version is 1 or 2.
 const LumiverseID = "preset_lumiverse"
 
 // Where a Lumiverse preset's leftovers sit. The first is Illarin's name for
@@ -130,10 +126,7 @@ func (LumiverseModule) Declaration() format.Declaration {
 	return format.Declaration{
 		ID: LumiverseID, Label: "Lumiverse preset", Kind: Kind,
 		Direction: format.Direction{Read: true, Write: true},
-		// The schema version is the whole of the evidence. It says the file is
-		// the sort of thing this module reads and nothing more, so a file at
-		// some other number is a file nothing here recognises rather than a
-		// version of this format that is unsupported.
+		// The schema version is the format discriminator, not a compatibility gate.
 		Recognition: []format.Recognition{{
 			Kind:       format.RecognitionDiscriminator,
 			Containers: []probe.Container{probe.JSON},
@@ -179,10 +172,7 @@ func (LumiverseModule) Declaration() format.Declaration {
 				Write: format.RoleSupport{Grade: format.SupportNone},
 			},
 		},
-		// A Lumiverse preset names itself, says what it is for a person, and
-		// carries its own version. The description is the same text the
-		// catalog shows while browsing, so it binds both ways rather than
-		// being kept twice.
+		// Description and catalog blurb share one value.
 		Header: []format.HeaderField{
 			format.HeaderName, format.HeaderBlurb, format.HeaderAssetVersion,
 		},
@@ -223,11 +213,7 @@ func (m LumiverseModule) Claim(file probe.Inspection) (format.Claim, bool) {
 	return format.ClaimByDeclaration(file, m.Declaration())
 }
 
-// Parse reads a Lumiverse preset into the seven roles a preset has.
-//
-// The block list is the required part. If it will not parse the import is
-// refused and nothing is stored; past that point a failure costs only what
-// failed, so one unreadable setting leaves every other one whole.
+// Parse reads a Lumiverse preset and preserves fields it cannot model.
 func (m LumiverseModule) Parse(
 	_ context.Context,
 	file probe.Inspection,
@@ -311,11 +297,8 @@ func (m LumiverseModule) Parse(
 	}, nil
 }
 
-// boundBlurb takes the preset's own description as the line a person reads
-// while browsing. The two are the same text and this module writes it back, so
-// a description longer than a blurb holds is left in the file rather than
-// bound short. Two real presets are README-shaped and this is the case they
-// are.
+// boundBlurb binds descriptions that fit the catalog. Longer text stays
+// preserved in the source payload.
 func boundBlurb(source map[string]json.RawMessage) string {
 	var description string
 	if !keys.Take(source, lvDescription, &description) {

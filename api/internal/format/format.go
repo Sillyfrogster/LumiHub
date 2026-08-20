@@ -137,12 +137,8 @@ type Header struct {
 	Nickname       string
 }
 
-// MaxBlurbRunes is as long as the line a person reads while browsing gets.
-//
-// A blurb seeded from a file is a prefill the creator confirms, so it may be
-// shortened to fit. A blurb bound to a field in the file is the same text both
-// ways, so a value too long to fit is not bound at all rather than bound
-// short: it stays in the file and travels back out whole.
+// MaxBlurbRunes limits catalog copy. Bound source fields that exceed it remain
+// preserved rather than being truncated.
 const MaxBlurbRunes = 400
 
 // Owner is what a preserved payload belongs to. It is one mechanism with three
@@ -326,10 +322,7 @@ type ContentCondition struct {
 type RoleSupport struct {
 	Grade     SupportGrade
 	Condition *ContentCondition
-	// Destination names where this format puts the role's content when that is
-	// not its standard home for it, such as an extensions namespace only some
-	// clients read. It is an independent fact from how much survives, so it
-	// rides on a carried verdict as readily as a reduced one.
+	// Destination names a nonstandard location for otherwise carried content.
 	Destination string
 }
 
@@ -350,10 +343,8 @@ type ContentLimits struct {
 	ItemBytes       int
 }
 
-// Boilerplate names a namespace a tool stamps on every file it writes, and
-// where inside that namespace the creator's own value would sit. Where that
-// value records nothing the creator's panel leaves the namespace out. This
-// governs display alone, and the data is stored either way.
+// Boilerplate hides empty tool-stamped namespaces from display without dropping
+// their stored data.
 type Boilerplate struct {
 	Namespace string
 	// Path locates the value inside the namespace. Empty means the namespace's
@@ -463,10 +454,7 @@ type Declaration struct {
 	Boilerplate   []Boilerplate
 	Preservation  PreservationDeclaration
 	TestedOrigins []string
-	// CrossPlatform marks a writer that produces a file for another platform.
-	// Such a target is offered only where the creator has allowed it, and
-	// nothing grants an allowance yet. The three character card formats are
-	// ordinary targets and are not marked.
+	// CrossPlatform requires an explicit allowance before the target is offered.
 	CrossPlatform bool
 }
 

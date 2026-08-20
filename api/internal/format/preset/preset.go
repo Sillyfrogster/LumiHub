@@ -17,10 +17,8 @@ const Kind = "preset"
 // than remembering to add each one.
 func Modules() []format.Reader { return []format.Reader{LumiverseModule{}, SillyTavernModule{}} }
 
-// declaredSlots is what a module says about the named settings it fills: every
-// slot of its app, in the three groups, plus the nudges it sends on its own.
-// It is built from the same table the from-nothing seed is built from, so a
-// module and a seeded preset can never disagree about what an app is called.
+// declaredSlots derives module declarations from the same table used to seed
+// new presets.
 func declaredSlots(app App) []format.SlotDeclaration {
 	named := slotsByApp[app]
 	declared := make([]format.SlotDeclaration, 0,
@@ -46,13 +44,8 @@ var slotValueTypes = map[block.SettingType]format.ValueType{
 	block.SettingStrings: format.ValueArray,
 }
 
-// settingsElement reads the slot names this app knows out of an object of
-// named values, and takes them out of the object. What is left is a name this
-// module does not read, which travels back out where it came from.
-//
-// A slot the file wrote as null is a slot nobody filled in. It is still a
-// named slot on the page, because the app reads it whether or not anyone has
-// put anything in it.
+// settingsElement consumes known slots and leaves unknown fields for
+// preservation. Null keeps a known slot present but unfilled.
 func settingsElement(
 	role block.Role,
 	values map[string]json.RawMessage,
@@ -236,10 +229,7 @@ func nudges(asset format.ExportAsset) []block.TextItem {
 	return set.Texts
 }
 
-// unnamedSetting matches a group holding a setting whose name this app does
-// not read. A writer puts back the names it declares and no others, so a name
-// from somewhere else stays behind rather than reaching a file that would
-// ignore it.
+// unnamedSetting matches a populated setting the target app does not read.
 func unnamedSetting(named []slot) *format.ContentCondition {
 	return &format.ContentCondition{
 		Description: "a setting this app has no name for",

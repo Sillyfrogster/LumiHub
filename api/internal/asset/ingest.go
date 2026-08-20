@@ -191,13 +191,8 @@ func (s *Service) readImport(
 	}, nil
 }
 
-// heaviestNamespace names the largest thing a refused file carries that no
-// module reads, so a creator over the limit learns what is in their file
-// rather than only that it is too big.
-//
-// It adds no limit of its own. Preserved data can never be larger than the
-// file it came from, so a second smaller limit could only refuse files the
-// first one allowed. It answers with nothing where the weight is elsewhere.
+// heaviestNamespace reports the largest preserved namespace when it explains a
+// rejected file. It adds no separate limit.
 func heaviestNamespace(payload probe.Payload, declaration format.Declaration) string {
 	container := payload.Root
 	for _, part := range declaration.Preservation.Container {
@@ -561,13 +556,8 @@ func (s *Service) writeIngestResult(
 	return assetID, s.writeExportProjection(ctx, tx, assetID)
 }
 
-// replacePreservedData writes what a reader could not model. A new revision
-// replaces every row, because the creator has handed over a file that
-// deliberately no longer holds what the last one did.
-//
-// The owner is the asset, one element, or one item inside an element. That is
-// one mechanism with three owners, and it is what lets a deleted entry take
-// its preserved fields with it.
+// replacePreservedData replaces preserved fields for the asset, its elements,
+// and their current items.
 func replacePreservedData(
 	ctx context.Context,
 	tx pgx.Tx,

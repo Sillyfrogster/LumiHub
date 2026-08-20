@@ -12,10 +12,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// Write builds a Lumiverse preset out of the asset's roles. Nothing here reads
-// another format's bytes: the file is the identity above the builder and the
-// elements the kind is built on, and everything the preset arrived with that
-// Illarin has no place for comes back afterwards from preservation.
+// Write builds a Lumiverse preset from canonical roles and preserved fields.
 func (LumiverseModule) Write(
 	_ context.Context,
 	asset format.ExportAsset,
@@ -325,15 +322,8 @@ func writeFreeValue(value block.Value) json.RawMessage {
 	}
 }
 
-// restoreLumiversePreserved writes an asset's preserved data back into the
-// file the writer built from the creator's content:
-//
-//   - a name inside a settings object goes back inside that object
-//   - the preset namespace goes back at the file's own top level
-//   - every other namespace goes back under `extensions`, one key each
-//
-// Content the writer already wrote wins. A preserved copy of something the
-// creator can now edit would put a stale value back on top of a live one.
+// restoreLumiversePreserved restores nested settings, top-level fields, and
+// extension namespaces without overwriting current content.
 func restoreLumiversePreserved(body map[string]json.RawMessage, held kept) {
 	preserved := held.object(lumiverseNamespace)
 	for _, key := range []string{lvSamplers, lvCompletion, lvAdvanced, lvBehaviour} {

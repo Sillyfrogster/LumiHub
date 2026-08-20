@@ -10,22 +10,8 @@ import (
 	"github.com/google/uuid"
 )
 
-// RestorePreserved writes an asset's preserved data back into a card body a
-// writer has built from the creator's content. It is the other half of
-// remainder: every key a reader could not model goes back where it came from,
-// byte for byte.
-//
-//   - the card namespace goes back at the body's own top level
-//   - every other namespace goes back under `extensions`, one key each
-//   - the book's own keys go back beside its entries
-//   - one entry's own keys go back into that entry, found by the entry's id
-//
-// The book's entries are expected in the order the writer wrote them, which is
-// the order of the entry table it wrote them from. An entry the creator
-// deleted is simply not there, and its preserved keys go nowhere.
-//
-// Content the writer already wrote wins. A preserved copy of something the
-// creator can now edit would put a stale value back on top of a live one.
+// RestorePreserved restores card, extension, book, and entry fields without
+// overwriting current content. Deleted entries stay deleted.
 func RestorePreserved(
 	body map[string]json.RawMessage,
 	entries []block.Entry,

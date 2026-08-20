@@ -52,18 +52,13 @@ func Groups() []Group { return []Group{GroupFile, GroupReader, GroupWork, GroupO
 // Title returns the group's wording in the add tray.
 func (g Group) Title() string { return groupTitles[g] }
 
-// Definition is what a kind declares about one of its blocks. Every field here
-// is read at render time and none of it is copied onto a block row, so changing
-// what a character requires is a code change rather than a migration that
-// leaves a stale answer wherever it is missed.
+// Definition describes a kind's block at render time; it is not copied into
+// persisted block rows.
 type Definition struct {
 	ID DefinitionID
 	// Title is the wording a block carries until its creator writes their own.
 	Title string
-	// Required blocks exist from the moment the asset does and cannot be
-	// removed. Only a required definition says whether it may be hidden,
-	// because an optional block can always be removed outright and forbidding
-	// the gentler action would be incoherent.
+	// Only required blocks need a hide policy; optional blocks can be removed.
 	Required bool
 	Hideable bool
 	// Elements are the definition's own, in slot order.
@@ -85,12 +80,7 @@ type Definition struct {
 	Choices []DefinedElement
 }
 
-// start is one way a section can arrive. It is the elements the section holds
-// on the day it is added, and the name the add tray offers it under.
-//
-// A definition that names choices has one start per choice. Every other
-// definition has exactly one, its own declared elements, because there is no
-// route that adds an element to a section later.
+// start describes one add-tray choice and the elements created with it.
 type start struct {
 	Type     Type
 	Label    string

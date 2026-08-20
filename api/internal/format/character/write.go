@@ -34,10 +34,7 @@ const (
 	defaultAssetURI = "ccdefault:"
 )
 
-// v3OnlyKeys are the keys the v3 standard added. A v2 card has nowhere to put
-// them, so they are left behind on the way into one even when the asset kept
-// them from a v3 file it arrived as. Shipping an asset list inside a v2 card
-// would hand a reader the very images the loss report just said were dropped.
+// v3OnlyKeys must not leak into v2 exports after preservation is restored.
 var v3OnlyKeys = []string{
 	"assets", "nickname", "group_only_greetings", "creation_date",
 	"modification_date", "source", "creator_notes_multilingual",
@@ -55,13 +52,8 @@ func (CharXModule) Write(_ context.Context, asset format.ExportAsset) (format.Ar
 	return writeCharX(asset)
 }
 
-// writeCard writes a card inside the picture that stands for the asset where
-// there is one a card can be embedded in, and as a JSON document where there is
-// not. Both are the format, and the container follows what the asset holds.
-//
-// A v3 card also carries a v2 copy of itself, which is what every card in the
-// corpus does. Without it a reader that knows only the older shape opens the
-// file and finds a picture with nothing in it.
+// writeCard chooses an image or JSON container from available media. V3 cards
+// also include the v2 payload needed by older readers.
 func writeCard(asset format.ExportAsset, formatID string) (format.Artifact, error) {
 	picture := embeddablePicture(asset)
 	body, entries := cardFields(asset, formatID)
@@ -270,10 +262,7 @@ func textsOf(items []block.TextItem) []string {
 	return texts
 }
 
-// dialogueText writes the example exchange the way a card holds it, one line
-// per turn under a start marker. A turn spanning more than one line runs
-// together when it is read back, which is what the declared condition warns
-// about.
+// dialogueText writes one line per turn; multiline turns cannot round-trip.
 func dialogueText(asset format.ExportAsset) string {
 	content, ok := asset.Content(block.RoleExampleDialogue)
 	if !ok {

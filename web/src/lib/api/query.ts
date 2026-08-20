@@ -99,10 +99,7 @@ export async function fetchDeletedAssets(
   return data.items;
 }
 
-/**
- * One asset by id. A withheld, deleted or never-existed asset comes back null,
- * because the API answers all three the same way.
- */
+// The API intentionally makes withheld, deleted, and missing assets identical.
 export async function fetchAsset(
   id: string,
   cookie?: string,
@@ -115,10 +112,6 @@ export async function fetchAsset(
   return data;
 }
 
-/**
- * Starts an asset from nothing. The kind is asked for once, here, so the page
- * that comes back is already the right shape.
- */
 export type StartAssetApp = NonNullable<
   components["schemas"]["StartAssetRequest"]["app"]
 >;
@@ -202,13 +195,7 @@ export async function addAssetBlock(
   return data;
 }
 
-/**
- * Stores one image against the asset and answers with its new id. The page
- * reads the image back from the asset once the section holding it is saved.
- *
- * The role is what the creator put the image into. An expression set is a
- * collection that says it holds expressions, and everything else is a gallery.
- */
+// Media is stored first, then linked when its section is saved.
 export async function addAssetImage(
   assetId: string,
   file: File,
@@ -295,11 +282,7 @@ export async function moveAssetBlockContent(
   return data;
 }
 
-/**
- * The header fields that sit above an asset's blocks. A null answer to the
- * adult content question is the unanswered state, which only a draft may be
- * in.
- */
+// A null adult-content answer is allowed only while the asset is a draft.
 export async function saveAssetIdentity(
   id: string,
   identity: { name: string; isNsfw: boolean | null },
@@ -344,10 +327,7 @@ export async function publishAsset(
   };
 }
 
-/**
- * Names what an asset carried that Illarin does not read. The owner alone can
- * ask: preserved data belongs to the file and never to the page.
- */
+// Preserved namespaces belong to the source file and are owner-only.
 export async function fetchPreservedNamespaces(
   id: string,
 ): Promise<PreservedNamespace[]> {

@@ -11,24 +11,16 @@ export type RichInline =
 
 export type RichBlock =
   | { kind: "paragraph"; children: RichInline[] }
-  /** Depth is 1 for the shallowest heading in the text, whatever it was typed
-   * as, so a page never skips a heading level. */
   | { kind: "heading"; depth: number; children: RichInline[] }
   | { kind: "quote"; children: RichBlock[] }
   | { kind: "list"; ordered: boolean; start: number; items: RichBlock[][] };
 
 export type RichText = {
   blocks: RichBlock[];
-  /** True where the words survived but the way they were dressed did not. */
   formattingRemoved: boolean;
 };
 
-/**
- * Reads what a creator wrote as emphasis, headings, lists, links, block quotes
- * and inline code, and nothing else. HTML is reduced to the words inside it, so
- * a greeting wrapped in markup shows what it says. The stored text is never
- * touched and a download still carries every original byte.
- */
+/** Parses supported Markdown and reduces HTML to plain text. */
 export function readRichText(source: string): RichText {
   const stripped = stripHtml(source);
   const removed = { formatting: stripped.removed };
@@ -41,7 +33,6 @@ export function readRichText(source: string): RichText {
   };
 }
 
-/** The depth of the shallowest heading anywhere in these blocks, or null. */
 function shallowestHeading(blocks: RichBlock[]): number | null {
   const depths: number[] = [];
   for (const block of blocks) {
@@ -76,16 +67,11 @@ function raiseHeadings(blocks: RichBlock[], by: number): RichBlock[] {
   });
 }
 
-/** Whether any of these texts loses formatting on the way to the page. */
 export function formattingWasRemoved(texts: readonly string[]): boolean {
   return texts.some((text) => readRichText(text).formattingRemoved);
 }
 
-/**
- * The text on an element that a person wrote for a person. A body a creator
- * marked verbatim is left out, and so is a prompt fragment, because both are
- * the exact words an app sends to a model rather than prose about them.
- */
+/** Returns prose fields that may be rendered as rich text. */
 export function richTextsOf(element: {
   type: string;
   display?: string;
@@ -127,12 +113,7 @@ function texts(entries: Record<string, unknown>[], key: string): string[] {
   return found;
 }
 
-/**
- * The markdown this page never reads. HTML is off outright, so no HTML node can
- * reach the renderer. Indented lines stay prose, because a creator who indents
- * a paragraph means a paragraph. A rule stays the characters it was typed as,
- * so nobody loses their scene break.
- */
+// Keep indented prose and thematic breaks literal; HTML is stripped first.
 const DISABLED = {
   disable: { null: ["codeIndented", "htmlFlow", "htmlText", "thematicBreak"] },
 };
@@ -246,7 +227,6 @@ function readInline(nodes: PhrasingContent[], removed: Removed): RichInline[] {
   return children;
 }
 
-/** Newlines survive as line breaks, because a creator typing one meant one. */
 function readLines(value: string): RichInline[] {
   const children: RichInline[] = [];
   value.split("\n").forEach((part, index) => {
@@ -277,13 +257,7 @@ function flatten(node: unknown): string {
 
 const FOLLOWABLE_SCHEMES = new Set(["http", "https", "mailto"]);
 
-/**
- * The address a link is allowed to carry. A scheme the page cannot follow, such
- * as javascript, is refused, and so is an address starting with two slashes,
- * which leaves the site without naming where it goes.
- */
 function readHref(url: string): string | null {
-  // Control characters and spaces come out first, so nothing hides a scheme.
   const cleaned = url.replace(/[\s\p{Cc}]/gu, "");
   if (cleaned === "") return null;
   const scheme = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(cleaned);
@@ -293,17 +267,12 @@ function readHref(url: string): string | null {
   return cleaned.startsWith("/") && !cleaned.startsWith("//") ? cleaned : null;
 }
 
-/** Elements whose own content is not words anybody came to read. */
 const DISCARDED = /<(script|style|svg)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi;
 
 const COMMENT_OR_TAG =
   /<!--[\s\S]*?-->|<\/?([a-zA-Z][a-zA-Z0-9-]*)(?:\s(?:"[^"]*"|'[^']*'|[^'">])*)?\/?>/g;
 
-/**
- * Removes the markup a page is dressed in and keeps the words. Only names HTML
- * itself defines count as markup: a creator writing `<personality>` in a
- * prompt, or `a < b` in a sentence, wrote text and gets text back.
- */
+// Only recognized HTML names are stripped; prompt-like angle brackets survive.
 function stripHtml(source: string): { text: string; removed: boolean } {
   let removed = false;
   let text = source.replace(DISCARDED, () => {
@@ -321,7 +290,6 @@ function stripHtml(source: string): { text: string; removed: boolean } {
     return BLOCK_ELEMENTS.has(tag) ? "\n" : "";
   });
   if (!removed) return { text: source, removed: false };
-  // The indentation belonged to the markup, not to the words inside it.
   const flat = text
     .split("\n")
     .map((line) => line.trim())
@@ -343,7 +311,6 @@ const HTML_ELEMENTS = new Set(
    tt u ul var video wbr xmp`.split(/\s+/),
 );
 
-/** The elements that end a line of words rather than sitting inside one. */
 const BLOCK_ELEMENTS = new Set(
   `address article aside blockquote br caption center dd details dialog dir div
    dl dt fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6 header hgroup

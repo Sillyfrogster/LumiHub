@@ -12,10 +12,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// Write builds a lorebook document out of the asset's roles. Nothing here
-// reads another format's bytes: the file is the name above the builder and the
-// one element the kind is built on, and everything the book arrived with that
-// Illarin has no place for comes back afterwards from preservation.
+// Write builds a listed lorebook from canonical roles and preserved fields.
 func (Module) Write(_ context.Context, asset format.ExportAsset) (format.Artifact, error) {
 	entries := bookEntries(asset)
 	body := map[string]json.RawMessage{
@@ -46,19 +43,8 @@ func bookEntries(asset format.ExportAsset) []block.Entry {
 	return table.Entries
 }
 
-// restorePreserved writes an asset's preserved data back into the document the
-// writer has built from the creator's content:
-//
-//   - the lorebook namespace goes back at the document's own top level
-//   - every other namespace goes back under `extensions`, one key each
-//   - one entry's own keys go back into that entry, found by the entry's id
-//
-// The entries are expected in the order the writer wrote them, which is the
-// order of the entry table it wrote them from. An entry the creator deleted is
-// simply not there, and its preserved keys go nowhere.
-//
-// Content the writer already wrote wins. A preserved copy of something the
-// creator can now edit would put a stale value back on top of a live one.
+// restorePreserved restores document, extension, and entry fields without
+// overwriting current content. Deleted entries stay deleted.
 func restorePreserved(
 	body map[string]json.RawMessage,
 	entries []block.Entry,

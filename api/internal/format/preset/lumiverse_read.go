@@ -8,10 +8,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// Reading the parts of a Lumiverse preset that are lists rather than named
-// slots: the block list with its headings and the forms held on a fragment,
-// and the find and replace beside them.
-
 // readBlocks is one pass over the block list. A block is a heading or a prompt
 // fragment, and everything a preset holds under a fragment comes out with it.
 type readBlocks struct {
@@ -20,12 +16,8 @@ type readBlocks struct {
 	leftovers map[uuid.UUID]itemLeftover
 }
 
-// readLumiverseBlocks reads the block list into headings and fragments.
-//
-// A file says which heading a fragment sits under in one of two ways. Where it
-// carries the heading's own identifier it is taken at face value, and where it
-// carries no such key at all the fragment belongs to the heading above it.
-// Both are in the corpus and they never appear on one block.
+// readLumiverseBlocks resolves explicit group IDs and implicit preceding
+// headings while reading the block list.
 func readLumiverseBlocks(
 	blocks []json.RawMessage,
 	saved map[string]map[string]json.RawMessage,

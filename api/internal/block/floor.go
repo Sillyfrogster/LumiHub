@@ -2,10 +2,7 @@ package block
 
 import "github.com/google/uuid"
 
-// Requirement is one thing a kind asks for before an asset may be published.
-// It names the element role that answers it, because required blocks exist on
-// every asset from the moment it is created and their presence enforces
-// nothing.
+// Requirement names the element role that must contain content before publish.
 type Requirement struct {
 	// ID stays the same when the wording changes, so a page can anchor on it.
 	ID     string

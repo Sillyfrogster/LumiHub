@@ -7,11 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// The four element types a preset needs. They stay four types rather than four
-// schemas of one table type because their editing surfaces genuinely differ.
-// Prompt text with grouping and placement, form building, named settings, and
-// find and replace with targets are four jobs, and collapsing them would hand a
-// creator a table designer instead of an editor.
+// Preset element types stay separate because their editing surfaces differ.
 
 // PromptList is a preset's prompt fragments, in the order they are sent. One
 // level of grouping is the list's own nesting rather than a second element,
@@ -262,11 +258,8 @@ type Variable struct {
 	Rows int `json:"rows,omitempty"`
 }
 
-// VariableOption is one choice a select offers. It carries the wording a
-// reader picks and the value that reaches the prompt, and a key naming the
-// choice where the format the preset came from names its choices separately
-// from the text they stand for. A choice with no key of its own is named by
-// its value, which is what a preset built here does.
+// VariableOption pairs display text with the value sent to the prompt. Key
+// preserves formats that name choices separately.
 type VariableOption struct {
 	Key   string `json:"key,omitempty"`
 	Label string `json:"label"`

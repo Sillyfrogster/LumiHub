@@ -7,10 +7,6 @@ import (
 	"testing"
 )
 
-// The four preset types stay their own types rather than collapsing into
-// record_list schemas. Key matching, prompt text with grouping and placement,
-// find and replace with targets, and form building are four different jobs,
-// and one table schema would give a creator a table designer.
 func TestThePresetElementTypesAreFourSeparateTypes(t *testing.T) {
 	for _, elementType := range []Type{
 		TypePromptList, TypeVariableSchema, TypeSettingGroup, TypeScriptList,

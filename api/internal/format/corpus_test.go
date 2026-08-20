@@ -24,10 +24,7 @@ func (s corpusStore) ReadRange(_ context.Context, _ uuid.UUID, offset, length in
 	return io.NopCloser(bytes.NewReader(s.data[offset : offset+length])), nil
 }
 
-// TestLocalCorpusRunsThroughEveryModule puts every fixture through the registry
-// the server builds. Two modules claiming one payload authoritatively is a bug
-// in the modules, so it is caught here rather than by a creator whose upload
-// fails.
+// TestLocalCorpusRunsThroughEveryModule catches overlapping authoritative claims.
 func TestLocalCorpusRunsThroughEveryModule(t *testing.T) {
 	registry := format.NewRegistry()
 	for _, module := range slices.Concat(character.Modules(), lorebook.Modules(), preset.Modules()) {

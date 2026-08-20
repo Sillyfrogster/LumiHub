@@ -12,11 +12,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// SillyTavernModule reads and writes the preset SillyTavern exports.
-//
-// The file names itself nowhere, so it is recognised by the two keys it always
-// has. Its settings are flat at the top level, its prompts are a list, and the
-// order they are sent in is a second structure keyed by character.
+// SillyTavernID identifies presets with separate prompt and order lists.
 const SillyTavernID = "preset_sillytavern"
 
 // Where a SillyTavern preset's leftovers sit.
@@ -216,11 +212,7 @@ func (m SillyTavernModule) Claim(file probe.Inspection) (format.Claim, bool) {
 	return format.ClaimByDeclaration(file, m.Declaration())
 }
 
-// Parse reads a SillyTavern preset into the roles a preset has.
-//
-// The prompt list is the required part. If it will not parse the import is
-// refused and nothing is stored; past that point a failure costs only what
-// failed.
+// Parse reads a SillyTavern preset and preserves fields it cannot model.
 func (m SillyTavernModule) Parse(
 	_ context.Context,
 	file probe.Inspection,

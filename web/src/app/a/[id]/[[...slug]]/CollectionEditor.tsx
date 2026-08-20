@@ -4,10 +4,6 @@ import { Plus, Trash2 } from "lucide-react";
 import { type ReactNode, useId, useMemo, useRef, useState } from "react";
 import styles from "./CollectionEditor.module.css";
 
-/**
- * One row in the list beside the editor. `search` is everything a search
- * matches against, so an item is found by whatever a creator remembers of it.
- */
 export type CollectionRow = {
   name: string;
   detail?: string;
@@ -15,11 +11,6 @@ export type CollectionRow = {
   search: string;
 };
 
-/**
- * A collection as a list beside an editor. A book of a thousand entries or a
- * preset of 338 fragments is read by scanning the list and edited one item at
- * a time, which is why this is not a stack of a thousand forms.
- */
 export function CollectionEditor({
   rows,
   noun,
@@ -119,7 +110,6 @@ export function CollectionEditor({
   );
 }
 
-/** The heading over one item's fields, with the way to remove that item. */
 export function ItemHeading({
   name,
   noun,
@@ -147,17 +137,14 @@ export function ItemHeading({
   );
 }
 
-/** The stack one item's fields sit in. */
 export function ItemFields({ children }: { children: ReactNode }) {
   return <div className={styles.fields}>{children}</div>;
 }
 
-/** Nothing chosen, or nothing there to choose. */
 export function NothingChosen({ children }: { children: ReactNode }) {
   return <p className={styles.nothing}>{children}</p>;
 }
 
-/** One labelled control. */
 export function Field({
   label,
   hint,
@@ -179,7 +166,6 @@ export function Field({
   );
 }
 
-/** A named set of related fields. */
 export function FieldGroup({
   legend,
   children,
@@ -195,12 +181,10 @@ export function FieldGroup({
   );
 }
 
-/** Two fields sharing a row until the surface is too narrow for them. */
 export function FieldPair({ children }: { children: ReactNode }) {
   return <div className={styles.pair}>{children}</div>;
 }
 
-/** A yes or no, with the line that says what saying yes does. */
 export function Switch({
   label,
   hint,
@@ -230,7 +214,6 @@ export function Switch({
   );
 }
 
-/** One list of short strings, one per line, kept in the order it is written. */
 export function readLines(written: string): string[] {
   return written
     .split("\n")
@@ -242,7 +225,6 @@ export function writeLines(lines: string[] | undefined): string {
   return (lines ?? []).join("\n");
 }
 
-/** Returns the list with one item's fields changed, leaving the rest alone. */
 export function replaceAt<T>(
   items: T[],
   index: number,

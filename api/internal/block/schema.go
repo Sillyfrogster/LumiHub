@@ -5,10 +5,8 @@ import (
 	"fmt"
 )
 
-// schema is how one element type reads its own stored content. A reader runs
-// that content forward through the upgrades the type declares and a writer
-// always saves the current version, so changing a type's internal structure is
-// a new version of it rather than a new type a creator has to learn.
+// schema decodes one element type and upgrades stored content to its current
+// version.
 type schema struct {
 	// upgrade[i] rewrites content written at version i+1 into version i+2, so
 	// the current version is one past the last upgrade.

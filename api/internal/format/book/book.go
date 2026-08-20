@@ -1,12 +1,4 @@
-// Package book holds the lorebook entry vocabulary the CharacterBook shape
-// uses. A character card carries a book under `character_book` and a
-// standalone lorebook file carries the same object at its own top level, so
-// the field names, the position wording and the round trip are one piece of
-// code rather than two that drift.
-//
-// Nothing here knows what holds the book. A caller hands over the entry
-// payloads it found and gets entries plus whatever each one carried that the
-// entry table has no place for.
+// Package book shares the listed lorebook entry vocabulary across containers.
 package book
 
 import (
@@ -17,10 +9,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// Read turns one book's entry payloads into entries, and returns what each
-// entry carried that the entry table has no place for, keyed by the id Illarin
-// minted for that entry. A format's own identifier, such as SillyTavern's uid,
-// is in there like anything else.
+// Read returns modeled entries and their unmodeled fields, keyed by local ID.
 func Read(payloads []json.RawMessage) ([]block.Entry, map[uuid.UUID]json.RawMessage) {
 	entries := make([]block.Entry, 0, len(payloads))
 	leftovers := make(map[uuid.UUID]json.RawMessage)
@@ -43,10 +32,7 @@ func Read(payloads []json.RawMessage) ([]block.Entry, map[uuid.UUID]json.RawMess
 	return entries, leftovers
 }
 
-// ReadEntry takes what the entry table models out of one entry's fields and
-// leaves the rest behind for preservation. A declared field the file wrote as
-// the wrong shape is not consumed, so a bad value costs that field and leaves
-// the rest of the entry, and every other entry, whole.
+// ReadEntry consumes valid modeled fields and leaves the rest for preservation.
 func ReadEntry(fields map[string]json.RawMessage, item *block.Entry) {
 	keys.Take(fields, "name", &item.Name)
 	keys.Take(fields, "keys", &item.Keys)

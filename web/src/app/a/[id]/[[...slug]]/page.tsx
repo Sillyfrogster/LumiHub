@@ -26,20 +26,12 @@ import { WithholdNotice } from "./WithholdNotice";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/**
- * One read per request, shared by the page and its metadata. Resolution is by
- * id alone, so a wrong slug never reaches the API.
- */
 const loadAsset = cache(async (id: string): Promise<AssetDetail | null> => {
   if (!UUID.test(id)) return null;
   const cookie = (await cookies()).toString();
   return fetchAsset(id, cookie);
 });
 
-/**
- * The adult content answer as the header states it. A draft that has not been
- * asked keeps a third state, so nothing reads as a no by default.
- */
 function ratingLabel(isNsfw: boolean | null): string {
   if (isNsfw === null) return "Rating not set";
   return isNsfw ? "Adult content" : "No adult content";

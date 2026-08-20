@@ -18,13 +18,6 @@ import {
 } from "@/lib/kinds";
 import styles from "./StartFromNothing.module.css";
 
-/**
- * The other way in. A creator picks the kind and lands on a page already
- * carrying the sections that kind requires.
- *
- * A preset is asked which app it is for, once. That answer names the settings
- * the creator fills in and is stored nowhere.
- */
 export function StartFromNothing() {
   const router = useRouter();
   const { account } = useAuth();

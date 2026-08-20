@@ -5,13 +5,8 @@ import (
 	"strconv"
 )
 
-// Facts are what a structured element can say about its own data, such as how
-// many entries a book holds and how many of them are switched on. They are
-// worked out on the way out and never stored, so a count can never drift from
-// what it counts.
-//
-// Nothing here measures tokens. Illarin has no tokenizer, and a number that
-// depended on one would be a guess a creator could act on.
+// Facts derives display counts from current content. It omits token counts
+// because Illarin has no tokenizer.
 func (e Element) Facts() []string {
 	switch content := e.Content.(type) {
 	case EntryTable:

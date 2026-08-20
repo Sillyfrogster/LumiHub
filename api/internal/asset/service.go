@@ -207,13 +207,8 @@ func (s *Service) ingestFailureMessage(reason string) string {
 	}
 }
 
-// StartFromNothing makes a draft carrying the blocks its kind requires, present
-// and empty, so a creator can see what the kind is asking of them before they
-// have typed anything. The kind is asked for once, here, and never changes.
-//
-// A preset is also asked which app it is for. That answer seeds the slot names
-// and is stored nowhere: origin_format stays null and the asset carries no
-// record of which app was picked.
+// StartFromNothing creates a draft with the kind's required blocks. Preset app
+// choice seeds slot names but is not stored.
 func (s *Service) StartFromNothing(
 	ctx context.Context,
 	ownerID uuid.UUID,
@@ -264,10 +259,8 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Asset, error) {
 	assetID := uuid.New()
 	revisionID := uuid.New()
 
-	// The file is written before the transaction on purpose. A failed
-	// transaction leaves an unreferenced file, which a sweeper can collect.
-	// Writing it after would let a committed row point at a file that is
-	// not there yet, which is the worse of the two failures.
+	// Write first so a failure can only leave a sweepable orphan, never a
+	// committed row that points to a missing file.
 	stored, err := s.store.Put(ctx, in.File)
 	if err != nil {
 		return Asset{}, fmt.Errorf("store upload: %w", err)

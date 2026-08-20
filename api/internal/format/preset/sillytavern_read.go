@@ -8,10 +8,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// Reading the parts of a SillyTavern preset that are lists rather than flat
-// named slots: the prompts, the order they are sent in, and the find and
-// replace under `extensions`.
-
 // sent is one line of the order SillyTavern reads: which prompt, and whether
 // it is switched on. The switch lives here rather than on the prompt, which is
 // where SillyTavern reads it from.
@@ -58,10 +54,8 @@ func takeLiveOrder(source map[string]json.RawMessage) ([]sent, bool) {
 	return live, found
 }
 
-// readSillyTavernPrompts reads the prompt list into the order the file sends
-// it in, which is the order structure rather than the list's own. A prompt the
-// order does not name is one the file never sends, so it goes at the end,
-// switched off, where a creator can still see and edit it.
+// readSillyTavernPrompts applies the send order, then appends unlisted prompts
+// as disabled content.
 func readSillyTavernPrompts(
 	prompts []json.RawMessage,
 	live []sent,
@@ -87,10 +81,7 @@ func readSillyTavernPrompts(
 			fields[stRole] = keys.Must(fragment.Role)
 			fragment.Role = ""
 		}
-		// A marker is a placeholder standing where the app splices in the
-		// character, the lorebook, the persona or the chat. The file says only
-		// that a prompt is one, so the identifier names what it holds a place
-		// for.
+		// Marker prompts use their identifier as the insertion name.
 		var marker bool
 		if keys.Take(fields, stMarker, &marker) && marker {
 			fragment.Marker = identifier

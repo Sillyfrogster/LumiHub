@@ -46,10 +46,7 @@ type exportSubject struct {
 	revisionID *uuid.UUID
 }
 
-// OpenExport writes this asset out in one of the formats it is offered in.
-//
-// The gates run first, against the same rules the menu is built from. A target
-// that is not offered is refused here as surely as it is absent from the menu.
+// OpenExport validates the current export gates, then writes the target format.
 func (s *Service) OpenExport(
 	ctx context.Context,
 	assetID uuid.UUID,
