@@ -18,6 +18,7 @@
     "openapi-fetch": "^0.17.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "three": "^0.185.1",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
@@ -26,6 +27,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.185.4",
     "openapi-typescript": "^7.13.0",
     "typescript": "^5"
   },
