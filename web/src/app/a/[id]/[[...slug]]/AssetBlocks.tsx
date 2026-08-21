@@ -30,11 +30,10 @@ import { ElementBody } from "./ElementBody";
 import { ElementOverlay } from "./ElementOverlay";
 import { ElementReader } from "./ElementReader";
 
-/** Returns to a block after editing it. */
 function returnToBlock(blockId: string) {
-  document
-    .getElementById(`block-${blockId}`)
-    ?.scrollIntoView({ block: "start" });
+  const anchor = `block-${blockId}`;
+  document.getElementById(anchor)?.scrollIntoView({ block: "start" });
+  window.location.hash = anchor;
 }
 
 /** One row arrangement per layout preset the catalog can choose. */

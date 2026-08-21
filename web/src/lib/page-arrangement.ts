@@ -1,3 +1,5 @@
+import type { ElementType } from "./api/query";
+
 export const WIDTH_COLUMNS = {
   full: 12,
   two_thirds: 8,
@@ -120,6 +122,15 @@ export const FULL_SCREEN_TYPES = [
   "script_list",
 ] as const;
 
+export type ExcerptDefinition = {
+  unit: "lines" | "items";
+  limit: number;
+};
+
+type FutureElementType = "color_set" | "stylesheet_set" | "record_list";
+
+type ExcerptElementType = ElementType | FutureElementType;
+
 export const EXCERPT_DEFINITIONS = {
   prose: { unit: "lines", limit: 12 },
   text_set: { unit: "items", limit: 3 },
@@ -135,18 +146,10 @@ export const EXCERPT_DEFINITIONS = {
   color_set: { unit: "items", limit: 10 },
   stylesheet_set: { unit: "items", limit: 2 },
   record_list: { unit: "items", limit: 6 },
-} as const;
+} as const satisfies Record<ExcerptElementType, ExcerptDefinition>;
 
-export type ExcerptDefinition =
-  (typeof EXCERPT_DEFINITIONS)[keyof typeof EXCERPT_DEFINITIONS];
-
-export function excerptDefinition(type: string): ExcerptDefinition {
-  return (
-    EXCERPT_DEFINITIONS[type as keyof typeof EXCERPT_DEFINITIONS] ?? {
-      unit: "items",
-      limit: 1,
-    }
-  );
+export function excerptDefinition(type: ElementType): ExcerptDefinition {
+  return EXCERPT_DEFINITIONS[type];
 }
 
 export function opensFullScreen(type: string): boolean {
