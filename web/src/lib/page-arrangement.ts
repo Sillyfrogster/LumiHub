@@ -9,6 +9,13 @@ export const WIDTH_COLUMNS = {
 
 export type BlockWidth = keyof typeof WIDTH_COLUMNS;
 
+export const BLOCK_WIDTHS = [
+  "full",
+  "two_thirds",
+  "half",
+  "third",
+] as const satisfies readonly BlockWidth[];
+
 export const WIDTH_FLOORS_PX: Record<BlockWidth, number> = {
   full: 280,
   two_thirds: 640,
@@ -29,12 +36,7 @@ export const NARROW_BLOCK_GRID_PX = 700;
 
 const SUGGESTED_BLOCK_HEIGHT_PX = 560;
 
-const WIDTHS_NARROW_TO_WIDE: readonly BlockWidth[] = [
-  "third",
-  "half",
-  "two_thirds",
-  "full",
-];
+const WIDTHS_NARROW_TO_WIDE = [...BLOCK_WIDTHS].reverse();
 
 export const WIDTH_LABELS: Record<BlockWidth, string> = {
   full: "Full",
@@ -126,53 +128,46 @@ export function suggestedBlockWidth({
   width,
   layout,
   availableWidth,
-  contentWidth,
-  contentHeight,
+  renderedHeights,
 }: {
   width: BlockWidth;
   layout: BlockLayout;
   availableWidth: number;
-  contentWidth: number;
-  contentHeight: number;
+  renderedHeights: Partial<Record<BlockWidth, number>>;
 }): BlockWidth | null {
-  if (
-    availableWidth <= NARROW_BLOCK_GRID_PX ||
-    contentWidth <= 0 ||
-    contentHeight <= 0
-  ) {
-    return null;
-  }
-
-  const currentColumns = renderedColumns(width, availableWidth);
-  const currentSpan = gridSpanWidth(availableWidth, currentColumns);
-  const minimumColumns = LAYOUTS[layout].minimumColumns;
-  const candidates = WIDTHS_NARROW_TO_WIDE.filter(
-    (candidate) =>
-      WIDTH_COLUMNS[candidate] >= minimumColumns &&
-      renderedColumns(candidate, availableWidth) === WIDTH_COLUMNS[candidate],
+  const candidates = suggestionCandidateWidths(layout, availableWidth).filter(
+    ({ width: candidate }) => (renderedHeights[candidate] ?? 0) > 0,
   );
+  const currentColumns = renderedColumns(width, availableWidth);
   const suggestion =
-    candidates.find((candidate) => {
-      const candidateSpan = gridSpanWidth(
-        availableWidth,
-        WIDTH_COLUMNS[candidate],
-      );
-      const candidateContentWidth = Math.max(
-        1,
-        contentWidth + candidateSpan - currentSpan,
-      );
-      const estimatedHeight =
-        (contentHeight * contentWidth) / candidateContentWidth;
-      return estimatedHeight <= SUGGESTED_BLOCK_HEIGHT_PX;
-    }) ?? candidates.at(-1);
+    candidates.find(
+      ({ width: candidate }) =>
+        (renderedHeights[candidate] ?? 0) <= SUGGESTED_BLOCK_HEIGHT_PX,
+    ) ?? candidates.at(-1);
 
   if (
     !suggestion ||
-    renderedColumns(suggestion, availableWidth) === currentColumns
+    renderedColumns(suggestion.width, availableWidth) === currentColumns
   ) {
     return null;
   }
-  return suggestion;
+  return suggestion.width;
+}
+
+export function suggestionCandidateWidths(
+  layout: BlockLayout,
+  availableWidth: number,
+): Array<{ width: BlockWidth; renderedWidth: number }> {
+  if (availableWidth <= NARROW_BLOCK_GRID_PX) return [];
+  const minimumColumns = LAYOUTS[layout].minimumColumns;
+  return WIDTHS_NARROW_TO_WIDE.filter(
+    (width) =>
+      WIDTH_COLUMNS[width] >= minimumColumns &&
+      renderedColumns(width, availableWidth) === WIDTH_COLUMNS[width],
+  ).map((width) => ({
+    width,
+    renderedWidth: gridSpanWidth(availableWidth, WIDTH_COLUMNS[width]),
+  }));
 }
 
 export function packBlockRows<T extends { width: BlockWidth }>(

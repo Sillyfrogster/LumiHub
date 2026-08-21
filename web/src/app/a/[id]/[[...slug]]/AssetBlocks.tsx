@@ -29,6 +29,7 @@ import {
   type BlockWidth,
   packBlockRows,
   suggestedBlockWidth,
+  suggestionCandidateWidths,
 } from "@/lib/page-arrangement";
 import { useMeasuredWidth } from "@/lib/use-measured-width";
 import { AddSectionTray } from "./AddSectionTray";
@@ -45,6 +46,65 @@ import type { CreatorMenuProps } from "./CreatorMenu";
 import { ElementBody } from "./ElementBody";
 import { ElementOverlay } from "./ElementOverlay";
 import { ElementReader } from "./ElementReader";
+
+function measureCandidateHeights(
+  source: HTMLElement,
+  layout: AssetBlock["layout"],
+  availableWidth: number,
+): Partial<Record<BlockWidth, number>> {
+  const heights: Partial<Record<BlockWidth, number>> = {};
+
+  for (const candidate of suggestionCandidateWidths(layout, availableWidth)) {
+    const clone = source.cloneNode(true) as HTMLElement;
+    clone.removeAttribute("id");
+    clone.setAttribute("aria-hidden", "true");
+    clone.inert = true;
+    Object.assign(clone.style, {
+      position: "fixed",
+      inset: "0 auto auto -100000px",
+      width: `${candidate.renderedWidth}px`,
+      maxWidth: "none",
+      gridColumn: "auto",
+      visibility: "hidden",
+      pointerEvents: "none",
+    });
+    for (const identified of clone.querySelectorAll("[id]")) {
+      identified.removeAttribute("id");
+    }
+    for (const ignored of clone.querySelectorAll(
+      "[data-empty], [data-measurement-ignore]",
+    )) {
+      ignored.remove();
+    }
+
+    document.body.append(clone);
+    for (const excerpt of clone.querySelectorAll<HTMLElement>(
+      "[data-line-excerpt]",
+    )) {
+      const isCut = excerpt.scrollHeight - excerpt.clientHeight > 1;
+      const sibling = excerpt.nextElementSibling;
+      const readMore =
+        sibling instanceof HTMLElement && sibling.hasAttribute("data-read-more")
+          ? sibling
+          : null;
+      if (!isCut) {
+        readMore?.remove();
+      } else if (!readMore) {
+        const readMoreSpace = document.createElement("span");
+        readMoreSpace.style.display = "block";
+        readMoreSpace.style.height = "20px";
+        excerpt.after(readMoreSpace);
+      }
+    }
+
+    const content = clone.querySelector<HTMLElement>("[data-block-content]");
+    const height = content?.getBoundingClientRect().height ?? 0;
+    if (height > 0) heights[candidate.width] = height;
+    clone.remove();
+  }
+
+  return heights;
+}
 
 function returnToBlock(blockId: string) {
   const anchor = `block-${blockId}`;
@@ -168,14 +228,16 @@ export function AssetBlocks({
       const blockId = node.dataset.blockId;
       const content = node.querySelector<HTMLElement>("[data-block-content]");
       const block = blockId ? blocksById.get(blockId) : undefined;
-      if (!blockId || !block || !content) continue;
-      const bounds = content.getBoundingClientRect();
+      if (!blockId || !block || block.isEmpty || !content) continue;
       const suggestion = suggestedBlockWidth({
         width: block.width,
         layout: block.layout,
         availableWidth,
-        contentWidth: bounds.width,
-        contentHeight: bounds.height,
+        renderedHeights: measureCandidateHeights(
+          node,
+          block.layout,
+          availableWidth,
+        ),
       });
       if (suggestion) next[blockId] = suggestion;
     }
@@ -185,7 +247,14 @@ export function AssetBlocks({
   }, [availableWidth, currentBlocks]);
 
   useEffect(() => {
-    if (!editingVisible || editing || expanding || !rowsNode.current) return;
+    if (
+      !editingVisible ||
+      editing ||
+      expanding ||
+      arranging ||
+      !rowsNode.current
+    )
+      return;
     let frame = window.requestAnimationFrame(measureSuggestedWidths);
     const observer = new ResizeObserver(() => {
       window.cancelAnimationFrame(frame);
@@ -201,7 +270,7 @@ export function AssetBlocks({
       window.cancelAnimationFrame(frame);
       observer.disconnect();
     };
-  }, [editingVisible, editing, expanding, measureSuggestedWidths]);
+  }, [arranging, editingVisible, editing, expanding, measureSuggestedWidths]);
 
   /**
    * Leaving the overlay writes the element through and puts the creator back
@@ -467,6 +536,7 @@ export function AssetBlocks({
                             <div
                               style={{ gridArea: element.slot }}
                               key={element.id}
+                              data-empty={element.isEmpty ? true : undefined}
                             >
                               <ElementBody
                                 element={element}

@@ -9,6 +9,7 @@ import {
   opensFullScreen,
   packBlockRows,
   suggestedBlockWidth,
+  suggestionCandidateWidths,
   WIDTH_COLUMNS,
   WIDTH_FLOORS_PX,
   widthChoiceIssue,
@@ -219,8 +220,12 @@ describe("page arrangement", () => {
         width: "full",
         layout: "single",
         availableWidth: 1240,
-        contentWidth: 1178,
-        contentHeight: 250,
+        renderedHeights: {
+          third: 700,
+          half: 520,
+          two_thirds: 360,
+          full: 250,
+        },
       }),
     ).toBe("half");
     expect(
@@ -228,8 +233,12 @@ describe("page arrangement", () => {
         width: "third",
         layout: "single",
         availableWidth: 1240,
-        contentWidth: 338,
-        contentHeight: 1100,
+        renderedHeights: {
+          third: 1100,
+          half: 680,
+          two_thirds: 490,
+          full: 370,
+        },
       }),
     ).toBe("two_thirds");
     expect(
@@ -237,8 +246,12 @@ describe("page arrangement", () => {
         width: "half",
         layout: "single",
         availableWidth: 1240,
-        contentWidth: 548,
-        contentHeight: 400,
+        renderedHeights: {
+          third: 650,
+          half: 400,
+          two_thirds: 300,
+          full: 220,
+        },
       }),
     ).toBeNull();
   });
@@ -249,8 +262,12 @@ describe("page arrangement", () => {
         width: "full",
         layout: "duo",
         availableWidth: 1240,
-        contentWidth: 1178,
-        contentHeight: 180,
+        renderedHeights: {
+          third: 100,
+          half: 100,
+          two_thirds: 180,
+          full: 120,
+        },
       }),
     ).toBe("two_thirds");
     expect(
@@ -258,10 +275,13 @@ describe("page arrangement", () => {
         width: "full",
         layout: "single",
         availableWidth: NARROW_BLOCK_GRID_PX,
-        contentWidth: 638,
-        contentHeight: 180,
+        renderedHeights: { full: 180 },
       }),
     ).toBeNull();
+    expect(suggestionCandidateWidths("single", 900)).toEqual([
+      { width: "half", renderedWidth: 440 },
+      { width: "full", renderedWidth: 900 },
+    ]);
   });
 });
 

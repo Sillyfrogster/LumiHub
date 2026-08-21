@@ -63,6 +63,7 @@ export function ElementBody({
             <button
               type="button"
               className={styles.expand}
+              data-measurement-ignore
               onClick={onExpand}
               aria-label={`Edit ${element.label || "this content"} in full screen`}
             >
@@ -127,6 +128,7 @@ function ExcerptedElementContent({
     <>
       <div
         ref={excerpt}
+        data-line-excerpt={definition.unit === "lines" ? true : undefined}
         className={
           definition.unit === "lines" ? styles.lineExcerpt : styles.itemExcerpt
         }
@@ -151,6 +153,7 @@ function ExcerptedElementContent({
           id={`read-${element.id}`}
           type="button"
           className={styles.readMore}
+          data-read-more
           onClick={onReadMore}
         >
           {excerptControlLabel(element, itemCount)}

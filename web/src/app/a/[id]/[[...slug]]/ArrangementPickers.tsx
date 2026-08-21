@@ -4,6 +4,7 @@ import { Check, ChevronDown, Columns3, LayoutGrid } from "lucide-react";
 import { useRef } from "react";
 import type { AssetBlock } from "@/lib/api/query";
 import {
+  BLOCK_WIDTHS,
   type BlockLayout,
   type BlockWidth,
   LAYOUT_LABELS,
@@ -14,8 +15,6 @@ import {
   widthChoiceIssue,
 } from "@/lib/page-arrangement";
 import styles from "./ArrangementPickers.module.css";
-
-const WIDTHS = ["full", "two_thirds", "half", "third"] as const;
 
 const WIDTH_HINTS: Record<BlockWidth, string> = {
   full: "Uses all twelve columns.",
@@ -82,7 +81,7 @@ export function WidthPicker({
             <span>Sizes stay exact. A short row keeps its empty space.</span>
           </div>
           <div className={styles.options}>
-            {WIDTHS.map((choice) => {
+            {BLOCK_WIDTHS.map((choice) => {
               const issue = widthChoiceIssue(layout, choice);
               return (
                 <button
