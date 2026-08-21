@@ -49,9 +49,6 @@
   font-weight: 700;
   line-height: var(--type-label-leading);
   white-space: nowrap;
-  transition:
-    background-color 160ms var(--ease),
-    color 160ms var(--ease);
 }
 
 .entries a:hover {
