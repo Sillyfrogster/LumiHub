@@ -5,9 +5,11 @@ import {
   INLINE_ITEM_LIMIT,
   LAYOUTS,
   layoutChoiceIssue,
+  NARROW_BLOCK_GRID_PX,
   opensFullScreen,
   PROSE_MEASURE,
   packBlockRows,
+  proseMeasureForWidth,
   WIDTH_COLUMNS,
   WIDTH_FLOORS_PX,
   widthChoiceIssue,
@@ -33,14 +35,9 @@ function spans(rows: ReturnType<typeof packBlockRows<TestBlock>>) {
   return rows.map((row) => row.map((item) => [item.block.id, item.columns]));
 }
 
-function visibleSpans(rows: ReturnType<typeof packBlockRows<TestBlock>>) {
+function placements(rows: ReturnType<typeof packBlockRows<TestBlock>>) {
   return rows.map((row) =>
-    row.map((item) => [
-      item.block.id,
-      item.columns,
-      item.startColumn,
-      item.visible,
-    ]),
+    row.map((item) => [item.block.id, item.columns, item.startColumn]),
   );
 }
 
@@ -70,7 +67,7 @@ describe("page arrangement", () => {
       spans(
         packBlockRows(
           [block("a", "two_thirds"), block("b", "half"), block("c", "third")],
-          { showHidden: true },
+          {},
         ),
       ),
     ).toEqual([
@@ -87,7 +84,7 @@ describe("page arrangement", () => {
       spans(
         packBlockRows(
           [block("a", "third"), block("b", "half"), block("c", "third")],
-          { showHidden: true },
+          {},
         ),
       ),
     ).toEqual([
@@ -102,16 +99,10 @@ describe("page arrangement", () => {
   test("hidden and empty blocks keep their grid places when not rendered", () => {
     const blocks = [block("hidden", "half", true), block("shown", "half")];
 
-    expect(visibleSpans(packBlockRows(blocks, { showHidden: false }))).toEqual([
+    expect(placements(packBlockRows(blocks, {}))).toEqual([
       [
-        ["hidden", 6, 1, false],
-        ["shown", 6, 7, true],
-      ],
-    ]);
-    expect(visibleSpans(packBlockRows(blocks, { showHidden: true }))).toEqual([
-      [
-        ["hidden", 6, 1, true],
-        ["shown", 6, 7, true],
+        ["hidden", 6, 1],
+        ["shown", 6, 7],
       ],
     ]);
 
@@ -120,14 +111,12 @@ describe("page arrangement", () => {
       block("empty", "half", false, true),
       block("last", "third"),
     ];
-    expect(
-      visibleSpans(packBlockRows(withEmpty, { showHidden: false })),
-    ).toEqual([
+    expect(placements(packBlockRows(withEmpty, {}))).toEqual([
       [
-        ["first", 4, 1, true],
-        ["empty", 6, 5, false],
+        ["first", 4, 1],
+        ["empty", 6, 5],
       ],
-      [["last", 4, 1, true]],
+      [["last", 4, 1]],
     ]);
   });
 
@@ -139,7 +128,7 @@ describe("page arrangement", () => {
           const chosen = [first, second, third];
           const rows = packBlockRows(
             [block("a", first), block("b", second), block("c", third)],
-            { showHidden: true },
+            {},
           );
           const packed = rows.flat();
           expect(packed).toHaveLength(3);
@@ -168,12 +157,12 @@ describe("page arrangement", () => {
 
     const columnsAt = (width: TestBlock["width"], availableWidth: number) =>
       packBlockRows([block("one", width)], {
-        showHidden: true,
         availableWidth,
       })[0][0].columns;
 
     expect(columnsAt("third", 1000)).toBe(4);
     expect(columnsAt("third", 999)).toBe(6);
+    expect(columnsAt("third", 899)).toBe(12);
     expect(columnsAt("half", 900)).toBe(6);
     expect(columnsAt("half", 899)).toBe(12);
     expect(columnsAt("two_thirds", 970)).toBe(8);
@@ -182,18 +171,10 @@ describe("page arrangement", () => {
   });
 
   test("block width never changes the measure of prose inside it", () => {
-    const packed = packBlockRows(
-      [
-        block("full", "full"),
-        block("two-thirds", "two_thirds"),
-        block("half", "half"),
-        block("third", "third"),
-      ],
-      { showHidden: true, availableWidth: 1240 },
-    ).flat();
+    const widths = ["full", "two_thirds", "half", "third"] as const;
 
     expect(PROSE_MEASURE).toBe("70ch");
-    expect(packed.map(({ proseMeasure }) => proseMeasure)).toEqual([
+    expect(widths.map(proseMeasureForWidth)).toEqual([
       "70ch",
       "70ch",
       "70ch",
@@ -205,8 +186,7 @@ describe("page arrangement", () => {
     expect(
       spans(
         packBlockRows([block("a", "third"), block("b", "half")], {
-          showHidden: true,
-          narrow: true,
+          availableWidth: NARROW_BLOCK_GRID_PX,
         }),
       ),
     ).toEqual([[["a", 12]], [["b", 12]]]);

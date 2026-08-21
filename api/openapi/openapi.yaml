@@ -508,7 +508,6 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/AssetBlock" }
-        "204": { description: An optional block saved empty and returned to absent }
         "400": { description: The block is malformed or breaks a builder constraint }
         "401": { description: No account is signed in }
         "403": { description: The signed-in account has not verified its email }

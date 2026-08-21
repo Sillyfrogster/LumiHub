@@ -25,7 +25,6 @@ import {
 import {
   contentItemCount,
   LAYOUTS,
-  NARROW_BLOCK_GRID_PX,
   packBlockRows,
   WIDTH_LABELS,
 } from "@/lib/page-arrangement";
@@ -94,10 +93,7 @@ export function ArrangeSections({
   }
 
   const shapeRows = packBlockRows(blocks, {
-    showHidden: true,
     availableWidth,
-    narrow:
-      availableWidth !== undefined && availableWidth <= NARROW_BLOCK_GRID_PX,
   });
 
   return (

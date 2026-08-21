@@ -190,19 +190,40 @@ func TestASectionSavedWithAScriptAddressIsRefused(t *testing.T) {
 	}
 }
 
-func TestAnEmptyAddedSectionReturnsToAbsentWhenSaved(t *testing.T) {
-	r, session := newVerifiedTestRouter(t)
-	started := startCharacter(t, r, session)
-	added := addedBlock(t, addBlock(t, r, session, started.ID, "attributes", "field_list"))
-
-	response := saveBlock(t, r, session, started.ID, added.ID, editableBlock(added))
-
-	if response.Code != http.StatusNoContent {
-		t.Fatalf("saving an empty section: status = %d, want 204: %s", response.Code, response.Body.String())
+func TestSavingAnEmptyAddedSectionKeepsEveryDefinition(t *testing.T) {
+	tests := []struct {
+		definition  string
+		elementType string
+	}{
+		{"gallery", "image_set"},
+		{"usage", "prose"},
+		{"changelog", "text_set"},
+		{"attributes", "field_list"},
+		{"author_notes", "prose"},
+		{"runs_best_with", "link_list"},
+		{"custom_section", "prose"},
 	}
-	page := fetchStartedAsset(t, r, session, started.ID)
-	if len(page.Blocks) != 2 {
-		t.Errorf("the page keeps %d sections, want the two required ones", len(page.Blocks))
+	for _, test := range tests {
+		t.Run(test.definition, func(t *testing.T) {
+			r, session := newVerifiedTestRouter(t)
+			started := startCharacter(t, r, session)
+			added := addedBlock(t, addBlock(
+				t, r, session, started.ID, test.definition, test.elementType,
+			))
+			update := editableBlock(added)
+			update.Width = "full"
+
+			response := saveBlock(t, r, session, started.ID, added.ID, update)
+			if response.Code != http.StatusOK {
+				t.Fatalf("save empty block: status = %d, want 200: %s", response.Code, response.Body.String())
+			}
+
+			page := fetchStartedAsset(t, r, session, started.ID)
+			saved := blockNamed(t, page.Blocks, test.definition)
+			if len(page.Blocks) != 3 || saved.ID != added.ID || saved.Width != "full" || !saved.IsEmpty {
+				t.Errorf("saved page = %+v, want the empty block kept at full width", page.Blocks)
+			}
+		})
 	}
 }
 

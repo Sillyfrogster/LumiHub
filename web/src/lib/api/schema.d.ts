@@ -2500,13 +2500,6 @@ export interface operations {
           "application/json": components["schemas"]["AssetBlock"];
         };
       };
-      /** @description An optional block saved empty and returned to absent */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
       /** @description The block is malformed or breaks a builder constraint */
       400: {
         headers: {

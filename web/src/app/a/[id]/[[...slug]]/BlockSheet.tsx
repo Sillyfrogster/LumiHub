@@ -21,7 +21,6 @@ export function BlockSheet({
   images,
   onDismiss,
   onSaved,
-  onRemoved,
   onHide,
   onRemove,
   onImageAdded,
@@ -31,7 +30,6 @@ export function BlockSheet({
   images: AssetImage[];
   onDismiss: () => void;
   onSaved: (block: AssetBlock) => void;
-  onRemoved: () => void;
   onHide: () => Promise<void>;
   onRemove: () => void;
   onImageAdded: () => void;
@@ -77,8 +75,7 @@ export function BlockSheet({
         width,
         elements: elements.map(toSaveElement),
       });
-      if (saved) onSaved(saved);
-      else onRemoved();
+      onSaved(saved);
       close();
     } catch (error) {
       setMessage(

@@ -23,7 +23,7 @@ const WIDTH_PROMOTION: Record<BlockWidth, BlockWidth | null> = {
   third: "half",
 };
 
-const BLOCK_GRID_GAP_PX = 20;
+export const BLOCK_GRID_GAP_PX = 20;
 
 export const PROSE_MEASURE = "70ch";
 export const NARROW_BLOCK_GRID_PX = 700;
@@ -90,12 +90,12 @@ function widthLabelForColumns(columns: number): string {
 export type PackedBlock<T> = {
   block: T;
   columns: number;
-  proseMeasure: typeof PROSE_MEASURE;
   startColumn: number;
-  visible: boolean;
 };
 
 function renderedColumns(width: BlockWidth, availableWidth: number): number {
+  if (availableWidth <= NARROW_BLOCK_GRID_PX) return WIDTH_COLUMNS.full;
+
   let renderedWidth = width;
   while (
     gridSpanWidth(availableWidth, WIDTH_COLUMNS[renderedWidth]) <
@@ -114,28 +114,14 @@ function gridSpanWidth(availableWidth: number, columns: number): number {
   return trackWidth * columns + BLOCK_GRID_GAP_PX * (columns - 1);
 }
 
-export function packBlockRows<
-  T extends { hidden: boolean; width: BlockWidth; empty?: boolean },
->(
-  blocks: readonly T[],
-  options: {
-    showHidden: boolean;
-    narrow?: boolean;
-    availableWidth?: number;
-  },
-): PackedBlock<T>[][] {
-  if (options.narrow) {
-    return blocks.map((block) => [
-      {
-        block,
-        columns: 12,
-        proseMeasure: PROSE_MEASURE,
-        startColumn: 1,
-        visible: options.showHidden || (!block.hidden && !block.empty),
-      },
-    ]);
-  }
+export function proseMeasureForWidth(_width: BlockWidth): typeof PROSE_MEASURE {
+  return PROSE_MEASURE;
+}
 
+export function packBlockRows<T extends { width: BlockWidth }>(
+  blocks: readonly T[],
+  options: { availableWidth?: number },
+): PackedBlock<T>[][] {
   const rows: PackedBlock<T>[][] = [];
   let row: PackedBlock<T>[] = [];
   let occupied = 0;
@@ -156,9 +142,7 @@ export function packBlockRows<
     row.push({
       block,
       columns,
-      proseMeasure: PROSE_MEASURE,
       startColumn: occupied + 1,
-      visible: options.showHidden || (!block.hidden && !block.empty),
     });
     occupied += columns;
     if (occupied === 12) finishRow();

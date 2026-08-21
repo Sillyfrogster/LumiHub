@@ -16,10 +16,11 @@ import {
   type SaveAssetBlockRequest,
   saveAssetBlock,
 } from "@/lib/api/query";
+import { splitAssetPageContent } from "@/lib/asset-page-content";
 import {
-  NARROW_BLOCK_GRID_PX,
-  type PackedBlock,
+  BLOCK_GRID_GAP_PX,
   packBlockRows,
+  proseMeasureForWidth,
 } from "@/lib/page-arrangement";
 import { useMeasuredWidth } from "@/lib/use-measured-width";
 import { AddSectionTray } from "./AddSectionTray";
@@ -37,14 +38,6 @@ import { ElementBody } from "./ElementBody";
 import { ElementOverlay } from "./ElementOverlay";
 import { ElementReader } from "./ElementReader";
 
-const MODEL_FACING_ROLES = new Set([
-  "description",
-  "personality",
-  "scenario",
-  "system_prompt",
-  "post_history_instructions",
-]);
-
 function returnToBlock(blockId: string) {
   const anchor = `block-${blockId}`;
   document.getElementById(anchor)?.scrollIntoView({ block: "start" });
@@ -60,14 +53,6 @@ const LAYOUT_CLASS: Record<AssetBlock["layout"], string> = {
   "stack-2": styles.stack2,
   "stack-3": styles.stack3,
 };
-
-function isModelFacingElement(element: AssetElement) {
-  return MODEL_FACING_ROLES.has(element.role ?? "");
-}
-
-function visibleBlocks<T>(row: readonly PackedBlock<T>[]) {
-  return row.filter(({ visible }) => visible);
-}
 
 /**
  * The asset's content, in page order. A reader is shown the blocks that carry
@@ -129,34 +114,17 @@ export function AssetBlocks({
   }, [adding]);
 
   const editingVisible = isOwner && !readerView;
-  const publicBlocks = useMemo(
-    () =>
-      currentBlocks.map((block) => {
-        const elements = block.elements.filter(
-          (element) => !element.isEmpty && !isModelFacingElement(element),
-        );
-        return { ...block, elements, empty: elements.length === 0 };
-      }),
+  const { publicBlocks, modelContent: disclosedModelContent } = useMemo(
+    () => splitAssetPageContent(currentBlocks),
     [currentBlocks],
   );
-  const modelContent = editingVisible
-    ? []
-    : currentBlocks.flatMap((block) =>
-        block.hidden
-          ? []
-          : block.elements
-              .filter(
-                (element) => !element.isEmpty && isModelFacingElement(element),
-              )
-              .map((element) => ({ block, element })),
-      );
+  const modelContent = editingVisible ? [] : disclosedModelContent;
   const [rowsRef, availableWidth] = useMeasuredWidth<HTMLDivElement>();
-  const packable = editingVisible ? currentBlocks : publicBlocks;
+  const packable: Array<AssetBlock & { empty?: boolean }> = editingVisible
+    ? currentBlocks
+    : publicBlocks;
   const rows = packBlockRows(packable, {
-    showHidden: editingVisible,
     availableWidth,
-    narrow:
-      availableWidth !== undefined && availableWidth <= NARROW_BLOCK_GRID_PX,
   });
   const contentsBlocks = useMemo(
     () =>
@@ -191,12 +159,10 @@ export function AssetBlocks({
         }),
       );
       setCurrentBlocks((current) =>
-        saved
-          ? current.map((item) => (item.id === saved.id ? saved : item))
-          : current.filter((item) => item.id !== expandedBlock.id),
+        current.map((item) => (item.id === saved.id ? saved : item)),
       );
       setExpanding(null);
-      if (saved) returnToBlock(saved.id);
+      returnToBlock(saved.id);
     } catch (error) {
       setExpandMessage(
         error instanceof Error
@@ -299,14 +265,26 @@ export function AssetBlocks({
             </p>
           ) : null}
           {rows.length === 0 ? null : (
-            <div className={styles.rows} ref={rowsRef}>
+            <div
+              className={styles.rows}
+              ref={rowsRef}
+              style={
+                {
+                  "--block-grid-gap": `${BLOCK_GRID_GAP_PX}px`,
+                } as CSSProperties
+              }
+            >
               {rows.map((row) => (
                 <div
                   className={styles.row}
                   key={row.map((item) => item.block.id).join(":")}
                 >
-                  {visibleBlocks(row).map(
-                    ({ block, columns, proseMeasure, startColumn }) => (
+                  {row
+                    .filter(
+                      ({ block }) =>
+                        editingVisible || (!block.hidden && !block.empty),
+                    )
+                    .map(({ block, columns, startColumn }) => (
                       <article
                         id={`block-${block.id}`}
                         key={block.id}
@@ -318,7 +296,9 @@ export function AssetBlocks({
                           {
                             "--block-columns": columns,
                             "--block-start": startColumn,
-                            "--prose-measure": proseMeasure,
+                            "--prose-measure": proseMeasureForWidth(
+                              block.width,
+                            ),
                           } as CSSProperties
                         }
                       >
@@ -349,13 +329,9 @@ export function AssetBlocks({
                                       blockSaveRequest(block, { width }),
                                     );
                                     setCurrentBlocks((current) =>
-                                      saved
-                                        ? current.map((item) =>
-                                            item.id === saved.id ? saved : item,
-                                          )
-                                        : current.filter(
-                                            (item) => item.id !== block.id,
-                                          ),
+                                      current.map((item) =>
+                                        item.id === saved.id ? saved : item,
+                                      ),
                                     );
                                   } catch (error) {
                                     setArrangementMessage(
@@ -455,8 +431,7 @@ export function AssetBlocks({
                           ))}
                         </div>
                       </article>
-                    ),
-                  )}
+                    ))}
                 </div>
               ))}
             </div>
@@ -519,12 +494,6 @@ export function AssetBlocks({
           onSaved={(saved) => {
             setCurrentBlocks((current) =>
               current.map((block) => (block.id === saved.id ? saved : block)),
-            );
-            router.refresh();
-          }}
-          onRemoved={() => {
-            setCurrentBlocks((current) =>
-              current.filter((block) => block.id !== editedBlock.id),
             );
             router.refresh();
           }}

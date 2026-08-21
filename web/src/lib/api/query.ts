@@ -153,15 +153,11 @@ export async function saveAssetBlock(
   assetId: string,
   blockId: string,
   block: SaveAssetBlockRequest,
-): Promise<AssetBlock | null> {
-  const { data, error, response } = await api.PUT(
-    "/v1/assets/{id}/blocks/{blockId}",
-    {
-      params: { path: { id: assetId, blockId } },
-      body: block,
-    },
-  );
-  if (response.status === 204) return null;
+): Promise<AssetBlock> {
+  const { data, error } = await api.PUT("/v1/assets/{id}/blocks/{blockId}", {
+    params: { path: { id: assetId, blockId } },
+    body: block,
+  });
   if (error || !data) {
     const detail = error as { error?: unknown } | undefined;
     const message =

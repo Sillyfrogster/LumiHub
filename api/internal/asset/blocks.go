@@ -22,9 +22,8 @@ type BlockUpdate struct {
 
 // SavedBlock is the saved row and the kind catalog that describes it.
 type SavedBlock struct {
-	Kind    string
-	Block   block.Block
-	Removed bool
+	Kind  string
+	Block block.Block
 }
 
 // BlockArrangement is one row in the page outline.
@@ -89,35 +88,6 @@ func (s *Service) SaveBlock(
 	if err := block.ValidateBuilderConstraints(kind, before, blocks); err != nil {
 		return SavedBlock{}, fmt.Errorf("%w: %v", ErrInvalidBlock, err)
 	}
-	definition, _ := saved.Definition.Definition(kind)
-	if saved.Empty() && !definition.Required {
-		remaining := make([]block.Block, 0, len(blocks)-1)
-		for _, holder := range blocks {
-			if holder.ID != saved.ID {
-				remaining = append(remaining, holder)
-			}
-		}
-		if err := block.ValidateBuilderConstraints(kind, before, remaining); err != nil {
-			return SavedBlock{}, fmt.Errorf("%w: %v", ErrInvalidBlock, err)
-		}
-		if err := deleteBlockAndClosePositions(ctx, tx, assetID, saved.ID, remaining); err != nil {
-			return SavedBlock{}, err
-		}
-		if err := dropUnownedPreservedData(ctx, tx, assetID, remaining); err != nil {
-			return SavedBlock{}, err
-		}
-		if err := s.writeExportProjection(ctx, tx, assetID); err != nil {
-			return SavedBlock{}, err
-		}
-		if err := s.moveContentGeneration(ctx, tx, assetID, fingerprint); err != nil {
-			return SavedBlock{}, err
-		}
-		if err := tx.Commit(ctx); err != nil {
-			return SavedBlock{}, err
-		}
-		return SavedBlock{Kind: kind, Block: *saved, Removed: true}, nil
-	}
-
 	elements, err := json.Marshal(saved.Elements)
 	if err != nil {
 		return SavedBlock{}, fmt.Errorf("write %s elements: %w", saved.Definition, err)

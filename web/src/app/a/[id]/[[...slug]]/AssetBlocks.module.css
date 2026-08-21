@@ -13,7 +13,7 @@
 .row {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: 20px;
+  gap: var(--block-grid-gap);
   align-items: start;
 }
 

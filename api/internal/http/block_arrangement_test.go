@@ -132,20 +132,23 @@ func TestCreatorRemovesAnOptionalBlockAndRequiredBlocksStay(t *testing.T) {
 	}
 }
 
-func TestSavingAnOptionalBlockEmptyReturnsItToAbsent(t *testing.T) {
+func TestSavingAnOptionalBlockEmptyKeepsItUntilExplicitRemoval(t *testing.T) {
 	_, r, session, _, pool := newVerifiedTestRoutersWithPool(t, 1<<20, DefaultDeadlines())
 	started := startCharacter(t, r, session)
 	insertEmptyGallery(t, pool, started.ID)
 	gallery := blockNamed(t, fetchStartedAsset(t, r, session, started.ID).Blocks, "gallery")
 
-	response := saveBlock(t, r, session, started.ID, gallery.ID, editableBlock(gallery))
+	update := editableBlock(gallery)
+	update.Width = "full"
+	response := saveBlock(t, r, session, started.ID, gallery.ID, update)
 
-	if response.Code != http.StatusNoContent {
-		t.Fatalf("save empty Gallery status = %d, want 204: %s", response.Code, response.Body.String())
+	if response.Code != http.StatusOK {
+		t.Fatalf("save empty Gallery status = %d, want 200: %s", response.Code, response.Body.String())
 	}
 	saved := fetchStartedAsset(t, r, session, started.ID)
-	if len(saved.Blocks) != 2 {
-		t.Errorf("blocks after empty save = %d, want the two required blocks", len(saved.Blocks))
+	kept := blockNamed(t, saved.Blocks, "gallery")
+	if len(saved.Blocks) != 3 || kept.ID != gallery.ID || kept.Width != "full" {
+		t.Errorf("blocks after empty save = %+v, want the full-width Gallery kept", saved.Blocks)
 	}
 }
 
