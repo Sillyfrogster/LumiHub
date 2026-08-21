@@ -2,7 +2,7 @@
 
 import { Eye, ListTree, PencilLine, Undo2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type CSSProperties, useEffect, useState } from "react";
+import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import {
   type AddableSection,
   type AssetBlock,
@@ -26,6 +26,7 @@ import {
 } from "./ArrangeSections";
 import styles from "./AssetBlocks.module.css";
 import { BlockSheet } from "./BlockSheet";
+import { ContentsBar } from "./ContentsBar";
 import { ElementBody } from "./ElementBody";
 import { ElementOverlay } from "./ElementOverlay";
 import { ElementReader } from "./ElementReader";
@@ -106,12 +107,16 @@ export function AssetBlocks({
   }, [added]);
 
   const editingVisible = isOwner && !readerView;
-  const readerBlocks = currentBlocks.flatMap((block) => {
-    const elements = block.elements.filter(
-      (element) => !element.isEmpty && !isModelFacingElement(element),
-    );
-    return elements.length > 0 ? [{ ...block, elements }] : [];
-  });
+  const readerBlocks = useMemo(
+    () =>
+      currentBlocks.flatMap((block) => {
+        const elements = block.elements.filter(
+          (element) => !element.isEmpty && !isModelFacingElement(element),
+        );
+        return elements.length > 0 ? [{ ...block, elements }] : [];
+      }),
+    [currentBlocks],
+  );
   const modelContent = editingVisible
     ? []
     : currentBlocks.flatMap((block) =>
@@ -125,6 +130,13 @@ export function AssetBlocks({
       );
   const packable = editingVisible ? currentBlocks : readerBlocks;
   const rows = packBlockRows(packable, { showHidden: editingVisible });
+  const contentsBlocks = useMemo(
+    () =>
+      editingVisible
+        ? currentBlocks
+        : readerBlocks.filter((block) => !block.hidden),
+    [currentBlocks, editingVisible, readerBlocks],
+  );
 
   const editedBlock = currentBlocks.find((block) => block.id === editing);
   const expandedBlock = expanding
@@ -210,6 +222,7 @@ export function AssetBlocks({
 
   return (
     <>
+      <ContentsBar blocks={contentsBlocks} />
       {isOwner ? (
         <div className={styles.ownerToolbar}>
           {readerView ? (
