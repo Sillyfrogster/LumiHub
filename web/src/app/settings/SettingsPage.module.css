@@ -1,21 +1,54 @@
 .page {
   position: relative;
+  isolation: isolate;
   min-height: calc(100svh - var(--header-height));
-  overflow: hidden;
+  overflow: clip;
   background: var(--color-background);
 }
 
+.page::after {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  background: var(--color-background);
+  clip-path: polygon(0 0, 48% 0, 63% 100%, 0 100%);
+  content: "";
+  pointer-events: none;
+}
+
+.identityScene {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  background-image: url("../../assets/art/full/illarin-settings-identity-light-v1.webp");
+  background-position: left center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  pointer-events: none;
+}
+
+:global(:root[data-theme="dark"]) .identityScene {
+  background-image: url("../../assets/art/full/illarin-settings-identity-dark-v1.webp");
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme])) .identityScene {
+    background-image: url("../../assets/art/full/illarin-settings-identity-dark-v1.webp");
+  }
+}
+
 .layout {
-  position: relative;
-  z-index: 2;
-  width: min(100%, 1120px);
-  padding-block: clamp(48px, 7vw, 86px);
+  width: min(100%, 1240px);
+  padding-block: clamp(54px, 6vw, 82px) clamp(76px, 8vw, 112px);
 }
 
 .settingsGrid {
+  position: relative;
+  z-index: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1.18fr) minmax(340px, 0.82fr);
-  gap: 32px;
+  width: min(690px, 56vw);
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(48px, 6vw, 72px);
   align-items: start;
 }
 
@@ -30,7 +63,7 @@
 
 .regionHeading h2 {
   font-family: var(--font-display);
-  font-size: 1.85rem;
+  font-size: var(--type-block-title-size);
   font-weight: 600;
   letter-spacing: -0.02em;
 }
@@ -60,13 +93,15 @@
 }
 
 .heading {
-  max-width: 680px;
-  margin-bottom: 32px;
+  position: relative;
+  z-index: 1;
+  max-width: 600px;
+  margin-bottom: 42px;
 }
 
 .heading h1 {
   font-family: var(--font-display);
-  font-size: clamp(2.7rem, 5vw, 4.2rem);
+  font-size: var(--type-display-size);
   font-weight: 560;
   letter-spacing: -0.035em;
   line-height: 1;
@@ -80,27 +115,46 @@
   line-height: 1.75;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 900px) {
+  .page {
+    overflow: hidden;
+  }
+
+  .page::after {
+    display: none;
+  }
+
   .layout {
-    padding-block: 48px 72px;
+    padding-block: 44px 76px;
   }
 
   .heading {
+    max-width: 620px;
     margin-bottom: 30px;
   }
 
-  .heading h1 {
-    font-size: 2.8rem;
+  .identityScene {
+    position: relative;
+    width: calc(100% + (2 * var(--gutter)));
+    height: clamp(220px, 52vw, 360px);
+    margin: 0 calc(-1 * var(--gutter)) clamp(42px, 8vw, 64px);
+    background-position: 72% center;
+    background-size: cover;
   }
-}
 
-@media (max-width: 900px) {
   .settingsGrid {
+    width: 100%;
     grid-template-columns: 1fr;
     gap: 42px;
   }
 
   .regionHeading {
     min-height: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .heading h1 {
+    font-size: var(--type-section-size);
   }
 }

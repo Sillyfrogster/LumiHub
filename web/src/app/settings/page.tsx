@@ -32,6 +32,7 @@ export default async function SettingsPage({
             that can access this account.
           </p>
         </header>
+        <div className={styles.identityScene} aria-hidden="true" />
         <div className={styles.settingsGrid}>
           <section className={styles.accountColumn}>
             <header className={styles.regionHeading}>
