@@ -28,16 +28,13 @@ import styles from "./AssetBlocks.module.css";
 import { BlockSheet } from "./BlockSheet";
 import { ElementBody } from "./ElementBody";
 import { ElementOverlay } from "./ElementOverlay";
+import { ElementReader } from "./ElementReader";
 
-/**
- * Puts a creator back on a section by scrolling to it and marking it. Setting
- * a hash that is already set scrolls nothing, so the section is asked to
- * scroll directly and the hash only does the marking.
- */
+/** Returns to a block after editing it. */
 function returnToBlock(blockId: string) {
-  const anchor = `block-${blockId}`;
-  document.getElementById(anchor)?.scrollIntoView({ block: "start" });
-  window.location.hash = anchor;
+  document
+    .getElementById(`block-${blockId}`)
+    ?.scrollIntoView({ block: "start" });
 }
 
 /** One row arrangement per layout preset the catalog can choose. */
@@ -79,6 +76,10 @@ export function AssetBlocks({
   const [blockActionPending, setBlockActionPending] = useState(false);
   const [added, setAdded] = useState<string | null>(null);
   const [expanding, setExpanding] = useState<{
+    blockId: string;
+    element: AssetElement;
+  } | null>(null);
+  const [reading, setReading] = useState<{
     blockId: string;
     element: AssetElement;
   } | null>(null);
@@ -139,6 +140,17 @@ export function AssetBlocks({
     } finally {
       setExpandPending(false);
     }
+  }
+
+  function dismissReader() {
+    const elementId = reading?.element.id;
+    setReading(null);
+    if (!elementId) return;
+    window.requestAnimationFrame(() => {
+      document.getElementById(`read-${elementId}`)?.focus({
+        preventScroll: true,
+      });
+    });
   }
 
   function addSection(definition: string, elementType: ElementType) {
@@ -364,7 +376,21 @@ export function AssetBlocks({
                                   element: structuredClone(element),
                                 })
                               }
+                              onReadMore={() =>
+                                setReading({
+                                  blockId: block.id,
+                                  element,
+                                })
+                              }
                             />
+                            {reading?.blockId === block.id &&
+                            reading.element.id === element.id ? (
+                              <ElementReader
+                                element={reading.element}
+                                images={images}
+                                onDismiss={dismissReader}
+                              />
+                            ) : null}
                           </div>
                         ))}
                       </div>

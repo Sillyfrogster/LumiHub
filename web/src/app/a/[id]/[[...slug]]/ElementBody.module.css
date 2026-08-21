@@ -75,6 +75,56 @@
   font-style: italic;
 }
 
+.lineExcerpt,
+.itemExcerpt {
+  position: relative;
+  min-width: 0;
+}
+
+.lineExcerpt {
+  max-height: calc(var(--excerpt-lines) * 1.78rem);
+  overflow: hidden;
+}
+
+.lineExcerpt[data-truncated]::after,
+.itemExcerpt[data-truncated]::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 56px;
+  background: linear-gradient(to bottom, transparent, var(--color-surface));
+  content: "";
+  pointer-events: none;
+}
+
+.itemExcerpt[data-image-excerpt] .imageSet {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.readMore {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-accent);
+  font-size: 0.82rem;
+  font-weight: 800;
+  line-height: 1.5;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+
+.readMore:hover {
+  color: var(--color-text-primary);
+}
+
+.readMore:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
 .verbatim {
   overflow-x: auto;
   padding: 16px 18px;

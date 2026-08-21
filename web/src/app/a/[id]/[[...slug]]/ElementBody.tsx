@@ -2,7 +2,7 @@
 
 import { Maximize2 } from "lucide-react";
 import Image from "next/image";
-import type { CSSProperties } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { FormattingNotice, RichText } from "@/components/ui/RichText";
 import type {
   AssetElement,
@@ -14,7 +14,12 @@ import type {
   RegexScript,
   TypedValue,
 } from "@/lib/api/query";
-import { fitsInTheSheet, opensFullScreen } from "@/lib/page-arrangement";
+import {
+  contentItemCount,
+  excerptDefinition,
+  fitsInTheSheet,
+  opensFullScreen,
+} from "@/lib/page-arrangement";
 import { formattingWasRemoved, richTextsOf } from "@/lib/rich-text";
 import styles from "./ElementBody.module.css";
 
@@ -26,12 +31,14 @@ export function ElementBody({
   images = [],
   blockTitle,
   onExpand,
+  onReadMore,
 }: {
   element: AssetElement;
   isOwner: boolean;
   images?: AssetImage[];
   blockTitle?: string;
   onExpand?: () => void;
+  onReadMore?: () => void;
 }) {
   if (element.isEmpty && !isOwner) return null;
 
@@ -69,7 +76,11 @@ export function ElementBody({
         <p className={styles.blank}>Nothing written here yet.</p>
       ) : (
         <>
-          <ElementContent element={element} images={images} />
+          <ExcerptedElementContent
+            element={element}
+            images={images}
+            onReadMore={onReadMore}
+          />
           {formattingWasRemoved(richTextsOf(element)) ? (
             <FormattingNotice />
           ) : null}
@@ -79,12 +90,128 @@ export function ElementBody({
   );
 }
 
-function ElementContent({
+function ExcerptedElementContent({
   element,
   images,
+  onReadMore,
 }: {
   element: AssetElement;
   images: AssetImage[];
+  onReadMore?: () => void;
+}) {
+  const definition = excerptDefinition(element.type);
+  const excerpt = useRef<HTMLDivElement>(null);
+  const [lineCut, setLineCut] = useState(false);
+  const itemCount = visibleItemCount(element);
+  const hasItemCut =
+    definition.unit === "items" && itemCount > definition.limit;
+
+  useEffect(() => {
+    if (definition.unit !== "lines") return;
+
+    const node = excerpt.current;
+    if (!node) return;
+    const measure = () => {
+      setLineCut(node.scrollHeight - node.clientHeight > 1);
+    };
+    const observer = new ResizeObserver(measure);
+    measure();
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [definition.unit]);
+
+  const isCut = definition.unit === "lines" ? lineCut : hasItemCut;
+  const itemLimit = definition.unit === "items" ? definition.limit : undefined;
+
+  return (
+    <>
+      <div
+        ref={excerpt}
+        className={
+          definition.unit === "lines" ? styles.lineExcerpt : styles.itemExcerpt
+        }
+        data-image-excerpt={
+          element.type === "image_set" && isCut ? true : undefined
+        }
+        data-truncated={isCut ? true : undefined}
+        style={
+          definition.unit === "lines"
+            ? ({ "--excerpt-lines": definition.limit } as CSSProperties)
+            : undefined
+        }
+      >
+        <ElementContent
+          element={element}
+          images={images}
+          itemLimit={itemLimit}
+        />
+      </div>
+      {isCut && onReadMore ? (
+        <button
+          id={`read-${element.id}`}
+          type="button"
+          className={styles.readMore}
+          onClick={onReadMore}
+        >
+          {excerptControlLabel(element, itemCount)}
+        </button>
+      ) : null}
+    </>
+  );
+}
+
+function visibleItemCount(element: AssetElement): number {
+  if (element.type === "setting_group" && "settings" in element.content) {
+    return element.content.settings.filter((setting) => setting.value != null)
+      .length;
+  }
+  return contentItemCount(element);
+}
+
+function excerptControlLabel(element: AssetElement, itemCount: number): string {
+  if (element.type === "prose") {
+    return `the rest of ${element.label.trim().toLocaleLowerCase() || "this text"}`;
+  }
+  return `all ${itemCount} ${excerptNoun(element)}`;
+}
+
+function excerptNoun(element: AssetElement): string {
+  switch (element.type) {
+    case "text_set":
+      return element.role === "prompt_nudges" ? "nudges" : "items";
+    case "field_list":
+      return element.label.toLocaleLowerCase().includes("attribute")
+        ? "attributes"
+        : "fields";
+    case "dialogue_sample":
+      return "turns";
+    case "image_set":
+      return element.role === "expressions" ? "expressions" : "images";
+    case "link_list":
+      return "links";
+    case "entry_table":
+      return "entries";
+    case "prompt_list":
+      return "fragments";
+    case "variable_schema":
+      return "variables";
+    case "setting_group":
+      return "settings";
+    case "script_list":
+      return "scripts";
+    default:
+      return "items";
+  }
+}
+
+export function ElementContent({
+  element,
+  images,
+  itemLimit,
+}: {
+  element: AssetElement;
+  images: AssetImage[];
+  itemLimit?: number;
 }) {
   const { content } = element;
 
@@ -100,7 +227,7 @@ function ElementContent({
     const verbatim = element.display === "verbatim";
     return (
       <ol className={styles.textSet}>
-        {content.texts.map((item, index) => (
+        {content.texts.slice(0, itemLimit).map((item, index) => (
           <li key={`${index}-${item.name ?? ""}`}>
             {item.name ? <p className={styles.itemName}>{item.name}</p> : null}
             {verbatim ? (
@@ -117,7 +244,7 @@ function ElementContent({
   if (element.type === "dialogue_sample" && "turns" in content) {
     return (
       <ol className={styles.dialogue}>
-        {content.turns.map((turn, index) => (
+        {content.turns.slice(0, itemLimit).map((turn, index) => (
           <li key={`${index}-${turn.speaker}`}>
             <p className={styles.speaker}>{turn.speaker}</p>
             <RichText text={turn.text} />
@@ -130,7 +257,7 @@ function ElementContent({
   if (element.type === "field_list" && "fields" in content) {
     return (
       <dl className={styles.fieldList}>
-        {content.fields.map((field, index) => (
+        {content.fields.slice(0, itemLimit).map((field, index) => (
           <div key={`${index}-${field.name ?? ""}`}>
             <dt>{field.name || "Unnamed"}</dt>
             <dd>
@@ -145,7 +272,7 @@ function ElementContent({
   if (element.type === "link_list" && "links" in content) {
     return (
       <ul className={styles.linkList}>
-        {content.links.map((link, index) => (
+        {content.links.slice(0, itemLimit).map((link, index) => (
           <li key={`${index}-${link.url}`}>
             <a href={link.url} rel="noreferrer nofollow" target="_blank">
               {link.label || link.url}
@@ -167,7 +294,7 @@ function ElementContent({
         className={styles.imageSet}
         style={{ "--item-width": width } as CSSProperties}
       >
-        {content.images.map((item) => {
+        {content.images.slice(0, itemLimit).map((item) => {
           const image = imagesById.get(item.mediaId);
           if (!image) return null;
           return (
@@ -189,23 +316,25 @@ function ElementContent({
   }
 
   if (element.type === "entry_table" && "entries" in content) {
-    return <EntryTable entries={content.entries} />;
+    return <EntryTable entries={content.entries.slice(0, itemLimit)} />;
   }
 
   if (element.type === "prompt_list" && "fragments" in content) {
-    return <PromptList content={content} />;
+    return <PromptList content={content} itemLimit={itemLimit} />;
   }
 
   if (element.type === "setting_group" && "settings" in content) {
-    return <SettingGroup settings={content.settings} />;
+    return <SettingGroup settings={content.settings} itemLimit={itemLimit} />;
   }
 
   if (element.type === "variable_schema" && "variables" in content) {
-    return <VariableSchema variables={content.variables} />;
+    return (
+      <VariableSchema variables={content.variables} itemLimit={itemLimit} />
+    );
   }
 
   if (element.type === "script_list" && "scripts" in content) {
-    return <ScriptList scripts={content.scripts} />;
+    return <ScriptList scripts={content.scripts} itemLimit={itemLimit} />;
   }
 
   return null;
@@ -225,9 +354,15 @@ const PLACEMENT_LABELS: Record<string, string> = {
   post_history: "After the conversation",
 };
 
-function PromptList({ content }: { content: PromptListContent }) {
+function PromptList({
+  content,
+  itemLimit,
+}: {
+  content: PromptListContent;
+  itemLimit?: number;
+}) {
   const groups = content.groups ?? [];
-  const fragments = content.fragments ?? [];
+  const fragments = (content.fragments ?? []).slice(0, itemLimit);
   const groupNames = new Map(groups.map((group) => [group.id, group.name]));
   const runs: { group?: string; fragments: PromptListContent["fragments"] }[] =
     [];
@@ -289,8 +424,16 @@ function Fragments({
   );
 }
 
-function SettingGroup({ settings }: { settings: PresetSetting[] }) {
-  const supplied = settings.filter((setting) => setting.value != null);
+function SettingGroup({
+  settings,
+  itemLimit,
+}: {
+  settings: PresetSetting[];
+  itemLimit?: number;
+}) {
+  const supplied = settings
+    .filter((setting) => setting.value != null)
+    .slice(0, itemLimit);
   if (supplied.length === 0) return null;
   return (
     <dl className={styles.fieldList}>
@@ -314,10 +457,16 @@ function writeValue(value: TypedValue | undefined): string {
   return value.text ?? "";
 }
 
-function VariableSchema({ variables }: { variables: PresetVariable[] }) {
+function VariableSchema({
+  variables,
+  itemLimit,
+}: {
+  variables: PresetVariable[];
+  itemLimit?: number;
+}) {
   return (
     <ul className={styles.variables}>
-      {variables.map((variable, index) => (
+      {variables.slice(0, itemLimit).map((variable, index) => (
         <li key={variable.id ?? `${index}-${variable.name}`}>
           <p className={styles.itemName}>
             {variable.label?.trim() || variable.name}
@@ -339,10 +488,16 @@ function VariableSchema({ variables }: { variables: PresetVariable[] }) {
   );
 }
 
-function ScriptList({ scripts }: { scripts: RegexScript[] }) {
+function ScriptList({
+  scripts,
+  itemLimit,
+}: {
+  scripts: RegexScript[];
+  itemLimit?: number;
+}) {
   return (
     <ul className={styles.scripts}>
-      {scripts.map((script, index) => (
+      {scripts.slice(0, itemLimit).map((script, index) => (
         <li
           key={script.id ?? index}
           data-off={script.enabled ? undefined : true}

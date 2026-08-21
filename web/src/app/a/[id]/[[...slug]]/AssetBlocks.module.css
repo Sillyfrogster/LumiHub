@@ -72,11 +72,6 @@
   opacity: 0.48;
 }
 
-.block:target {
-  border-color: var(--color-accent);
-  background: var(--color-accent-soft);
-}
-
 .header {
   display: flex;
   align-items: center;

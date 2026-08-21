@@ -6,14 +6,7 @@ import type { AssetElement, AssetImage } from "@/lib/api/query";
 import { ElementFields } from "./ElementEditors";
 import styles from "./ElementOverlay.module.css";
 
-/**
- * The full-screen surface the four collection types are edited on, because a
- * thousand lorebook entries do not fit a page column however wide it is.
- *
- * The named return says where the creator will land the whole time it is open.
- * Every way out of here goes through onLeave, and every one of them keeps the
- * editing, so this is never a second workflow somebody is trapped in.
- */
+/** The full-screen surface edits large collection elements. */
 export function ElementOverlay({
   assetId,
   element,

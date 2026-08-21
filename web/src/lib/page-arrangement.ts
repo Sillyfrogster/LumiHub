@@ -120,6 +120,35 @@ export const FULL_SCREEN_TYPES = [
   "script_list",
 ] as const;
 
+export const EXCERPT_DEFINITIONS = {
+  prose: { unit: "lines", limit: 12 },
+  text_set: { unit: "items", limit: 3 },
+  field_list: { unit: "items", limit: 6 },
+  dialogue_sample: { unit: "items", limit: 3 },
+  entry_table: { unit: "items", limit: 8 },
+  image_set: { unit: "items", limit: 3 },
+  link_list: { unit: "items", limit: 4 },
+  prompt_list: { unit: "items", limit: 3 },
+  variable_schema: { unit: "items", limit: 4 },
+  setting_group: { unit: "items", limit: 6 },
+  script_list: { unit: "items", limit: 4 },
+  color_set: { unit: "items", limit: 10 },
+  stylesheet_set: { unit: "items", limit: 2 },
+  record_list: { unit: "items", limit: 6 },
+} as const;
+
+export type ExcerptDefinition =
+  (typeof EXCERPT_DEFINITIONS)[keyof typeof EXCERPT_DEFINITIONS];
+
+export function excerptDefinition(type: string): ExcerptDefinition {
+  return (
+    EXCERPT_DEFINITIONS[type as keyof typeof EXCERPT_DEFINITIONS] ?? {
+      unit: "items",
+      limit: 1,
+    }
+  );
+}
+
 export function opensFullScreen(type: string): boolean {
   return (FULL_SCREEN_TYPES as readonly string[]).includes(type);
 }
