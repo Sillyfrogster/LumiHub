@@ -1,4 +1,5 @@
-import { Art } from "@/components/art/Art";
+import Image from "next/image";
+import archiveHost from "@/assets/art/full/illarin-mascot-archive-v1.webp";
 import { Shell } from "@/components/layout/Shell";
 import { UploadFlow } from "./UploadFlow";
 import styles from "./UploadPage.module.css";
@@ -6,14 +7,22 @@ import styles from "./UploadPage.module.css";
 export default function UploadPage() {
   return (
     <section className={styles.page}>
-      <Art name="wash" width={760} className={styles.wash} />
-      <Art name="sprig" width={270} className={styles.sprig} loading="eager" />
       <Shell className={styles.layout}>
         <header className={styles.heading}>
-          <h1>Bring your creation into the library</h1>
-          <p>
-            Bring in the original file for a creation you want to keep shaping.
-          </p>
+          <div>
+            <h1>Publish or start an asset</h1>
+            <p>
+              Import an original file or open a new private draft in Illarin's
+              builder.
+            </p>
+          </div>
+          <Image
+            src={archiveHost}
+            alt="Illarin's host carries a catalog folio"
+            className={styles.mascot}
+            sizes="260px"
+            priority
+          />
         </header>
         <UploadFlow />
       </Shell>

@@ -1,6 +1,4 @@
-import Image from "next/image";
 import Link from "next/link";
-import shelfArt from "@/assets/art/full/home-shelf.webp";
 import { Shell } from "@/components/layout/Shell";
 import type { BrowseAsset, NsfwVisibility } from "@/lib/api/query";
 import { assetHref } from "@/lib/asset-url";
@@ -21,21 +19,16 @@ export function FeaturedShelf({
     <Shell as="section" className={styles.section}>
       <header className={styles.header}>
         <div>
-          <h2>New on the shelf</h2>
-          <p>The latest work, kept close to the form its creator gave it.</p>
+          <h2>Recently published</h2>
+          <p>
+            Creator work from across the catalog, shown without recutting it.
+          </p>
         </div>
-        <Link href="/browse">Browse the collection →</Link>
+        <Link href="/browse">See the full catalog →</Link>
       </header>
 
       {assets.length ? (
         <div className={styles.stage}>
-          <Image
-            src={shelfArt}
-            alt=""
-            aria-hidden="true"
-            className={styles.shelfArt}
-            sizes="(max-width: 620px) 760px, 100vw"
-          />
           <ul className={styles.grid}>
             {assets.map((asset) => (
               <li key={asset.id}>
@@ -68,10 +61,10 @@ export function FeaturedShelf({
         <div className={styles.empty}>
           <p>
             {unavailable
-              ? "The shelf could not be opened just now."
-              : "The first additions are still being bound."}
+              ? "The catalog could not be loaded just now."
+              : "Nothing has been published yet."}
           </p>
-          <Link href="/browse">Open the full collection</Link>
+          <Link href="/browse">Open the catalog</Link>
         </div>
       )}
     </Shell>

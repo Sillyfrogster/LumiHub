@@ -15,8 +15,8 @@ export default async function BrowsePage({
 
   return (
     <CatalogListing
-      title="Browse the collection"
-      introduction="Find characters, lorebooks, presets, and themes made for stories still unfolding."
+      title="Browse"
+      introduction="Search the mixed catalog or narrow it by kind, application compatibility, and asset-specific facets."
       filters={filters}
       initialPage={initialPage}
     />

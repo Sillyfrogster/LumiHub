@@ -2,27 +2,30 @@
   position: relative;
   min-height: calc(100svh - var(--header-height));
   overflow: hidden;
-  border-bottom: 1px solid var(--color-border);
   background: var(--color-background);
 }
 
 .layout {
   position: relative;
   z-index: 2;
-  width: min(100%, 820px);
-  padding-block: clamp(48px, 5.5vw, 72px) clamp(72px, 8vw, 104px);
+  width: min(100%, 980px);
+  padding-block: 34px clamp(72px, 8vw, 104px);
 }
 
 .heading {
-  max-width: 780px;
-  margin-bottom: clamp(28px, 3.5vw, 38px);
+  display: grid;
+  min-height: 250px;
+  grid-template-columns: minmax(0, 1fr) 230px;
+  gap: 40px;
+  align-items: center;
+  margin-bottom: 22px;
 }
 
 .heading h1 {
   max-width: 18ch;
   font-family: var(--font-display);
-  font-size: clamp(2.8rem, 5vw, 4.2rem);
-  font-weight: 500;
+  font-size: clamp(2.7rem, 5vw, 4.35rem);
+  font-weight: 560;
   letter-spacing: -0.035em;
   line-height: 1;
   text-wrap: balance;
@@ -36,29 +39,22 @@
   line-height: 1.65;
 }
 
-.wash {
-  position: absolute;
-  top: -250px;
-  left: -300px;
-  opacity: 0.34;
-  mix-blend-mode: var(--art-wash-blend);
-  mask-image: radial-gradient(ellipse, var(--mask-opaque) 34%, transparent 72%);
-}
-
-.sprig {
-  position: absolute;
-  right: -76px;
-  bottom: -36px;
-  opacity: 0.34;
-  transform: rotate(-8deg);
+.mascot {
+  width: 100%;
+  height: 250px;
+  object-fit: contain;
+  object-position: center bottom;
+  filter: drop-shadow(
+    0 18px 24px color-mix(in srgb, var(--color-shadow) 24%, transparent)
+  );
 }
 
 .flow {
   display: grid;
   overflow: hidden;
-  border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
-  background: color-mix(in srgb, var(--color-surface) 76%, transparent);
+  background: var(--color-elevated);
+  box-shadow: var(--shadow-panel);
 }
 
 .form,
@@ -68,9 +64,9 @@
 .accountState,
 .sessionState {
   position: relative;
-  border: 1px solid var(--color-border);
+  border: 0;
   border-radius: var(--radius-xl);
-  background: color-mix(in srgb, var(--color-surface) 76%, transparent);
+  background: var(--color-elevated);
 }
 
 .flow > .form {
@@ -81,6 +77,94 @@
 
 .form {
   padding: clamp(22px, 3.5vw, 30px);
+}
+
+.pathChoice {
+  display: grid;
+  gap: 8px;
+  padding: clamp(24px, 4vw, 36px);
+  border-radius: var(--radius-xl);
+  background: var(--color-elevated);
+  box-shadow: var(--shadow-panel);
+}
+
+.pathIntro {
+  margin-bottom: 10px;
+}
+
+.pathIntro h2 {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: 560;
+  letter-spacing: -0.02em;
+}
+
+.pathIntro p {
+  max-width: 60ch;
+  margin-top: 7px;
+  color: var(--color-text-secondary);
+  font-size: 0.86rem;
+  line-height: 1.6;
+}
+
+.pathChoice > button {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 24px;
+  gap: 14px;
+  align-items: center;
+  min-height: 86px;
+  padding: 14px 18px;
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  text-align: left;
+  transition:
+    background 180ms var(--ease),
+    transform 180ms var(--ease);
+}
+
+.pathChoice > button:hover {
+  background: var(--color-muted);
+  transform: translateX(3px);
+}
+
+.pathChoice > button > svg:first-child {
+  color: var(--color-accent);
+}
+
+.pathChoice > button > svg:last-child {
+  color: var(--color-text-secondary);
+}
+
+.pathChoice > button span {
+  display: grid;
+  gap: 3px;
+}
+
+.pathChoice > button strong {
+  font-size: 0.92rem;
+}
+
+.pathChoice > button small {
+  color: var(--color-text-secondary);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.pathBack {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  justify-self: start;
+  margin: 12px 18px 0;
+  padding-inline: 10px;
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 760;
+}
+
+.pathBack:hover {
+  color: var(--color-text-primary);
 }
 
 .formIntro {
@@ -152,21 +236,12 @@
   font-weight: 900;
 }
 
-.fileField small,
-.catalogFields small {
+.fileField small {
   color: var(--color-text-secondary);
   font-size: 0.75rem;
   line-height: 1.45;
 }
 
-.catalogFields {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px 16px;
-  margin-top: 24px;
-}
-
-.catalogFields label,
 .kindForm label {
   display: grid;
   gap: 8px;
@@ -175,13 +250,6 @@
   font-weight: 900;
 }
 
-.wideField {
-  grid-column: 1 / -1;
-}
-
-.catalogFields input,
-.catalogFields textarea,
-.catalogFields select,
 .kindForm input,
 .kindForm select {
   width: 100%;
@@ -199,23 +267,11 @@
     box-shadow 180ms var(--ease);
 }
 
-.catalogFields textarea {
-  min-height: 112px;
-  resize: vertical;
-  line-height: 1.55;
-}
-
-.catalogFields input:hover,
-.catalogFields textarea:hover,
-.catalogFields select:hover,
 .kindForm input:hover,
 .kindForm select:hover {
   border-color: var(--color-text-secondary);
 }
 
-.catalogFields input:focus,
-.catalogFields textarea:focus,
-.catalogFields select:focus,
 .kindForm input:focus,
 .kindForm select:focus {
   border-color: var(--color-accent);
@@ -226,9 +282,9 @@
   display: grid;
   gap: 10px;
   margin-top: 22px;
-  padding-block: 16px;
-  border-top: 1px solid var(--color-border);
-  border-bottom: 1px solid var(--color-border);
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: var(--color-muted);
 }
 
 .checks label {
@@ -510,15 +566,21 @@
 @media (max-width: 720px) {
   .layout {
     width: min(100%, 680px);
-    padding-block: 44px 68px;
+    padding-block: 28px 68px;
   }
 
   .heading {
-    margin-bottom: 30px;
+    min-height: 0;
+    grid-template-columns: 1fr;
+    margin-bottom: 28px;
   }
 
   .heading h1 {
-    font-size: clamp(2.8rem, 11vw, 4rem);
+    font-size: clamp(2.7rem, 11vw, 4rem);
+  }
+
+  .mascot {
+    display: none;
   }
 
   .formIntro {
@@ -557,10 +619,5 @@
   .receiptHeader {
     grid-template-columns: 52px minmax(0, 1fr);
     gap: 16px;
-  }
-
-  .sprig {
-    right: -130px;
-    opacity: 0.24;
   }
 }

@@ -50,10 +50,10 @@ export function StartFromNothing() {
 
   return (
     <section className={styles.panel} aria-labelledby="start-heading">
-      <h2 id="start-heading">Or start from nothing</h2>
+      <h2 id="start-heading">Start a new asset</h2>
       <p>
-        Choose a kind and begin with its sections ready to shape. It stays a
-        private draft until you publish it.
+        Choose a supported kind. It opens as a private draft and stays private
+        until you publish it.
       </p>
       <div className={styles.kinds}>
         {BUILDABLE_KINDS.map((kind) => (

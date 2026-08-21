@@ -18,7 +18,7 @@ const SCOPES: Record<Scope, ScopeCopy> = {
   "library:sync": {
     title: "Report what it has installed",
     detail:
-      "So LumiHub can show what you already have, and when a newer version exists.",
+      "So Illarin can show what you already have, and when a newer version exists.",
   },
 };
 
@@ -30,7 +30,7 @@ export function describeScope(scope: Scope): ScopeCopy {
   return (
     SCOPES[scope] ?? {
       title: scope,
-      detail: "This version of LumiHub does not recognise this permission.",
+      detail: "This version of Illarin does not recognise this permission.",
     }
   );
 }

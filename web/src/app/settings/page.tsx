@@ -1,4 +1,3 @@
-import { Art } from "@/components/art/Art";
 import { AccountSettings } from "@/components/auth/AccountSettings";
 import { Shell } from "@/components/layout/Shell";
 import { LinkedInstances } from "@/components/linking/LinkedInstances";
@@ -25,20 +24,28 @@ export default async function SettingsPage({
 
   return (
     <section className={styles.page}>
-      <Art name="wash" width={760} className={styles.wash} />
-      <Art name="sprig" width={250} className={styles.sprig} loading="eager" />
       <Shell className={styles.layout}>
         <header className={styles.heading}>
           <h1>Account settings</h1>
           <p>
-            Keep two independent ways back when you can. Discord and email may
-            reach one account, but two accounts are never combined.
+            Manage sign-in methods, email verification, and the applications
+            that can access this account.
           </p>
         </header>
-        <AccountSettings
-          discordNotice={discord ? DISCORD_NOTICES[discord] : undefined}
-        />
-        <LinkedInstances />
+        <div className={styles.settingsGrid}>
+          <section className={styles.accountColumn}>
+            <header className={styles.regionHeading}>
+              <h2>Sign-in methods</h2>
+              <p>The independent ways back into this account.</p>
+            </header>
+            <AccountSettings
+              discordNotice={discord ? DISCORD_NOTICES[discord] : undefined}
+            />
+          </section>
+          <div className={styles.linkedColumn}>
+            <LinkedInstances />
+          </div>
+        </div>
       </Shell>
     </section>
   );

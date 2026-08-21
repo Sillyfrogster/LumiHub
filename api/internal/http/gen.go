@@ -2035,6 +2035,9 @@ type AddAssetRevisionMultipartBody struct {
 // BeginDiscordParams defines parameters for BeginDiscord.
 type BeginDiscordParams struct {
 	Intent *BeginDiscordParamsIntent `form:"intent,omitempty" json:"intent,omitempty"`
+
+	// ReturnTo Internal page to resume after sign-in
+	ReturnTo *string `form:"returnTo,omitempty" json:"returnTo,omitempty"`
 }
 
 // BeginDiscordParamsIntent defines parameters for BeginDiscord.
@@ -3068,6 +3071,14 @@ func (siw *ServerInterfaceWrapper) BeginDiscord(c *gin.Context) {
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "intent", c.Request.URL.Query(), &params.Intent, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
 	if err != nil {
 		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter intent: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Optional query parameter "returnTo" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "returnTo", c.Request.URL.Query(), &params.ReturnTo, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter returnTo: %w", err), http.StatusBadRequest)
 		return
 	}
 

@@ -25,7 +25,7 @@ export function assetMetadata(asset: AssetDetail): Metadata {
     robots: asset.discovery === "unlisted" ? { index: false } : undefined,
     openGraph: {
       type: "article",
-      siteName: "LumiHub",
+      siteName: "Illarin",
       title,
       description,
       url,

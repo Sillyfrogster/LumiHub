@@ -11,7 +11,7 @@ type ErrorAnswer = { error?: string };
 type SubmissionResult = { ok: true } | { ok: false; error: string };
 
 const connectionError =
-  "We could not reach LumiHub. Check your connection and try again.";
+  "We could not reach Illarin. Check your connection and try again.";
 
 async function postJSON(
   endpoint: string,
@@ -81,7 +81,7 @@ export function PasswordResetRequestPanel() {
         <KeyRound size={24} strokeWidth={1.35} aria-hidden="true" />
         <h2>Find your account</h2>
         <p>
-          This also works if Discord has been your only way into LumiHub until
+          This also works if Discord has been your only way into Illarin until
           now.
         </p>
       </div>

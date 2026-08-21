@@ -1758,6 +1758,8 @@ export interface operations {
     parameters: {
       query?: {
         intent?: "sign-in" | "attach";
+        /** @description Internal page to resume after sign-in */
+        returnTo?: string;
       };
       header?: never;
       path?: never;

@@ -4,109 +4,91 @@
 
 .masthead {
   position: relative;
-  min-height: 330px;
+  min-height: 206px;
   overflow: hidden;
-  border-bottom: 1px solid var(--color-border);
-  background: linear-gradient(
-    180deg,
-    var(--color-background),
-    var(--color-muted)
-  );
+  background: #111016;
+  isolation: isolate;
 }
 
 .mastheadInner {
   position: relative;
   z-index: 2;
   display: flex;
-  min-height: 330px;
+  min-height: 206px;
   align-items: center;
 }
 
 .intro {
-  width: min(520px, 47%);
-  padding-block: 44px 52px;
+  width: min(590px, 58%);
+  padding-block: 38px 48px;
+  color: #fff8fb;
   animation: lhRise 0.7s var(--ease) both;
 }
 
 .intro h1 {
   max-width: 500px;
   font-family: var(--font-display);
-  font-size: clamp(2.75rem, 4.4vw, 4.1rem);
-  font-weight: 500;
+  font-size: clamp(2.7rem, 4.4vw, 4.25rem);
+  font-weight: 560;
   line-height: 0.98;
   letter-spacing: -0.035em;
 }
 
 .intro p {
-  max-width: 430px;
-  margin-top: 20px;
-  color: var(--color-text-secondary);
-  font-family: var(--font-display);
-  font-size: clamp(1rem, 1.35vw, 1.13rem);
-  font-style: italic;
-  line-height: 1.58;
+  max-width: 520px;
+  margin-top: 12px;
+  color: #c9bdc6;
+  font-size: 0.88rem;
+  line-height: 1.62;
 }
 
-.lumiArt {
+.friezeArt {
   position: absolute;
-  z-index: 1;
-  inset-block: 0;
-  right: 0;
-  width: clamp(560px, 54vw, 860px);
+  z-index: -2;
+  inset: 0;
   animation: lhArt 1s var(--ease) 0.08s both;
 }
 
-.lumiArt img {
-  object-fit: contain;
-  object-position: right center;
+.friezeArt img {
+  object-fit: cover;
+  object-position: center 55%;
 }
 
-@media (max-width: 900px) {
-  .intro {
-    width: min(530px, 58%);
-  }
-
-  .lumiArt {
-    width: 68%;
-    opacity: 0.86;
-  }
+.masthead::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    #0e0d12 0%,
+    rgba(14, 13, 18, 0.9) 32%,
+    transparent 76%
+  );
+  content: "";
 }
 
 @media (max-width: 760px) {
   .masthead,
   .mastheadInner {
-    min-height: 440px;
-  }
-
-  .mastheadInner {
-    align-items: start;
+    min-height: 190px;
   }
 
   .intro {
-    width: 100%;
-    padding-block: 38px 248px;
+    width: min(100%, 530px);
+    padding-block: 32px 40px;
   }
 
   .intro h1 {
-    max-width: 9ch;
-    font-size: clamp(2.5rem, 11vw, 3.5rem);
+    font-size: clamp(2.6rem, 11vw, 3.5rem);
   }
 
   .intro p {
-    max-width: 34ch;
-    margin-top: 15px;
-    font-size: 0.98rem;
-    line-height: 1.5;
+    max-width: 46ch;
+    margin-top: 8px;
+    font-size: 0.78rem;
   }
 
-  .lumiArt {
-    inset: auto 0 0;
-    width: 100%;
-    height: 250px;
-    opacity: 1;
-  }
-
-  .lumiArt img {
-    object-position: right bottom;
+  .friezeArt img {
+    object-position: 70% center;
   }
 }

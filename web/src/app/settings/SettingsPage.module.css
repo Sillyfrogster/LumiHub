@@ -2,26 +2,72 @@
   position: relative;
   min-height: calc(100svh - var(--header-height));
   overflow: hidden;
-  border-bottom: 1px solid var(--color-border);
   background: var(--color-background);
 }
 
 .layout {
   position: relative;
   z-index: 2;
-  width: min(100%, 980px);
-  padding-block: clamp(64px, 8vw, 108px);
+  width: min(100%, 1120px);
+  padding-block: clamp(48px, 7vw, 86px);
+}
+
+.settingsGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.18fr) minmax(340px, 0.82fr);
+  gap: 32px;
+  align-items: start;
+}
+
+.accountColumn {
+  min-width: 0;
+}
+
+.regionHeading {
+  min-height: 92px;
+  padding-bottom: 20px;
+}
+
+.regionHeading h2 {
+  font-family: var(--font-display);
+  font-size: 1.85rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.regionHeading p {
+  max-width: 48ch;
+  margin-top: 10px;
+  color: var(--color-text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.65;
+}
+
+.linkedColumn {
+  min-width: 0;
+}
+
+.linkedColumn > section {
+  margin-top: 0;
+}
+
+.linkedColumn:empty {
+  display: none;
+}
+
+.settingsGrid:has(.linkedColumn:empty) > .accountColumn {
+  grid-column: 1 / -1;
 }
 
 .heading {
   max-width: 680px;
-  margin-bottom: 40px;
+  margin-bottom: 32px;
 }
 
 .heading h1 {
   font-family: var(--font-display);
-  font-size: clamp(2.8rem, 6vw, 4.8rem);
-  font-weight: 500;
+  font-size: clamp(2.7rem, 5vw, 4.2rem);
+  font-weight: 560;
   letter-spacing: -0.035em;
   line-height: 1;
 }
@@ -32,23 +78,6 @@
   color: var(--color-text-secondary);
   font-size: 0.98rem;
   line-height: 1.75;
-}
-
-.wash {
-  position: absolute;
-  top: -220px;
-  left: -280px;
-  opacity: 0.36;
-  mix-blend-mode: var(--art-wash-blend);
-  mask-image: radial-gradient(ellipse, var(--mask-opaque) 34%, transparent 72%);
-}
-
-.sprig {
-  position: absolute;
-  right: -72px;
-  bottom: -42px;
-  opacity: 0.38;
-  transform: rotate(-7deg);
 }
 
 @media (max-width: 720px) {
@@ -62,5 +91,16 @@
 
   .heading h1 {
     font-size: 2.8rem;
+  }
+}
+
+@media (max-width: 900px) {
+  .settingsGrid {
+    grid-template-columns: 1fr;
+    gap: 42px;
+  }
+
+  .regionHeading {
+    min-height: 0;
   }
 }

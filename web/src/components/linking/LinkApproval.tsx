@@ -25,16 +25,39 @@ type Stage =
   | { kind: "approved"; link: PendingLink };
 
 const UNREACHABLE =
-  "We could not reach LumiHub. Check your connection and try again.";
+  "We could not reach Illarin. Check your connection and try again.";
 
 export function LinkApproval() {
   const search = useSearchParams();
   const { account } = useAuth();
   const suppliedCode = search.get("code") ?? "";
+  const returnTo = suppliedCode
+    ? `/link?code=${encodeURIComponent(suppliedCode)}`
+    : "/link";
   const [stage, setStage] = useState<Stage>({ kind: "entry" });
   const [typed, setTyped] = useState(suppliedCode);
   const [notice, setNotice] = useState("");
   const looked = useRef("");
+  const activePanel = useRef<HTMLElement | null>(null);
+  const previousView = useRef("");
+  const viewKey =
+    account === undefined
+      ? "checking-account"
+      : !account
+        ? "signed-out"
+        : !account.emailVerified
+          ? "unverified"
+          : stage.kind;
+  const capturePanel = useCallback((node: HTMLElement | null) => {
+    activePanel.current = node;
+  }, []);
+
+  useEffect(() => {
+    if (previousView.current && previousView.current !== viewKey) {
+      activePanel.current?.focus();
+    }
+    previousView.current = viewKey;
+  }, [viewKey]);
 
   const look = useCallback(async (code: string) => {
     setNotice("");
@@ -68,7 +91,12 @@ export function LinkApproval() {
 
   if (account === undefined) {
     return (
-      <div className={styles.panel}>
+      <div
+        ref={capturePanel}
+        className={styles.panel}
+        tabIndex={-1}
+        aria-live="polite"
+      >
         <p className={styles.waiting} aria-live="polite">
           Checking who is signed in…
         </p>
@@ -78,13 +106,21 @@ export function LinkApproval() {
 
   if (!account) {
     return (
-      <div className={styles.panel}>
+      <div
+        ref={capturePanel}
+        className={styles.panel}
+        tabIndex={-1}
+        aria-live="polite"
+      >
         <Gate
           title="Sign in to approve"
           body="An application can only be linked by the creator whose account it will reach."
           code={suppliedCode}
         />
-        <Link className={styles.primary} href="/sign-in">
+        <Link
+          className={styles.primary}
+          href={`/sign-in?returnTo=${encodeURIComponent(returnTo)}`}
+        >
           Sign in
         </Link>
       </div>
@@ -93,13 +129,21 @@ export function LinkApproval() {
 
   if (!account.emailVerified) {
     return (
-      <div className={styles.panel}>
+      <div
+        ref={capturePanel}
+        className={styles.panel}
+        tabIndex={-1}
+        aria-live="polite"
+      >
         <Gate
           title="Verify your email first"
           body="A verified address is what lets you cut a link later, so it is needed before one is made."
           code={suppliedCode}
         />
-        <Link className={styles.primary} href="/verify-email">
+        <Link
+          className={styles.primary}
+          href={`/verify-email?returnTo=${encodeURIComponent(returnTo)}`}
+        >
           Verify email
         </Link>
       </div>
@@ -108,7 +152,12 @@ export function LinkApproval() {
 
   if (stage.kind === "approved") {
     return (
-      <div className={styles.panel}>
+      <div
+        ref={capturePanel}
+        className={styles.panel}
+        tabIndex={-1}
+        aria-live="polite"
+      >
         <span className={styles.done}>
           <Check size={26} strokeWidth={1.6} aria-hidden="true" />
         </span>
@@ -129,6 +178,7 @@ export function LinkApproval() {
       <Confirmation
         stage={stage}
         notice={notice}
+        panelRef={capturePanel}
         onApprove={async () => {
           setNotice("");
           setStage({ kind: "approving", code: stage.code, link: stage.link });
@@ -144,7 +194,7 @@ export function LinkApproval() {
               setNotice(
                 answer.error ?? "This link request could not be approved.",
               );
-              setStage({ kind: "entry" });
+              setStage({ kind: "confirm", code: stage.code, link: stage.link });
               return;
             }
             setStage({ kind: "approved", link: answer });
@@ -163,7 +213,10 @@ export function LinkApproval() {
 
   return (
     <form
+      ref={capturePanel}
       className={styles.panel}
+      tabIndex={-1}
+      aria-live="polite"
       onSubmit={(event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         looked.current = typed;
@@ -229,8 +282,8 @@ function Gate({
       <p className={styles.body}>{body}</p>
       {code ? (
         <p className={styles.carried}>
-          Come back here afterwards with the code your application is showing.
-          It was <strong>{code}</strong>.
+          This request will remain available after the account step. The code is{" "}
+          <strong>{code}</strong>.
         </p>
       ) : null}
     </>
@@ -240,19 +293,32 @@ function Gate({
 function Confirmation({
   stage,
   notice,
+  panelRef,
   onApprove,
   onCancel,
 }: {
   stage: { kind: "confirm" | "approving"; code: string; link: PendingLink };
   notice: string;
+  panelRef: (node: HTMLElement | null) => void;
   onApprove: () => void;
   onCancel: () => void;
 }) {
   return (
-    <div className={styles.panel}>
+    <div
+      ref={panelRef}
+      className={styles.panel}
+      tabIndex={-1}
+      aria-live="polite"
+    >
       <p className={styles.asking}>This application is asking to link</p>
       <h2 className={styles.name}>{stage.link.name}</h2>
       <p className={styles.codeShown}>{stage.code}</p>
+      <p className={styles.expiry}>
+        Expires{" "}
+        <time dateTime={stage.link.expiresAt}>
+          {formatExpiry(stage.link.expiresAt)}
+        </time>
+      </p>
 
       <ul className={styles.scopes}>
         {stage.link.scopes.map((scope) => {
@@ -270,7 +336,7 @@ function Confirmation({
       </ul>
 
       <p className={styles.caution}>
-        The name above was written by the application, not by LumiHub. Approve
+        The name above was written by the application, not by Illarin. Approve
         this only if you started it yourself.
       </p>
 
@@ -289,10 +355,24 @@ function Confirmation({
         >
           {stage.kind === "approving" ? "Approving…" : "Approve"}
         </button>
-        <button className={styles.secondary} type="button" onClick={onCancel}>
-          Not mine
+        <button
+          className={styles.secondary}
+          type="button"
+          onClick={onCancel}
+          disabled={stage.kind === "approving"}
+        >
+          Leave this request
         </button>
       </div>
     </div>
   );
+}
+
+function formatExpiry(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.valueOf())) return value;
+  return new Intl.DateTimeFormat("en-GB", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
 }

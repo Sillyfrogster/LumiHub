@@ -68,7 +68,7 @@ export function AccountSettings({ discordNotice }: { discordNotice?: string }) {
       setMessage("Your email can now be used with this password.");
     } catch {
       setMessage(
-        "We could not reach LumiHub. Check your connection and try again.",
+        "We could not reach Illarin. Check your connection and try again.",
       );
     } finally {
       setPasswordPending(false);
@@ -92,7 +92,7 @@ export function AccountSettings({ discordNotice }: { discordNotice?: string }) {
       setMessage("Discord is detached and free to be used on another account.");
     } catch {
       setMessage(
-        "We could not reach LumiHub. Check your connection and try again.",
+        "We could not reach Illarin. Check your connection and try again.",
       );
     } finally {
       setDetachPending(false);

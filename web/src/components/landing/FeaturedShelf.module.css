@@ -1,6 +1,6 @@
 .section {
   overflow: clip;
-  padding-top: clamp(54px, 6vw, 78px);
+  padding-block: clamp(54px, 6vw, 82px) clamp(68px, 8vw, 112px);
 }
 
 .header {
@@ -12,8 +12,8 @@
 
 .header h2 {
   font-family: var(--font-display);
-  font-size: clamp(2rem, 3.2vw, 2.75rem);
-  font-weight: 600;
+  font-size: clamp(2rem, 3.2vw, 2.8rem);
+  font-weight: 560;
   letter-spacing: -0.025em;
 }
 
@@ -35,96 +35,74 @@
 }
 
 .stage {
-  position: relative;
-  min-height: clamp(280px, 22vw, 310px);
-  margin-top: 22px;
-  isolation: isolate;
-}
-
-.shelfArt {
-  position: absolute;
-  z-index: 1;
-  right: -20px;
-  bottom: 0;
-  width: calc(100% + 40px);
-  height: auto;
-  pointer-events: none;
+  margin-top: 24px;
 }
 
 .grid {
-  position: absolute;
-  z-index: 2;
-  right: 24%;
-  bottom: clamp(58px, 5.2vw, 72px);
-  left: 18px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 26px clamp(28px, 4vw, 54px);
   list-style: none;
 }
 
 .card {
   display: grid;
   min-width: 0;
-  min-height: 98px;
-  grid-template-columns: 76px minmax(0, 1fr) 24px;
+  grid-template-columns: 128px minmax(0, 1fr);
+  gap: 18px;
   align-items: center;
-  gap: 15px;
-  padding: 10px 14px 10px 10px;
-  border: 1px solid var(--color-accent-border);
-  border-radius: 3px 14px 3px 3px;
-  background: color-mix(in srgb, var(--color-surface) 94%, transparent);
-  box-shadow: var(--shadow-card);
   color: var(--color-text-primary);
-  backdrop-filter: blur(8px);
   transition:
-    transform 220ms var(--ease),
-    border-color 220ms var(--ease),
-    box-shadow 220ms var(--ease);
+    color 220ms var(--ease),
+    transform 220ms var(--ease);
 }
 
 .card:hover {
   transform: translateY(-3px);
-  border-color: var(--color-accent);
-  box-shadow: var(--shadow-soft);
+  color: var(--color-text-primary);
 }
 
 .preview {
   position: relative;
-  width: 76px;
-  aspect-ratio: 1;
+  width: 128px;
+  aspect-ratio: 4 / 5;
   overflow: hidden;
-  border: 1px solid var(--color-border);
-  border-radius: 2px 10px 2px 2px;
-  background: var(--color-muted);
+  border-radius: var(--radius-lg);
+  background: var(--color-media-surface);
+  box-shadow: var(--shadow-soft);
 }
 
 .previewImage {
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .identity {
   display: grid;
   min-width: 0;
-  gap: 3px;
+  gap: 2px;
+  padding: 0;
 }
 
 .identity small {
   color: var(--color-text-secondary);
-  font-size: 0.59rem;
+  font-size: 0.6rem;
   font-weight: 900;
   letter-spacing: 0.09em;
   text-transform: uppercase;
 }
 
 .identity strong {
+  display: -webkit-box;
   overflow: hidden;
   color: var(--color-text-primary);
   font-family: var(--font-display);
-  font-size: 1rem;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 1.04rem;
+  font-weight: 560;
+  line-height: 1.35;
+  text-overflow: clip;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .identity > span {
@@ -136,13 +114,7 @@
 }
 
 .arrow {
-  color: var(--color-accent);
-  font-size: 1rem;
-  transition: transform 220ms var(--ease);
-}
-
-.card:hover .arrow {
-  transform: translateX(3px);
+  display: none;
 }
 
 .empty {
@@ -171,23 +143,16 @@
 }
 
 @media (max-width: 900px) {
-  .stage {
-    min-height: 490px;
-  }
-
   .grid {
-    right: 34%;
-    grid-template-columns: 1fr;
-    gap: 11px;
+    gap: 24px 28px;
   }
 
   .card {
-    min-height: 85px;
-    grid-template-columns: 64px minmax(0, 1fr) 24px;
+    grid-template-columns: 108px minmax(0, 1fr);
   }
 
   .preview {
-    width: 64px;
+    width: 108px;
   }
 }
 
@@ -201,44 +166,23 @@
     margin-top: 12px;
   }
 
-  .stage {
-    min-height: 420px;
-    margin-top: 16px;
-  }
-
-  .shelfArt {
-    right: 50%;
-    width: 760px;
-    max-width: none;
-    transform: translateX(52%);
-  }
-
   .grid {
-    right: 0;
-    bottom: 38px;
-    left: 0;
+    grid-template-columns: 1fr;
+    gap: 18px;
   }
 
   .card {
-    min-height: 83px;
-    background: color-mix(in srgb, var(--color-surface) 97%, transparent);
+    grid-template-columns: 94px minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .preview {
+    width: 94px;
   }
 
   .empty {
     display: grid;
     min-height: 180px;
     padding: 28px 0;
-  }
-}
-
-@media (max-width: 380px) {
-  .card {
-    grid-template-columns: 58px minmax(0, 1fr) 18px;
-    gap: 11px;
-    padding-right: 10px;
-  }
-
-  .preview {
-    width: 58px;
   }
 }

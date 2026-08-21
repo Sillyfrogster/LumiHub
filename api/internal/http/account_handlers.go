@@ -2,8 +2,10 @@ package http
 
 import (
 	"crypto/subtle"
+	"encoding/base64"
 	"errors"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -13,8 +15,9 @@ import (
 )
 
 const (
-	sessionCookieName    = "lumihub_session"
-	oauthStateCookieName = "lumihub_discord_state"
+	sessionCookieName     = "lumihub_session"
+	oauthStateCookieName  = "lumihub_discord_state"
+	oauthReturnCookieName = "lumihub_discord_return"
 )
 
 func (h *Handlers) SignUp(c *gin.Context) {
@@ -82,6 +85,11 @@ func (h *Handlers) BeginDiscord(c *gin.Context, params BeginDiscordParams) {
 		return
 	}
 	setOAuthStateCookie(c, authorization.State, authorization.Expires)
+	returnTo := ""
+	if intent == account.DiscordSignIn {
+		returnTo = safeInternalPath(params.ReturnTo)
+	}
+	setOAuthReturnCookie(c, returnTo, authorization.Expires)
 	c.Redirect(http.StatusSeeOther, authorization.URL)
 }
 
@@ -91,9 +99,11 @@ func (h *Handlers) CompleteDiscord(c *gin.Context, params CompleteDiscordParams)
 		c.Redirect(http.StatusSeeOther, "/sign-in?discord=failed")
 		return
 	}
+	returnTo := readOAuthReturnCookie(c)
 	clearOAuthStateCookie(c)
+	clearOAuthReturnCookie(c)
 	if params.Error != nil || params.Code == nil {
-		c.Redirect(http.StatusSeeOther, "/sign-in?discord=cancelled")
+		c.Redirect(http.StatusSeeOther, discordSignInDestination("cancelled", returnTo))
 		return
 	}
 	completion, err := h.accounts.CompleteDiscord(
@@ -101,7 +111,7 @@ func (h *Handlers) CompleteDiscord(c *gin.Context, params CompleteDiscordParams)
 	)
 	attached := completion.Intent == account.DiscordAttach
 	if err != nil {
-		destination := "/sign-in?discord=failed"
+		destination := discordSignInDestination("failed", returnTo)
 		if attached {
 			destination = "/settings?discord=failed"
 		}
@@ -110,7 +120,7 @@ func (h *Handlers) CompleteDiscord(c *gin.Context, params CompleteDiscordParams)
 			if attached {
 				destination = "/settings?discord=email-conflict"
 			} else {
-				destination = "/sign-in?discord=email-conflict"
+				destination = discordSignInDestination("email-conflict", returnTo)
 			}
 		case errors.Is(err, account.ErrDiscordClaimed):
 			destination = "/settings?discord=claimed"
@@ -123,7 +133,10 @@ func (h *Handlers) CompleteDiscord(c *gin.Context, params CompleteDiscordParams)
 		return
 	}
 	setSessionCookie(c, completion.SessionToken, completion.SessionExpires)
-	c.Redirect(http.StatusSeeOther, "/browse")
+	if returnTo == "" {
+		returnTo = "/browse"
+	}
+	c.Redirect(http.StatusSeeOther, returnTo)
 }
 
 func (h *Handlers) SignOut(c *gin.Context) {
@@ -388,6 +401,47 @@ func setOAuthStateCookie(c *gin.Context, state string, expires time.Time) {
 
 func clearOAuthStateCookie(c *gin.Context) {
 	clearCredentialCookie(c, oauthStateCookieName)
+}
+
+func setOAuthReturnCookie(c *gin.Context, destination string, expires time.Time) {
+	encoded := base64.RawURLEncoding.EncodeToString([]byte(destination))
+	setCredentialCookie(c, oauthReturnCookieName, encoded, expires)
+}
+
+func readOAuthReturnCookie(c *gin.Context) string {
+	encoded, err := c.Cookie(oauthReturnCookieName)
+	if err != nil || encoded == "" {
+		return ""
+	}
+	decoded, err := base64.RawURLEncoding.DecodeString(encoded)
+	if err != nil {
+		return ""
+	}
+	destination := string(decoded)
+	return safeInternalPath(&destination)
+}
+
+func clearOAuthReturnCookie(c *gin.Context) {
+	clearCredentialCookie(c, oauthReturnCookieName)
+}
+
+func safeInternalPath(candidate *string) string {
+	if candidate == nil || !strings.HasPrefix(*candidate, "/") ||
+		strings.HasPrefix(*candidate, "//") || strings.Contains(*candidate, "\\") ||
+		strings.IndexFunc(*candidate, func(character rune) bool {
+			return character < ' ' || character == '\u007f'
+		}) >= 0 {
+		return ""
+	}
+	return *candidate
+}
+
+func discordSignInDestination(status, returnTo string) string {
+	query := url.Values{"discord": {status}}
+	if returnTo != "" {
+		query.Set("returnTo", returnTo)
+	}
+	return "/sign-in?" + query.Encode()
 }
 
 func setCredentialCookie(c *gin.Context, name, value string, expires time.Time) {

@@ -7,8 +7,7 @@
   position: relative;
 }
 
-.cover,
-.defaultCover {
+.cover {
   position: relative;
   z-index: 1;
   width: 100%;
@@ -23,7 +22,14 @@
 }
 
 .defaultCover {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
   background: var(--color-muted);
+  box-shadow: var(--shadow-lightbox);
 }
 
 .flag {

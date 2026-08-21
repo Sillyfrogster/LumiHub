@@ -1,5 +1,6 @@
 .instances {
   margin-top: 44px;
+  container-type: inline-size;
 }
 
 .heading {
@@ -11,14 +12,15 @@
 }
 
 .panel {
-  border-top: 1px solid var(--color-border);
-  border-bottom: 1px solid var(--color-border);
-  background: color-mix(in srgb, var(--color-surface) 72%, transparent);
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  background: var(--color-elevated);
+  box-shadow: var(--shadow-soft);
 }
 
 .heading h2 {
   font-family: var(--font-display);
-  font-size: 1.85rem;
+  font-size: var(--type-section-size);
   font-weight: 600;
   letter-spacing: -0.02em;
 }
@@ -35,7 +37,7 @@
   list-style: none;
 }
 
-.list li {
+.list > li {
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr) auto;
   gap: 22px;
@@ -43,7 +45,7 @@
   padding: 24px 32px;
 }
 
-.list li + li {
+.list > li + li {
   border-top: 1px solid var(--color-border);
 }
 
@@ -84,7 +86,7 @@
 .when {
   margin-top: 6px;
   color: var(--color-text-secondary);
-  font-size: 0.82rem;
+  font-size: var(--type-secondary-size);
 }
 
 .scopes {
@@ -175,15 +177,26 @@
   border: 1px solid var(--color-border);
   background: var(--color-muted);
   color: var(--color-text-secondary);
-  font-size: 0.82rem;
+  font-size: var(--type-secondary-size);
   line-height: 1.5;
 }
 
-.footnote {
-  margin-top: 18px;
+.revokeActions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.cancel {
+  min-height: 42px;
+  padding-inline: 10px;
   color: var(--color-text-secondary);
-  font-size: 0.82rem;
-  line-height: 1.7;
+  font-size: 0.76rem;
+  font-weight: 760;
+}
+
+.cancel:hover {
+  color: var(--color-text-primary);
 }
 
 @media (max-width: 760px) {
@@ -197,14 +210,14 @@
     justify-self: start;
   }
 
-  .list li {
+  .list > li {
     grid-template-columns: 42px minmax(0, 1fr);
     gap: 16px;
     align-items: start;
     padding-inline: 22px;
   }
 
-  .list li > :last-child {
+  .list > li > :last-child {
     grid-column: 2;
     justify-self: start;
   }
@@ -212,5 +225,34 @@
   .empty,
   .waiting {
     padding-inline: 22px;
+  }
+}
+
+@container (max-width: 480px) {
+  .heading {
+    grid-template-columns: 1fr;
+    align-items: start;
+    gap: 16px;
+  }
+
+  .heading .action {
+    justify-self: start;
+  }
+
+  .list > li {
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 14px;
+    align-items: start;
+    padding: 20px;
+  }
+
+  .list > li > :last-child {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .empty,
+  .waiting {
+    padding: 24px 20px;
   }
 }

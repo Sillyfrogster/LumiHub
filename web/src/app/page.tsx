@@ -2,7 +2,6 @@ import { cookies } from "next/headers";
 import { CreatorSection } from "@/components/landing/CreatorSection";
 import { FeaturedShelf } from "@/components/landing/FeaturedShelf";
 import { Hero } from "@/components/landing/Hero";
-import { TypeShowcase } from "@/components/landing/TypeShowcase";
 import { fetchAssets } from "@/lib/api/query";
 
 export default async function LandingPage() {
@@ -17,7 +16,6 @@ export default async function LandingPage() {
         visibility={latest?.visibility ?? "blurred"}
         unavailable={!latest}
       />
-      <TypeShowcase />
       <CreatorSection />
     </>
   );

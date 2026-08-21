@@ -519,8 +519,9 @@ func TestDiscordCallbackBelongsToTheBrowserThatBeganSignIn(t *testing.T) {
 		t.Fatalf("parse authorization redirect: %v", err)
 	}
 	cookies := begin.Result().Cookies()
-	if len(cookies) != 1 || cookies[0].Name != oauthStateCookieName {
-		t.Fatalf("OAuth begin cookies = %+v, want one state cookie", cookies)
+	if len(cookies) != 2 || !hasResponseCookie(begin, oauthStateCookieName) ||
+		!hasResponseCookie(begin, oauthReturnCookieName) {
+		t.Fatalf("OAuth begin cookies = %+v, want state and return cookies", cookies)
 	}
 	callbackURL := "/v1/auth/discord/callback?code=accepted&state=" +
 		url.QueryEscape(authorize.Query().Get("state"))
@@ -542,8 +543,38 @@ func TestDiscordCallbackBelongsToTheBrowserThatBeganSignIn(t *testing.T) {
 		t.Fatalf("owned callback = %d %q, want browse redirect",
 			owned.Code, owned.Header().Get("Location"))
 	}
-	if sessionCookies := owned.Result().Cookies(); len(sessionCookies) != 2 {
-		t.Errorf("owned callback cookies = %+v, want cleared state and new session", sessionCookies)
+	if sessionCookies := owned.Result().Cookies(); len(sessionCookies) != 3 {
+		t.Errorf("owned callback cookies = %+v, want cleared OAuth cookies and new session", sessionCookies)
+	}
+}
+
+func TestDiscordSignInReturnsToTheInternalPageThatStartedIt(t *testing.T) {
+	provider := &discordStub{profile: account.DiscordProfile{
+		Subject:  "returning-discord",
+		Username: "ReturningReader",
+	}}
+	r := newTestRouterWithDiscord(t, provider)
+
+	begin := send(t, r, httptest.NewRequest(
+		http.MethodGet,
+		"/v1/auth/discord?returnTo=%2Flink%3Fcode%3DABCD-1234",
+		nil,
+	))
+	callback := send(t, r, oauthCallbackRequest(t, begin, "accepted"))
+	if callback.Code != http.StatusSeeOther ||
+		callback.Header().Get("Location") != "/link?code=ABCD-1234" {
+		t.Fatalf("callback = %d %q, want link return", callback.Code, callback.Header().Get("Location"))
+	}
+
+	unsafeBegin := send(t, r, httptest.NewRequest(
+		http.MethodGet,
+		"/v1/auth/discord?returnTo=%2F%2Foutside.example",
+		nil,
+	))
+	unsafeCallback := send(t, r, oauthCallbackRequest(t, unsafeBegin, "accepted"))
+	if unsafeCallback.Code != http.StatusSeeOther ||
+		unsafeCallback.Header().Get("Location") != "/browse" {
+		t.Fatalf("unsafe callback = %d %q, want browse", unsafeCallback.Code, unsafeCallback.Header().Get("Location"))
 	}
 }
 
@@ -603,6 +634,7 @@ func oauthCallbackRequest(
 		"/v1/auth/discord/callback?code="+url.QueryEscape(code)+"&state="+
 			url.QueryEscape(authorize.Query().Get("state")), nil)
 	request.AddCookie(responseCookie(t, begin, oauthStateCookieName))
+	request.AddCookie(responseCookie(t, begin, oauthReturnCookieName))
 	return request
 }
 

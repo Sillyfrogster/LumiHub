@@ -16,6 +16,7 @@ export function LinkedInstances() {
   const [instances, setInstances] = useState<Instance[] | undefined>(undefined);
   const [notice, setNotice] = useState("");
   const [revoking, setRevoking] = useState("");
+  const [confirming, setConfirming] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -58,10 +59,11 @@ export function LinkedInstances() {
         return;
       }
       await load();
+      setConfirming("");
       setNotice(`${instance.name} can no longer reach your account.`);
     } catch {
       setNotice(
-        "We could not reach LumiHub. Check your connection and try again.",
+        "We could not reach Illarin. Check your connection and try again.",
       );
     } finally {
       setRevoking("");
@@ -139,27 +141,41 @@ export function LinkedInstances() {
                 {instance.revokedAt ? (
                   <span className={styles.cut}>Revoked</span>
                 ) : (
-                  <button
-                    className={styles.action}
-                    type="button"
-                    onClick={() => revoke(instance)}
-                    disabled={revoking === instance.id}
-                  >
-                    {revoking === instance.id ? "Revoking…" : "Revoke"}
-                  </button>
+                  <span className={styles.revokeActions}>
+                    <button
+                      className={styles.action}
+                      type="button"
+                      onClick={() => {
+                        if (confirming === instance.id) {
+                          void revoke(instance);
+                        } else {
+                          setConfirming(instance.id);
+                        }
+                      }}
+                      disabled={revoking === instance.id}
+                    >
+                      {revoking === instance.id
+                        ? "Revoking…"
+                        : confirming === instance.id
+                          ? "Confirm revoke"
+                          : "Revoke"}
+                    </button>
+                    {confirming === instance.id && !revoking ? (
+                      <button
+                        className={styles.cancel}
+                        type="button"
+                        onClick={() => setConfirming("")}
+                      >
+                        Cancel
+                      </button>
+                    ) : null}
+                  </span>
                 )}
               </li>
             ))}
           </ul>
         )}
       </div>
-
-      <p className={styles.footnote}>
-        Building something that links here? The{" "}
-        <a href="/protocol">protocol guide</a> and the{" "}
-        <a href="/openapi.yaml">OpenAPI file</a> are all you need. Nobody
-        registers.
-      </p>
     </section>
   );
 }

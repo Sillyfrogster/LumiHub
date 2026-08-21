@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
+import { safeInternalReturnPath } from "@/lib/internal-return";
 import styles from "./VerificationPanel.module.css";
 
 type VerificationState = "checking" | "waiting" | "verified" | "error";
@@ -14,6 +15,10 @@ export function VerificationPanel() {
   const router = useRouter();
   const { account, refresh } = useAuth();
   const token = search.get("token");
+  const returnTo = safeInternalReturnPath(search.get("returnTo")) ?? "/browse";
+  const returnLabel = returnTo.startsWith("/link")
+    ? "Return to linking"
+    : "Browse Illarin";
   const started = useRef(false);
   const [state, setState] = useState<VerificationState>(
     token ? "checking" : "waiting",
@@ -42,17 +47,21 @@ export function VerificationPanel() {
         }
         await refresh();
         setState("verified");
-        router.replace("/verify-email?verified=1");
+        router.replace(
+          returnTo === "/browse"
+            ? "/verify-email?verified=1"
+            : `/verify-email?verified=1&returnTo=${encodeURIComponent(returnTo)}`,
+        );
       } catch {
         setMessage(
-          "We could not reach LumiHub. Check your connection and try the link again.",
+          "We could not reach Illarin. Check your connection and try the link again.",
         );
         setState("error");
       }
     }
 
     void verify();
-  }, [refresh, router, token]);
+  }, [refresh, returnTo, router, token]);
 
   async function changeEmail(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -77,7 +86,7 @@ export function VerificationPanel() {
       setMessage("A fresh verification link is on its way.");
     } catch {
       setMessage(
-        "We could not reach LumiHub. Check your connection and try again.",
+        "We could not reach Illarin. Check your connection and try again.",
       );
     } finally {
       setChanging(false);
@@ -102,8 +111,8 @@ export function VerificationPanel() {
         </span>
         <h2>Your address is verified</h2>
         <p>Your handle is yours, and you can now publish work under it.</p>
-        <Link className={styles.primaryLink} href="/browse">
-          Browse LumiHub
+        <Link className={styles.primaryLink} href={returnTo}>
+          {returnLabel}
         </Link>
       </section>
     );

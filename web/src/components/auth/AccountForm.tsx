@@ -14,9 +14,11 @@ type ErrorAnswer = { error?: string; field?: string };
 export function AccountForm({
   mode,
   discordError,
+  returnTo,
 }: {
   mode: "sign-in" | "sign-up";
   discordError?: string;
+  returnTo?: string;
 }) {
   const router = useRouter();
   const { setAccount } = useAuth();
@@ -51,11 +53,19 @@ export function AccountForm({
         return;
       }
       setAccount(answer);
-      router.push(mode === "sign-up" ? "/verify-email" : "/browse");
+      if (mode === "sign-up") {
+        router.push(
+          returnTo
+            ? `/verify-email?returnTo=${encodeURIComponent(returnTo)}`
+            : "/verify-email",
+        );
+      } else {
+        router.push(returnTo ?? "/browse");
+      }
     } catch {
       setError({
         error:
-          "We could not reach LumiHub. Check your connection and try again.",
+          "We could not reach Illarin. Check your connection and try again.",
       });
     } finally {
       setPending(false);
@@ -63,19 +73,18 @@ export function AccountForm({
   }
 
   const signUp = mode === "sign-up";
+  const alternativeHref = `${signUp ? "/sign-in" : "/sign-up"}${
+    returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""
+  }`;
 
   return (
     <form className={formStyles.form} onSubmit={submit} noValidate>
-      <div className={`${formStyles.headingGroup} ${styles.headingGroup}`}>
-        <h2>{signUp ? "Begin your profile" : "Welcome back"}</h2>
-        <p>
-          {signUp
-            ? "One address, one private password and the name readers will know."
-            : "Return to the work and worlds you have gathered here."}
-        </p>
-      </div>
-
-      <a className={styles.discord} href="/api/v1/auth/discord">
+      <a
+        className={styles.discord}
+        href={`/api/v1/auth/discord${
+          returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""
+        }`}
+      >
         <MessageCircle size={18} strokeWidth={1.7} aria-hidden="true" />
         Continue with Discord
       </a>
@@ -168,8 +177,8 @@ export function AccountForm({
       </button>
 
       <p className={styles.alternative}>
-        {signUp ? "Already have an account?" : "New to LumiHub?"}{" "}
-        <Link href={signUp ? "/sign-in" : "/sign-up"}>
+        {signUp ? "Already have an account?" : "New to Illarin?"}{" "}
+        <Link href={alternativeHref}>
           {signUp ? "Sign in" : "Create an account"}
         </Link>
       </p>

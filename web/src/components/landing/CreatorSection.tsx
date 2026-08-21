@@ -1,48 +1,48 @@
 import { ArrowRight } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
+import mascotHost from "@/assets/art/full/illarin-mascot-host-v1.webp";
 import { Shell } from "@/components/layout/Shell";
 import styles from "./CreatorSection.module.css";
 
-const PROMISES = [
-  {
-    title: "The original stays original",
-    body: "LumiHub stores the file you uploaded and keeps catalog writing beside it, not inside it.",
-  },
-  {
-    title: "One work, one lasting link",
-    body: "New revisions keep the same asset address, so a shared find does not disappear after an update.",
-  },
-  {
-    title: "More than one destination",
-    body: "Readers can take the plain file or use an export target the format supports.",
-  },
-] as const;
-
 export function CreatorSection() {
   return (
-    <Shell as="section" className={styles.section}>
-      <div className={styles.grid}>
+    <section className={styles.section}>
+      <Shell className={styles.grid}>
         <div className={styles.copy}>
-          <h2>Your work stays your work.</h2>
+          <h2>One source. Every compatible export.</h2>
           <p>
-            Publish the catalog entry without letting the catalog rewrite the
-            artifact. LumiHub keeps the creator's file at the center.
+            Illarin stores the file a creator supplied. Descriptions, tags,
+            revisions, and application-specific exports are managed around it
+            instead of being written back into it.
           </p>
+          <ol className={styles.route}>
+            <li>
+              <small>Source</small>
+              <strong>Original creator file</strong>
+            </li>
+            <li>
+              <small>Catalog</small>
+              <strong>Metadata beside the work</strong>
+            </li>
+            <li>
+              <small>Use</small>
+              <strong>Original or compatible export</strong>
+            </li>
+          </ol>
           <Link href="/upload" className={styles.link}>
             Publish an asset
             <ArrowRight size={15} aria-hidden="true" />
           </Link>
         </div>
-
-        <ol className={styles.promises}>
-          {PROMISES.map((promise) => (
-            <li key={promise.title}>
-              <h3>{promise.title}</h3>
-              <p>{promise.body}</p>
-            </li>
-          ))}
-        </ol>
-      </div>
-    </Shell>
+        <div className={styles.mascot}>
+          <Image
+            src={mascotHost}
+            alt="Illarin's host gestures toward the publishing flow"
+            sizes="(max-width: 780px) 72vw, 430px"
+          />
+        </div>
+      </Shell>
+    </section>
   );
 }

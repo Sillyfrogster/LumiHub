@@ -1,176 +1,77 @@
 .page {
-  position: relative;
   min-height: calc(100svh - var(--header-height));
-  overflow: hidden;
-  border-bottom: 1px solid var(--color-border);
-  background:
-    linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--color-surface) 58%, transparent),
-      transparent 48%
-    ),
-    var(--color-background);
+  background: var(--color-background);
 }
 
 .layout {
-  position: relative;
-  z-index: 2;
-  display: grid;
-  grid-template-columns: minmax(0, 0.95fr) minmax(360px, 0.72fr);
-  gap: clamp(72px, 10vw, 156px);
-  align-items: center;
+  display: flex;
+  width: min(100%, 620px);
   min-height: calc(100svh - var(--header-height));
-  padding-block: clamp(72px, 10vw, 128px);
+  flex-direction: column;
+  justify-content: center;
+  padding-block: clamp(48px, 7vw, 82px);
 }
 
 .introduction {
-  max-width: 590px;
-  animation: lhRise 0.8s var(--ease) both;
-}
-
-.eyebrow {
-  color: var(--color-accent);
-  font-size: 0.7rem;
-  font-weight: 900;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  width: min(100%, 560px);
+  margin-inline: auto;
+  margin-bottom: 28px;
+  animation: lhRise 0.7s 0.08s var(--ease) both;
 }
 
 .title {
-  max-width: 10ch;
-  margin-top: 18px;
+  max-width: 14ch;
   font-family: var(--font-display);
-  font-size: clamp(3.25rem, 6vw, 5.75rem);
-  font-weight: 500;
-  letter-spacing: -0.045em;
+  font-size: clamp(2.7rem, 5vw, 4rem);
+  font-weight: 560;
+  letter-spacing: -0.035em;
   line-height: 0.98;
 }
 
 .title em {
-  color: var(--color-accent);
-  font-weight: 500;
+  color: inherit;
+  font-style: normal;
+  font-weight: inherit;
 }
 
 .lede {
-  max-width: 49ch;
-  margin-top: 26px;
+  max-width: 52ch;
+  margin-top: 14px;
   color: var(--color-text-secondary);
-  font-size: 1rem;
-  line-height: 1.75;
-}
-
-.rule {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  width: min(100%, 390px);
-  margin-top: 36px;
-  opacity: 0.72;
-}
-
-.rule span {
-  height: 1px;
-  background: var(--color-border);
-  flex: 1;
-}
-
-.note {
-  max-width: 45ch;
-  margin-top: 24px;
-  color: var(--color-text-secondary);
-  font-family: var(--font-display);
-  font-size: 1rem;
-  font-style: italic;
-  line-height: 1.65;
+  font-size: 0.92rem;
+  line-height: 1.72;
 }
 
 .formArea {
-  position: relative;
-  padding: clamp(30px, 4vw, 48px);
-  border: 1px solid var(--color-border);
-  background: color-mix(in srgb, var(--color-surface) 76%, transparent);
-  box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(8px);
-  animation: lhRise 0.8s 0.12s var(--ease) both;
+  width: min(100%, 560px);
+  margin-inline: auto;
+  padding: clamp(28px, 4vw, 42px);
+  border-radius: var(--radius-xl);
+  background: var(--color-elevated);
+  box-shadow: var(--shadow-panel);
+  animation: lhRise 0.7s var(--ease) both;
 }
 
-.formArea::before,
-.formArea::after {
-  position: absolute;
-  width: 42px;
-  height: 42px;
-  content: "";
-  pointer-events: none;
-}
-
-.formArea::before {
-  top: 10px;
-  left: 10px;
-  border-top: 1px solid var(--color-accent);
-  border-left: 1px solid var(--color-accent);
-}
-
-.formArea::after {
-  right: 10px;
-  bottom: 10px;
-  border-right: 1px solid var(--color-accent);
-  border-bottom: 1px solid var(--color-accent);
-}
-
-.wash {
-  position: absolute;
-  top: -160px;
-  left: -250px;
-  opacity: 0.42;
-  mix-blend-mode: var(--art-wash-blend);
-  mask-image: radial-gradient(ellipse, var(--mask-opaque) 35%, transparent 72%);
-}
-
-.birds {
-  position: absolute;
-  top: 11%;
-  right: 6%;
-  opacity: 0.32;
-  animation: lhDrift 24s ease-in-out infinite;
-}
-
-.sprig {
-  position: absolute;
-  right: -80px;
-  bottom: -45px;
-  opacity: 0.5;
-  transform: rotate(-8deg);
-  transform-origin: bottom right;
-  animation: lhSway 20s ease-in-out infinite;
-}
-
-@media (max-width: 900px) {
+@media (max-width: 820px) {
   .layout {
-    grid-template-columns: 1fr;
-    gap: 52px;
-    align-items: start;
-    padding-block: 72px 92px;
+    padding-block: 52px 76px;
   }
 
-  .title {
-    font-size: clamp(3.1rem, 13vw, 5rem);
-  }
-
-  .formArea {
-    width: min(100%, 560px);
+  .introduction {
+    margin-bottom: 24px;
   }
 }
 
 @media (max-width: 560px) {
   .layout {
-    padding-block: 52px 72px;
+    padding-block: 34px 60px;
   }
 
   .formArea {
-    padding: 30px 24px 34px;
+    padding: 26px 22px 30px;
   }
 
-  .birds {
-    display: none;
+  .title {
+    font-size: 2.75rem;
   }
 }

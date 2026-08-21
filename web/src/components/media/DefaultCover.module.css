@@ -1,0 +1,65 @@
+.cover {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 18px;
+  overflow: hidden;
+  background: #3a2f70;
+  color: #e4d8ff;
+}
+
+.cover[data-kind="lorebook"] {
+  background: #264c65;
+  color: #d4eeff;
+}
+
+.cover[data-kind="preset"] {
+  background: #513477;
+  color: #eddcff;
+}
+
+.cover[data-kind="theme"] {
+  background: #6b315b;
+  color: #ffe0f2;
+}
+
+.arch {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 76px;
+  aspect-ratio: 1;
+  place-items: center;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, currentColor 11%, transparent);
+}
+
+.label {
+  position: relative;
+  z-index: 1;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.cover[data-compact] {
+  gap: 0;
+}
+
+.cover[data-compact] .arch {
+  width: 54%;
+  max-width: 46px;
+}
+
+@media (max-width: 500px) {
+  .arch {
+    width: 48px;
+  }
+
+  .label {
+    font-size: 0.54rem;
+  }
+}

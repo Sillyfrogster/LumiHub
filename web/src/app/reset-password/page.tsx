@@ -5,13 +5,8 @@ import { PasswordResetCompletionPanel } from "@/components/auth/PasswordResetPan
 export default function ResetPasswordPage() {
   return (
     <AuthPage
-      eyebrow="Account recovery"
-      title={
-        <>
-          Write yourself a <em>new way in.</em>
-        </>
-      }
-      introduction="Set a private password for the verified address on your LumiHub account. The recovery link closes behind you."
+      title="Choose a new password"
+      introduction="Set a new password for the verified email address on your Illarin account. The recovery link can only be used once."
     >
       <Suspense fallback={<p>Opening your password link…</p>}>
         <PasswordResetCompletionPanel />

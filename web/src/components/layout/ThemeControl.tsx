@@ -19,7 +19,11 @@ export function ThemeControl() {
   }, []);
 
   return (
-    <label className={styles.control} title="Theme">
+    <label className={styles.control}>
+      <span className={styles.icon} aria-hidden="true">
+        <SunMoon size={17} strokeWidth={1.7} />
+      </span>
+      <span className={styles.label}>Appearance</span>
       <select
         ref={selectRef}
         className={styles.select}
@@ -29,13 +33,10 @@ export function ThemeControl() {
           applyThemePreference(event.currentTarget.value as ThemePreference)
         }
       >
-        <option value="system">Use system theme</option>
-        <option value="light">Use light theme</option>
-        <option value="dark">Use dark theme</option>
+        <option value="system">System</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
       </select>
-      <span className={styles.icon} aria-hidden="true">
-        <SunMoon size={18} strokeWidth={1.7} />
-      </span>
     </label>
   );
 }

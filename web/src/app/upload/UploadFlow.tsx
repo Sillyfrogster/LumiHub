@@ -1,6 +1,14 @@
 "use client";
 
-import { AlertCircle, Check, FileArchive, Upload } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  FileArchive,
+  PenLine,
+  Upload,
+} from "lucide-react";
 import Link from "next/link";
 import {
   type ChangeEvent,
@@ -24,6 +32,7 @@ import styles from "./UploadPage.module.css";
 type IngestOperation = components["schemas"]["IngestOperation"];
 type CreatedAsset = NonNullable<IngestOperation["asset"]>;
 type ErrorAnswer = { error?: string };
+type EntryMode = "choose" | "import" | "create";
 
 const KIND_LABELS = {
   character: "Character",
@@ -31,11 +40,6 @@ const KIND_LABELS = {
   preset: "Preset",
   theme: "Theme",
 } as const;
-
-function catalogName(filename: string) {
-  const lastDot = filename.lastIndexOf(".");
-  return lastDot > 0 ? filename.slice(0, lastDot) : filename;
-}
 
 function operationPath(url: string) {
   return `/api${url}`;
@@ -46,11 +50,11 @@ export function UploadFlow() {
   const fileInput = useRef<HTMLInputElement>(null);
   const operationHeading = useRef<HTMLHeadingElement>(null);
   const [file, setFile] = useState<File | null>(null);
-  const [name, setName] = useState("");
   const [operation, setOperation] = useState<IngestOperation | null>(null);
   const [preserved, setPreserved] = useState<PreservedNamespace[] | null>(null);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
+  const [entryMode, setEntryMode] = useState<EntryMode>("choose");
 
   useEffect(() => {
     if (
@@ -76,7 +80,7 @@ export function UploadFlow() {
           if (!response.ok) {
             const answer = (await response.json()) as ErrorAnswer;
             setMessage(
-              answer.error ?? "LumiHub could not read this upload yet.",
+              answer.error ?? "Illarin could not read this upload yet.",
             );
             return;
           }
@@ -132,7 +136,6 @@ export function UploadFlow() {
   function chooseFile(event: ChangeEvent<HTMLInputElement>) {
     const chosen = event.target.files?.[0] ?? null;
     setFile(chosen);
-    setName(chosen ? catalogName(chosen.name) : "");
     setMessage("");
   }
 
@@ -145,20 +148,10 @@ export function UploadFlow() {
     }
 
     const form = new FormData(event.currentTarget);
-    const tags = String(form.get("tags") ?? "")
-      .split(",")
-      .map((tag) => tag.trim())
-      .filter((tag, index, all) => tag && all.indexOf(tag) === index);
     const body = new FormData();
-    const metadata: Record<string, unknown> = {
+    const metadata = {
       confirmed: form.get("confirmed") === "on",
-      name: String(form.get("name") ?? "").trim(),
-      discovery: String(form.get("discovery") ?? "listed"),
     };
-    const blurb = String(form.get("blurb") ?? "").trim();
-    if (blurb) metadata.blurb = blurb;
-    if (tags.length) metadata.tags = tags;
-    if (form.get("isNsfw") === "on") metadata.isNsfw = true;
     body.append("metadata", JSON.stringify(metadata));
     body.append("file", file, file.name);
 
@@ -169,7 +162,7 @@ export function UploadFlow() {
         credentials: "same-origin",
         body,
       },
-      "LumiHub could not accept this upload.",
+      "Illarin could not accept this upload.",
     );
   }
 
@@ -190,7 +183,7 @@ export function UploadFlow() {
       setOperation(answer);
     } catch {
       setMessage(
-        "LumiHub could not be reached. Check your connection and try again.",
+        "Illarin could not be reached. Check your connection and try again.",
       );
     } finally {
       setPending(false);
@@ -201,7 +194,6 @@ export function UploadFlow() {
     setOperation(null);
     setPreserved(null);
     setFile(null);
-    setName("");
     setMessage("");
     if (fileInput.current) fileInput.current.value = "";
   }
@@ -307,13 +299,73 @@ export function UploadFlow() {
     );
   }
 
+  if (entryMode === "choose") {
+    return (
+      <section className={styles.pathChoice} aria-labelledby="path-heading">
+        <div className={styles.pathIntro}>
+          <h2 id="path-heading">Choose how to begin</h2>
+          <p>
+            Import an existing source file or start a private draft in the
+            builder. Theme and pack builders are not available yet.
+          </p>
+        </div>
+        <button type="button" onClick={() => setEntryMode("import")}>
+          <FileArchive size={24} strokeWidth={1.35} aria-hidden="true" />
+          <span>
+            <strong>Import a file</strong>
+            <small>Preserve an existing asset and add its catalog entry.</small>
+          </span>
+          <ArrowRight size={18} aria-hidden="true" />
+        </button>
+        <button type="button" onClick={() => setEntryMode("create")}>
+          <PenLine size={24} strokeWidth={1.35} aria-hidden="true" />
+          <span>
+            <strong>Start a new asset</strong>
+            <small>
+              Open a private character, lorebook, or preset draft. Theme and
+              pack builders are still to come.
+            </small>
+          </span>
+          <ArrowRight size={18} aria-hidden="true" />
+        </button>
+      </section>
+    );
+  }
+
+  if (entryMode === "create") {
+    return (
+      <div className={styles.flow}>
+        <button
+          className={styles.pathBack}
+          type="button"
+          onClick={() => setEntryMode("choose")}
+        >
+          <ArrowLeft size={15} aria-hidden="true" />
+          Change starting point
+        </button>
+        <StartFromNothing />
+      </div>
+    );
+  }
+
   return (
     <div className={styles.flow}>
+      <button
+        className={styles.pathBack}
+        type="button"
+        onClick={() => setEntryMode("choose")}
+      >
+        <ArrowLeft size={15} aria-hidden="true" />
+        Change starting point
+      </button>
       <form className={styles.form} onSubmit={upload}>
         <div className={styles.formIntro}>
           <div>
             <h2>Start with an original file</h2>
-            <p>Choose the file, then give its catalog entry a name.</p>
+            <p>
+              Choose the original file. Illarin identifies its kind and brings
+              its own catalog details across.
+            </p>
           </div>
         </div>
 
@@ -337,52 +389,13 @@ export function UploadFlow() {
           </label>
         </div>
 
-        <div className={styles.catalogFields}>
-          <label>
-            Catalog name
-            <input
-              name="name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              required
-              autoComplete="off"
-              placeholder="What readers will call it"
-            />
-          </label>
-          <label>
-            Discovery
-            <select name="discovery" defaultValue="listed">
-              <option value="listed">Listed in the catalog</option>
-              <option value="unlisted">Unlisted, reachable by its link</option>
-            </select>
-          </label>
-          <label className={styles.wideField}>
-            Blurb
-            <textarea
-              name="blurb"
-              rows={4}
-              placeholder="A short invitation written for a person"
-            />
-          </label>
-          <label>
-            Tags
-            <input
-              name="tags"
-              autoComplete="off"
-              placeholder="fantasy, cozy, mystery"
-            />
-            <small>Separate free-text tags with commas.</small>
-          </label>
-        </div>
-
         <div className={styles.checks}>
           <label>
-            <input name="isNsfw" type="checkbox" />
-            <span>Mark this catalog entry as NSFW</span>
-          </label>
-          <label>
             <input name="confirmed" type="checkbox" required />
-            <span>I have checked the name, blurb, tags and NSFW flag.</span>
+            <span>
+              Use the catalog details Illarin finds in this file. I can review
+              them after ingest.
+            </span>
           </label>
         </div>
 
@@ -400,7 +413,6 @@ export function UploadFlow() {
           {pending ? "Handing over the file…" : "Begin ingest"}
         </button>
       </form>
-      <StartFromNothing />
     </div>
   );
 }

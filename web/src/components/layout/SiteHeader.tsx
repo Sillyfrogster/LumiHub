@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu, Upload, X } from "lucide-react";
+import { CircleUserRound, Menu, Upload, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -32,7 +32,7 @@ export function SiteHeader() {
       <Shell className={styles.bar}>
         <Link href="/" className={styles.brand}>
           <BrandMark />
-          <span className={styles.wordmark}>LumiHub</span>
+          <span className={styles.wordmark}>Illarin</span>
         </Link>
 
         <nav className={styles.nav}>
@@ -50,54 +50,61 @@ export function SiteHeader() {
 
         <div className={styles.spacer} />
 
-        {account?.emailVerified ? (
-          <Link href="/upload" className={styles.upload}>
-            <Upload size={13} strokeWidth={1.6} />
-            Upload
-          </Link>
-        ) : null}
+        <Link
+          href={account?.emailVerified ? "/upload" : "/sign-up"}
+          className={styles.publish}
+        >
+          <Upload size={13} strokeWidth={1.6} />
+          Publish
+        </Link>
 
-        <ThemeControl />
-
-        <div className={styles.account} aria-live="polite">
-          {account === undefined ? (
-            <span className={styles.accountPending}>Reading session</span>
-          ) : account ? (
-            <>
-              <span className={styles.identity}>
-                <Link
-                  href="/settings"
-                  className={styles.handle}
-                  aria-label={`Account settings for @${account.handle}`}
-                >
-                  @{account.handle}
-                </Link>
+        <details className={styles.account}>
+          <summary className={styles.accountTrigger}>
+            <CircleUserRound size={18} strokeWidth={1.55} aria-hidden="true" />
+            <span>
+              {account === undefined
+                ? "Account"
+                : account
+                  ? `@${account.handle}`
+                  : "Account"}
+            </span>
+          </summary>
+          <div className={styles.accountMenu} aria-live="polite">
+            {account ? (
+              <>
+                <div className={styles.accountIdentity}>
+                  <strong>@{account.handle}</strong>
+                  <span>
+                    {account.emailVerified
+                      ? "Verified account"
+                      : "Email verification needed to publish"}
+                  </span>
+                </div>
+                <Link href={`/@${account.handle}`}>View profile</Link>
+                <Link href="/settings">Account settings</Link>
                 {!account.emailVerified ? (
-                  <Link href="/verify-email" className={styles.unverified}>
-                    Verify email
-                  </Link>
+                  <Link href="/verify-email">Verify email</Link>
                 ) : null}
-              </span>
+              </>
+            ) : (
+              <>
+                <Link href="/sign-in">Sign in</Link>
+                <Link href="/sign-up">Create account</Link>
+              </>
+            )}
+            <ThemeControl />
+            {account ? (
               <button
                 type="button"
                 className={styles.signOut}
                 onClick={handleSignOut}
                 disabled={signingOut}
               >
-                {signingOut ? "Leaving…" : "Sign out"}
+                {signingOut ? "Signing out…" : "Sign out"}
               </button>
-            </>
-          ) : (
-            <>
-              <Link href="/sign-in" className={styles.signIn}>
-                Sign in
-              </Link>
-              <Link href="/sign-up" className={styles.createAccount}>
-                Create account
-              </Link>
-            </>
-          )}
-        </div>
+            ) : null}
+          </div>
+        </details>
 
         <button
           type="button"
@@ -135,6 +142,24 @@ export function SiteHeader() {
             >
               {account?.emailVerified ? "Publish an asset" : "Create account"}
             </Link>
+            {account ? (
+              <>
+                <Link
+                  href={`/@${account.handle}`}
+                  onClick={() => setMobileOpen(false)}
+                >
+                  View profile
+                </Link>
+                <Link href="/settings" onClick={() => setMobileOpen(false)}>
+                  Account settings
+                </Link>
+              </>
+            ) : (
+              <Link href="/sign-in" onClick={() => setMobileOpen(false)}>
+                Sign in
+              </Link>
+            )}
+            <ThemeControl />
             {account ? (
               <button
                 className={styles.mobileSignOut}

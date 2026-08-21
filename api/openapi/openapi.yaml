@@ -125,6 +125,10 @@ paths:
         - name: intent
           in: query
           schema: { type: string, enum: [sign-in, attach], default: sign-in }
+        - name: returnTo
+          in: query
+          description: Internal page to resume after sign-in
+          schema: { type: string }
       responses:
         "303": { description: Continue on Discord }
         "401": { description: Attaching Discord requires a signed-in account }

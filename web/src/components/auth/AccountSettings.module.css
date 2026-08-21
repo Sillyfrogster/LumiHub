@@ -1,8 +1,9 @@
 .settings {
   position: relative;
-  border-top: 1px solid var(--color-border);
-  border-bottom: 1px solid var(--color-border);
-  background: color-mix(in srgb, var(--color-surface) 72%, transparent);
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  background: var(--color-elevated);
+  box-shadow: var(--shadow-panel);
 }
 
 .summary,
@@ -10,9 +11,9 @@
 .password {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 28px;
+  gap: 20px;
   align-items: center;
-  padding: 28px 32px;
+  padding: 22px 24px;
 }
 
 .summary {
@@ -47,14 +48,14 @@
 
 .method,
 .password {
-  grid-template-columns: 44px minmax(0, 1fr) auto;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
   border-top: 1px solid var(--color-border);
 }
 
 .methodIcon {
   display: grid;
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
   place-items: center;
   border: 1px solid var(--color-border);
   border-radius: 50%;
@@ -146,7 +147,7 @@
 .message,
 .requirement {
   display: block;
-  margin: 20px 32px 0;
+  margin: 18px 24px 0;
   padding: 11px 13px;
   border: 1px solid var(--color-border);
   background: var(--color-muted);
@@ -192,9 +193,9 @@
   align-content: center;
   justify-items: center;
   gap: 14px;
-  border-top: 1px solid var(--color-border);
-  border-bottom: 1px solid var(--color-border);
-  background: color-mix(in srgb, var(--color-surface) 72%, transparent);
+  border-radius: var(--radius-xl);
+  background: var(--color-elevated);
+  box-shadow: var(--shadow-panel);
   text-align: center;
 }
 

@@ -25,7 +25,7 @@ export function ProfileListing({
   const initial = profile.handle.slice(0, 1).toUpperCase();
 
   return (
-    <main className={styles.page}>
+    <div className={styles.page}>
       <header className={styles.profileHeader}>
         <Shell className={styles.profileHeaderInner}>
           <div className={styles.portrait} aria-hidden="true">
@@ -36,7 +36,7 @@ export function ProfileListing({
               @{profile.handle}
             </h1>
             <p className={styles.introduction}>
-              A personal shelf of characters, lorebooks, presets, and themes.
+              Assets published by @{profile.handle}.
             </p>
           </div>
         </Shell>
@@ -61,6 +61,6 @@ export function ProfileListing({
         heading="Latest creations"
       />
       {deletedAssets ? <DeletedAssets initialItems={deletedAssets} /> : null}
-    </main>
+    </div>
   );
 }

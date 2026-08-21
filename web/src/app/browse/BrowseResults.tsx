@@ -49,7 +49,7 @@ export function BrowseResults({
   initialPage,
   creator,
   basePath = "/browse",
-  heading = "Newest additions",
+  heading = "Catalog",
 }: {
   filters: BrowseFilters;
   initialPage: BrowsePage | null;
@@ -222,7 +222,7 @@ export function BrowseResults({
               </form>
             </search>
             <p className={styles.searchHint}>
-              Narrow further with <code>tag:fantasy</code>
+              Query names and descriptions. Use <code>tag:fantasy</code>
               {creator ? (
                 "."
               ) : (
@@ -257,10 +257,7 @@ export function BrowseResults({
           data-mobile-hidden={!filtersOpen || undefined}
         >
           <div className={styles.filterHeading}>
-            <span>
-              <SlidersHorizontal size={15} aria-hidden="true" />
-              Refine
-            </span>
+            <span>Filters</span>
             {hasFilters ? (
               <button type="button" onClick={() => navigate({})}>
                 Clear filters
@@ -433,8 +430,8 @@ export function BrowseResults({
           {query.isPending ? <LoadingGrid /> : null}
           {query.isError ? (
             <div className={styles.message} role="alert">
-              <h3>The collection is out of reach.</h3>
-              <p>Try the page again in a moment.</p>
+              <h3>The catalog could not load.</h3>
+              <p>Check your connection, then try again.</p>
               <button type="button" onClick={() => void query.refetch()}>
                 Try again
               </button>
@@ -468,7 +465,7 @@ export function BrowseResults({
                 onClick={() => void query.fetchNextPage()}
                 disabled={query.isFetchingNextPage}
               >
-                {query.isFetchingNextPage ? "Gathering more…" : "Load more"}
+                {query.isFetchingNextPage ? "Loading…" : "Load more"}
               </button>
             </div>
           ) : null}
@@ -503,8 +500,8 @@ function EmptyState({
   if (state === "catalog") {
     return (
       <div className={styles.message}>
-        <h3>The shelves are waiting.</h3>
-        <p>The first creation will have plenty of room to shine.</p>
+        <h3>No assets have been published.</h3>
+        <p>The catalog will show new work here as it is published.</p>
       </div>
     );
   }
@@ -525,8 +522,8 @@ function EmptyState({
   }
   return (
     <div className={styles.message}>
-      <h3>Nothing follows that path.</h3>
-      <p>Try a broader search or clear the filters and begin again.</p>
+      <h3>No results match these filters.</h3>
+      <p>Broaden the search or clear the filters.</p>
       <button type="button" onClick={clear}>
         Clear filters
       </button>
