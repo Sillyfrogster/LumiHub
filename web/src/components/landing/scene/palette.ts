@@ -17,8 +17,8 @@ const DARK: ScenePalette = {
   hostKey: 0xfdffff,
   hostShadow: 0x39474f,
   exposure: 1.12,
-  bloomStrength: 0.34,
-  bloomThreshold: 0.95,
+  bloomStrength: 0.26,
+  bloomThreshold: 1.14,
 };
 
 const LIGHT: ScenePalette = {
@@ -38,8 +38,8 @@ const LIGHT: ScenePalette = {
   hostKey: 0xffffff,
   hostShadow: 0x8fa0a8,
   exposure: 0.96,
-  bloomStrength: 0.18,
-  bloomThreshold: 1.04,
+  bloomStrength: 0.14,
+  bloomThreshold: 1.16,
 };
 
 export function getPalette(theme: SceneTheme): ScenePalette {

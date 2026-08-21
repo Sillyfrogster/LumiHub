@@ -90,7 +90,7 @@ export function createLivingCatalogScene(
   scene.add(rimLight);
 
   /** What every card is arriving at. */
-  const coreLight = new THREE.PointLight(palette.beam, 9, 11, 2);
+  const coreLight = new THREE.PointLight(palette.beam, 4.5, 9, 2.4);
   coreLight.position.set(0, 0, 0);
   scene.add(coreLight);
 
@@ -282,7 +282,7 @@ export function createLivingCatalogScene(
     fillLight.color.set(palette.fillLight);
     fillLight.intensity = palette.fillIntensity;
     coreLight.color.set(palette.beam);
-    coreLight.intensity = theme === "dark" ? 9 : 3;
+    coreLight.intensity = theme === "dark" ? 4.5 : 1.8;
     rimLight.intensity = theme === "dark" ? 0.85 : 0.4;
 
     applyCardTone();
