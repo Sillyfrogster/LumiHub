@@ -62,22 +62,44 @@ export function DownloadPanel({
 }) {
   if (downloads.length === 0 && !original) return null;
   const imagesById = new Map(images.map((image) => [image.id, image]));
+  const recommended =
+    downloads.find((target) => target.recommended) ?? downloads[0];
+  const alternatives = recommended
+    ? downloads.filter((target) => target.format !== recommended.format)
+    : [];
 
   return (
     <section className={styles.panel} aria-labelledby="downloads-heading">
       <h2 id="downloads-heading">Download</h2>
-      {downloads.length > 0 ? (
-        <ul className={styles.formats}>
-          {downloads.map((target) => (
-            <li key={target.format}>
-              <FormatLine
-                assetId={assetId}
-                target={target}
-                imagesById={imagesById}
-              />
-            </li>
-          ))}
-        </ul>
+      {recommended ? (
+        <>
+          <FormatLine
+            assetId={assetId}
+            target={recommended}
+            imagesById={imagesById}
+            primary
+          />
+          {alternatives.length > 0 ? (
+            <details className={styles.otherFormats}>
+              <summary>
+                {alternatives.length === 1
+                  ? "Another format"
+                  : `${alternatives.length} other formats`}
+              </summary>
+              <ul className={styles.formats}>
+                {alternatives.map((target) => (
+                  <li key={target.format}>
+                    <FormatLine
+                      assetId={assetId}
+                      target={target}
+                      imagesById={imagesById}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
+        </>
       ) : (
         <p className={styles.none}>
           Illarin cannot write this one out yet. The creator’s own file is
@@ -93,23 +115,20 @@ function FormatLine({
   assetId,
   target,
   imagesById,
+  primary = false,
 }: {
   assetId: string;
   target: DownloadTarget;
   imagesById: ReadonlyMap<string, AssetImage>;
+  primary?: boolean;
 }) {
   const lost = target.roles.filter(costs);
   const notes = target.roles.filter((role) => !costs(role) && role.destination);
   const detail = [...lost, ...notes];
 
   return (
-    <div className={styles.format}>
-      <p className={styles.label}>
-        {target.label}
-        {target.recommended ? (
-          <span className={styles.recommended}>Recommended</span>
-        ) : null}
-      </p>
+    <div className={primary ? styles.primaryFormat : styles.format}>
+      <p className={styles.label}>{target.label}</p>
       {detail.length === 0 ? (
         <p className={styles.cost}>{costLine(target)}</p>
       ) : (
@@ -131,7 +150,10 @@ function FormatLine({
           </ul>
         </details>
       )}
-      <a className={styles.take} href={`/download/${assetId}/${target.format}`}>
+      <a
+        className={primary ? styles.take : styles.takeAlternative}
+        href={`/download/${assetId}/${target.format}`}
+      >
         <Download size={15} aria-hidden="true" />
         Download {target.label}
       </a>

@@ -67,6 +67,39 @@ function browseTagHref(value: string): string {
   return `/browse?q=${encodeURIComponent(`tag:${quoted}`)}`;
 }
 
+const TAG_PREVIEW_LIMIT = 8;
+
+function TagLinks({ tags }: { tags: AssetDetail["tags"] }) {
+  return (
+    <ul className={styles.tagGrid}>
+      {tags.map((tag) => (
+        <li key={tag.value}>
+          <Link href={browseTagHref(tag.value)}>{tag.label}</Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function TagShelf({ tags }: { tags: AssetDetail["tags"] }) {
+  const remaining = tags.slice(TAG_PREVIEW_LIMIT);
+
+  return (
+    <div className={styles.tagShelf}>
+      <TagLinks tags={tags.slice(0, TAG_PREVIEW_LIMIT)} />
+      {remaining.length > 0 ? (
+        <details className={styles.moreTags}>
+          <summary>
+            <span className={styles.showTags}>Show all {tags.length} tags</span>
+            <span className={styles.hideTags}>Show fewer tags</span>
+          </summary>
+          <TagLinks tags={remaining} />
+        </details>
+      ) : null}
+    </div>
+  );
+}
+
 export async function generateMetadata({
   params,
 }: PageProps<"/a/[id]/[[...slug]]">): Promise<Metadata> {
@@ -122,7 +155,7 @@ export default async function AssetPage({
                 visibility={asset.visibility}
               />
 
-              <div className={styles.identity}>
+              <div className={styles.identityLead}>
                 <div className={styles.classification}>
                   <span className={styles.kind}>{kind}</span>
                   <span className={styles.rating}>
@@ -133,12 +166,34 @@ export default async function AssetPage({
                   {assetDisplayName(asset.name)}
                 </h1>
                 <p className={styles.byline}>
-                  Created by
+                  <span>Created by</span>
                   <Link className={styles.creator} href={`/@${asset.creator}`}>
                     {asset.creator}
                   </Link>
+                  <span className={styles.sharedDate}>
+                    {isDraft ? `Started ${made}` : `Shared ${made}`}
+                  </span>
                 </p>
+              </div>
 
+              <div className={styles.headerActions}>
+                {isDraft && asset.isOwner && asset.readiness ? (
+                  <PublishPanel
+                    assetId={asset.id}
+                    kind={kind.toLowerCase()}
+                    readiness={asset.readiness}
+                  />
+                ) : null}
+
+                <DownloadPanel
+                  assetId={asset.id}
+                  downloads={asset.downloads}
+                  original={asset.original}
+                  images={asset.media}
+                />
+              </div>
+
+              <div className={styles.identityDetails}>
                 {asset.blurb ? (
                   <div className={styles.blurb}>
                     <RichText text={asset.blurb} />
@@ -153,15 +208,7 @@ export default async function AssetPage({
                   </p>
                 )}
 
-                {asset.tags.length > 0 ? (
-                  <ul className={styles.tags}>
-                    {asset.tags.map((tag) => (
-                      <li key={tag.value}>
-                        <Link href={browseTagHref(tag.value)}>{tag.label}</Link>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
+                {asset.tags.length > 0 ? <TagShelf tags={asset.tags} /> : null}
 
                 {asset.withhold ? (
                   <WithholdNotice withhold={asset.withhold} />
@@ -187,22 +234,6 @@ export default async function AssetPage({
               className={styles.rail}
               aria-label="Asset details and actions"
             >
-              {isDraft && asset.isOwner && asset.readiness ? (
-                <PublishPanel
-                  assetId={asset.id}
-                  kind={kind.toLowerCase()}
-                  readiness={asset.readiness}
-                />
-              ) : null}
-
-              {/* The creator reads the reader's panel, in the reader's words. */}
-              <DownloadPanel
-                assetId={asset.id}
-                downloads={asset.downloads}
-                original={asset.original}
-                images={asset.media}
-              />
-
               {asset.isOwner ? (
                 <IdentityPanel
                   assetId={asset.id}
@@ -211,30 +242,6 @@ export default async function AssetPage({
                   isDraft={isDraft}
                 />
               ) : null}
-
-              <section className={styles.facts}>
-                <h2>About this {kind.toLowerCase()}</h2>
-                <dl>
-                  <div>
-                    <dt>Creator</dt>
-                    <dd>
-                      <Link href={`/@${asset.creator}`}>{asset.creator}</Link>
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Kind</dt>
-                    <dd>{kind}</dd>
-                  </div>
-                  <div>
-                    <dt>Content</dt>
-                    <dd>{ratingLabel(asset.isNsfw)}</dd>
-                  </div>
-                  <div>
-                    <dt>Shared</dt>
-                    <dd>{made}</dd>
-                  </div>
-                </dl>
-              </section>
 
               {asset.isOwner ? (
                 <section className={styles.creatorTools}>
