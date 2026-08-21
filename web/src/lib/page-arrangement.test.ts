@@ -7,9 +7,7 @@ import {
   layoutChoiceIssue,
   NARROW_BLOCK_GRID_PX,
   opensFullScreen,
-  PROSE_MEASURE,
   packBlockRows,
-  proseMeasureForWidth,
   WIDTH_COLUMNS,
   WIDTH_FLOORS_PX,
   widthChoiceIssue,
@@ -170,16 +168,16 @@ describe("page arrangement", () => {
     expect(columnsAt("full", 280)).toBe(12);
   });
 
-  test("block width never changes the measure of prose inside it", () => {
+  test("block packing never owns the measure of prose inside it", () => {
     const widths = ["full", "two_thirds", "half", "third"] as const;
 
-    expect(PROSE_MEASURE).toBe("70ch");
-    expect(widths.map(proseMeasureForWidth)).toEqual([
-      "70ch",
-      "70ch",
-      "70ch",
-      "70ch",
-    ]);
+    for (const width of widths) {
+      expect(packBlockRows([block(width, width)], {})[0][0]).toEqual({
+        block: block(width, width),
+        columns: WIDTH_COLUMNS[width],
+        startColumn: 1,
+      });
+    }
   });
 
   test("narrow packing ignores declared widths", () => {

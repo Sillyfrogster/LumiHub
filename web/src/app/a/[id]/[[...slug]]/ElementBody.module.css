@@ -69,7 +69,7 @@
 }
 
 .proseMeasure {
-  max-width: var(--prose-measure, 70ch);
+  max-width: 70ch;
 }
 
 .blank {

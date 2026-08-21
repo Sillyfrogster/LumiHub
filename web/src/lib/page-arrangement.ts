@@ -25,7 +25,6 @@ const WIDTH_PROMOTION: Record<BlockWidth, BlockWidth | null> = {
 
 export const BLOCK_GRID_GAP_PX = 20;
 
-export const PROSE_MEASURE = "70ch";
 export const NARROW_BLOCK_GRID_PX = 700;
 
 export const WIDTH_LABELS: Record<BlockWidth, string> = {
@@ -112,10 +111,6 @@ function gridSpanWidth(availableWidth: number, columns: number): number {
   const gapsWidth = BLOCK_GRID_GAP_PX * 11;
   const trackWidth = Math.max(0, availableWidth - gapsWidth) / 12;
   return trackWidth * columns + BLOCK_GRID_GAP_PX * (columns - 1);
-}
-
-export function proseMeasureForWidth(_width: BlockWidth): typeof PROSE_MEASURE {
-  return PROSE_MEASURE;
 }
 
 export function packBlockRows<T extends { width: BlockWidth }>(

@@ -17,11 +17,7 @@ import {
   saveAssetBlock,
 } from "@/lib/api/query";
 import { splitAssetPageContent } from "@/lib/asset-page-content";
-import {
-  BLOCK_GRID_GAP_PX,
-  packBlockRows,
-  proseMeasureForWidth,
-} from "@/lib/page-arrangement";
+import { BLOCK_GRID_GAP_PX, packBlockRows } from "@/lib/page-arrangement";
 import { useMeasuredWidth } from "@/lib/use-measured-width";
 import { AddSectionTray } from "./AddSectionTray";
 import { WidthPicker } from "./ArrangementPickers";
@@ -296,9 +292,6 @@ export function AssetBlocks({
                           {
                             "--block-columns": columns,
                             "--block-start": startColumn,
-                            "--prose-measure": proseMeasureForWidth(
-                              block.width,
-                            ),
                           } as CSSProperties
                         }
                       >
@@ -443,7 +436,7 @@ export function AssetBlocks({
                   Model-facing content
                 </span>
                 <span className={styles.modelContentSummary}>
-                  Description, personality, scenario and instructions
+                  System prompt and post-history instructions
                 </span>
               </summary>
               <div className={styles.modelContentBody}>

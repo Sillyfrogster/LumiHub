@@ -71,6 +71,23 @@ describe("reader page content", () => {
     expect(result.publicBlocks[0].empty).toBe(false);
   });
 
+  test("ordinary and disclosed elements split without emptying their block", () => {
+    const mixed = block("Mixed", [
+      element("notes"),
+      element("system", "system_prompt"),
+    ]);
+
+    const result = splitAssetPageContent([mixed]);
+
+    expect(result.publicBlocks[0].elements.map(({ id }) => id)).toEqual([
+      "notes",
+    ]);
+    expect(result.publicBlocks[0].empty).toBe(false);
+    expect(result.modelContent.map(({ element: item }) => item.id)).toEqual([
+      "system",
+    ]);
+  });
+
   test("a hidden block contributes nothing to the model disclosure", () => {
     const hidden = block(
       "Hidden instructions",
