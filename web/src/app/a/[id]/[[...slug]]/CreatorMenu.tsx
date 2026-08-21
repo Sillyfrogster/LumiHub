@@ -1,7 +1,7 @@
 "use client";
 
 import { Settings2, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { AssetDetail, ReadinessItem } from "@/lib/api/query";
 import { useAuth } from "@/lib/auth";
@@ -35,14 +35,14 @@ export function CreatorMenu(props: CreatorMenuProps) {
   const [open, setOpen] = useState(false);
   const isAdmin = account?.role === "admin";
   const canWithhold = Boolean(isAdmin && !props.isDraft && !props.withheld);
-  const available = props.isOwner || canWithhold;
+  const canOpenMenu = props.isOwner || canWithhold;
   const missing = props.readiness?.filter((item) => !item.met).length ?? 0;
 
-  function show() {
-    if (!available || dialog.current?.open) return;
+  const show = useCallback(() => {
+    if (!canOpenMenu || dialog.current?.open) return;
     dialog.current?.showModal();
     setOpen(true);
-  }
+  }, [canOpenMenu]);
 
   function close() {
     dialog.current?.close();
@@ -68,16 +68,11 @@ export function CreatorMenu(props: CreatorMenuProps) {
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
-    const openMenu = () => {
-      if (!available || dialog.current?.open) return;
-      dialog.current?.showModal();
-      setOpen(true);
-    };
-    window.addEventListener(OPEN_CREATOR_MENU, openMenu);
-    return () => window.removeEventListener(OPEN_CREATOR_MENU, openMenu);
-  }, [available]);
+    window.addEventListener(OPEN_CREATOR_MENU, show);
+    return () => window.removeEventListener(OPEN_CREATOR_MENU, show);
+  }, [show]);
 
-  if (!available) return null;
+  if (!canOpenMenu) return null;
 
   return (
     <>

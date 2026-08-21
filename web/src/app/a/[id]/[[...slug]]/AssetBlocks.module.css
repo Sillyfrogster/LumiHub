@@ -18,6 +18,7 @@
 }
 
 .block {
+  position: relative;
   min-width: 0;
   grid-column: span var(--block-columns);
   container-name: block;
@@ -43,20 +44,30 @@
   background: var(--color-accent-soft);
 }
 
-.block[data-flashing] {
+.block[data-flashing]::after {
+  position: absolute;
+  inset: -2px;
+  border: 2px solid var(--color-accent);
+  border-radius: inherit;
   animation: blockFlash 900ms var(--ease) both;
+  content: "";
+  pointer-events: none;
 }
 
 @keyframes blockFlash {
-  0%,
-  100% {
-    border-color: var(--color-border);
-    background: var(--color-surface);
+  0% {
+    opacity: 0;
+    transform: scale(0.985);
   }
 
   35% {
-    border-color: var(--color-accent);
-    background: var(--color-accent-soft);
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.005);
   }
 }
 

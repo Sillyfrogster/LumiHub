@@ -48,7 +48,7 @@
 
 .entries a {
   display: flex;
-  min-height: 42px;
+  min-height: 44px;
   align-items: center;
   padding-inline: 11px;
   border-radius: var(--radius-sm);
@@ -94,7 +94,7 @@
 .tools button,
 .viewing {
   display: inline-flex;
-  min-height: 42px;
+  min-height: 44px;
   align-items: center;
   justify-content: center;
   gap: 7px;
@@ -148,8 +148,8 @@
 
   .tools button,
   .viewing {
-    width: 42px;
-    min-height: 42px;
+    width: 44px;
+    min-height: 44px;
     padding: 0;
   }
 

@@ -59,7 +59,11 @@ export function AddSectionTray({
   if (sections.length === 0) return null;
 
   return (
-    <section className={styles.tray} aria-labelledby="add-block-title">
+    <section
+      id="add-block-tray"
+      className={styles.tray}
+      aria-labelledby="add-block-title"
+    >
       <header className={styles.topline}>
         <div>
           <p className={styles.context}>Add a block</p>

@@ -3,6 +3,7 @@
 import { Eye, ListTree, Plus, Undo2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { AssetBlock } from "@/lib/api/query";
+import { useAuth } from "@/lib/auth";
 import styles from "./ContentsBar.module.css";
 import { CreatorMenu, type CreatorMenuProps } from "./CreatorMenu";
 
@@ -33,8 +34,13 @@ export function ContentsBar({
   onReaderView: () => void;
   onReturnToEditing: () => void;
 }) {
+  const { account } = useAuth();
   const bar = useRef<HTMLDivElement>(null);
   const [activeBlockId, setActiveBlockId] = useState(blocks[0]?.id ?? null);
+  const hasStaffTools = Boolean(
+    account?.role === "admin" && !creatorMenu.isDraft && !creatorMenu.withheld,
+  );
+  const hasPageTools = isOwner || hasStaffTools;
 
   useEffect(() => {
     const hash = window.location.hash;
@@ -82,7 +88,7 @@ export function ContentsBar({
     };
   }, [blocks]);
 
-  if (blocks.length === 0 && !isOwner) return null;
+  if (blocks.length === 0 && !hasPageTools) return null;
 
   return (
     <div ref={bar} className={styles.bar}>
@@ -111,9 +117,9 @@ export function ContentsBar({
         <p className={styles.mode}>Start this page</p>
       )}
 
-      {isOwner ? (
+      {hasPageTools ? (
         <div className={styles.tools} role="toolbar" aria-label="Page tools">
-          {readerView ? (
+          {isOwner && readerView ? (
             <>
               <span className={styles.viewing}>
                 <Eye size={16} aria-hidden="true" />
@@ -124,7 +130,7 @@ export function ContentsBar({
                 <span>Return</span>
               </button>
             </>
-          ) : (
+          ) : isOwner ? (
             <>
               <button
                 type="button"
@@ -158,6 +164,8 @@ export function ContentsBar({
               </button>
               <CreatorMenu {...creatorMenu} />
             </>
+          ) : (
+            <CreatorMenu {...creatorMenu} />
           )}
         </div>
       ) : null}

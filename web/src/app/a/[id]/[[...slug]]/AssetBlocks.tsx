@@ -110,6 +110,15 @@ export function AssetBlocks({
     setAdded(null);
   }, [added]);
 
+  useEffect(() => {
+    if (!adding) return;
+    window.requestAnimationFrame(() => {
+      document
+        .getElementById("add-block-tray")
+        ?.scrollIntoView({ block: "start" });
+    });
+  }, [adding]);
+
   const editingVisible = isOwner && !readerView;
   const readerBlocks = useMemo(
     () =>
@@ -253,16 +262,6 @@ export function AssetBlocks({
         }}
         onReturnToEditing={() => setReaderView(false)}
       />
-
-      {editingVisible && adding ? (
-        <AddSectionTray
-          sections={addableSections}
-          blocks={currentBlocks}
-          pending={blockActionPending}
-          onAdd={addSection}
-          onClose={() => setAdding(false)}
-        />
-      ) : null}
 
       {arranging && editingVisible ? (
         <ArrangeSections
@@ -475,6 +474,15 @@ export function AssetBlocks({
                 ))}
               </div>
             </details>
+          ) : null}
+          {editingVisible && adding ? (
+            <AddSectionTray
+              sections={addableSections}
+              blocks={currentBlocks}
+              pending={blockActionPending}
+              onAdd={addSection}
+              onClose={() => setAdding(false)}
+            />
           ) : null}
         </>
       )}
