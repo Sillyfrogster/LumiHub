@@ -30,6 +30,14 @@ import { ElementBody } from "./ElementBody";
 import { ElementOverlay } from "./ElementOverlay";
 import { ElementReader } from "./ElementReader";
 
+const MODEL_FACING_ROLES = new Set([
+  "description",
+  "personality",
+  "scenario",
+  "system_prompt",
+  "post_history_instructions",
+]);
+
 function returnToBlock(blockId: string) {
   const anchor = `block-${blockId}`;
   document.getElementById(anchor)?.scrollIntoView({ block: "start" });
@@ -45,6 +53,10 @@ const LAYOUT_CLASS: Record<AssetBlock["layout"], string> = {
   "stack-2": styles.stack2,
   "stack-3": styles.stack3,
 };
+
+function isModelFacingElement(element: AssetElement) {
+  return MODEL_FACING_ROLES.has(element.role ?? "");
+}
 
 /**
  * The asset's content, in page order. A reader is shown the blocks that carry
@@ -94,9 +106,24 @@ export function AssetBlocks({
   }, [added]);
 
   const editingVisible = isOwner && !readerView;
-  const packable = editingVisible
-    ? currentBlocks
-    : currentBlocks.filter((block) => !block.isEmpty);
+  const readerBlocks = currentBlocks.flatMap((block) => {
+    const elements = block.elements.filter(
+      (element) => !element.isEmpty && !isModelFacingElement(element),
+    );
+    return elements.length > 0 ? [{ ...block, elements }] : [];
+  });
+  const modelContent = editingVisible
+    ? []
+    : currentBlocks.flatMap((block) =>
+        block.hidden
+          ? []
+          : block.elements
+              .filter(
+                (element) => !element.isEmpty && isModelFacingElement(element),
+              )
+              .map((element) => ({ block, element })),
+      );
+  const packable = editingVisible ? currentBlocks : readerBlocks;
   const rows = packBlockRows(packable, { showHidden: editingVisible });
 
   const editedBlock = currentBlocks.find((block) => block.id === editing);
@@ -399,6 +426,43 @@ export function AssetBlocks({
               ))}
             </div>
           )}
+          {modelContent.length > 0 ? (
+            <details className={styles.modelContent}>
+              <summary>
+                <span className={styles.modelContentTitle}>
+                  Model-facing content
+                </span>
+                <span className={styles.modelContentSummary}>
+                  Description, personality, scenario and instructions
+                </span>
+              </summary>
+              <div className={styles.modelContentBody}>
+                {modelContent.map(({ block, element }) => (
+                  <div key={element.id}>
+                    <ElementBody
+                      element={element}
+                      isOwner={false}
+                      images={images}
+                      onReadMore={() =>
+                        setReading({
+                          blockId: block.id,
+                          element,
+                        })
+                      }
+                    />
+                    {reading?.blockId === block.id &&
+                    reading.element.id === element.id ? (
+                      <ElementReader
+                        element={reading.element}
+                        images={images}
+                        onDismiss={dismissReader}
+                      />
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </details>
+          ) : null}
         </>
       )}
       {editingVisible ? (
