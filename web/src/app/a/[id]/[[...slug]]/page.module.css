@@ -67,9 +67,14 @@
   margin-top: 22px;
 }
 
-.heroLayout > :first-child {
+.assetMediaSlot {
   grid-column: 1;
   grid-row: 1 / span 2;
+  min-width: 0;
+}
+
+.heroLayoutWithoutActions {
+  grid-template-columns: minmax(220px, 300px) minmax(280px, 720px);
 }
 
 .identityLead,
@@ -359,12 +364,11 @@
     column-gap: 0;
   }
 
-  .heroLayout > :first-child {
+  .assetMediaSlot {
     grid-column: auto;
     grid-row: auto;
     max-width: 280px;
     margin-top: 28px;
-    order: 3;
   }
 
   .identityLead,
@@ -372,10 +376,6 @@
     grid-column: auto;
     grid-row: auto;
     padding: 0;
-  }
-
-  .identityLead {
-    order: 1;
   }
 
   .identityLead h1 {
@@ -387,12 +387,10 @@
     grid-template-columns: minmax(0, 1fr);
     grid-row: auto;
     margin-top: 28px;
-    order: 2;
   }
 
   .identityDetails {
     margin-top: 28px;
-    order: 4;
   }
 
   .contentShell {

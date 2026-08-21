@@ -62,11 +62,10 @@ export function DownloadPanel({
 }) {
   if (downloads.length === 0 && !original) return null;
   const imagesById = new Map(images.map((image) => [image.id, image]));
-  const recommended =
-    downloads.find((target) => target.recommended) ?? downloads[0];
+  const recommended = downloads.find((target) => target.recommended);
   const alternatives = recommended
     ? downloads.filter((target) => target.format !== recommended.format)
-    : [];
+    : downloads;
 
   return (
     <section className={styles.panel} aria-labelledby="downloads-heading">
@@ -101,10 +100,26 @@ export function DownloadPanel({
           ) : null}
         </>
       ) : (
-        <p className={styles.none}>
-          Illarin cannot write this one out yet. The creator’s own file is
-          below.
-        </p>
+        <>
+          <p className={styles.none}>
+            {downloads.length > 0
+              ? "No recommended format is available."
+              : "Illarin cannot write this one out yet. The creator’s own file is below."}
+          </p>
+          {alternatives.length > 0 ? (
+            <ul className={styles.formats}>
+              {alternatives.map((target) => (
+                <li key={target.format}>
+                  <FormatLine
+                    assetId={assetId}
+                    target={target}
+                    imagesById={imagesById}
+                  />
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </>
       )}
       {original ? <Original assetId={assetId} original={original} /> : null}
     </section>
@@ -128,7 +143,20 @@ function FormatLine({
 
   return (
     <div className={primary ? styles.primaryFormat : styles.format}>
-      <p className={styles.label}>{target.label}</p>
+      {primary ? (
+        <p className={styles.recommended}>Recommended format</p>
+      ) : null}
+      {primary ? (
+        <a
+          className={styles.take}
+          href={`/download/${assetId}/${target.format}`}
+        >
+          <Download size={15} aria-hidden="true" />
+          Download {target.label}
+        </a>
+      ) : (
+        <p className={styles.label}>{target.label}</p>
+      )}
       {detail.length === 0 ? (
         <p className={styles.cost}>{costLine(target)}</p>
       ) : (
@@ -150,13 +178,15 @@ function FormatLine({
           </ul>
         </details>
       )}
-      <a
-        className={primary ? styles.take : styles.takeAlternative}
-        href={`/download/${assetId}/${target.format}`}
-      >
-        <Download size={15} aria-hidden="true" />
-        Download {target.label}
-      </a>
+      {primary ? null : (
+        <a
+          className={styles.takeAlternative}
+          href={`/download/${assetId}/${target.format}`}
+        >
+          <Download size={15} aria-hidden="true" />
+          Download {target.label}
+        </a>
+      )}
     </div>
   );
 }

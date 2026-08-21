@@ -121,11 +121,19 @@ export default async function AssetPage({
   const isDraft = asset.lifecycle === "draft";
   const hasCreatorArtwork = asset.media.length > 0;
   const detailArtwork = detailArtworkFor(asset.kind, asset.id);
-  const made = new Date(asset.createdAt).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const formattedCreatedDate = new Date(asset.createdAt).toLocaleDateString(
+    "en-GB",
+    {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    },
+  );
+  const hasHeaderActions = Boolean(
+    (isDraft && asset.isOwner && asset.readiness) ||
+      asset.downloads.length > 0 ||
+      asset.original,
+  );
 
   return (
     <div className={styles.page}>
@@ -145,16 +153,11 @@ export default async function AssetPage({
               Back to the collection
             </Link>
 
-            <div className={styles.heroLayout}>
-              <AssetMedia
-                id={asset.id}
-                media={asset.media}
-                kind={asset.kind}
-                name={asset.name}
-                isNsfw={asset.isNsfw}
-                visibility={asset.visibility}
-              />
-
+            <div
+              className={`${styles.heroLayout} ${
+                hasHeaderActions ? "" : styles.heroLayoutWithoutActions
+              }`}
+            >
               <div className={styles.identityLead}>
                 <div className={styles.classification}>
                   <span className={styles.kind}>{kind}</span>
@@ -171,25 +174,40 @@ export default async function AssetPage({
                     {asset.creator}
                   </Link>
                   <span className={styles.sharedDate}>
-                    {isDraft ? `Started ${made}` : `Shared ${made}`}
+                    {isDraft
+                      ? `Started ${formattedCreatedDate}`
+                      : `Shared ${formattedCreatedDate}`}
                   </span>
                 </p>
               </div>
 
-              <div className={styles.headerActions}>
-                {isDraft && asset.isOwner && asset.readiness ? (
-                  <PublishPanel
-                    assetId={asset.id}
-                    kind={kind.toLowerCase()}
-                    readiness={asset.readiness}
-                  />
-                ) : null}
+              {hasHeaderActions ? (
+                <div className={styles.headerActions}>
+                  {isDraft && asset.isOwner && asset.readiness ? (
+                    <PublishPanel
+                      assetId={asset.id}
+                      kind={kind.toLowerCase()}
+                      readiness={asset.readiness}
+                    />
+                  ) : null}
 
-                <DownloadPanel
-                  assetId={asset.id}
-                  downloads={asset.downloads}
-                  original={asset.original}
-                  images={asset.media}
+                  <DownloadPanel
+                    assetId={asset.id}
+                    downloads={asset.downloads}
+                    original={asset.original}
+                    images={asset.media}
+                  />
+                </div>
+              ) : null}
+
+              <div className={styles.assetMediaSlot}>
+                <AssetMedia
+                  id={asset.id}
+                  media={asset.media}
+                  kind={asset.kind}
+                  name={asset.name}
+                  isNsfw={asset.isNsfw}
+                  visibility={asset.visibility}
                 />
               </div>
 
