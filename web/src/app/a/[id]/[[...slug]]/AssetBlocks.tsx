@@ -2,7 +2,14 @@
 
 import { PencilLine } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type CSSProperties, useEffect, useMemo, useState } from "react";
+import {
+  type CSSProperties,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   type AddableSection,
   type AssetBlock,
@@ -17,7 +24,12 @@ import {
   saveAssetBlock,
 } from "@/lib/api/query";
 import { splitAssetPageContent } from "@/lib/asset-page-content";
-import { BLOCK_GRID_GAP_PX, packBlockRows } from "@/lib/page-arrangement";
+import {
+  BLOCK_GRID_GAP_PX,
+  type BlockWidth,
+  packBlockRows,
+  suggestedBlockWidth,
+} from "@/lib/page-arrangement";
 import { useMeasuredWidth } from "@/lib/use-measured-width";
 import { AddSectionTray } from "./AddSectionTray";
 import { WidthPicker } from "./ArrangementPickers";
@@ -91,6 +103,10 @@ export function AssetBlocks({
   } | null>(null);
   const [expandPending, setExpandPending] = useState(false);
   const [expandMessage, setExpandMessage] = useState("");
+  const [suggestedWidths, setSuggestedWidths] = useState<
+    Record<string, BlockWidth>
+  >({});
+  const rowsNode = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => setCurrentBlocks(blocks), [blocks]);
 
@@ -116,6 +132,13 @@ export function AssetBlocks({
   );
   const modelContent = editingVisible ? [] : disclosedModelContent;
   const [rowsRef, availableWidth] = useMeasuredWidth<HTMLDivElement>();
+  const setRowsRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      rowsNode.current = node;
+      rowsRef(node);
+    },
+    [rowsRef],
+  );
   const packable: Array<AssetBlock & { empty?: boolean }> = editingVisible
     ? currentBlocks
     : publicBlocks;
@@ -134,6 +157,51 @@ export function AssetBlocks({
   const expandedBlock = expanding
     ? currentBlocks.find((block) => block.id === expanding.blockId)
     : undefined;
+
+  const measureSuggestedWidths = useCallback(() => {
+    if (!rowsNode.current || availableWidth === undefined) return;
+    const next: Record<string, BlockWidth> = {};
+    const blocksById = new Map(currentBlocks.map((block) => [block.id, block]));
+    for (const node of rowsNode.current.querySelectorAll<HTMLElement>(
+      "[data-block-id]",
+    )) {
+      const blockId = node.dataset.blockId;
+      const content = node.querySelector<HTMLElement>("[data-block-content]");
+      const block = blockId ? blocksById.get(blockId) : undefined;
+      if (!blockId || !block || !content) continue;
+      const bounds = content.getBoundingClientRect();
+      const suggestion = suggestedBlockWidth({
+        width: block.width,
+        layout: block.layout,
+        availableWidth,
+        contentWidth: bounds.width,
+        contentHeight: bounds.height,
+      });
+      if (suggestion) next[blockId] = suggestion;
+    }
+    setSuggestedWidths((current) =>
+      sameWidthSuggestions(current, next) ? current : next,
+    );
+  }, [availableWidth, currentBlocks]);
+
+  useEffect(() => {
+    if (!editingVisible || editing || expanding || !rowsNode.current) return;
+    let frame = window.requestAnimationFrame(measureSuggestedWidths);
+    const observer = new ResizeObserver(() => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(measureSuggestedWidths);
+    });
+    observer.observe(rowsNode.current);
+    for (const content of rowsNode.current.querySelectorAll<HTMLElement>(
+      "[data-block-content]",
+    )) {
+      observer.observe(content);
+    }
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [editingVisible, editing, expanding, measureSuggestedWidths]);
 
   /**
    * Leaving the overlay writes the element through and puts the creator back
@@ -244,6 +312,7 @@ export function AssetBlocks({
         <ArrangeSections
           assetId={assetId}
           blocks={currentBlocks}
+          suggestedWidths={suggestedWidths}
           onChange={setCurrentBlocks}
           onClose={() => setArranging(false)}
         />
@@ -263,7 +332,7 @@ export function AssetBlocks({
           {rows.length === 0 ? null : (
             <div
               className={styles.rows}
-              ref={rowsRef}
+              ref={setRowsRef}
               style={
                 {
                   "--block-grid-gap": `${BLOCK_GRID_GAP_PX}px`,
@@ -285,6 +354,7 @@ export function AssetBlocks({
                         id={`block-${block.id}`}
                         key={block.id}
                         className={styles.block}
+                        data-block-id={block.id}
                         data-hidden={
                           editingVisible && block.hidden ? true : undefined
                         }
@@ -309,6 +379,7 @@ export function AssetBlocks({
                               <WidthPicker
                                 width={block.width}
                                 layout={block.layout}
+                                suggestedWidth={suggestedWidths[block.id]}
                                 pending={savingWidth === block.id}
                                 onIssue={setArrangementMessage}
                                 onSelect={async (width) => {
@@ -388,7 +459,10 @@ export function AssetBlocks({
                             </button>
                           </div>
                         ) : null}
-                        <div className={LAYOUT_CLASS[block.layout]}>
+                        <div
+                          className={LAYOUT_CLASS[block.layout]}
+                          data-block-content
+                        >
                           {block.elements.map((element) => (
                             <div
                               style={{ gridArea: element.slot }}
@@ -481,6 +555,7 @@ export function AssetBlocks({
         <BlockSheet
           assetId={assetId}
           block={editedBlock}
+          suggestedWidth={suggestedWidths[editedBlock.id]}
           images={images}
           onDismiss={() => setEditing(null)}
           onImageAdded={() => router.refresh()}
@@ -565,6 +640,18 @@ export function AssetBlocks({
         />
       ) : null}
     </>
+  );
+}
+
+function sameWidthSuggestions(
+  current: Record<string, BlockWidth>,
+  next: Record<string, BlockWidth>,
+) {
+  const currentIds = Object.keys(current);
+  const nextIds = Object.keys(next);
+  return (
+    currentIds.length === nextIds.length &&
+    currentIds.every((id) => current[id] === next[id])
   );
 }
 

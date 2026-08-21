@@ -18,6 +18,7 @@ import { ElementOverlay } from "./ElementOverlay";
 export function BlockSheet({
   assetId,
   block,
+  suggestedWidth,
   images,
   onDismiss,
   onSaved,
@@ -27,6 +28,7 @@ export function BlockSheet({
 }: {
   assetId: string;
   block: AssetBlock;
+  suggestedWidth?: AssetBlock["width"];
   images: AssetImage[];
   onDismiss: () => void;
   onSaved: (block: AssetBlock) => void;
@@ -189,6 +191,7 @@ export function BlockSheet({
                 <WidthPicker
                   width={width}
                   layout={layout}
+                  suggestedWidth={suggestedWidth}
                   pending={pending}
                   inline
                   onIssue={setArrangementMessage}

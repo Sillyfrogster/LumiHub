@@ -27,6 +27,15 @@ export const BLOCK_GRID_GAP_PX = 20;
 
 export const NARROW_BLOCK_GRID_PX = 700;
 
+const SUGGESTED_BLOCK_HEIGHT_PX = 560;
+
+const WIDTHS_NARROW_TO_WIDE: readonly BlockWidth[] = [
+  "third",
+  "half",
+  "two_thirds",
+  "full",
+];
+
 export const WIDTH_LABELS: Record<BlockWidth, string> = {
   full: "Full",
   two_thirds: "Two thirds",
@@ -111,6 +120,59 @@ function gridSpanWidth(availableWidth: number, columns: number): number {
   const gapsWidth = BLOCK_GRID_GAP_PX * 11;
   const trackWidth = Math.max(0, availableWidth - gapsWidth) / 12;
   return trackWidth * columns + BLOCK_GRID_GAP_PX * (columns - 1);
+}
+
+export function suggestedBlockWidth({
+  width,
+  layout,
+  availableWidth,
+  contentWidth,
+  contentHeight,
+}: {
+  width: BlockWidth;
+  layout: BlockLayout;
+  availableWidth: number;
+  contentWidth: number;
+  contentHeight: number;
+}): BlockWidth | null {
+  if (
+    availableWidth <= NARROW_BLOCK_GRID_PX ||
+    contentWidth <= 0 ||
+    contentHeight <= 0
+  ) {
+    return null;
+  }
+
+  const currentColumns = renderedColumns(width, availableWidth);
+  const currentSpan = gridSpanWidth(availableWidth, currentColumns);
+  const minimumColumns = LAYOUTS[layout].minimumColumns;
+  const candidates = WIDTHS_NARROW_TO_WIDE.filter(
+    (candidate) =>
+      WIDTH_COLUMNS[candidate] >= minimumColumns &&
+      renderedColumns(candidate, availableWidth) === WIDTH_COLUMNS[candidate],
+  );
+  const suggestion =
+    candidates.find((candidate) => {
+      const candidateSpan = gridSpanWidth(
+        availableWidth,
+        WIDTH_COLUMNS[candidate],
+      );
+      const candidateContentWidth = Math.max(
+        1,
+        contentWidth + candidateSpan - currentSpan,
+      );
+      const estimatedHeight =
+        (contentHeight * contentWidth) / candidateContentWidth;
+      return estimatedHeight <= SUGGESTED_BLOCK_HEIGHT_PX;
+    }) ?? candidates.at(-1);
+
+  if (
+    !suggestion ||
+    renderedColumns(suggestion, availableWidth) === currentColumns
+  ) {
+    return null;
+  }
+  return suggestion;
 }
 
 export function packBlockRows<T extends { width: BlockWidth }>(

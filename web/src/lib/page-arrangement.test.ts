@@ -8,6 +8,7 @@ import {
   NARROW_BLOCK_GRID_PX,
   opensFullScreen,
   packBlockRows,
+  suggestedBlockWidth,
   WIDTH_COLUMNS,
   WIDTH_FLOORS_PX,
   widthChoiceIssue,
@@ -210,6 +211,57 @@ describe("page arrangement", () => {
     ).toBe(
       "Stack 2 has no room for Group-only greetings. Move or remove it first.",
     );
+  });
+
+  test("suggests the smallest size that keeps the rendered content comfortable", () => {
+    expect(
+      suggestedBlockWidth({
+        width: "full",
+        layout: "single",
+        availableWidth: 1240,
+        contentWidth: 1178,
+        contentHeight: 250,
+      }),
+    ).toBe("half");
+    expect(
+      suggestedBlockWidth({
+        width: "third",
+        layout: "single",
+        availableWidth: 1240,
+        contentWidth: 338,
+        contentHeight: 1100,
+      }),
+    ).toBe("two_thirds");
+    expect(
+      suggestedBlockWidth({
+        width: "half",
+        layout: "single",
+        availableWidth: 1240,
+        contentWidth: 548,
+        contentHeight: 400,
+      }),
+    ).toBeNull();
+  });
+
+  test("a suggestion respects layout minimums and the current rendering", () => {
+    expect(
+      suggestedBlockWidth({
+        width: "full",
+        layout: "duo",
+        availableWidth: 1240,
+        contentWidth: 1178,
+        contentHeight: 180,
+      }),
+    ).toBe("two_thirds");
+    expect(
+      suggestedBlockWidth({
+        width: "full",
+        layout: "single",
+        availableWidth: NARROW_BLOCK_GRID_PX,
+        contentWidth: 638,
+        contentHeight: 180,
+      }),
+    ).toBeNull();
   });
 });
 

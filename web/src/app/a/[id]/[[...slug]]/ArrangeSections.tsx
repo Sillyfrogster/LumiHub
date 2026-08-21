@@ -23,6 +23,7 @@ import {
   removeAssetBlock,
 } from "@/lib/api/query";
 import {
+  type BlockWidth,
   contentItemCount,
   LAYOUTS,
   packBlockRows,
@@ -35,11 +36,13 @@ import styles from "./ArrangeSections.module.css";
 export function ArrangeSections({
   assetId,
   blocks,
+  suggestedWidths,
   onChange,
   onClose,
 }: {
   assetId: string;
   blocks: AssetBlock[];
+  suggestedWidths: Record<string, BlockWidth>;
   onChange: (blocks: AssetBlock[]) => void;
   onClose: () => void;
 }) {
@@ -249,6 +252,7 @@ export function ArrangeSections({
                 <WidthPicker
                   width={block.width}
                   layout={block.layout}
+                  suggestedWidth={suggestedWidths[block.id]}
                   pending={saving}
                   onIssue={setMessage}
                   onSelect={(width) =>

@@ -9,7 +9,6 @@ import {
   LAYOUT_LABELS,
   LAYOUTS,
   layoutChoiceIssue,
-  WIDTH_COLUMNS,
   WIDTH_FLOORS_PX,
   WIDTH_LABELS,
   widthChoiceIssue,
@@ -17,7 +16,6 @@ import {
 import styles from "./ArrangementPickers.module.css";
 
 const WIDTHS = ["full", "two_thirds", "half", "third"] as const;
-const BARS = Array.from({ length: 12 }, (_, index) => index + 1);
 
 const WIDTH_HINTS: Record<BlockWidth, string> = {
   full: "Uses all twelve columns.",
@@ -40,6 +38,7 @@ export function WidthPicker({
   layout,
   pending = false,
   inline = false,
+  suggestedWidth,
   onSelect,
   onIssue,
 }: {
@@ -47,68 +46,92 @@ export function WidthPicker({
   layout: AssetBlock["layout"];
   pending?: boolean;
   inline?: boolean;
+  suggestedWidth?: AssetBlock["width"] | null;
   onSelect: (width: AssetBlock["width"]) => void;
   onIssue: (message: string) => void;
 }) {
   const disclosure = useRef<HTMLDetailsElement>(null);
+  const suggestion =
+    suggestedWidth &&
+    suggestedWidth !== width &&
+    !widthChoiceIssue(layout, suggestedWidth)
+      ? suggestedWidth
+      : null;
 
   return (
-    <details
-      className={`${styles.picker} ${styles.widthPicker} ${inline ? styles.inline : ""}`}
-      ref={disclosure}
-    >
-      <summary
-        className={styles.trigger}
-        aria-label={`Change section width. Current width: ${WIDTH_LABELS[width]}`}
+    <div className={styles.widthControl}>
+      <details
+        className={`${styles.picker} ${styles.widthPicker} ${inline ? styles.inline : ""}`}
+        ref={disclosure}
       >
-        <Columns3 size={15} aria-hidden="true" />
-        <WidthBars width={width} />
-        <span className={styles.triggerLabel}>{WIDTH_LABELS[width]}</span>
-        <ChevronDown className={styles.chevron} size={14} aria-hidden="true" />
-      </summary>
-      <div className={styles.menu}>
-        <div className={styles.menuHeading}>
-          <strong>Section width</strong>
-          <span>Sizes stay exact. A short row keeps its empty space.</span>
+        <summary
+          className={styles.trigger}
+          aria-label={`Change section width. Current width: ${WIDTH_LABELS[width]}`}
+        >
+          <Columns3 size={15} aria-hidden="true" />
+          <span className={styles.triggerLabel}>{WIDTH_LABELS[width]}</span>
+          <ChevronDown
+            className={styles.chevron}
+            size={14}
+            aria-hidden="true"
+          />
+        </summary>
+        <div className={styles.menu}>
+          <div className={styles.menuHeading}>
+            <strong>Section width</strong>
+            <span>Sizes stay exact. A short row keeps its empty space.</span>
+          </div>
+          <div className={styles.options}>
+            {WIDTHS.map((choice) => {
+              const issue = widthChoiceIssue(layout, choice);
+              return (
+                <button
+                  type="button"
+                  className={styles.option}
+                  key={choice}
+                  aria-pressed={choice === width}
+                  disabled={pending}
+                  onClick={() => {
+                    if (issue) {
+                      onIssue(issue);
+                      return;
+                    }
+                    onIssue("");
+                    onSelect(choice);
+                    closeDisclosure(disclosure.current);
+                  }}
+                >
+                  <span className={styles.optionCopy}>
+                    <strong>{WIDTH_LABELS[choice]}</strong>
+                    <small>{issue ?? WIDTH_HINTS[choice]}</small>
+                  </span>
+                  {choice === width ? (
+                    <Check
+                      className={styles.check}
+                      size={16}
+                      aria-hidden="true"
+                    />
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
         </div>
-        <div className={styles.options}>
-          {WIDTHS.map((choice) => {
-            const issue = widthChoiceIssue(layout, choice);
-            return (
-              <button
-                type="button"
-                className={styles.option}
-                key={choice}
-                aria-pressed={choice === width}
-                disabled={pending}
-                onClick={() => {
-                  if (issue) {
-                    onIssue(issue);
-                    return;
-                  }
-                  onIssue("");
-                  onSelect(choice);
-                  closeDisclosure(disclosure.current);
-                }}
-              >
-                <WidthBars width={choice} />
-                <span className={styles.optionCopy}>
-                  <strong>{WIDTH_LABELS[choice]}</strong>
-                  <small>{issue ?? WIDTH_HINTS[choice]}</small>
-                </span>
-                {choice === width ? (
-                  <Check
-                    className={styles.check}
-                    size={16}
-                    aria-hidden="true"
-                  />
-                ) : null}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    </details>
+      </details>
+      {suggestion ? (
+        <button
+          type="button"
+          className={styles.suggestion}
+          disabled={pending}
+          onClick={() => {
+            onIssue("");
+            onSelect(suggestion);
+          }}
+        >
+          Use suggested: {WIDTH_LABELS[suggestion]}
+        </button>
+      ) : null}
+    </div>
   );
 }
 
@@ -195,20 +218,6 @@ export function LayoutPicker({
 function closeDisclosure(disclosure: HTMLDetailsElement | null) {
   disclosure?.removeAttribute("open");
   disclosure?.querySelector("summary")?.focus();
-}
-
-function WidthBars({ width }: { width: BlockWidth }) {
-  const filled = WIDTH_COLUMNS[width];
-  return (
-    <span className={styles.widthBars} aria-hidden="true">
-      {BARS.map((bar) => (
-        <span
-          className={bar <= filled ? styles.filledBar : undefined}
-          key={bar}
-        />
-      ))}
-    </span>
-  );
 }
 
 function LayoutGlyph({ layout }: { layout: BlockLayout }) {
