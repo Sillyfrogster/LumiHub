@@ -23,14 +23,9 @@ import { KIND_LABELS } from "@/lib/kinds";
 import { formattingWasRemoved } from "@/lib/rich-text";
 import { AssetBlocks } from "./AssetBlocks";
 import { AssetMedia } from "./AssetMedia";
-import { DeleteControl } from "./DeleteControl";
-import { DiscoveryControl } from "./DiscoveryControl";
 import { DownloadPanel } from "./DownloadPanel";
-import { IdentityPanel } from "./IdentityPanel";
-import { PreservedPanel } from "./PreservedPanel";
-import { PublishPanel } from "./PublishPanel";
+import { DraftHeaderActions } from "./DraftHeaderActions";
 import styles from "./page.module.css";
-import { WithholdControl } from "./WithholdControl";
 import { WithholdNotice } from "./WithholdNotice";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -184,11 +179,7 @@ export default async function AssetPage({
               {hasHeaderActions ? (
                 <div className={styles.headerActions}>
                   {isDraft && asset.isOwner && asset.readiness ? (
-                    <PublishPanel
-                      assetId={asset.id}
-                      kind={kind.toLowerCase()}
-                      readiness={asset.readiness}
-                    />
+                    <DraftHeaderActions />
                   ) : null}
 
                   <DownloadPanel
@@ -237,60 +228,28 @@ export default async function AssetPage({
         </section>
 
         <Shell className={styles.contentShell}>
-          <div className={styles.contentLayout}>
-            <section className={styles.blocks} aria-label="Asset content">
-              <AssetBlocks
-                assetId={asset.id}
-                blocks={asset.blocks}
-                images={asset.media}
-                addableSections={asset.addableSections ?? []}
-                isOwner={asset.isOwner}
-              />
-            </section>
-
-            <aside
-              className={styles.rail}
-              aria-label="Asset details and actions"
-            >
-              {asset.isOwner ? (
-                <IdentityPanel
-                  assetId={asset.id}
-                  initialName={asset.name}
-                  initialIsNsfw={asset.isNsfw}
-                  isDraft={isDraft}
-                />
-              ) : null}
-
-              {asset.isOwner ? (
-                <section className={styles.creatorTools}>
-                  <h2>Creator tools</h2>
-                  {/* Discovery applies to a published asset only. */}
-                  {isDraft ? null : (
-                    <DiscoveryControl
-                      assetId={asset.id}
-                      creator={asset.creator}
-                      initialDiscovery={asset.discovery}
-                      frozen={Boolean(asset.withhold)}
-                    />
-                  )}
-                  <DeleteControl
-                    assetId={asset.id}
-                    creator={asset.creator}
-                    kind={kind.toLowerCase()}
-                    isDraft={isDraft}
-                    frozen={Boolean(asset.withhold)}
-                  />
-                  {asset.original ? (
-                    <PreservedPanel assetId={asset.id} />
-                  ) : null}
-                </section>
-              ) : null}
-
-              {!isDraft && !asset.withhold ? (
-                <WithholdControl assetId={asset.id} />
-              ) : null}
-            </aside>
-          </div>
+          <section className={styles.blocks} aria-label="Asset content">
+            <AssetBlocks
+              assetId={asset.id}
+              blocks={asset.blocks}
+              images={asset.media}
+              addableSections={asset.addableSections ?? []}
+              isOwner={asset.isOwner}
+              creatorMenu={{
+                assetId: asset.id,
+                creator: asset.creator,
+                kind: kind.toLowerCase(),
+                name: asset.name,
+                isNsfw: asset.isNsfw,
+                isDraft,
+                isOwner: asset.isOwner,
+                discovery: asset.discovery,
+                withheld: Boolean(asset.withhold),
+                hasOriginal: Boolean(asset.original),
+                readiness: asset.readiness,
+              }}
+            />
+          </section>
         </Shell>
       </article>
     </div>

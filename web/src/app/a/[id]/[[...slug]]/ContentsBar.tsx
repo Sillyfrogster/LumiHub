@@ -1,13 +1,39 @@
 "use client";
 
+import { Eye, ListTree, Plus, Undo2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { AssetBlock } from "@/lib/api/query";
 import styles from "./ContentsBar.module.css";
+import { CreatorMenu, type CreatorMenuProps } from "./CreatorMenu";
 
 type ContentsBlock = Pick<AssetBlock, "id" | "title">;
 
-export function ContentsBar({ blocks }: { blocks: ContentsBlock[] }) {
-  const bar = useRef<HTMLElement>(null);
+export function ContentsBar({
+  blocks,
+  isOwner,
+  arranging,
+  adding,
+  readerView,
+  canAdd,
+  creatorMenu,
+  onToggleArrange,
+  onToggleAdd,
+  onReaderView,
+  onReturnToEditing,
+}: {
+  blocks: ContentsBlock[];
+  isOwner: boolean;
+  arranging: boolean;
+  adding: boolean;
+  readerView: boolean;
+  canAdd: boolean;
+  creatorMenu: CreatorMenuProps;
+  onToggleArrange: () => void;
+  onToggleAdd: () => void;
+  onReaderView: () => void;
+  onReturnToEditing: () => void;
+}) {
+  const bar = useRef<HTMLDivElement>(null);
   const [activeBlockId, setActiveBlockId] = useState(blocks[0]?.id ?? null);
 
   useEffect(() => {
@@ -56,24 +82,85 @@ export function ContentsBar({ blocks }: { blocks: ContentsBlock[] }) {
     };
   }, [blocks]);
 
-  if (blocks.length === 0) return null;
+  if (blocks.length === 0 && !isOwner) return null;
 
   return (
-    <nav ref={bar} className={styles.bar} aria-label="Contents">
-      <span className={styles.label}>Contents</span>
-      <ol className={styles.entries}>
-        {blocks.map((block) => (
-          <li key={block.id}>
-            <a
-              href={`#block-${block.id}`}
-              aria-current={activeBlockId === block.id ? "location" : undefined}
-              onClick={() => setActiveBlockId(block.id)}
-            >
-              {block.title}
-            </a>
-          </li>
-        ))}
-      </ol>
-    </nav>
+    <div ref={bar} className={styles.bar}>
+      {arranging ? (
+        <p className={styles.mode}>Arrangement outline</p>
+      ) : blocks.length > 0 ? (
+        <nav className={styles.contents} aria-label="Contents">
+          <span className={styles.label}>Contents</span>
+          <ol className={styles.entries}>
+            {blocks.map((block) => (
+              <li key={block.id}>
+                <a
+                  href={`#block-${block.id}`}
+                  aria-current={
+                    activeBlockId === block.id ? "location" : undefined
+                  }
+                  onClick={() => setActiveBlockId(block.id)}
+                >
+                  {block.title}
+                </a>
+              </li>
+            ))}
+          </ol>
+        </nav>
+      ) : (
+        <p className={styles.mode}>Start this page</p>
+      )}
+
+      {isOwner ? (
+        <div className={styles.tools} role="toolbar" aria-label="Page tools">
+          {readerView ? (
+            <>
+              <span className={styles.viewing}>
+                <Eye size={16} aria-hidden="true" />
+                <span>Reader’s view</span>
+              </span>
+              <button type="button" onClick={onReturnToEditing}>
+                <Undo2 size={16} aria-hidden="true" />
+                <span>Return</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                aria-expanded={arranging}
+                onClick={onToggleArrange}
+              >
+                {arranging ? (
+                  <X size={17} aria-hidden="true" />
+                ) : (
+                  <ListTree size={17} aria-hidden="true" />
+                )}
+                <span>{arranging ? "Close outline" : "Arrange"}</span>
+              </button>
+              {canAdd ? (
+                <button
+                  type="button"
+                  aria-expanded={adding}
+                  onClick={onToggleAdd}
+                >
+                  {adding ? (
+                    <X size={17} aria-hidden="true" />
+                  ) : (
+                    <Plus size={17} aria-hidden="true" />
+                  )}
+                  <span>{adding ? "Close add" : "Add block"}</span>
+                </button>
+              ) : null}
+              <button type="button" onClick={onReaderView}>
+                <Eye size={17} aria-hidden="true" />
+                <span>Reader’s view</span>
+              </button>
+              <CreatorMenu {...creatorMenu} />
+            </>
+          )}
+        </div>
+      ) : null}
+    </div>
   );
 }

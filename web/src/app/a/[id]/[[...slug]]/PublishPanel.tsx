@@ -9,17 +9,20 @@ import styles from "./PublishPanel.module.css";
 
 /** Where a creator goes to meet one requirement. */
 function itemHref(item: ReadinessItem): string {
-  return item.blockId ? `#block-${item.blockId}` : "#asset-header";
+  if (item.blockId) return `#block-${item.blockId}`;
+  return item.id === "adult_content" ? "#adult-content-answer" : "#asset-name";
 }
 
 export function PublishPanel({
   assetId,
   kind,
   readiness,
+  onNavigateToBlock,
 }: {
   assetId: string;
   kind: string;
   readiness: ReadinessItem[];
+  onNavigateToBlock: (blockId: string) => void;
 }) {
   const router = useRouter();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -66,7 +69,18 @@ export function PublishPanel({
             <span>
               <strong>{item.label}</strong>
               <span className={styles.detail}>{item.detail}</span>
-              {item.met ? null : <a href={itemHref(item)}>take me there</a>}
+              {item.met ? null : (
+                <a
+                  href={itemHref(item)}
+                  onClick={(event) => {
+                    if (!item.blockId) return;
+                    event.preventDefault();
+                    onNavigateToBlock(item.blockId);
+                  }}
+                >
+                  take me there
+                </a>
+              )}
             </span>
           </li>
         ))}
@@ -109,7 +123,12 @@ export function PublishPanel({
                   <strong>{item.label}</strong> {item.detail}{" "}
                   <a
                     href={itemHref(item)}
-                    onClick={() => dialog.current?.close()}
+                    onClick={(event) => {
+                      dialog.current?.close();
+                      if (!item.blockId) return;
+                      event.preventDefault();
+                      onNavigateToBlock(item.blockId);
+                    }}
                   >
                     go to it
                   </a>

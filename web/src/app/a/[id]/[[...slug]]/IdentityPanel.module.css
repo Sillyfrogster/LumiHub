@@ -1,9 +1,5 @@
 .panel {
-  padding: 22px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  background: var(--color-surface);
-  scroll-margin-top: calc(var(--header-height) + 16px);
+  scroll-margin-top: calc(var(--header-height) + 84px);
 }
 
 .panel h2 {
@@ -34,6 +30,12 @@
   transition:
     border-color 160ms var(--ease),
     background 160ms var(--ease);
+}
+
+.panel input:target,
+.rating:target {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 3px;
 }
 
 .panel input:focus {

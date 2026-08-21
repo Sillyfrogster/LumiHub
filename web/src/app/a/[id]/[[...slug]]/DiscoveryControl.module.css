@@ -4,9 +4,7 @@
   gap: 14px;
   align-items: center;
   max-width: 56ch;
-  margin-top: 34px;
-  padding-top: 24px;
-  border-top: 1px solid var(--color-border);
+  margin-top: 0;
 }
 
 .control > button {

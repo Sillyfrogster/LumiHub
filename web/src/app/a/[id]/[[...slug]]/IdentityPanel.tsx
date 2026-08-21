@@ -54,11 +54,7 @@ export function IdentityPanel({
   }
 
   return (
-    <section
-      id="asset-header"
-      className={styles.panel}
-      aria-labelledby="identity-heading"
-    >
+    <section className={styles.panel} aria-labelledby="identity-heading">
       <h2 id="identity-heading">Name and rating</h2>
       <form onSubmit={submit}>
         <label htmlFor="asset-name">Name</label>
@@ -73,7 +69,7 @@ export function IdentityPanel({
           disabled={pending}
         />
 
-        <fieldset className={styles.rating}>
+        <fieldset id="adult-content-answer" className={styles.rating}>
           <legend>Adult content</legend>
           <div className={styles.answers}>
             {answers.map((answer) => (

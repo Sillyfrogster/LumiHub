@@ -13,13 +13,14 @@ export function AddSectionTray({
   blocks,
   pending,
   onAdd,
+  onClose,
 }: {
   sections: AddableSection[];
   blocks: AssetBlock[];
   pending: boolean;
   onAdd: (definition: string, elementType: ElementType) => void;
+  onClose: () => void;
 }) {
-  const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const searchId = useId();
 
@@ -30,8 +31,6 @@ export function AddSectionTray({
       present: !section.repeatable && present.has(section.definition),
     }));
   }, [sections, blocks]);
-  const available = offers.filter((offer) => !offer.present).length;
-
   const wanted = search.trim().toLowerCase();
   const groups = useMemo(() => {
     const grouped = new Map<string, SectionGroup>();
@@ -59,45 +58,18 @@ export function AddSectionTray({
 
   if (sections.length === 0) return null;
 
-  if (!open) {
-    return (
-      <div className={styles.tray}>
-        <button
-          type="button"
-          className={styles.opener}
-          aria-expanded={false}
-          onClick={() => setOpen(true)}
-        >
-          <span className={styles.openerMark} aria-hidden="true">
-            <Plus size={18} />
-          </span>
-          <span className={styles.openerText}>
-            <strong>Add a section</strong>
-            {available === 0
-              ? "Every section is on the page. A custom one can go on at any time."
-              : `${countWord(available)} to choose from, and you can add them at any time.`}
-          </span>
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <section className={styles.tray} aria-labelledby="add-section-title">
+    <section className={styles.tray} aria-labelledby="add-block-title">
       <header className={styles.topline}>
         <div>
-          <p className={styles.context}>Add a section</p>
-          <h2 id="add-section-title">What goes on this page</h2>
+          <p className={styles.context}>Add a block</p>
+          <h2 id="add-block-title">What goes on this page</h2>
           <p>
-            Sections are grouped by where their content ends up. Nothing here is
-            a decision you have to make now.
+            Blocks are grouped by where their content ends up. Nothing here is a
+            decision you have to make now.
           </p>
         </div>
-        <button
-          type="button"
-          className={styles.close}
-          onClick={() => setOpen(false)}
-        >
+        <button type="button" className={styles.close} onClick={onClose}>
           <X size={17} aria-hidden="true" />
           Close
         </button>
@@ -119,7 +91,7 @@ export function AddSectionTray({
 
       {groups.length === 0 ? (
         <p className={styles.nothing}>
-          No section is named that. Try “images”, “notes” or “links”.
+          No block is named that. Try “images”, “notes” or “links”.
         </p>
       ) : null}
 
@@ -181,22 +153,4 @@ export function AddSectionTray({
       ))}
     </section>
   );
-}
-
-const COUNT_WORDS = [
-  "No sections",
-  "One section",
-  "Two sections",
-  "Three sections",
-  "Four sections",
-  "Five sections",
-  "Six sections",
-  "Seven sections",
-  "Eight sections",
-  "Nine sections",
-  "Ten sections",
-];
-
-function countWord(count: number): string {
-  return COUNT_WORDS[count] ?? `${count} sections`;
 }

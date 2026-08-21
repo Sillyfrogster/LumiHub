@@ -1,8 +1,5 @@
 .panel {
-  padding: 22px;
-  border: 1px solid var(--color-highlight-border);
-  border-radius: var(--radius-xl);
-  background: var(--color-highlight-soft);
+  scroll-margin-top: calc(var(--header-height) + 84px);
 }
 
 .panel h2 {
@@ -25,7 +22,7 @@
   gap: 13px;
   margin-top: 18px;
   padding-top: 16px;
-  border-top: 1px solid var(--color-highlight-border);
+  border-top: 1px solid var(--color-border);
   list-style: none;
 }
 

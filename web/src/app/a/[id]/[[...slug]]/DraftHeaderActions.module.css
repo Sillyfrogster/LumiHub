@@ -1,0 +1,45 @@
+.panel {
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+  border-radius: var(--radius-xl);
+  background: var(--color-highlight-soft);
+}
+
+.panel h2 {
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: 1.22rem;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+
+.panel p {
+  margin-top: 6px;
+  color: var(--color-text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.panel button {
+  display: inline-flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-inline: 18px;
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-size: 0.82rem;
+  font-weight: 800;
+  box-shadow: var(--shadow-button);
+  transition:
+    transform 180ms var(--ease),
+    box-shadow 180ms var(--ease);
+}
+
+.panel button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-button-hover);
+}

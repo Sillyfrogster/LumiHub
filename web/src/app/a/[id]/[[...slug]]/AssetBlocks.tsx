@@ -1,6 +1,6 @@
 "use client";
 
-import { Eye, ListTree, PencilLine, Undo2 } from "lucide-react";
+import { PencilLine } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import {
@@ -27,6 +27,7 @@ import {
 import styles from "./AssetBlocks.module.css";
 import { BlockSheet } from "./BlockSheet";
 import { ContentsBar } from "./ContentsBar";
+import type { CreatorMenuProps } from "./CreatorMenu";
 import { ElementBody } from "./ElementBody";
 import { ElementOverlay } from "./ElementOverlay";
 import { ElementReader } from "./ElementReader";
@@ -70,12 +71,14 @@ export function AssetBlocks({
   images,
   addableSections,
   isOwner,
+  creatorMenu,
 }: {
   assetId: string;
   blocks: AssetBlock[];
   images: AssetImage[];
   addableSections: AddableSection[];
   isOwner: boolean;
+  creatorMenu: CreatorMenuProps;
 }) {
   const router = useRouter();
   const [currentBlocks, setCurrentBlocks] = useState(blocks);
@@ -83,6 +86,7 @@ export function AssetBlocks({
   const [savingWidth, setSavingWidth] = useState<string | null>(null);
   const [arrangementMessage, setArrangementMessage] = useState("");
   const [arranging, setArranging] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [readerView, setReaderView] = useState(false);
   const [removing, setRemoving] = useState<AssetBlock | null>(null);
   const [blockActionPending, setBlockActionPending] = useState(false);
@@ -196,6 +200,7 @@ export function AssetBlocks({
       const section = await addAssetBlock(assetId, definition, elementType);
       setCurrentBlocks((current) => [...current, section]);
       setArranging(false);
+      setAdding(false);
       setAdded(section.id);
     });
   }
@@ -222,46 +227,41 @@ export function AssetBlocks({
 
   return (
     <>
-      {arranging ? null : <ContentsBar blocks={contentsBlocks} />}
-      {isOwner ? (
-        <div className={styles.ownerToolbar}>
-          {readerView ? (
-            <>
-              <span>
-                <Eye size={16} aria-hidden="true" /> Reader’s view
-              </span>
-              <button type="button" onClick={() => setReaderView(false)}>
-                <Undo2 size={16} aria-hidden="true" />
-                Return to editing
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                aria-expanded={arranging}
-                onClick={() => {
-                  setEditing(null);
-                  setArranging((current) => !current);
-                }}
-              >
-                <ListTree size={17} aria-hidden="true" />
-                {arranging ? "Close outline" : "Arrange sections"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditing(null);
-                  setArranging(false);
-                  setReaderView(true);
-                }}
-              >
-                <Eye size={17} aria-hidden="true" />
-                Reader’s view
-              </button>
-            </>
-          )}
-        </div>
+      <ContentsBar
+        blocks={contentsBlocks}
+        isOwner={isOwner}
+        arranging={arranging}
+        adding={adding}
+        readerView={readerView}
+        canAdd={addableSections.length > 0}
+        creatorMenu={creatorMenu}
+        onToggleArrange={() => {
+          setEditing(null);
+          setAdding(false);
+          setArranging((current) => !current);
+        }}
+        onToggleAdd={() => {
+          setEditing(null);
+          setArranging(false);
+          setAdding((current) => !current);
+        }}
+        onReaderView={() => {
+          setEditing(null);
+          setAdding(false);
+          setArranging(false);
+          setReaderView(true);
+        }}
+        onReturnToEditing={() => setReaderView(false)}
+      />
+
+      {editingVisible && adding ? (
+        <AddSectionTray
+          sections={addableSections}
+          blocks={currentBlocks}
+          pending={blockActionPending}
+          onAdd={addSection}
+          onClose={() => setAdding(false)}
+        />
       ) : null}
 
       {arranging && editingVisible ? (
@@ -478,14 +478,6 @@ export function AssetBlocks({
           ) : null}
         </>
       )}
-      {editingVisible ? (
-        <AddSectionTray
-          sections={addableSections}
-          blocks={currentBlocks}
-          pending={blockActionPending}
-          onAdd={addSection}
-        />
-      ) : null}
       {editedBlock ? (
         <BlockSheet
           assetId={assetId}

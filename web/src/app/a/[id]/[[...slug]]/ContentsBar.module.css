@@ -3,7 +3,7 @@
   z-index: 20;
   top: calc(var(--header-height) + 10px);
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 16px;
   min-height: 60px;
@@ -14,6 +14,14 @@
   background: color-mix(in srgb, var(--color-elevated) 94%, transparent);
   box-shadow: var(--shadow-soft);
   backdrop-filter: blur(14px) saturate(1.08);
+}
+
+.contents {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
 }
 
 .label {
@@ -66,15 +74,94 @@
   outline-offset: -3px;
 }
 
+.mode {
+  padding-inline: 8px;
+  color: var(--color-text-secondary);
+  font-size: var(--type-label-size);
+  font-weight: 760;
+  letter-spacing: 0.04em;
+}
+
+.tools {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  padding-left: 9px;
+  border-left: 1px solid var(--color-border);
+}
+
+.tools button,
+.viewing {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding-inline: 11px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-size: var(--type-label-size);
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.tools button {
+  background: transparent;
+}
+
+.tools button:hover,
+.tools button[aria-expanded="true"] {
+  background: var(--color-muted);
+  color: var(--color-text-primary);
+}
+
+.tools button:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: -3px;
+}
+
+.viewing {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
+}
+
 @media (max-width: 780px) {
   .bar {
-    gap: 10px;
     min-height: 58px;
     margin: -20px 0 24px;
-    padding-left: 12px;
+    padding-inline: 8px;
+  }
+
+  .contents {
+    gap: 4px;
   }
 
   .label {
-    font-size: 0.64rem;
+    display: none;
+  }
+
+  .tools {
+    gap: 2px;
+    padding-left: 6px;
+  }
+
+  .tools button,
+  .viewing {
+    width: 42px;
+    min-height: 42px;
+    padding: 0;
+  }
+
+  .tools button > span:not([aria-label]),
+  .viewing > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 }
