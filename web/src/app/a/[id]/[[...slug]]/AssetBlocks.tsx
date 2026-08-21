@@ -222,7 +222,7 @@ export function AssetBlocks({
 
   return (
     <>
-      <ContentsBar blocks={contentsBlocks} />
+      {arranging ? null : <ContentsBar blocks={contentsBlocks} />}
       {isOwner ? (
         <div className={styles.ownerToolbar}>
           {readerView ? (
