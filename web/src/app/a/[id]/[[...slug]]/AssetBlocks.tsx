@@ -16,7 +16,12 @@ import {
   type SaveAssetBlockRequest,
   saveAssetBlock,
 } from "@/lib/api/query";
-import { packBlockRows } from "@/lib/page-arrangement";
+import {
+  NARROW_BLOCK_GRID_PX,
+  type PackedBlock,
+  packBlockRows,
+} from "@/lib/page-arrangement";
+import { useMeasuredWidth } from "@/lib/use-measured-width";
 import { AddSectionTray } from "./AddSectionTray";
 import { WidthPicker } from "./ArrangementPickers";
 import {
@@ -58,6 +63,10 @@ const LAYOUT_CLASS: Record<AssetBlock["layout"], string> = {
 
 function isModelFacingElement(element: AssetElement) {
   return MODEL_FACING_ROLES.has(element.role ?? "");
+}
+
+function visibleBlocks<T>(row: readonly PackedBlock<T>[]) {
+  return row.filter(({ visible }) => visible);
 }
 
 /**
@@ -120,13 +129,13 @@ export function AssetBlocks({
   }, [adding]);
 
   const editingVisible = isOwner && !readerView;
-  const readerBlocks = useMemo(
+  const publicBlocks = useMemo(
     () =>
-      currentBlocks.flatMap((block) => {
+      currentBlocks.map((block) => {
         const elements = block.elements.filter(
           (element) => !element.isEmpty && !isModelFacingElement(element),
         );
-        return elements.length > 0 ? [{ ...block, elements }] : [];
+        return { ...block, elements, empty: elements.length === 0 };
       }),
     [currentBlocks],
   );
@@ -141,14 +150,20 @@ export function AssetBlocks({
               )
               .map((element) => ({ block, element })),
       );
-  const packable = editingVisible ? currentBlocks : readerBlocks;
-  const rows = packBlockRows(packable, { showHidden: editingVisible });
+  const [rowsRef, availableWidth] = useMeasuredWidth<HTMLDivElement>();
+  const packable = editingVisible ? currentBlocks : publicBlocks;
+  const rows = packBlockRows(packable, {
+    showHidden: editingVisible,
+    availableWidth,
+    narrow:
+      availableWidth !== undefined && availableWidth <= NARROW_BLOCK_GRID_PX,
+  });
   const contentsBlocks = useMemo(
     () =>
       editingVisible
         ? currentBlocks
-        : readerBlocks.filter((block) => !block.hidden),
-    [currentBlocks, editingVisible, readerBlocks],
+        : publicBlocks.filter((block) => !block.hidden && !block.empty),
+    [currentBlocks, editingVisible, publicBlocks],
   );
 
   const editedBlock = currentBlocks.find((block) => block.id === editing);
@@ -284,156 +299,164 @@ export function AssetBlocks({
             </p>
           ) : null}
           {rows.length === 0 ? null : (
-            <div className={styles.rows}>
+            <div className={styles.rows} ref={rowsRef}>
               {rows.map((row) => (
                 <div
                   className={styles.row}
                   key={row.map((item) => item.block.id).join(":")}
                 >
-                  {row.map(({ block, columns }) => (
-                    <article
-                      id={`block-${block.id}`}
-                      key={block.id}
-                      className={styles.block}
-                      data-hidden={
-                        editingVisible && block.hidden ? true : undefined
-                      }
-                      style={{ "--block-columns": columns } as CSSProperties}
-                    >
-                      <header className={styles.header}>
-                        <div className={styles.heading}>
-                          <h2 className={styles.title}>{block.title}</h2>
-                          {editingVisible && block.required ? (
-                            <span>
-                              {block.hideable ? "Required" : "Always shown"}
-                            </span>
+                  {visibleBlocks(row).map(
+                    ({ block, columns, proseMeasure, startColumn }) => (
+                      <article
+                        id={`block-${block.id}`}
+                        key={block.id}
+                        className={styles.block}
+                        data-hidden={
+                          editingVisible && block.hidden ? true : undefined
+                        }
+                        style={
+                          {
+                            "--block-columns": columns,
+                            "--block-start": startColumn,
+                            "--prose-measure": proseMeasure,
+                          } as CSSProperties
+                        }
+                      >
+                        <header className={styles.header}>
+                          <div className={styles.heading}>
+                            <h2 className={styles.title}>{block.title}</h2>
+                            {editingVisible && block.required ? (
+                              <span>
+                                {block.hideable ? "Required" : "Always shown"}
+                              </span>
+                            ) : null}
+                          </div>
+                          {editingVisible ? (
+                            <div className={styles.controls}>
+                              <WidthPicker
+                                width={block.width}
+                                layout={block.layout}
+                                pending={savingWidth === block.id}
+                                onIssue={setArrangementMessage}
+                                onSelect={async (width) => {
+                                  if (savingWidth) return;
+                                  setSavingWidth(block.id);
+                                  setArrangementMessage("");
+                                  try {
+                                    const saved = await saveAssetBlock(
+                                      assetId,
+                                      block.id,
+                                      blockSaveRequest(block, { width }),
+                                    );
+                                    setCurrentBlocks((current) =>
+                                      saved
+                                        ? current.map((item) =>
+                                            item.id === saved.id ? saved : item,
+                                          )
+                                        : current.filter(
+                                            (item) => item.id !== block.id,
+                                          ),
+                                    );
+                                  } catch (error) {
+                                    setArrangementMessage(
+                                      error instanceof Error
+                                        ? error.message
+                                        : "The width could not be saved. Try again.",
+                                    );
+                                  } finally {
+                                    setSavingWidth(null);
+                                  }
+                                }}
+                              />
+                              <button
+                                type="button"
+                                className={styles.edit}
+                                aria-label={`Edit ${block.title}`}
+                                onClick={() => setEditing(block.id)}
+                              >
+                                <PencilLine size={15} aria-hidden="true" />
+                                <span>Edit section</span>
+                              </button>
+                            </div>
                           ) : null}
-                        </div>
-                        {editingVisible ? (
-                          <div className={styles.controls}>
-                            <WidthPicker
-                              width={block.width}
-                              layout={block.layout}
-                              pending={savingWidth === block.id}
-                              onIssue={setArrangementMessage}
-                              onSelect={async (width) => {
-                                if (savingWidth) return;
-                                setSavingWidth(block.id);
-                                setArrangementMessage("");
-                                try {
-                                  const saved = await saveAssetBlock(
-                                    assetId,
-                                    block.id,
-                                    blockSaveRequest(block, { width }),
-                                  );
-                                  setCurrentBlocks((current) =>
-                                    saved
-                                      ? current.map((item) =>
-                                          item.id === saved.id ? saved : item,
-                                        )
-                                      : current.filter(
-                                          (item) => item.id !== block.id,
-                                        ),
-                                  );
-                                } catch (error) {
-                                  setArrangementMessage(
-                                    error instanceof Error
-                                      ? error.message
-                                      : "The width could not be saved. Try again.",
-                                  );
-                                } finally {
-                                  setSavingWidth(null);
-                                }
-                              }}
-                            />
+                        </header>
+                        {editingVisible && block.hidden ? (
+                          <div className={styles.hiddenNotice}>
+                            <span>
+                              Hidden from the public page. Everything in it is
+                              kept, and it still travels in every download.
+                            </span>
                             <button
                               type="button"
-                              className={styles.edit}
-                              aria-label={`Edit ${block.title}`}
-                              onClick={() => setEditing(block.id)}
+                              onClick={() =>
+                                void (async () => {
+                                  try {
+                                    const saved = await arrangeAssetBlocks(
+                                      assetId,
+                                      {
+                                        blocks: currentBlocks.map((item) => ({
+                                          id: item.id,
+                                          hidden:
+                                            item.id === block.id
+                                              ? false
+                                              : item.hidden,
+                                          width: item.width,
+                                        })),
+                                      },
+                                    );
+                                    setCurrentBlocks(saved);
+                                  } catch (error) {
+                                    setArrangementMessage(
+                                      error instanceof Error
+                                        ? error.message
+                                        : "The section could not be shown. Try again.",
+                                    );
+                                  }
+                                })()
+                              }
                             >
-                              <PencilLine size={15} aria-hidden="true" />
-                              <span>Edit section</span>
+                              Show it again
                             </button>
                           </div>
                         ) : null}
-                      </header>
-                      {editingVisible && block.hidden ? (
-                        <div className={styles.hiddenNotice}>
-                          <span>
-                            Hidden from the public page. Everything in it is
-                            kept, and it still travels in every download.
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void (async () => {
-                                try {
-                                  const saved = await arrangeAssetBlocks(
-                                    assetId,
-                                    {
-                                      blocks: currentBlocks.map((item) => ({
-                                        id: item.id,
-                                        hidden:
-                                          item.id === block.id
-                                            ? false
-                                            : item.hidden,
-                                        width: item.width,
-                                      })),
-                                    },
-                                  );
-                                  setCurrentBlocks(saved);
-                                } catch (error) {
-                                  setArrangementMessage(
-                                    error instanceof Error
-                                      ? error.message
-                                      : "The section could not be shown. Try again.",
-                                  );
-                                }
-                              })()
-                            }
-                          >
-                            Show it again
-                          </button>
-                        </div>
-                      ) : null}
-                      <div className={LAYOUT_CLASS[block.layout]}>
-                        {block.elements.map((element) => (
-                          <div
-                            style={{ gridArea: element.slot }}
-                            key={element.id}
-                          >
-                            <ElementBody
-                              element={element}
-                              isOwner={editingVisible}
-                              images={images}
-                              blockTitle={block.title}
-                              onExpand={() =>
-                                setExpanding({
-                                  blockId: block.id,
-                                  element: structuredClone(element),
-                                })
-                              }
-                              onReadMore={() =>
-                                setReading({
-                                  blockId: block.id,
-                                  element,
-                                })
-                              }
-                            />
-                            {reading?.blockId === block.id &&
-                            reading.element.id === element.id ? (
-                              <ElementReader
-                                element={reading.element}
+                        <div className={LAYOUT_CLASS[block.layout]}>
+                          {block.elements.map((element) => (
+                            <div
+                              style={{ gridArea: element.slot }}
+                              key={element.id}
+                            >
+                              <ElementBody
+                                element={element}
+                                isOwner={editingVisible}
                                 images={images}
-                                onDismiss={dismissReader}
+                                blockTitle={block.title}
+                                onExpand={() =>
+                                  setExpanding({
+                                    blockId: block.id,
+                                    element: structuredClone(element),
+                                  })
+                                }
+                                onReadMore={() =>
+                                  setReading({
+                                    blockId: block.id,
+                                    element,
+                                  })
+                                }
                               />
-                            ) : null}
-                          </div>
-                        ))}
-                      </div>
-                    </article>
-                  ))}
+                              {reading?.blockId === block.id &&
+                              reading.element.id === element.id ? (
+                                <ElementReader
+                                  element={reading.element}
+                                  images={images}
+                                  onDismiss={dismissReader}
+                                />
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
+                      </article>
+                    ),
+                  )}
                 </div>
               ))}
             </div>

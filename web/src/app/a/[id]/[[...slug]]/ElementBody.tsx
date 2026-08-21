@@ -217,9 +217,11 @@ export function ElementContent({
 
   if (element.type === "prose" && "text" in content) {
     return element.display === "verbatim" ? (
-      <pre className={styles.verbatim}>{content.text}</pre>
+      <pre className={`${styles.verbatim} ${styles.proseMeasure}`}>
+        {content.text}
+      </pre>
     ) : (
-      <RichText text={content.text} />
+      <RichText text={content.text} className={styles.proseMeasure} />
     );
   }
 

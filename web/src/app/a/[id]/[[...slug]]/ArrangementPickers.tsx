@@ -10,6 +10,7 @@ import {
   LAYOUTS,
   layoutChoiceIssue,
   WIDTH_COLUMNS,
+  WIDTH_FLOORS_PX,
   WIDTH_LABELS,
   widthChoiceIssue,
 } from "@/lib/page-arrangement";
@@ -19,10 +20,10 @@ const WIDTHS = ["full", "two_thirds", "half", "third"] as const;
 const BARS = Array.from({ length: 12 }, (_, index) => index + 1);
 
 const WIDTH_HINTS: Record<BlockWidth, string> = {
-  full: "One section across the row",
-  two_thirds: "Leaves room for a shorter third",
-  half: "Pairs evenly with another half",
-  third: "For short supporting sections",
+  full: "Uses all twelve columns.",
+  two_thirds: `Uses eight columns, or Full if that would be under ${WIDTH_FLOORS_PX.two_thirds}px.`,
+  half: `Uses six columns, or Full if that would be under ${WIDTH_FLOORS_PX.half}px.`,
+  third: `Uses four columns, then Half or Full before it falls under ${WIDTH_FLOORS_PX.third}px.`,
 };
 
 const LAYOUT_HINTS: Record<BlockLayout, string> = {
@@ -68,7 +69,7 @@ export function WidthPicker({
       <div className={styles.menu}>
         <div className={styles.menuHeading}>
           <strong>Section width</strong>
-          <span>A section on its own row fills the page.</span>
+          <span>Sizes stay exact. A short row keeps its empty space.</span>
         </div>
         <div className={styles.options}>
           {WIDTHS.map((choice) => {

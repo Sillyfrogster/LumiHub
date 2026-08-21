@@ -6,8 +6,10 @@ import {
   LAYOUTS,
   layoutChoiceIssue,
   opensFullScreen,
+  PROSE_MEASURE,
   packBlockRows,
   WIDTH_COLUMNS,
+  WIDTH_FLOORS_PX,
   widthChoiceIssue,
 } from "./page-arrangement";
 
@@ -15,18 +17,31 @@ type TestBlock = {
   id: string;
   width: keyof typeof WIDTH_COLUMNS;
   hidden: boolean;
+  empty: boolean;
 };
 
 function block(
   id: string,
   width: TestBlock["width"],
   hidden = false,
+  empty = false,
 ): TestBlock {
-  return { id, width, hidden };
+  return { id, width, hidden, empty };
 }
 
 function spans(rows: ReturnType<typeof packBlockRows<TestBlock>>) {
   return rows.map((row) => row.map((item) => [item.block.id, item.columns]));
+}
+
+function visibleSpans(rows: ReturnType<typeof packBlockRows<TestBlock>>) {
+  return rows.map((row) =>
+    row.map((item) => [
+      item.block.id,
+      item.columns,
+      item.startColumn,
+      item.visible,
+    ]),
+  );
 }
 
 describe("page arrangement", () => {
@@ -59,15 +74,15 @@ describe("page arrangement", () => {
         ),
       ),
     ).toEqual([
-      [["a", 12]],
+      [["a", 8]],
       [
         ["b", 6],
-        ["c", 6],
+        ["c", 4],
       ],
     ]);
   });
 
-  test("the last block absorbs the remainder and a lone block fills its row", () => {
+  test("a block keeps its declared width and a short row stays short", () => {
     expect(
       spans(
         packBlockRows(
@@ -78,43 +93,112 @@ describe("page arrangement", () => {
     ).toEqual([
       [
         ["a", 4],
-        ["b", 8],
+        ["b", 6],
       ],
-      [["c", 12]],
+      [["c", 4]],
     ]);
   });
 
-  test("a hidden block leaves reader packing and stays in owner packing", () => {
+  test("hidden and empty blocks keep their grid places when not rendered", () => {
     const blocks = [block("hidden", "half", true), block("shown", "half")];
 
-    expect(spans(packBlockRows(blocks, { showHidden: false }))).toEqual([
-      [["shown", 12]],
-    ]);
-    expect(spans(packBlockRows(blocks, { showHidden: true }))).toEqual([
+    expect(visibleSpans(packBlockRows(blocks, { showHidden: false }))).toEqual([
       [
-        ["hidden", 6],
-        ["shown", 6],
+        ["hidden", 6, 1, false],
+        ["shown", 6, 7, true],
       ],
+    ]);
+    expect(visibleSpans(packBlockRows(blocks, { showHidden: true }))).toEqual([
+      [
+        ["hidden", 6, 1, true],
+        ["shown", 6, 7, true],
+      ],
+    ]);
+
+    const withEmpty = [
+      block("first", "third"),
+      block("empty", "half", false, true),
+      block("last", "third"),
+    ];
+    expect(
+      visibleSpans(packBlockRows(withEmpty, { showHidden: false })),
+    ).toEqual([
+      [
+        ["first", 4, 1, true],
+        ["empty", 6, 5, false],
+      ],
+      [["last", 4, 1, true]],
     ]);
   });
 
-  test("every combination fills every completed row", () => {
+  test("every width combination keeps each block at its declared size", () => {
     const widths = Object.keys(WIDTH_COLUMNS) as TestBlock["width"][];
     for (const first of widths) {
       for (const second of widths) {
         for (const third of widths) {
+          const chosen = [first, second, third];
           const rows = packBlockRows(
             [block("a", first), block("b", second), block("c", third)],
             { showHidden: true },
           );
+          const packed = rows.flat();
+          expect(packed).toHaveLength(3);
+          packed.forEach((item, index) => {
+            expect(item.columns).toBe(WIDTH_COLUMNS[chosen[index]]);
+          });
           for (const row of rows) {
-            expect(row.reduce((total, item) => total + item.columns, 0)).toBe(
-              12,
+            const occupied = row.reduce(
+              (total, item) => total + item.columns,
+              0,
             );
+            expect(occupied).toBeLessThanOrEqual(12);
           }
         }
       }
     }
+  });
+
+  test("each width promotes at its pixel floor through the same ladder", () => {
+    expect(WIDTH_FLOORS_PX).toEqual({
+      full: 280,
+      two_thirds: 640,
+      half: 440,
+      third: 320,
+    });
+
+    const columnsAt = (width: TestBlock["width"], availableWidth: number) =>
+      packBlockRows([block("one", width)], {
+        showHidden: true,
+        availableWidth,
+      })[0][0].columns;
+
+    expect(columnsAt("third", 1000)).toBe(4);
+    expect(columnsAt("third", 999)).toBe(6);
+    expect(columnsAt("half", 900)).toBe(6);
+    expect(columnsAt("half", 899)).toBe(12);
+    expect(columnsAt("two_thirds", 970)).toBe(8);
+    expect(columnsAt("two_thirds", 969)).toBe(12);
+    expect(columnsAt("full", 280)).toBe(12);
+  });
+
+  test("block width never changes the measure of prose inside it", () => {
+    const packed = packBlockRows(
+      [
+        block("full", "full"),
+        block("two-thirds", "two_thirds"),
+        block("half", "half"),
+        block("third", "third"),
+      ],
+      { showHidden: true, availableWidth: 1240 },
+    ).flat();
+
+    expect(PROSE_MEASURE).toBe("70ch");
+    expect(packed.map(({ proseMeasure }) => proseMeasure)).toEqual([
+      "70ch",
+      "70ch",
+      "70ch",
+      "70ch",
+    ]);
   });
 
   test("narrow packing ignores declared widths", () => {

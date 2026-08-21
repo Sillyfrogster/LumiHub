@@ -9,6 +9,25 @@ export const WIDTH_COLUMNS = {
 
 export type BlockWidth = keyof typeof WIDTH_COLUMNS;
 
+export const WIDTH_FLOORS_PX: Record<BlockWidth, number> = {
+  full: 280,
+  two_thirds: 640,
+  half: 440,
+  third: 320,
+};
+
+const WIDTH_PROMOTION: Record<BlockWidth, BlockWidth | null> = {
+  full: null,
+  two_thirds: "full",
+  half: "full",
+  third: "half",
+};
+
+const BLOCK_GRID_GAP_PX = 20;
+
+export const PROSE_MEASURE = "70ch";
+export const NARROW_BLOCK_GRID_PX = 700;
+
 export const WIDTH_LABELS: Record<BlockWidth, string> = {
   full: "Full",
   two_thirds: "Two thirds",
@@ -71,17 +90,50 @@ function widthLabelForColumns(columns: number): string {
 export type PackedBlock<T> = {
   block: T;
   columns: number;
+  proseMeasure: typeof PROSE_MEASURE;
+  startColumn: number;
+  visible: boolean;
 };
 
-export function packBlockRows<T extends { hidden: boolean; width: BlockWidth }>(
+function renderedColumns(width: BlockWidth, availableWidth: number): number {
+  let renderedWidth = width;
+  while (
+    gridSpanWidth(availableWidth, WIDTH_COLUMNS[renderedWidth]) <
+    WIDTH_FLOORS_PX[renderedWidth]
+  ) {
+    const promotion = WIDTH_PROMOTION[renderedWidth];
+    if (!promotion) break;
+    renderedWidth = promotion;
+  }
+  return WIDTH_COLUMNS[renderedWidth];
+}
+
+function gridSpanWidth(availableWidth: number, columns: number): number {
+  const gapsWidth = BLOCK_GRID_GAP_PX * 11;
+  const trackWidth = Math.max(0, availableWidth - gapsWidth) / 12;
+  return trackWidth * columns + BLOCK_GRID_GAP_PX * (columns - 1);
+}
+
+export function packBlockRows<
+  T extends { hidden: boolean; width: BlockWidth; empty?: boolean },
+>(
   blocks: readonly T[],
-  options: { showHidden: boolean; narrow?: boolean },
+  options: {
+    showHidden: boolean;
+    narrow?: boolean;
+    availableWidth?: number;
+  },
 ): PackedBlock<T>[][] {
-  const included = options.showHidden
-    ? blocks
-    : blocks.filter((block) => !block.hidden);
   if (options.narrow) {
-    return included.map((block) => [{ block, columns: 12 }]);
+    return blocks.map((block) => [
+      {
+        block,
+        columns: 12,
+        proseMeasure: PROSE_MEASURE,
+        startColumn: 1,
+        visible: options.showHidden || (!block.hidden && !block.empty),
+      },
+    ]);
   }
 
   const rows: PackedBlock<T>[][] = [];
@@ -89,21 +141,25 @@ export function packBlockRows<T extends { hidden: boolean; width: BlockWidth }>(
   let occupied = 0;
 
   function finishRow() {
-    const last = row.at(-1);
-    if (!last) return;
-    row[row.length - 1] = {
-      ...last,
-      columns: last.columns + 12 - occupied,
-    };
+    if (row.length === 0) return;
     rows.push(row);
     row = [];
     occupied = 0;
   }
 
-  for (const block of included) {
-    const columns = WIDTH_COLUMNS[block.width];
+  for (const block of blocks) {
+    const columns =
+      options.availableWidth === undefined
+        ? WIDTH_COLUMNS[block.width]
+        : renderedColumns(block.width, options.availableWidth);
     if (occupied + columns > 12) finishRow();
-    row.push({ block, columns });
+    row.push({
+      block,
+      columns,
+      proseMeasure: PROSE_MEASURE,
+      startColumn: occupied + 1,
+      visible: options.showHidden || (!block.hidden && !block.empty),
+    });
     occupied += columns;
     if (occupied === 12) finishRow();
   }

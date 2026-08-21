@@ -68,6 +68,10 @@
   margin-top: 0.85em;
 }
 
+.proseMeasure {
+  max-width: var(--prose-measure, 70ch);
+}
+
 .blank {
   color: var(--color-text-secondary);
   font-family: var(--font-display);

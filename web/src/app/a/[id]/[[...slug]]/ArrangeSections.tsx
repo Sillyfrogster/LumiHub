@@ -25,9 +25,11 @@ import {
 import {
   contentItemCount,
   LAYOUTS,
+  NARROW_BLOCK_GRID_PX,
   packBlockRows,
   WIDTH_LABELS,
 } from "@/lib/page-arrangement";
+import { useMeasuredWidth } from "@/lib/use-measured-width";
 import { WidthPicker } from "./ArrangementPickers";
 import styles from "./ArrangeSections.module.css";
 
@@ -47,6 +49,7 @@ export function ArrangeSections({
   const [dragged, setDragged] = useState<string | null>(null);
   const [dropAt, setDropAt] = useState<number | null>(null);
   const [removing, setRemoving] = useState<AssetBlock | null>(null);
+  const [arrangeRef, availableWidth] = useMeasuredWidth<HTMLElement>();
 
   async function save(next: AssetBlock[]) {
     if (saving) return;
@@ -90,10 +93,16 @@ export function ArrangeSections({
     move(from, Math.min(destination, blocks.length - 1));
   }
 
-  const shapeRows = packBlockRows(blocks, { showHidden: true });
+  const shapeRows = packBlockRows(blocks, {
+    showHidden: true,
+    availableWidth,
+    narrow:
+      availableWidth !== undefined && availableWidth <= NARROW_BLOCK_GRID_PX,
+  });
 
   return (
     <section
+      ref={arrangeRef}
       className={styles.arrange}
       aria-labelledby="arrange-sections-title"
     >

@@ -20,7 +20,7 @@
 .block {
   position: relative;
   min-width: 0;
-  grid-column: span var(--block-columns);
+  grid-column: var(--block-start) / span var(--block-columns);
   container-name: block;
   container-type: inline-size;
   padding: 28px 30px 32px;
