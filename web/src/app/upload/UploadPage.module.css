@@ -1,129 +1,213 @@
 .page {
-  position: relative;
-  min-height: calc(100svh - var(--header-height));
-  overflow: hidden;
+  min-height: calc(100svh - var(--header-height) - 81px);
+  overflow: clip;
   background: var(--color-background);
 }
 
 .layout {
-  position: relative;
-  z-index: 2;
-  width: min(100%, 980px);
-  padding-block: 34px clamp(72px, 8vw, 104px);
-}
-
-.heading {
-  display: grid;
-  min-height: 250px;
-  grid-template-columns: minmax(0, 1fr) 230px;
-  gap: 40px;
+  display: flex;
+  min-height: calc(100svh - var(--header-height) - 81px);
   align-items: center;
-  margin-bottom: 22px;
+  justify-content: center;
+  padding-block: clamp(40px, 6vw, 76px);
 }
 
-.heading h1 {
-  max-width: 18ch;
-  font-family: var(--font-display);
-  font-size: clamp(2.7rem, 5vw, 4.35rem);
-  font-weight: 560;
-  letter-spacing: -0.035em;
-  line-height: 1;
-  text-wrap: balance;
-}
-
-.heading p {
-  max-width: 66ch;
-  margin-top: 16px;
-  color: var(--color-text-secondary);
-  font-size: 1rem;
-  line-height: 1.65;
-}
-
-.mascot {
-  width: 100%;
-  height: 250px;
-  object-fit: contain;
-  object-position: center bottom;
-  filter: drop-shadow(
-    0 18px 24px color-mix(in srgb, var(--color-shadow) 24%, transparent)
-  );
-}
-
-.flow {
+.desk {
   display: grid;
+  width: min(100%, 1180px);
+  min-height: 690px;
+  grid-template-columns: minmax(560px, 1.18fr) minmax(340px, 0.82fr);
   overflow: hidden;
   border-radius: var(--radius-xl);
   background: var(--color-elevated);
   box-shadow: var(--shadow-panel);
 }
 
+.task {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  align-content: start;
+  padding: clamp(44px, 5vw, 64px);
+  background: var(--color-elevated);
+}
+
+.task::after {
+  position: absolute;
+  top: 0;
+  right: -54px;
+  width: 56px;
+  height: 100%;
+  background: var(--color-elevated);
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+  content: "";
+  pointer-events: none;
+}
+
+.heading {
+  max-width: 590px;
+  margin-bottom: 38px;
+}
+
+.heading h1 {
+  max-width: 13ch;
+  font-family: var(--font-display);
+  font-size: var(--type-display-size);
+  font-weight: 560;
+  letter-spacing: -0.035em;
+  line-height: var(--type-display-leading);
+  text-wrap: balance;
+}
+
+.heading p {
+  max-width: 60ch;
+  margin-top: 16px;
+  color: var(--color-text-secondary);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-leading);
+}
+
+.artwork {
+  position: relative;
+  min-height: 690px;
+  overflow: hidden;
+  background: var(--color-muted);
+  isolation: isolate;
+}
+
+.artwork::before,
+.artwork::after {
+  position: absolute;
+  z-index: -1;
+  content: "";
+  pointer-events: none;
+}
+
+.artwork::before {
+  top: -8%;
+  right: -22%;
+  width: 104%;
+  height: 58%;
+  background: var(--color-text-primary);
+  clip-path: polygon(22% 0, 100% 0, 78% 100%, 0 100%);
+  opacity: 0.1;
+  transform: rotate(-13deg);
+}
+
+.artwork::after {
+  right: -30%;
+  bottom: -22%;
+  width: 88%;
+  aspect-ratio: 1;
+  background: var(--color-text-primary);
+  clip-path: polygon(
+    50% 0,
+    58% 42%,
+    100% 50%,
+    58% 58%,
+    50% 100%,
+    42% 58%,
+    0 50%,
+    42% 42%
+  );
+  opacity: 0.06;
+}
+
+.archiveHost {
+  position: absolute;
+  inset: 0;
+  background-image: url("../../assets/art/full/illarin-mascot-archive-light-v1.webp");
+  background-position: center bottom;
+  background-repeat: no-repeat;
+  background-size: auto 96%;
+  filter: drop-shadow(
+    -22px 28px 40px color-mix(in srgb, var(--color-shadow) 30%, transparent)
+  );
+}
+
+:global(:root[data-theme="dark"]) .archiveHost {
+  background-image: url("../../assets/art/full/illarin-mascot-archive-dark-v1.webp");
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme])) .archiveHost {
+    background-image: url("../../assets/art/full/illarin-mascot-archive-dark-v1.webp");
+  }
+}
+
+.flow,
 .form,
 .operation,
 .success,
 .processing,
 .accountState,
-.sessionState {
-  position: relative;
-  border: 0;
-  border-radius: var(--radius-xl);
-  background: var(--color-elevated);
+.sessionState,
+.pathChoice {
+  width: 100%;
 }
 
-.flow > .form {
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
-
-.form {
-  padding: clamp(22px, 3.5vw, 30px);
+.flow {
+  display: grid;
+  align-content: start;
 }
 
 .pathChoice {
   display: grid;
   gap: 8px;
-  padding: clamp(24px, 4vw, 36px);
-  border-radius: var(--radius-xl);
-  background: var(--color-elevated);
-  box-shadow: var(--shadow-panel);
 }
 
 .pathIntro {
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
-.pathIntro h2 {
+.pathIntro h2,
+.formIntro h2,
+.operationCopy h2,
+.success h2,
+.processing h2,
+.accountState h2 {
+  color: var(--color-text-primary);
   font-family: var(--font-display);
-  font-size: 1.8rem;
-  font-weight: 560;
+  font-size: var(--type-block-title-size);
+  font-weight: 600;
   letter-spacing: -0.02em;
+  line-height: var(--type-block-title-leading);
 }
 
-.pathIntro p {
-  max-width: 60ch;
-  margin-top: 7px;
+.pathIntro p,
+.formIntro p,
+.operationCopy p,
+.processing p,
+.accountState p {
+  max-width: 62ch;
+  margin-top: 8px;
   color: var(--color-text-secondary);
-  font-size: 0.86rem;
-  line-height: 1.6;
+  font-size: var(--type-secondary-size);
+  line-height: var(--type-secondary-leading);
 }
 
 .pathChoice > button {
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) 24px;
-  gap: 14px;
+  min-height: 92px;
+  grid-template-columns: 40px minmax(0, 1fr) 24px;
+  gap: 15px;
   align-items: center;
-  min-height: 86px;
-  padding: 14px 18px;
+  padding: 16px 18px;
   border-radius: var(--radius-md);
+  background: var(--color-muted);
   color: var(--color-text-primary);
   text-align: left;
   transition:
-    background 180ms var(--ease),
+    background-color 180ms var(--ease),
     transform 180ms var(--ease);
 }
 
 .pathChoice > button:hover {
-  background: var(--color-muted);
+  background: color-mix(
+    in srgb,
+    var(--color-muted) 78%,
+    var(--color-text-primary)
+  );
   transform: translateX(3px);
 }
 
@@ -141,13 +225,14 @@
 }
 
 .pathChoice > button strong {
-  font-size: 0.92rem;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-leading);
 }
 
 .pathChoice > button small {
   color: var(--color-text-secondary);
-  font-size: 0.76rem;
-  line-height: 1.5;
+  font-size: var(--type-secondary-size);
+  line-height: var(--type-secondary-leading);
 }
 
 .pathBack {
@@ -156,15 +241,19 @@
   align-items: center;
   gap: 8px;
   justify-self: start;
-  margin: 12px 18px 0;
-  padding-inline: 10px;
+  margin-bottom: 16px;
+  padding-inline: 4px;
   color: var(--color-text-secondary);
-  font-size: 0.75rem;
-  font-weight: 760;
+  font-size: var(--type-label-size);
+  font-weight: 800;
 }
 
 .pathBack:hover {
   color: var(--color-text-primary);
+}
+
+.form {
+  padding-top: 2px;
 }
 
 .formIntro {
@@ -173,23 +262,6 @@
   justify-content: space-between;
   gap: 18px;
   margin-bottom: 20px;
-}
-
-.formIntro h2 {
-  color: var(--color-text-primary);
-  font-family: var(--font-display);
-  font-size: 1.4rem;
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  line-height: 1.12;
-}
-
-.formIntro p {
-  max-width: 56ch;
-  margin-top: 6px;
-  color: var(--color-text-secondary);
-  font-size: 0.9rem;
-  line-height: 1.6;
 }
 
 .fileField input {
@@ -202,30 +274,35 @@
 
 .fileField label {
   display: grid;
-  min-height: 116px;
+  min-height: 132px;
   place-items: center;
   align-content: center;
   gap: 7px;
   border: 1px dashed var(--color-accent-border);
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--color-muted) 72%, transparent);
+  border-radius: var(--radius-md);
+  background: var(--color-muted);
   color: var(--color-accent);
   cursor: pointer;
   text-align: center;
   transition:
     border-color 180ms var(--ease),
-    background 180ms var(--ease);
+    background-color 180ms var(--ease);
 }
 
 .fileField label:hover,
 .fileField input:focus-visible + label {
   border-color: var(--color-accent);
-  background: var(--color-muted);
+  background: color-mix(
+    in srgb,
+    var(--color-muted) 84%,
+    var(--color-text-primary)
+  );
 }
 
 .fileField input:focus-visible + label {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--color-focus-inner);
   outline-offset: 3px;
+  box-shadow: 0 0 0 5px var(--color-focus-outer);
 }
 
 .fileField span {
@@ -233,57 +310,22 @@
   padding-inline: 16px;
   overflow-wrap: anywhere;
   color: var(--color-text-primary);
-  font-weight: 900;
+  font-size: var(--type-body-size);
+  font-weight: 800;
 }
 
 .fileField small {
   color: var(--color-text-secondary);
-  font-size: 0.75rem;
-  line-height: 1.45;
-}
-
-.kindForm label {
-  display: grid;
-  gap: 8px;
-  color: var(--color-text-primary);
-  font-size: 0.78rem;
-  font-weight: 900;
-}
-
-.kindForm input,
-.kindForm select {
-  width: 100%;
-  min-height: 44px;
-  padding: 10px 12px;
-  border: 1px solid var(--color-accent-border);
-  border-radius: var(--radius-sm);
-  outline: none;
-  background: var(--color-surface);
-  color: var(--color-text-primary);
-  font: inherit;
-  font-weight: 400;
-  transition:
-    border-color 180ms var(--ease),
-    box-shadow 180ms var(--ease);
-}
-
-.kindForm input:hover,
-.kindForm select:hover {
-  border-color: var(--color-text-secondary);
-}
-
-.kindForm input:focus,
-.kindForm select:focus {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px var(--color-focus-ring);
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-leading);
 }
 
 .checks {
   display: grid;
   gap: 10px;
-  margin-top: 22px;
+  margin-top: 18px;
   padding: 14px 16px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: var(--color-muted);
 }
 
@@ -292,19 +334,18 @@
   gap: 10px;
   align-items: flex-start;
   color: var(--color-text-secondary);
-  font-size: 0.82rem;
-  line-height: 1.5;
+  font-size: var(--type-secondary-size);
+  line-height: var(--type-secondary-leading);
 }
 
 .checks input {
-  width: 17px;
-  height: 17px;
-  margin-top: 2px;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
   accent-color: var(--color-accent);
 }
 
 .submit,
-.kindForm button,
 .accountState a,
 .successActions a {
   display: inline-flex;
@@ -312,10 +353,10 @@
   align-items: center;
   justify-content: center;
   padding-inline: 22px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: var(--color-accent);
   color: var(--color-on-accent);
-  font-size: 0.8rem;
+  font-size: var(--type-label-size);
   font-weight: 900;
   box-shadow: var(--shadow-button);
   transition:
@@ -325,12 +366,11 @@
 
 .submit {
   min-width: 160px;
-  margin-top: 22px;
+  margin-top: 20px;
   margin-left: auto;
 }
 
 .submit:hover:not(:disabled),
-.kindForm button:hover:not(:disabled),
 .accountState a:hover,
 .successActions a:hover {
   color: var(--color-on-accent);
@@ -338,74 +378,44 @@
   transform: translateY(-1px);
 }
 
-.submit:disabled,
-.kindForm button:disabled {
+.submit:disabled {
   cursor: not-allowed;
   opacity: 0.5;
   box-shadow: none;
 }
 
 .error {
-  margin-top: 18px;
+  margin-top: 16px;
   padding: 11px 13px;
   border: 1px solid var(--color-critical-border);
+  border-radius: var(--radius-sm);
   background: var(--color-critical-soft);
   color: var(--color-critical-strong);
-  font-size: 0.8rem;
-  line-height: 1.5;
+  font-size: var(--type-secondary-size);
+  line-height: var(--type-secondary-leading);
 }
 
 .operation {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
-  gap: 22px 24px;
-  padding: clamp(28px, 5vw, 48px);
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 20px 22px;
+  align-items: start;
+  padding-block: 16px;
 }
 
 .operationIcon,
 .successMark {
   display: grid;
-  width: 58px;
-  height: 58px;
+  width: 54px;
+  height: 54px;
   place-items: center;
-  border: 1px solid var(--color-border);
-  border-radius: 50%;
+  border-radius: var(--radius-sm);
   background: var(--color-muted);
   color: var(--color-accent);
 }
 
 .failedIcon {
   color: var(--color-critical-strong);
-}
-
-.operationCopy h2,
-.success h2,
-.processing h2,
-.accountState h2 {
-  font-family: var(--font-display);
-  font-size: clamp(1.9rem, 4vw, 2.7rem);
-  font-weight: 600;
-  letter-spacing: -0.025em;
-  line-height: 1.08;
-}
-
-.operationCopy p,
-.processing p,
-.accountState p {
-  max-width: 62ch;
-  margin-top: 10px;
-  color: var(--color-text-secondary);
-  font-size: 0.9rem;
-  line-height: 1.7;
-}
-
-.kindForm {
-  display: grid;
-  grid-column: 2;
-  grid-template-columns: minmax(160px, 0.65fr) minmax(220px, 1.35fr) auto;
-  gap: 16px;
-  align-items: end;
-  margin-top: 8px;
 }
 
 .operation > .error,
@@ -422,7 +432,7 @@
   border-radius: var(--radius-sm);
   background: var(--color-surface);
   color: var(--color-text-primary);
-  font-size: 0.78rem;
+  font-size: var(--type-label-size);
   font-weight: 900;
 }
 
@@ -436,94 +446,102 @@
 .accountState,
 .sessionState {
   display: grid;
-  min-height: 360px;
+  min-height: 330px;
   align-content: center;
   justify-items: center;
-  padding: 48px 24px;
+  padding: 42px 24px;
   text-align: center;
+}
+
+.processing svg {
+  margin-bottom: 16px;
+  color: var(--color-accent);
+}
+
+.processing .processingErrorIcon {
+  color: var(--color-critical-strong);
+}
+
+.processing .secondary {
+  margin-top: 20px;
+}
+
+.accountState > svg {
+  margin-bottom: 12px;
+  color: var(--color-accent);
+}
+
+.accountState a {
+  min-width: 150px;
+  margin-top: 22px;
+}
+
+.sessionState {
+  color: var(--color-text-secondary);
+  font-size: var(--type-secondary-size);
 }
 
 .success {
   display: block;
   min-height: 0;
-  padding: clamp(24px, 3.5vw, 34px);
+  padding: 4px 0 0;
   text-align: left;
-}
-
-.successMark {
-  border-color: var(--color-accent-border);
-  background: var(--color-muted);
-  color: var(--color-text-primary);
 }
 
 .receiptHeader {
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr);
+  grid-template-columns: 52px minmax(0, 1fr);
   gap: 16px;
   align-items: start;
   width: 100%;
-  max-width: 700px;
-}
-
-.receiptHeader h2 {
-  max-width: 24ch;
-  font-size: clamp(1.85rem, 3.5vw, 2.7rem);
 }
 
 .receiptName {
   max-width: 60ch;
-  margin-top: 7px;
+  margin-top: 5px;
   overflow-wrap: anywhere;
   color: var(--color-text-secondary);
-  font-size: 0.9rem;
-  line-height: 1.5;
+  font-size: var(--type-secondary-size);
+  line-height: var(--type-secondary-leading);
 }
 
 .receipt {
-  width: calc(100% - 64px);
-  max-width: 620px;
-  margin: 24px 0 0 64px;
-  padding-top: 18px;
-  border-top: 1px solid var(--color-border);
+  width: calc(100% - 68px);
+  margin: 24px 0 0 68px;
+  padding: 20px;
+  border-radius: var(--radius-sm);
+  background: var(--color-muted);
 }
 
 .receipt h3 {
   color: var(--color-text-primary);
   font-family: var(--font-display);
-  font-size: 1.15rem;
-  font-weight: 500;
-  letter-spacing: -0.015em;
-  line-height: 1.2;
+  font-size: var(--type-block-title-size);
+  font-weight: 600;
+  line-height: var(--type-block-title-leading);
 }
 
 .receiptLead,
 .receiptNote,
 .receiptPending,
-.receiptClear {
-  margin-top: 7px;
+.receiptClear,
+.carriedSummary {
+  margin-top: 8px;
   color: var(--color-text-secondary);
-  font-size: 0.9rem;
-  line-height: 1.55;
+  font-size: var(--type-secondary-size);
+  line-height: var(--type-secondary-leading);
 }
 
 .receiptPending,
-.receiptClear {
-  color: var(--color-text-primary);
-  font-style: italic;
-}
-
+.receiptClear,
 .carriedSummary {
-  margin-top: 14px;
   color: var(--color-text-primary);
-  font-size: 0.9rem;
-  line-height: 1.55;
 }
 
 .receiptNote {
   margin-top: 16px;
   padding-top: 12px;
-  border-top: 1px solid var(--color-border);
-  font-size: 0.76rem;
+  box-shadow: inset 0 1px 0 var(--color-border);
 }
 
 .successActions {
@@ -531,81 +549,94 @@
   flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-start;
-  width: calc(100% - 64px);
-  margin: 24px 0 0 64px;
+  width: calc(100% - 68px);
+  margin: 22px 0 0 68px;
 }
 
-.processing svg {
-  margin-bottom: 18px;
-  color: var(--color-accent);
-}
-
-.processing .processingErrorIcon {
-  color: var(--color-critical-strong);
-  animation: none;
-}
-
-.processing .secondary {
-  margin-top: 22px;
-}
-
-.accountState > svg {
-  margin-bottom: 10px;
-  color: var(--color-accent);
-}
-
-.accountState a {
-  min-width: 150px;
-  margin-top: 24px;
-}
-
-.sessionState {
-  color: var(--color-text-secondary);
-}
-
-@media (max-width: 720px) {
+@media (max-width: 980px) {
   .layout {
-    width: min(100%, 680px);
-    padding-block: 28px 68px;
+    align-items: flex-start;
+    padding-block: 34px 60px;
+  }
+
+  .desk {
+    width: min(100%, 700px);
+    min-height: 0;
+    grid-template-columns: 1fr;
+  }
+
+  .task {
+    padding: clamp(38px, 7vw, 54px);
+  }
+
+  .task::after {
+    display: none;
+  }
+
+  .artwork {
+    min-height: 320px;
+  }
+
+  .archiveHost {
+    background-position: center 16%;
+    background-size: auto 148%;
+  }
+}
+
+@media (max-width: 560px) {
+  .layout {
+    padding-block: 20px 44px;
+  }
+
+  .desk {
+    border-radius: var(--radius-lg);
+  }
+
+  .task {
+    padding: 32px 24px 36px;
   }
 
   .heading {
-    min-height: 0;
-    grid-template-columns: 1fr;
     margin-bottom: 28px;
   }
 
   .heading h1 {
-    font-size: clamp(2.7rem, 11vw, 4rem);
+    max-width: 11ch;
+    font-size: var(--type-section-size);
+    line-height: var(--type-section-leading);
   }
 
-  .mascot {
-    display: none;
+  .heading p {
+    margin-top: 12px;
+    font-size: var(--type-secondary-size);
+    line-height: var(--type-secondary-leading);
   }
 
-  .formIntro {
-    gap: 16px;
+  .pathChoice > button {
+    min-height: 88px;
+    grid-template-columns: 34px minmax(0, 1fr) 18px;
+    gap: 12px;
+    padding-inline: 14px;
   }
 
-  .catalogFields,
-  .kindForm {
-    grid-template-columns: 1fr;
+  .pathChoice > button small {
+    font-size: var(--type-label-size);
+    line-height: var(--type-label-leading);
   }
 
-  .wideField {
-    grid-column: auto;
+  .artwork {
+    min-height: 260px;
+  }
+
+  .archiveHost {
+    background-position: center 12%;
+    background-size: auto 162%;
   }
 
   .operation {
     grid-template-columns: 1fr;
   }
 
-  .operationIcon {
-    width: 52px;
-    height: 52px;
-  }
-
-  .kindForm,
   .operation > .error,
   .operation > .secondary {
     grid-column: 1;
@@ -613,11 +644,21 @@
 
   .receipt,
   .successActions {
+    width: 100%;
     margin-left: 0;
   }
 
   .receiptHeader {
-    grid-template-columns: 52px minmax(0, 1fr);
-    gap: 16px;
+    grid-template-columns: 46px minmax(0, 1fr);
+  }
+
+  .successActions {
+    display: grid;
+  }
+
+  .successActions a,
+  .successActions button,
+  .submit {
+    width: 100%;
   }
 }

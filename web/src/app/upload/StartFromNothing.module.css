@@ -1,111 +1,118 @@
 .panel {
   position: relative;
-  padding: clamp(22px, 3.5vw, 30px);
-  background: transparent;
 }
 
 .panel h2 {
-  color: var(--color-critical-strong);
+  color: var(--color-text-primary);
   font-family: var(--font-display);
-  font-size: 1.35rem;
-  font-weight: 500;
-  letter-spacing: -0.015em;
+  font-size: var(--type-block-title-size);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: var(--type-block-title-leading);
 }
 
 .panel > p {
-  max-width: 56ch;
-  margin-top: 10px;
+  max-width: 58ch;
+  margin-top: 8px;
   color: var(--color-text-secondary);
-  font-size: 0.95rem;
-  line-height: 1.72;
+  font-size: var(--type-secondary-size);
+  line-height: var(--type-secondary-leading);
 }
 
 .kinds {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
   margin-top: 22px;
 }
 
-.kinds button {
+.kinds button,
+.appChoices button {
   display: inline-flex;
-  min-height: 46px;
+  min-height: 48px;
   align-items: center;
+  justify-content: center;
   gap: 9px;
-  padding-inline: 22px;
-  border: 1px solid var(--color-accent-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
+  padding-inline: 18px;
+  border-radius: var(--radius-sm);
+  background: var(--color-muted);
   color: var(--color-text-primary);
-  font-size: 0.88rem;
-  font-weight: 700;
+  font-size: var(--type-secondary-size);
+  font-weight: 800;
   transition:
-    border-color 0.2s var(--ease),
-    transform 0.2s var(--ease);
+    background-color 180ms var(--ease),
+    transform 180ms var(--ease);
 }
 
-.kinds button:hover:not(:disabled) {
+.kinds button:hover:not(:disabled),
+.appChoices button:hover:not(:disabled) {
+  background: color-mix(
+    in srgb,
+    var(--color-muted) 78%,
+    var(--color-text-primary)
+  );
   transform: translateY(-1px);
-  border-color: var(--color-text-secondary);
 }
 
-.kinds button:disabled {
-  opacity: 0.6;
-}
-
-.error {
-  margin-top: 14px;
-  color: var(--color-text-primary);
-  font-size: 0.86rem;
+.kinds button:disabled,
+.appChoices button:disabled {
+  cursor: wait;
+  opacity: 0.58;
 }
 
 .kinds button[aria-expanded="true"] {
-  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
 }
 
 .apps {
   margin-top: 18px;
   padding: 18px 20px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
+  border-radius: var(--radius-sm);
+  background: var(--color-muted);
 }
 
 .appQuestion {
   max-width: 62ch;
   color: var(--color-text-secondary);
-  font-size: 0.9rem;
-  line-height: 1.65;
+  font-size: var(--type-secondary-size);
+  line-height: var(--type-secondary-leading);
 }
 
 .appChoices {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px;
   margin-top: 14px;
 }
 
 .appChoices button {
-  display: inline-flex;
-  min-height: 46px;
-  align-items: center;
-  padding-inline: 22px;
-  border: 1px solid var(--color-accent-border);
-  border-radius: var(--radius-md);
-  background: var(--color-muted);
-  color: var(--color-text-primary);
-  font-size: 0.88rem;
-  font-weight: 700;
-  transition:
-    border-color 0.2s var(--ease),
-    transform 0.2s var(--ease);
+  min-width: 132px;
+  background: var(--color-surface);
 }
 
-.appChoices button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  border-color: var(--color-accent);
+.error {
+  margin-top: 14px;
+  padding: 11px 13px;
+  border: 1px solid var(--color-critical-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-critical-soft);
+  color: var(--color-critical-strong);
+  font-size: var(--type-secondary-size);
+  line-height: var(--type-secondary-leading);
 }
 
-.appChoices button:disabled {
-  opacity: 0.6;
+@media (max-width: 560px) {
+  .kinds {
+    grid-template-columns: 1fr;
+  }
+
+  .kinds button,
+  .appChoices button {
+    width: 100%;
+  }
+
+  .appChoices {
+    display: grid;
+  }
 }
