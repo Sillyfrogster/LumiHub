@@ -1,7 +1,5 @@
 import { cookies } from "next/headers";
-import { CreatorSection } from "@/components/landing/CreatorSection";
-import { FeaturedShelf } from "@/components/landing/FeaturedShelf";
-import { Hero } from "@/components/landing/Hero";
+import { HostedLanding } from "@/components/landing/HostedLanding";
 import { fetchAssets } from "@/lib/api/query";
 
 export default async function LandingPage() {
@@ -9,14 +7,12 @@ export default async function LandingPage() {
   const latest = await fetchAssets({ limit: 4 }, cookie).catch(() => null);
 
   return (
-    <>
-      <Hero />
-      <FeaturedShelf
-        assets={latest?.items ?? []}
-        visibility={latest?.visibility ?? "blurred"}
-        unavailable={!latest}
-      />
-      <CreatorSection />
-    </>
+    <HostedLanding
+      assets={latest?.items ?? []}
+      visibility={latest?.visibility ?? "blurred"}
+      suppressed={latest?.suppressed ?? 0}
+      emptyState={latest?.emptyState ?? null}
+      unavailable={!latest}
+    />
   );
 }
