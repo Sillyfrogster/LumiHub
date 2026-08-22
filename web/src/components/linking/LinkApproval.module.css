@@ -1,5 +1,6 @@
 .panel {
   display: grid;
+  width: 100%;
   justify-items: start;
 }
 
@@ -10,15 +11,16 @@
 .mark,
 .done {
   display: grid;
-  width: 30px;
-  height: 30px;
-  margin-bottom: 14px;
+  width: 38px;
+  height: 38px;
+  margin-bottom: 16px;
   place-items: center;
+  border-radius: var(--radius-sm);
+  background: var(--color-muted);
   color: var(--color-accent);
 }
 
 .done {
-  border-radius: 50%;
   background: var(--color-accent);
   color: var(--color-on-accent);
 }
@@ -26,7 +28,7 @@
 .title,
 .name {
   font-family: var(--font-display);
-  font-size: 1.55rem;
+  font-size: var(--type-block-title-size);
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.15;
@@ -38,13 +40,13 @@
   max-width: 46ch;
   margin-top: 12px;
   color: var(--color-text-secondary);
-  font-size: 0.9rem;
+  font-size: var(--type-secondary-size);
   line-height: 1.7;
 }
 
 .asking {
   color: var(--color-text-secondary);
-  font-size: 0.7rem;
+  font-size: var(--type-label-size);
   font-weight: 900;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -52,58 +54,64 @@
 
 .name {
   margin-top: 8px;
+  font-size: var(--type-section-size);
   overflow-wrap: anywhere;
 }
 
 .code,
 .codeShown {
   font-family: var(--font-mono);
-  font-size: 1.15rem;
-  letter-spacing: 0.28em;
+  font-size: var(--type-lead-size);
+  letter-spacing: 0.2em;
   text-transform: uppercase;
 }
 
 .expiry {
   margin-top: 7px;
   color: var(--color-text-secondary);
-  font-size: 0.72rem;
+  font-size: var(--type-label-size);
   line-height: 1.5;
 }
 
 .codeShown {
-  margin-top: 10px;
-  color: var(--color-text-secondary);
-  font-size: 0.85rem;
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  margin-top: 14px;
+  padding-inline: 14px;
+  border-radius: var(--radius-sm);
+  background: var(--color-muted);
+  color: var(--color-text-primary);
+  font-size: var(--type-secondary-size);
 }
 
 .code {
   width: 100%;
-  min-height: 58px;
+  min-height: 62px;
   margin-top: 22px;
   padding-inline: 18px;
-  border: 0;
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-muted);
-  box-shadow: inset 0 -2px 0 var(--color-border);
   color: var(--color-text-primary);
   text-align: center;
 }
 
 .code:hover {
-  box-shadow: inset 0 -2px 0 var(--color-text-secondary);
+  border-color: var(--color-text-secondary);
 }
 
 .code:focus-visible {
-  box-shadow: inset 0 -2px 0 var(--color-accent);
+  border-color: var(--color-accent);
 }
 
 .scopes {
   display: grid;
-  gap: 2px;
   width: 100%;
   margin-top: 26px;
-  border-top: 1px solid var(--color-border);
-  border-bottom: 1px solid var(--color-border);
+  padding-inline: 18px;
+  border-radius: var(--radius-sm);
+  background: var(--color-muted);
   list-style: none;
 }
 
@@ -126,7 +134,7 @@
 .scopes strong {
   display: block;
   color: var(--color-text-primary);
-  font-size: 0.92rem;
+  font-size: var(--type-secondary-size);
   font-weight: 900;
 }
 
@@ -134,16 +142,16 @@
   display: block;
   margin-top: 4px;
   color: var(--color-text-secondary);
-  font-size: 0.82rem;
+  font-size: var(--type-secondary-size);
   line-height: 1.6;
 }
 
 .caution {
   padding: 12px 14px;
-  border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-sm);
   background: var(--color-accent-soft);
-  font-size: 0.82rem;
+  box-shadow: inset 0 0 0 1px var(--color-accent-border);
+  font-size: var(--type-secondary-size);
 }
 
 .carried strong {
@@ -157,17 +165,17 @@
   width: 100%;
   margin-top: 16px;
   padding: 11px 13px;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-critical-border);
   border-radius: var(--radius-sm);
-  background: var(--color-muted);
-  color: var(--color-text-secondary);
-  font-size: 0.82rem;
+  background: var(--color-critical-soft);
+  color: var(--color-critical-strong);
+  font-size: var(--type-secondary-size);
   line-height: 1.5;
 }
 
 .waiting {
   color: var(--color-text-secondary);
-  font-size: 0.9rem;
+  font-size: var(--type-secondary-size);
 }
 
 .decision {
@@ -185,7 +193,7 @@
   justify-content: center;
   padding-inline: 22px;
   border-radius: var(--radius-sm);
-  font-size: 0.8rem;
+  font-size: var(--type-label-size);
   font-weight: 900;
   white-space: nowrap;
   transition:
@@ -235,7 +243,7 @@
 @media (max-width: 620px) {
   .title,
   .name {
-    font-size: 1.6rem;
+    font-size: var(--type-block-title-size);
   }
 
   .decision {

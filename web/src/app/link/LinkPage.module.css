@@ -1,5 +1,6 @@
 .page {
   min-height: calc(100svh - var(--header-height) - 81px);
+  overflow: clip;
   background: var(--color-background);
 }
 
@@ -12,8 +13,11 @@
 }
 
 .desk {
+  position: relative;
   display: grid;
-  width: min(100%, 980px);
+  width: min(100%, 1120px);
+  min-height: 640px;
+  grid-template-columns: minmax(500px, 1.08fr) minmax(360px, 0.92fr);
   overflow: hidden;
   border-radius: var(--radius-xl);
   background: var(--color-elevated);
@@ -21,69 +25,86 @@
 }
 
 .task {
+  position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: minmax(220px, 0.72fr) minmax(360px, 1.28fr);
-  gap: clamp(38px, 6vw, 68px);
-  align-items: start;
-  padding: clamp(38px, 5vw, 56px);
+  align-content: start;
+  padding: clamp(44px, 5vw, 64px);
   background: var(--color-elevated);
 }
 
-.introColumn {
-  display: grid;
-  align-content: start;
-}
-
 .introduction {
-  max-width: 430px;
+  max-width: 520px;
   animation: lhRise 0.7s 0.08s var(--ease) both;
 }
 
 .title {
-  max-width: 9ch;
+  max-width: 10ch;
   font-family: var(--font-display);
-  font-size: clamp(2.6rem, 4vw, 3.5rem);
+  font-size: var(--type-display-size);
   font-weight: 560;
   letter-spacing: -0.035em;
-  line-height: 1;
+  line-height: 0.98;
+  text-wrap: balance;
 }
 
-.lede,
-.note {
-  max-width: 43ch;
+.lede {
+  max-width: 52ch;
   margin-top: 18px;
   color: var(--color-text-secondary);
-  font-size: 0.9rem;
-  line-height: 1.65;
+  font-size: var(--type-body-size);
+  line-height: 1.7;
 }
 
 .note {
-  margin-top: 28px;
+  max-width: 50ch;
+  margin-top: 34px;
+  padding-top: 20px;
+  box-shadow: inset 0 1px 0 var(--color-border);
   color: var(--color-text-secondary);
-  font-size: 0.74rem;
+  font-size: var(--type-secondary-size);
+  line-height: 1.6;
 }
 
 .panelArea {
-  width: 100%;
+  width: min(100%, 520px);
+  margin-top: clamp(34px, 5vw, 48px);
   animation: lhRise 0.7s var(--ease) both;
 }
 
 .artwork {
   position: relative;
-  min-height: 230px;
+  min-height: 640px;
   overflow: hidden;
   background: var(--color-media-surface);
+  background-image: url("../../assets/art/full/illarin-link-passage-light-v1.webp");
+  background-position: 66% 50%;
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
-.artwork img {
-  object-fit: cover;
-  object-position: 54% 48%;
+:global(:root[data-theme="dark"]) .artwork {
+  background-image: url("../../assets/art/full/illarin-link-passage-dark-v1.webp");
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme])) .artwork {
+    background-image: url("../../assets/art/full/illarin-link-passage-dark-v1.webp");
+  }
+}
+
+.artwork::after {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: clamp(36px, 5vw, 64px);
+  background: var(--color-elevated);
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+  content: "";
 }
 
 .opening {
   color: var(--color-text-secondary);
-  font-size: 0.9rem;
+  font-size: var(--type-secondary-size);
 }
 
 @media (max-width: 820px) {
@@ -94,15 +115,24 @@
 
   .desk {
     width: min(100%, 620px);
+    min-height: 0;
+    grid-template-columns: 1fr;
   }
 
   .task {
-    grid-template-columns: 1fr;
-    gap: 30px;
+    padding: clamp(38px, 7vw, 52px);
   }
 
   .artwork {
-    min-height: 210px;
+    min-height: clamp(230px, 54vw, 330px);
+    background-position: 54% 43%;
+  }
+
+  .artwork::after {
+    inset: 0 0 auto;
+    width: auto;
+    height: 36px;
+    clip-path: polygon(0 0, 100% 0, 50% 100%);
   }
 }
 
@@ -116,14 +146,16 @@
   }
 
   .task {
-    padding: 32px 24px 36px;
+    padding: 34px 24px 38px;
   }
 
   .title {
-    font-size: 2.65rem;
+    max-width: 8ch;
+    font-size: var(--type-section-size);
   }
 
   .artwork {
-    min-height: 170px;
+    min-height: 220px;
+    background-position: 58% 42%;
   }
 }
