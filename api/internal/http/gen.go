@@ -5,6 +5,7 @@ package http
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -671,24 +672,6 @@ func (e ItemSize) Valid() bool {
 	}
 }
 
-// Defines values for LinkPollResultStatus.
-const (
-	LinkPollResultStatusLinked  LinkPollResultStatus = "linked"
-	LinkPollResultStatusPending LinkPollResultStatus = "pending"
-)
-
-// Valid indicates whether the value is a known member of the LinkPollResultStatus enum.
-func (e LinkPollResultStatus) Valid() bool {
-	switch e {
-	case LinkPollResultStatusLinked:
-		return true
-	case LinkPollResultStatusPending:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for LinkProtocolVersion.
 const (
 	LinkProtocolVersionN1 LinkProtocolVersion = 1
@@ -698,6 +681,21 @@ const (
 func (e LinkProtocolVersion) Valid() bool {
 	switch e {
 	case LinkProtocolVersionN1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LinkedLinkPollResultStatus.
+const (
+	Linked LinkedLinkPollResultStatus = "linked"
+)
+
+// Valid indicates whether the value is a known member of the LinkedLinkPollResultStatus enum.
+func (e LinkedLinkPollResultStatus) Valid() bool {
+	switch e {
+	case Linked:
 		return true
 	default:
 		return false
@@ -749,6 +747,21 @@ func (e NsfwVisibilityRequestVisibility) Valid() bool {
 	case NsfwVisibilityRequestVisibilityHidden:
 		return true
 	case NsfwVisibilityRequestVisibilityShown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PendingLinkPollResultStatus.
+const (
+	PendingLinkPollResultStatusPending PendingLinkPollResultStatus = "pending"
+)
+
+// Valid indicates whether the value is a known member of the PendingLinkPollResultStatus enum.
+func (e PendingLinkPollResultStatus) Valid() bool {
+	switch e {
+	case PendingLinkPollResultStatusPending:
 		return true
 	default:
 		return false
@@ -1061,6 +1074,21 @@ func (e VariableSchemaContentVariablesWidget) Valid() bool {
 	}
 }
 
+// Defines values for IllarinRequest.
+const (
+	IllarinRequestN1 IllarinRequest = "1"
+)
+
+// Valid indicates whether the value is a known member of the IllarinRequest enum.
+func (e IllarinRequest) Valid() bool {
+	switch e {
+	case IllarinRequestN1:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetMediaVariantParamsVariant.
 const (
 	Detail        GetMediaVariantParamsVariant = "detail"
@@ -1184,8 +1212,86 @@ func (e BeginDiscordParamsIntent) Valid() bool {
 	}
 }
 
+// Defines values for RevokeInstanceParamsXIllarinRequest.
+const (
+	RevokeInstanceParamsXIllarinRequestN1 RevokeInstanceParamsXIllarinRequest = "1"
+)
+
+// Valid indicates whether the value is a known member of the RevokeInstanceParamsXIllarinRequest enum.
+func (e RevokeInstanceParamsXIllarinRequest) Valid() bool {
+	switch e {
+	case RevokeInstanceParamsXIllarinRequestN1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ApproveLinkAuthorizationParamsXIllarinRequest.
+const (
+	ApproveLinkAuthorizationParamsXIllarinRequestN1 ApproveLinkAuthorizationParamsXIllarinRequest = "1"
+)
+
+// Valid indicates whether the value is a known member of the ApproveLinkAuthorizationParamsXIllarinRequest enum.
+func (e ApproveLinkAuthorizationParamsXIllarinRequest) Valid() bool {
+	switch e {
+	case ApproveLinkAuthorizationParamsXIllarinRequestN1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DenyLinkAuthorizationParamsXIllarinRequest.
+const (
+	DenyLinkAuthorizationParamsXIllarinRequestN1 DenyLinkAuthorizationParamsXIllarinRequest = "1"
+)
+
+// Valid indicates whether the value is a known member of the DenyLinkAuthorizationParamsXIllarinRequest enum.
+func (e DenyLinkAuthorizationParamsXIllarinRequest) Valid() bool {
+	switch e {
+	case DenyLinkAuthorizationParamsXIllarinRequestN1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ApproveLinkRequestParamsXIllarinRequest.
+const (
+	ApproveLinkRequestParamsXIllarinRequestN1 ApproveLinkRequestParamsXIllarinRequest = "1"
+)
+
+// Valid indicates whether the value is a known member of the ApproveLinkRequestParamsXIllarinRequest enum.
+func (e ApproveLinkRequestParamsXIllarinRequest) Valid() bool {
+	switch e {
+	case ApproveLinkRequestParamsXIllarinRequestN1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DenyLinkRequestParamsXIllarinRequest.
+const (
+	DenyLinkRequestParamsXIllarinRequestN1 DenyLinkRequestParamsXIllarinRequest = "1"
+)
+
+// Valid indicates whether the value is a known member of the DenyLinkRequestParamsXIllarinRequest enum.
+func (e DenyLinkRequestParamsXIllarinRequest) Valid() bool {
+	switch e {
+	case DenyLinkRequestParamsXIllarinRequestN1:
+		return true
+	default:
+		return false
+	}
+}
+
 // AcceptedTargets defines model for AcceptedTargets.
 type AcceptedTargets = []ExportTargetId
+
+// AccessToken defines model for AccessToken.
+type AccessToken = string
 
 // Account defines model for Account.
 type Account struct {
@@ -1245,6 +1351,9 @@ type ApplicationName = string
 
 // ApplicationVersion defines model for ApplicationVersion.
 type ApplicationVersion = string
+
+// ApprovalToken defines model for ApprovalToken.
+type ApprovalToken = string
 
 // ArrangeAssetBlocksRequest defines model for ArrangeAssetBlocksRequest.
 type ArrangeAssetBlocksRequest struct {
@@ -1454,6 +1563,9 @@ type AssetWithhold struct {
 	Reason string    `json:"reason"`
 }
 
+// AuthorizationCode defines model for AuthorizationCode.
+type AuthorizationCode = string
+
 // BrowseAsset defines model for BrowseAsset.
 type BrowseAsset struct {
 	Cover   *BrowseCover       `json:"cover"`
@@ -1560,9 +1672,12 @@ type DeletedAssetList struct {
 	Items []DeletedAsset `json:"items"`
 }
 
+// DeviceCode defines model for DeviceCode.
+type DeviceCode = string
+
 // DeviceLinkDecision defines model for DeviceLinkDecision.
 type DeviceLinkDecision struct {
-	ApprovalToken string `json:"approvalToken"`
+	ApprovalToken ApprovalToken `json:"approvalToken"`
 }
 
 // DialogueSampleContent defines model for DialogueSampleContent.
@@ -1650,9 +1765,9 @@ type EntryTableContentEntriesPosition string
 
 // ExchangeLinkAuthorization defines model for ExchangeLinkAuthorization.
 type ExchangeLinkAuthorization struct {
-	AuthorizationCode string `json:"authorizationCode"`
-	CodeVerifier      string `json:"codeVerifier"`
-	RedirectUri       string `json:"redirectUri"`
+	AuthorizationCode AuthorizationCode `json:"authorizationCode"`
+	CodeVerifier      string            `json:"codeVerifier"`
+	RedirectUri       string            `json:"redirectUri"`
 }
 
 // ExportTargetId A format-module identifier accepted by the instance. Unknown values do not make a target available.
@@ -1707,12 +1822,12 @@ type InstanceName = string
 
 // InstanceTokenGrant defines model for InstanceTokenGrant.
 type InstanceTokenGrant struct {
-	AccessToken string `json:"accessToken"`
+	AccessToken AccessToken `json:"accessToken"`
 
 	// AccessTokenExpiresAt The 15-minute access-token deadline.
 	AccessTokenExpiresAt time.Time      `json:"accessTokenExpiresAt"`
 	Instance             LinkedInstance `json:"instance"`
-	RefreshToken         string         `json:"refreshToken"`
+	RefreshToken         RefreshToken   `json:"refreshToken"`
 }
 
 // ItemSize How large the images inside an element are drawn. It names what it controls, and no element type declares a measurement of its own.
@@ -1738,17 +1853,8 @@ type LinkListContent struct {
 
 // LinkPollResult defines model for LinkPollResult.
 type LinkPollResult struct {
-	AccessToken *string `json:"accessToken,omitempty"`
-
-	// AccessTokenExpiresAt The 15-minute access-token deadline.
-	AccessTokenExpiresAt *time.Time           `json:"accessTokenExpiresAt,omitempty"`
-	Instance             *LinkedInstance      `json:"instance,omitempty"`
-	RefreshToken         *string              `json:"refreshToken,omitempty"`
-	Status               LinkPollResultStatus `json:"status"`
+	union json.RawMessage
 }
-
-// LinkPollResultStatus defines model for LinkPollResult.Status.
-type LinkPollResultStatus string
 
 // LinkProtocolVersion defines model for LinkProtocolVersion.
 type LinkProtocolVersion int
@@ -1762,14 +1868,14 @@ type LinkRedirect struct {
 // LinkRequest defines model for LinkRequest.
 type LinkRequest struct {
 	// DeviceCode Kept private by the installation and sent when polling.
-	DeviceCode string    `json:"deviceCode"`
-	ExpiresAt  time.Time `json:"expiresAt"`
+	DeviceCode DeviceCode `json:"deviceCode"`
+	ExpiresAt  time.Time  `json:"expiresAt"`
 
 	// Interval Seconds to wait between polls.
 	Interval int `json:"interval"`
 
 	// UserCode Shown to the creator, who enters it on Illarin.
-	UserCode string `json:"userCode"`
+	UserCode UserCode `json:"userCode"`
 
 	// VerificationUrl Where the creator enters the user code.
 	VerificationUrl string `json:"verificationUrl"`
@@ -1797,6 +1903,20 @@ type LinkedInstance struct {
 type LinkedInstanceList struct {
 	Items []LinkedInstance `json:"items"`
 }
+
+// LinkedLinkPollResult defines model for LinkedLinkPollResult.
+type LinkedLinkPollResult struct {
+	AccessToken AccessToken `json:"accessToken"`
+
+	// AccessTokenExpiresAt The 15-minute access-token deadline.
+	AccessTokenExpiresAt time.Time                  `json:"accessTokenExpiresAt"`
+	Instance             LinkedInstance             `json:"instance"`
+	RefreshToken         RefreshToken               `json:"refreshToken"`
+	Status               LinkedLinkPollResultStatus `json:"status"`
+}
+
+// LinkedLinkPollResultStatus defines model for LinkedLinkPollResult.Status.
+type LinkedLinkPollResultStatus string
 
 // Media defines model for Media.
 type Media struct {
@@ -1855,7 +1975,7 @@ type PendingDeviceLink struct {
 	ApplicationVersion *ApplicationVersion `json:"applicationVersion,omitempty"`
 
 	// ApprovalToken A private one-use proof that this code was reviewed.
-	ApprovalToken string               `json:"approvalToken"`
+	ApprovalToken ApprovalToken        `json:"approvalToken"`
 	Capabilities  InstanceCapabilities `json:"capabilities"`
 	ExpiresAt     time.Time            `json:"expiresAt"`
 
@@ -1881,9 +2001,17 @@ type PendingLink struct {
 	Scopes          Scopes              `json:"scopes"`
 }
 
+// PendingLinkPollResult defines model for PendingLinkPollResult.
+type PendingLinkPollResult struct {
+	Status PendingLinkPollResultStatus `json:"status"`
+}
+
+// PendingLinkPollResultStatus defines model for PendingLinkPollResult.Status.
+type PendingLinkPollResultStatus string
+
 // PollLinkRequest defines model for PollLinkRequest.
 type PollLinkRequest struct {
-	DeviceCode string `json:"deviceCode"`
+	DeviceCode DeviceCode `json:"deviceCode"`
 }
 
 // PreservedNamespace defines model for PreservedNamespace.
@@ -1987,13 +2115,19 @@ type RecordListContentSchema string
 
 // RefreshInstanceToken defines model for RefreshInstanceToken.
 type RefreshInstanceToken struct {
-	RefreshToken string `json:"refreshToken"`
+	RefreshToken RefreshToken `json:"refreshToken"`
 }
+
+// RefreshToken defines model for RefreshToken.
+type RefreshToken = string
 
 // RenameHandleRequest defines model for RenameHandleRequest.
 type RenameHandleRequest struct {
 	Handle string `json:"handle"`
 }
+
+// RequestCode defines model for RequestCode.
+type RequestCode = string
 
 // SaveAssetBlockRequest defines model for SaveAssetBlockRequest.
 type SaveAssetBlockRequest struct {
@@ -2204,6 +2338,9 @@ type UpdateInstance struct {
 	ProtocolVersion    LinkProtocolVersion  `json:"protocolVersion"`
 }
 
+// UserCode defines model for UserCode.
+type UserCode = string
+
 // VariableSchemaContent The form a preset asks a reader to fill in before they use it.
 type VariableSchemaContent struct {
 	Variables []struct {
@@ -2254,6 +2391,9 @@ type VerifyEmailRequest struct {
 type WithholdAssetRequest struct {
 	Reason string `json:"reason"`
 }
+
+// IllarinRequest defines model for IllarinRequest.
+type IllarinRequest string
 
 // GetMediaVariantParams defines parameters for GetMediaVariant.
 type GetMediaVariantParams struct {
@@ -2338,6 +2478,51 @@ type CompleteDiscordParams struct {
 	Error *string `form:"error,omitempty" json:"error,omitempty"`
 }
 
+// RevokeInstanceParams defines parameters for RevokeInstance.
+type RevokeInstanceParams struct {
+	// XIllarinRequest Illarin's browser request proof. The value must be 1.
+	XIllarinRequest RevokeInstanceParamsXIllarinRequest `json:"X-Illarin-Request"`
+}
+
+// RevokeInstanceParamsXIllarinRequest defines parameters for RevokeInstance.
+type RevokeInstanceParamsXIllarinRequest string
+
+// ApproveLinkAuthorizationParams defines parameters for ApproveLinkAuthorization.
+type ApproveLinkAuthorizationParams struct {
+	// XIllarinRequest Illarin's browser request proof. The value must be 1.
+	XIllarinRequest ApproveLinkAuthorizationParamsXIllarinRequest `json:"X-Illarin-Request"`
+}
+
+// ApproveLinkAuthorizationParamsXIllarinRequest defines parameters for ApproveLinkAuthorization.
+type ApproveLinkAuthorizationParamsXIllarinRequest string
+
+// DenyLinkAuthorizationParams defines parameters for DenyLinkAuthorization.
+type DenyLinkAuthorizationParams struct {
+	// XIllarinRequest Illarin's browser request proof. The value must be 1.
+	XIllarinRequest DenyLinkAuthorizationParamsXIllarinRequest `json:"X-Illarin-Request"`
+}
+
+// DenyLinkAuthorizationParamsXIllarinRequest defines parameters for DenyLinkAuthorization.
+type DenyLinkAuthorizationParamsXIllarinRequest string
+
+// ApproveLinkRequestParams defines parameters for ApproveLinkRequest.
+type ApproveLinkRequestParams struct {
+	// XIllarinRequest Illarin's browser request proof. The value must be 1.
+	XIllarinRequest ApproveLinkRequestParamsXIllarinRequest `json:"X-Illarin-Request"`
+}
+
+// ApproveLinkRequestParamsXIllarinRequest defines parameters for ApproveLinkRequest.
+type ApproveLinkRequestParamsXIllarinRequest string
+
+// DenyLinkRequestParams defines parameters for DenyLinkRequest.
+type DenyLinkRequestParams struct {
+	// XIllarinRequest Illarin's browser request proof. The value must be 1.
+	XIllarinRequest DenyLinkRequestParamsXIllarinRequest `json:"X-Illarin-Request"`
+}
+
+// DenyLinkRequestParamsXIllarinRequest defines parameters for DenyLinkRequest.
+type DenyLinkRequestParamsXIllarinRequest string
+
 // ChangeUnverifiedEmailJSONRequestBody defines body for ChangeUnverifiedEmail for application/json ContentType.
 type ChangeUnverifiedEmailJSONRequestBody = ChangeEmailRequest
 
@@ -2421,6 +2606,107 @@ type DenyLinkRequestJSONRequestBody = DeviceLinkDecision
 
 // ExchangeLinkAuthorizationJSONRequestBody defines body for ExchangeLinkAuthorization for application/json ContentType.
 type ExchangeLinkAuthorizationJSONRequestBody = ExchangeLinkAuthorization
+
+// AsPendingLinkPollResult returns the union data inside the LinkPollResult as a PendingLinkPollResult
+func (t LinkPollResult) AsPendingLinkPollResult() (PendingLinkPollResult, error) {
+	var body PendingLinkPollResult
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPendingLinkPollResult overwrites any union data inside the LinkPollResult as the provided PendingLinkPollResult
+func (t *LinkPollResult) FromPendingLinkPollResult(v PendingLinkPollResult) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"status":"pending"}`))
+	t.union = b
+	return err
+}
+
+// MergePendingLinkPollResult performs a merge with any union data inside the LinkPollResult, using the provided PendingLinkPollResult
+func (t *LinkPollResult) MergePendingLinkPollResult(v PendingLinkPollResult) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"status":"pending"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsLinkedLinkPollResult returns the union data inside the LinkPollResult as a LinkedLinkPollResult
+func (t LinkPollResult) AsLinkedLinkPollResult() (LinkedLinkPollResult, error) {
+	var body LinkedLinkPollResult
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromLinkedLinkPollResult overwrites any union data inside the LinkPollResult as the provided LinkedLinkPollResult
+func (t *LinkPollResult) FromLinkedLinkPollResult(v LinkedLinkPollResult) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"status":"linked"}`))
+	t.union = b
+	return err
+}
+
+// MergeLinkedLinkPollResult performs a merge with any union data inside the LinkPollResult, using the provided LinkedLinkPollResult
+func (t *LinkPollResult) MergeLinkedLinkPollResult(v LinkedLinkPollResult) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"status":"linked"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t LinkPollResult) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"status"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t LinkPollResult) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "linked":
+		return t.AsLinkedLinkPollResult()
+	case "pending":
+		return t.AsPendingLinkPollResult()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t LinkPollResult) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *LinkPollResult) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -2549,19 +2835,19 @@ type ServerInterface interface {
 	UpdateInstance(c *gin.Context)
 
 	// (DELETE /v1/instances/{id})
-	RevokeInstance(c *gin.Context, id openapi_types.UUID)
+	RevokeInstance(c *gin.Context, id openapi_types.UUID, params RevokeInstanceParams)
 
 	// (POST /v1/link/authorizations)
 	StartLinkAuthorization(c *gin.Context)
 
 	// (GET /v1/link/authorizations/{requestCode})
-	GetLinkAuthorization(c *gin.Context, requestCode string)
+	GetLinkAuthorization(c *gin.Context, requestCode RequestCode)
 
 	// (POST /v1/link/authorizations/{requestCode}/approve)
-	ApproveLinkAuthorization(c *gin.Context, requestCode string)
+	ApproveLinkAuthorization(c *gin.Context, requestCode RequestCode, params ApproveLinkAuthorizationParams)
 
 	// (POST /v1/link/authorizations/{requestCode}/deny)
-	DenyLinkAuthorization(c *gin.Context, requestCode string)
+	DenyLinkAuthorization(c *gin.Context, requestCode RequestCode, params DenyLinkAuthorizationParams)
 
 	// (POST /v1/link/poll)
 	PollLinkRequest(c *gin.Context)
@@ -2573,13 +2859,13 @@ type ServerInterface interface {
 	StartLinkRequest(c *gin.Context)
 
 	// (GET /v1/link/requests/{userCode})
-	GetLinkRequest(c *gin.Context, userCode string)
+	GetLinkRequest(c *gin.Context, userCode UserCode)
 
 	// (POST /v1/link/requests/{userCode}/approve)
-	ApproveLinkRequest(c *gin.Context, userCode string)
+	ApproveLinkRequest(c *gin.Context, userCode UserCode, params ApproveLinkRequestParams)
 
 	// (POST /v1/link/requests/{userCode}/deny)
-	DenyLinkRequest(c *gin.Context, userCode string)
+	DenyLinkRequest(c *gin.Context, userCode UserCode, params DenyLinkRequestParams)
 
 	// (POST /v1/link/token)
 	ExchangeLinkAuthorization(c *gin.Context)
@@ -3635,6 +3921,33 @@ func (siw *ServerInterfaceWrapper) RevokeInstance(c *gin.Context) {
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RevokeInstanceParams
+
+	headers := c.Request.Header
+
+	// ------------- Required header parameter "X-Illarin-Request" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Illarin-Request")]; found {
+		var XIllarinRequest RevokeInstanceParamsXIllarinRequest
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Illarin-Request, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Illarin-Request", valueList[0], &XIllarinRequest, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Illarin-Request: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XIllarinRequest = XIllarinRequest
+
+	} else {
+		siw.ErrorHandler(c, fmt.Errorf("Header parameter X-Illarin-Request is required, but not found"), http.StatusBadRequest)
+		return
+	}
+
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
 		if c.IsAborted() {
@@ -3642,7 +3955,7 @@ func (siw *ServerInterfaceWrapper) RevokeInstance(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.RevokeInstance(c, id)
+	siw.Handler.RevokeInstance(c, id, params)
 }
 
 // StartLinkAuthorization operation middleware
@@ -3665,7 +3978,7 @@ func (siw *ServerInterfaceWrapper) GetLinkAuthorization(c *gin.Context) {
 	_ = err
 
 	// ------------- Path parameter "requestCode" -------------
-	var requestCode string
+	var requestCode RequestCode
 
 	err = runtime.BindStyledParameterWithOptions("simple", "requestCode", c.Param("requestCode"), &requestCode, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
 	if err != nil {
@@ -3690,11 +4003,38 @@ func (siw *ServerInterfaceWrapper) ApproveLinkAuthorization(c *gin.Context) {
 	_ = err
 
 	// ------------- Path parameter "requestCode" -------------
-	var requestCode string
+	var requestCode RequestCode
 
 	err = runtime.BindStyledParameterWithOptions("simple", "requestCode", c.Param("requestCode"), &requestCode, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
 	if err != nil {
 		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter requestCode: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ApproveLinkAuthorizationParams
+
+	headers := c.Request.Header
+
+	// ------------- Required header parameter "X-Illarin-Request" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Illarin-Request")]; found {
+		var XIllarinRequest ApproveLinkAuthorizationParamsXIllarinRequest
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Illarin-Request, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Illarin-Request", valueList[0], &XIllarinRequest, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Illarin-Request: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XIllarinRequest = XIllarinRequest
+
+	} else {
+		siw.ErrorHandler(c, fmt.Errorf("Header parameter X-Illarin-Request is required, but not found"), http.StatusBadRequest)
 		return
 	}
 
@@ -3705,7 +4045,7 @@ func (siw *ServerInterfaceWrapper) ApproveLinkAuthorization(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.ApproveLinkAuthorization(c, requestCode)
+	siw.Handler.ApproveLinkAuthorization(c, requestCode, params)
 }
 
 // DenyLinkAuthorization operation middleware
@@ -3715,11 +4055,38 @@ func (siw *ServerInterfaceWrapper) DenyLinkAuthorization(c *gin.Context) {
 	_ = err
 
 	// ------------- Path parameter "requestCode" -------------
-	var requestCode string
+	var requestCode RequestCode
 
 	err = runtime.BindStyledParameterWithOptions("simple", "requestCode", c.Param("requestCode"), &requestCode, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
 	if err != nil {
 		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter requestCode: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DenyLinkAuthorizationParams
+
+	headers := c.Request.Header
+
+	// ------------- Required header parameter "X-Illarin-Request" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Illarin-Request")]; found {
+		var XIllarinRequest DenyLinkAuthorizationParamsXIllarinRequest
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Illarin-Request, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Illarin-Request", valueList[0], &XIllarinRequest, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Illarin-Request: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XIllarinRequest = XIllarinRequest
+
+	} else {
+		siw.ErrorHandler(c, fmt.Errorf("Header parameter X-Illarin-Request is required, but not found"), http.StatusBadRequest)
 		return
 	}
 
@@ -3730,7 +4097,7 @@ func (siw *ServerInterfaceWrapper) DenyLinkAuthorization(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.DenyLinkAuthorization(c, requestCode)
+	siw.Handler.DenyLinkAuthorization(c, requestCode, params)
 }
 
 // PollLinkRequest operation middleware
@@ -3779,7 +4146,7 @@ func (siw *ServerInterfaceWrapper) GetLinkRequest(c *gin.Context) {
 	_ = err
 
 	// ------------- Path parameter "userCode" -------------
-	var userCode string
+	var userCode UserCode
 
 	err = runtime.BindStyledParameterWithOptions("simple", "userCode", c.Param("userCode"), &userCode, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
 	if err != nil {
@@ -3804,11 +4171,38 @@ func (siw *ServerInterfaceWrapper) ApproveLinkRequest(c *gin.Context) {
 	_ = err
 
 	// ------------- Path parameter "userCode" -------------
-	var userCode string
+	var userCode UserCode
 
 	err = runtime.BindStyledParameterWithOptions("simple", "userCode", c.Param("userCode"), &userCode, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
 	if err != nil {
 		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter userCode: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ApproveLinkRequestParams
+
+	headers := c.Request.Header
+
+	// ------------- Required header parameter "X-Illarin-Request" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Illarin-Request")]; found {
+		var XIllarinRequest ApproveLinkRequestParamsXIllarinRequest
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Illarin-Request, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Illarin-Request", valueList[0], &XIllarinRequest, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Illarin-Request: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XIllarinRequest = XIllarinRequest
+
+	} else {
+		siw.ErrorHandler(c, fmt.Errorf("Header parameter X-Illarin-Request is required, but not found"), http.StatusBadRequest)
 		return
 	}
 
@@ -3819,7 +4213,7 @@ func (siw *ServerInterfaceWrapper) ApproveLinkRequest(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.ApproveLinkRequest(c, userCode)
+	siw.Handler.ApproveLinkRequest(c, userCode, params)
 }
 
 // DenyLinkRequest operation middleware
@@ -3829,11 +4223,38 @@ func (siw *ServerInterfaceWrapper) DenyLinkRequest(c *gin.Context) {
 	_ = err
 
 	// ------------- Path parameter "userCode" -------------
-	var userCode string
+	var userCode UserCode
 
 	err = runtime.BindStyledParameterWithOptions("simple", "userCode", c.Param("userCode"), &userCode, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
 	if err != nil {
 		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter userCode: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DenyLinkRequestParams
+
+	headers := c.Request.Header
+
+	// ------------- Required header parameter "X-Illarin-Request" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Illarin-Request")]; found {
+		var XIllarinRequest DenyLinkRequestParamsXIllarinRequest
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Illarin-Request, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Illarin-Request", valueList[0], &XIllarinRequest, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Illarin-Request: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XIllarinRequest = XIllarinRequest
+
+	} else {
+		siw.ErrorHandler(c, fmt.Errorf("Header parameter X-Illarin-Request is required, but not found"), http.StatusBadRequest)
 		return
 	}
 
@@ -3844,7 +4265,7 @@ func (siw *ServerInterfaceWrapper) DenyLinkRequest(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.DenyLinkRequest(c, userCode)
+	siw.Handler.DenyLinkRequest(c, userCode, params)
 }
 
 // ExchangeLinkAuthorization operation middleware

@@ -159,6 +159,25 @@ func reviewDeviceLink(
 	return rec, decodeResponse[pendingDeviceLink](t, rec)
 }
 
+func addVerifiedLinkingUser(
+	t *testing.T,
+	r *gin.Engine,
+	pool *pgxpool.Pool,
+	email string,
+	handle string,
+) *http.Cookie {
+	t.Helper()
+	session := signUp(t, r, email, handle)
+	if _, err := pool.Exec(
+		context.Background(),
+		`update users set email_verified_at = now() where email = $1`,
+		email,
+	); err != nil {
+		t.Fatalf("verify second linking user: %v", err)
+	}
+	return session
+}
+
 func browserRequest(
 	t *testing.T,
 	method string,
@@ -334,6 +353,60 @@ func TestDeviceLinkingRequiresManualReviewAndReturnsATokenPair(t *testing.T) {
 	}
 	if grant.Instance.ApplicationName != "Example client" || grant.Instance.InstanceName != "studio workstation" {
 		t.Errorf("linked instance = %+v", grant.Instance)
+	}
+}
+
+func TestDeviceReviewsAreReadOnlyAndApprovalProofsStayWithTheirUser(t *testing.T) {
+	r, firstSession, pool := newLinkingRouter(t)
+	secondSession := addVerifiedLinkingUser(
+		t, r, pool, "second.creator@example.com", "second.creator",
+	)
+	started, _ := startLink(t, r,
+		linkStartBody("Example client", "review test", []string{"asset:receive"}))
+
+	firstReview, first := reviewDeviceLink(t, r, firstSession, started.UserCode)
+	reloadedReview, reloaded := reviewDeviceLink(t, r, firstSession, started.UserCode)
+	if firstReview.Code != http.StatusOK || reloadedReview.Code != http.StatusOK {
+		t.Fatalf("repeated review statuses = %d and %d, want 200", firstReview.Code, reloadedReview.Code)
+	}
+	if first.ApprovalToken == "" || first.ApprovalToken != reloaded.ApprovalToken {
+		t.Fatalf("approval proof changed across tabs: %q then %q", first.ApprovalToken, reloaded.ApprovalToken)
+	}
+
+	otherReview, other := reviewDeviceLink(t, r, secondSession, started.UserCode)
+	if otherReview.Code != http.StatusOK {
+		t.Fatalf("second user review status = %d, want 200. body: %s", otherReview.Code, otherReview.Body.String())
+	}
+	if other.ApprovalToken == "" || other.ApprovalToken == first.ApprovalToken {
+		t.Fatalf("approval proofs are not user-bound: first %q, second %q", first.ApprovalToken, other.ApprovalToken)
+	}
+
+	var reviewerMissing, proofMissing bool
+	if err := pool.QueryRow(context.Background(), `
+		select reviewed_by is null, review_token_hash is null
+		  from link_requests
+		 where application_name = 'Example client' and instance_name = 'review test'
+	`).Scan(&reviewerMissing, &proofMissing); err != nil {
+		t.Fatalf("read pending device review state: %v", err)
+	}
+	if !reviewerMissing || !proofMissing {
+		t.Fatal("review GET claimed the device request or stored an approval proof")
+	}
+
+	crossUser := send(t, r, browserRequest(
+		t, http.MethodPost, "/v1/link/requests/"+started.UserCode+"/approve",
+		map[string]string{"approvalToken": first.ApprovalToken}, secondSession,
+	))
+	if crossUser.Code != http.StatusNotFound {
+		t.Fatalf("cross-user approval status = %d, want 404. body: %s", crossUser.Code, crossUser.Body.String())
+	}
+
+	approved := send(t, r, browserRequest(
+		t, http.MethodPost, "/v1/link/requests/"+started.UserCode+"/approve",
+		map[string]string{"approvalToken": first.ApprovalToken}, firstSession,
+	))
+	if approved.Code != http.StatusOK {
+		t.Fatalf("approval after repeated reviews = %d, want 200. body: %s", approved.Code, approved.Body.String())
 	}
 }
 

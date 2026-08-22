@@ -78,10 +78,33 @@ func TestAUserCodeIsReadTheWayACreatorTypesIt(t *testing.T) {
 			t.Errorf("normalizeUserCode(%q) = %q, %v, want %q", typed, normalized, ok, code)
 		}
 	}
-	for _, typed := range []string{"", "SHORT", code + "B", "AEIO" + code[4:]} {
+	for _, typed := range []string{
+		"", "SHORT", code + "B", "AEIO" + code[4:], strings.Repeat("-", 1000) + code,
+	} {
 		if _, ok := normalizeUserCode(typed); ok {
 			t.Errorf("normalizeUserCode(%q) accepted a code it cannot be", typed)
 		}
+	}
+}
+
+func TestOpaqueInputsAreRejectedBeforeDecodingUnboundedText(t *testing.T) {
+	code, _, err := newOpaqueCode()
+	if err != nil {
+		t.Fatalf("new opaque code: %v", err)
+	}
+	if _, ok := opaqueCodeHash(code); !ok {
+		t.Fatal("a fresh opaque code was refused")
+	}
+	if _, ok := opaqueCodeHash(code + strings.Repeat("A", 1000)); ok {
+		t.Fatal("an oversized opaque code was accepted")
+	}
+
+	token, _, _, err := newCredential(refreshTokenKind)
+	if err != nil {
+		t.Fatalf("new credential: %v", err)
+	}
+	if _, ok := credentialHash(token+strings.Repeat("A", 1000), refreshTokenKind); ok {
+		t.Fatal("an oversized credential was accepted")
 	}
 }
 

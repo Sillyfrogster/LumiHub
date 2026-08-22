@@ -13,10 +13,12 @@ import (
 
 const approveDeviceLinkRequest = `-- name: ApproveDeviceLinkRequest :one
 update link_requests
-   set approved_by = $1, approved_at = now()
- where review_token_hash = $2
-   and user_code_hash = $3
-   and reviewed_by = $1
+   set review_token_hash = $1,
+       reviewed_by = $2,
+       approved_by = $2,
+       approved_at = now()
+ where user_code_hash = $3
+   and (reviewed_by is null or reviewed_by = $2)
    and expires_at > now()
    and approved_at is null
    and denied_at is null
@@ -26,8 +28,8 @@ returning application_name, instance_name, application_version, protocol_version
 `
 
 type ApproveDeviceLinkRequestParams struct {
-	ReviewedBy      pgtype.UUID
 	ReviewTokenHash []byte
+	ReviewedBy      pgtype.UUID
 	UserCodeHash    []byte
 }
 
@@ -43,7 +45,7 @@ type ApproveDeviceLinkRequestRow struct {
 }
 
 func (q *Queries) ApproveDeviceLinkRequest(ctx context.Context, arg ApproveDeviceLinkRequestParams) (ApproveDeviceLinkRequestRow, error) {
-	row := q.db.QueryRow(ctx, approveDeviceLinkRequest, arg.ReviewedBy, arg.ReviewTokenHash, arg.UserCodeHash)
+	row := q.db.QueryRow(ctx, approveDeviceLinkRequest, arg.ReviewTokenHash, arg.ReviewedBy, arg.UserCodeHash)
 	var i ApproveDeviceLinkRequestRow
 	err := row.Scan(
 		&i.ApplicationName,
@@ -60,11 +62,12 @@ func (q *Queries) ApproveDeviceLinkRequest(ctx context.Context, arg ApproveDevic
 
 const approveLinkAuthorization = `-- name: ApproveLinkAuthorization :one
 update link_authorizations
-   set authorization_code_hash = $1,
-       approved_by = $2,
+   set reviewed_by = $1,
+       authorization_code_hash = $2,
+       approved_by = $1,
        approved_at = now()
  where request_hash = $3
-   and reviewed_by = $2
+   and (reviewed_by is null or reviewed_by = $1)
    and expires_at > now()
    and approved_at is null
    and denied_at is null
@@ -73,8 +76,8 @@ returning redirect_uri, state, expires_at
 `
 
 type ApproveLinkAuthorizationParams struct {
-	AuthorizationCodeHash []byte
 	ReviewedBy            pgtype.UUID
+	AuthorizationCodeHash []byte
 	RequestHash           []byte
 }
 
@@ -85,7 +88,7 @@ type ApproveLinkAuthorizationRow struct {
 }
 
 func (q *Queries) ApproveLinkAuthorization(ctx context.Context, arg ApproveLinkAuthorizationParams) (ApproveLinkAuthorizationRow, error) {
-	row := q.db.QueryRow(ctx, approveLinkAuthorization, arg.AuthorizationCodeHash, arg.ReviewedBy, arg.RequestHash)
+	row := q.db.QueryRow(ctx, approveLinkAuthorization, arg.ReviewedBy, arg.AuthorizationCodeHash, arg.RequestHash)
 	var i ApproveLinkAuthorizationRow
 	err := row.Scan(&i.RedirectUri, &i.State, &i.ExpiresAt)
 	return i, err
@@ -920,10 +923,12 @@ func (q *Queries) DeleteVerificationTokensForUser(ctx context.Context, userID pg
 
 const denyDeviceLinkRequest = `-- name: DenyDeviceLinkRequest :execrows
 update link_requests
-   set denied_by = $1, denied_at = now()
- where review_token_hash = $2
-   and user_code_hash = $3
-   and reviewed_by = $1
+   set review_token_hash = $1,
+       reviewed_by = $2,
+       denied_by = $2,
+       denied_at = now()
+ where user_code_hash = $3
+   and (reviewed_by is null or reviewed_by = $2)
    and expires_at > now()
    and approved_at is null
    and denied_at is null
@@ -931,28 +936,31 @@ update link_requests
 `
 
 type DenyDeviceLinkRequestParams struct {
-	ReviewedBy      pgtype.UUID
 	ReviewTokenHash []byte
+	ReviewedBy      pgtype.UUID
 	UserCodeHash    []byte
 }
 
 func (q *Queries) DenyDeviceLinkRequest(ctx context.Context, arg DenyDeviceLinkRequestParams) (int64, error) {
-	result, err := q.db.Exec(ctx, denyDeviceLinkRequest, arg.ReviewedBy, arg.ReviewTokenHash, arg.UserCodeHash)
+	result, err := q.db.Exec(ctx, denyDeviceLinkRequest, arg.ReviewTokenHash, arg.ReviewedBy, arg.UserCodeHash)
 	if err != nil {
 		return 0, err
 	}
 	return result.RowsAffected(), nil
 }
 
-const denyLinkAuthorization = `-- name: DenyLinkAuthorization :execrows
+const denyLinkAuthorization = `-- name: DenyLinkAuthorization :one
 update link_authorizations
-   set denied_by = $1, denied_at = now()
+   set reviewed_by = $1,
+       denied_by = $1,
+       denied_at = now()
  where request_hash = $2
-   and reviewed_by = $1
+   and (reviewed_by is null or reviewed_by = $1)
    and expires_at > now()
    and approved_at is null
    and denied_at is null
    and redeemed_at is null
+returning redirect_uri, state
 `
 
 type DenyLinkAuthorizationParams struct {
@@ -960,12 +968,16 @@ type DenyLinkAuthorizationParams struct {
 	RequestHash []byte
 }
 
-func (q *Queries) DenyLinkAuthorization(ctx context.Context, arg DenyLinkAuthorizationParams) (int64, error) {
-	result, err := q.db.Exec(ctx, denyLinkAuthorization, arg.ReviewedBy, arg.RequestHash)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
+type DenyLinkAuthorizationRow struct {
+	RedirectUri string
+	State       string
+}
+
+func (q *Queries) DenyLinkAuthorization(ctx context.Context, arg DenyLinkAuthorizationParams) (DenyLinkAuthorizationRow, error) {
+	row := q.db.QueryRow(ctx, denyLinkAuthorization, arg.ReviewedBy, arg.RequestHash)
+	var i DenyLinkAuthorizationRow
+	err := row.Scan(&i.RedirectUri, &i.State)
+	return i, err
 }
 
 const discordSubjectsForUser = `-- name: DiscordSubjectsForUser :many
@@ -2085,23 +2097,20 @@ func (q *Queries) RestoreAsset(ctx context.Context, arg RestoreAssetParams) (int
 }
 
 const reviewDeviceLinkRequest = `-- name: ReviewDeviceLinkRequest :one
-update link_requests
-   set review_token_hash = $1,
-       reviewed_by = $2
- where user_code_hash = $3
+select application_name, instance_name, application_version, protocol_version,
+       capabilities, accepted_targets, scopes, expires_at
+  from link_requests
+ where user_code_hash = $1
    and expires_at > now()
    and (reviewed_by is null or reviewed_by = $2)
    and approved_at is null
    and denied_at is null
    and redeemed_at is null
-returning application_name, instance_name, application_version, protocol_version,
-          capabilities, accepted_targets, scopes, expires_at
 `
 
 type ReviewDeviceLinkRequestParams struct {
-	ReviewTokenHash []byte
-	ReviewedBy      pgtype.UUID
-	UserCodeHash    []byte
+	UserCodeHash []byte
+	ReviewedBy   pgtype.UUID
 }
 
 type ReviewDeviceLinkRequestRow struct {
@@ -2116,7 +2125,7 @@ type ReviewDeviceLinkRequestRow struct {
 }
 
 func (q *Queries) ReviewDeviceLinkRequest(ctx context.Context, arg ReviewDeviceLinkRequestParams) (ReviewDeviceLinkRequestRow, error) {
-	row := q.db.QueryRow(ctx, reviewDeviceLinkRequest, arg.ReviewTokenHash, arg.ReviewedBy, arg.UserCodeHash)
+	row := q.db.QueryRow(ctx, reviewDeviceLinkRequest, arg.UserCodeHash, arg.ReviewedBy)
 	var i ReviewDeviceLinkRequestRow
 	err := row.Scan(
 		&i.ApplicationName,
@@ -2132,22 +2141,21 @@ func (q *Queries) ReviewDeviceLinkRequest(ctx context.Context, arg ReviewDeviceL
 }
 
 const reviewLinkAuthorization = `-- name: ReviewLinkAuthorization :one
-update link_authorizations
-   set reviewed_by = $1
- where request_hash = $2
+select redirect_uri, state, application_name, instance_name,
+       application_version, protocol_version, capabilities,
+       accepted_targets, scopes, expires_at
+  from link_authorizations
+ where request_hash = $1
    and expires_at > now()
-   and (reviewed_by is null or reviewed_by = $1)
+   and (reviewed_by is null or reviewed_by = $2)
    and approved_at is null
    and denied_at is null
    and redeemed_at is null
-returning redirect_uri, state, application_name, instance_name,
-          application_version, protocol_version, capabilities,
-          accepted_targets, scopes, expires_at
 `
 
 type ReviewLinkAuthorizationParams struct {
-	ReviewedBy  pgtype.UUID
 	RequestHash []byte
+	ReviewedBy  pgtype.UUID
 }
 
 type ReviewLinkAuthorizationRow struct {
@@ -2164,7 +2172,7 @@ type ReviewLinkAuthorizationRow struct {
 }
 
 func (q *Queries) ReviewLinkAuthorization(ctx context.Context, arg ReviewLinkAuthorizationParams) (ReviewLinkAuthorizationRow, error) {
-	row := q.db.QueryRow(ctx, reviewLinkAuthorization, arg.ReviewedBy, arg.RequestHash)
+	row := q.db.QueryRow(ctx, reviewLinkAuthorization, arg.RequestHash, arg.ReviewedBy)
 	var i ReviewLinkAuthorizationRow
 	err := row.Scan(
 		&i.RedirectUri,

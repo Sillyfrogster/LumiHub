@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/url"
@@ -180,14 +181,9 @@ func (s *Service) Pending(ctx context.Context, userID uuid.UUID, rawCode string)
 	if !ok {
 		return Pending{}, ErrLinkRequestNotFound
 	}
-	approvalToken, approvalHash, err := newOpaqueCode()
-	if err != nil {
-		return Pending{}, err
-	}
 	row, err := db.New(s.pool).ReviewDeviceLinkRequest(ctx, db.ReviewDeviceLinkRequestParams{
-		ReviewTokenHash: approvalHash,
-		ReviewedBy:      uuidValue(userID),
-		UserCodeHash:    s.digest("user-code", code),
+		ReviewedBy:   uuidValue(userID),
+		UserCodeHash: s.digest("user-code", code),
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Pending{}, ErrLinkRequestNotFound
@@ -195,7 +191,7 @@ func (s *Service) Pending(ctx context.Context, userID uuid.UUID, rawCode string)
 	if err != nil {
 		return Pending{}, fmt.Errorf("review device request: %w", err)
 	}
-	return pendingFromDeviceReview(row, approvalToken), nil
+	return pendingFromDeviceReview(row, s.deviceApprovalProof(userID, code)), nil
 }
 
 // Approve approves one reviewed device request.
@@ -206,7 +202,7 @@ func (s *Service) Approve(
 	approvalToken string,
 ) (Pending, error) {
 	code, ok := normalizeUserCode(rawCode)
-	tokenHash, tokenOK := opaqueCodeHash(approvalToken)
+	tokenHash, tokenOK := s.deviceApprovalProofHash(userID, code, approvalToken)
 	if !ok || !tokenOK {
 		return Pending{}, ErrLinkRequestNotFound
 	}
@@ -231,7 +227,7 @@ func (s *Service) Deny(
 	approvalToken string,
 ) error {
 	code, ok := normalizeUserCode(rawCode)
-	tokenHash, tokenOK := opaqueCodeHash(approvalToken)
+	tokenHash, tokenOK := s.deviceApprovalProofHash(userID, code, approvalToken)
 	if !ok || !tokenOK {
 		return ErrLinkRequestNotFound
 	}
@@ -282,10 +278,10 @@ func (s *Service) ApproveAuthorization(
 	userID uuid.UUID,
 	requestCode string,
 ) (Redirect, error) {
-	if _, err := s.PendingAuthorization(ctx, userID, requestCode); err != nil {
-		return Redirect{}, err
+	requestHash, ok := opaqueCodeHash(requestCode)
+	if !ok {
+		return Redirect{}, ErrLinkRequestNotFound
 	}
-	requestHash, _ := opaqueCodeHash(requestCode)
 	code, codeHash, err := newOpaqueCode()
 	if err != nil {
 		return Redirect{}, err
@@ -317,23 +313,14 @@ func (s *Service) DenyAuthorization(
 	if !ok {
 		return Redirect{}, ErrLinkRequestNotFound
 	}
-	row, err := db.New(s.pool).ReviewLinkAuthorization(ctx, db.ReviewLinkAuthorizationParams{
+	row, err := db.New(s.pool).DenyLinkAuthorization(ctx, db.DenyLinkAuthorizationParams{
 		ReviewedBy: uuidValue(userID), RequestHash: hash,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Redirect{}, ErrLinkRequestNotFound
 	}
 	if err != nil {
-		return Redirect{}, fmt.Errorf("review denied authorization: %w", err)
-	}
-	denied, err := db.New(s.pool).DenyLinkAuthorization(ctx, db.DenyLinkAuthorizationParams{
-		ReviewedBy: uuidValue(userID), RequestHash: hash,
-	})
-	if err != nil {
 		return Redirect{}, fmt.Errorf("deny browser authorization: %w", err)
-	}
-	if denied == 0 {
-		return Redirect{}, ErrLinkRequestNotFound
 	}
 	destination, err := redirectWith(row.RedirectUri, "error", "access_denied", row.State)
 	if err != nil {
@@ -797,6 +784,23 @@ func (s *Service) digest(purpose, value string) []byte {
 	mac.Write([]byte{0})
 	mac.Write([]byte(value))
 	return mac.Sum(nil)
+}
+
+func (s *Service) deviceApprovalProof(userID uuid.UUID, code string) string {
+	digest := s.digest("device-approval", userID.String()+"\x00"+code)
+	return base64.RawURLEncoding.EncodeToString(digest)
+}
+
+func (s *Service) deviceApprovalProofHash(
+	userID uuid.UUID,
+	code string,
+	proof string,
+) ([]byte, bool) {
+	hash, ok := opaqueCodeHash(proof)
+	if !ok || !hmac.Equal([]byte(proof), []byte(s.deviceApprovalProof(userID, code))) {
+		return nil, false
+	}
+	return hash, true
 }
 
 // PollInterval is the initial device polling interval.

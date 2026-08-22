@@ -2,6 +2,8 @@ openapi: 3.1.0
 info:
   title: Illarin API
   version: 0.1.0
+servers:
+  - url: /api
 paths:
   /v1/account/discord:
     delete:
@@ -247,7 +249,7 @@ paths:
       description: What the installation behind a user code is asking for.
       security: [{ sessionCookie: [] }]
       parameters:
-        - { name: userCode, in: path, required: true, schema: { type: string } }
+        - { name: userCode, in: path, required: true, schema: { $ref: "#/components/schemas/UserCode" } }
       responses:
         "200":
           description: The unverified names, declaration and scopes to review
@@ -266,7 +268,8 @@ paths:
         once. This browser-only operation requires Illarin's request header.
       security: [{ sessionCookie: [] }]
       parameters:
-        - { name: userCode, in: path, required: true, schema: { type: string } }
+        - { name: userCode, in: path, required: true, schema: { $ref: "#/components/schemas/UserCode" } }
+        - { $ref: "#/components/parameters/IllarinRequest" }
       requestBody:
         required: true
         content:
@@ -278,8 +281,9 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/PendingLink" }
+        "400": { description: A path or browser-proof header parameter is malformed }
         "401": { description: No account is signed in }
-        "403": { description: The signed-in account has not verified its email }
+        "403": { description: Email is unverified or the browser origin/request proof is invalid }
         "404": { description: No unapproved link request has that code }
   /v1/link/requests/{userCode}/deny:
     post:
@@ -287,7 +291,8 @@ paths:
       description: Deny the reviewed device request and stop its polling installation.
       security: [{ sessionCookie: [] }]
       parameters:
-        - { name: userCode, in: path, required: true, schema: { type: string } }
+        - { name: userCode, in: path, required: true, schema: { $ref: "#/components/schemas/UserCode" } }
+        - { $ref: "#/components/parameters/IllarinRequest" }
       requestBody:
         required: true
         content:
@@ -295,8 +300,9 @@ paths:
             schema: { $ref: "#/components/schemas/DeviceLinkDecision" }
       responses:
         "204": { description: The request is denied }
+        "400": { description: A path or browser-proof header parameter is malformed }
         "401": { description: No account is signed in }
-        "403": { description: The signed-in account has not verified its email }
+        "403": { description: Email is unverified or the browser origin/request proof is invalid }
         "404": { description: No pending reviewed request has that code }
   /v1/link/authorizations:
     post:
@@ -324,7 +330,7 @@ paths:
       description: What the installation behind a browser authorization is asking for.
       security: [{ sessionCookie: [] }]
       parameters:
-        - { name: requestCode, in: path, required: true, schema: { type: string } }
+        - { name: requestCode, in: path, required: true, schema: { $ref: "#/components/schemas/RequestCode" } }
       responses:
         "200":
           description: The unverified names, declaration and scopes to review
@@ -340,15 +346,17 @@ paths:
       description: Approve once and return the validated loopback redirect.
       security: [{ sessionCookie: [] }]
       parameters:
-        - { name: requestCode, in: path, required: true, schema: { type: string } }
+        - { name: requestCode, in: path, required: true, schema: { $ref: "#/components/schemas/RequestCode" } }
+        - { $ref: "#/components/parameters/IllarinRequest" }
       responses:
         "200":
           description: The exact loopback URL carrying the one-use code and state
           content:
             application/json:
               schema: { $ref: "#/components/schemas/LinkRedirect" }
+        "400": { description: A path or browser-proof header parameter is malformed }
         "401": { description: No account is signed in }
-        "403": { description: The signed-in account has not verified its email }
+        "403": { description: Email is unverified or the browser origin/request proof is invalid }
         "404": { description: No pending authorization has that request code }
   /v1/link/authorizations/{requestCode}/deny:
     post:
@@ -356,15 +364,17 @@ paths:
       description: Deny once and return the validated loopback error redirect.
       security: [{ sessionCookie: [] }]
       parameters:
-        - { name: requestCode, in: path, required: true, schema: { type: string } }
+        - { name: requestCode, in: path, required: true, schema: { $ref: "#/components/schemas/RequestCode" } }
+        - { $ref: "#/components/parameters/IllarinRequest" }
       responses:
         "200":
           description: The exact loopback URL carrying access_denied and state
           content:
             application/json:
               schema: { $ref: "#/components/schemas/LinkRedirect" }
+        "400": { description: A path or browser-proof header parameter is malformed }
         "401": { description: No account is signed in }
-        "403": { description: The signed-in account has not verified its email }
+        "403": { description: Email is unverified or the browser origin/request proof is invalid }
         "404": { description: No pending authorization has that request code }
   /v1/link/token:
     post:
@@ -464,9 +474,12 @@ paths:
       security: [{ sessionCookie: [] }]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { $ref: "#/components/parameters/IllarinRequest" }
       responses:
         "204": { description: The instance is revoked }
+        "400": { description: The id or browser-proof header parameter is malformed }
         "401": { description: No account is signed in }
+        "403": { description: The browser origin or request proof is invalid }
         "404": { description: The account has no live instance with that id }
   /v1/profiles/{handle}:
     get:
@@ -1085,6 +1098,15 @@ components:
       type: http
       scheme: bearer
       description: A short-lived access token issued to one linked instance.
+  parameters:
+    IllarinRequest:
+      name: X-Illarin-Request
+      in: header
+      required: true
+      description: Illarin's browser request proof. The value must be 1.
+      schema:
+        type: string
+        enum: ["1"]
   schemas:
     Scope:
       type: string
@@ -1187,16 +1209,51 @@ components:
       maxItems: 2
       uniqueItems: true
       items: { $ref: "#/components/schemas/Scope" }
+    UserCode:
+      type: string
+      minLength: 8
+      maxLength: 16
+      pattern: '^[BCDFGHJKLMNPQRSTVWXZ23456789bcdfghjklmnpqrstvwxz -]{8,16}$'
+    RequestCode:
+      type: string
+      minLength: 43
+      maxLength: 43
+      pattern: '^[A-Za-z0-9_-]{43}$'
+    DeviceCode:
+      type: string
+      minLength: 43
+      maxLength: 43
+      pattern: '^[A-Za-z0-9_-]{43}$'
+    ApprovalToken:
+      type: string
+      minLength: 43
+      maxLength: 43
+      pattern: '^[A-Za-z0-9_-]{43}$'
+    AuthorizationCode:
+      type: string
+      minLength: 43
+      maxLength: 43
+      pattern: '^[A-Za-z0-9_-]{43}$'
+    AccessToken:
+      type: string
+      minLength: 56
+      maxLength: 56
+      pattern: '^ia1\.[BCDFGHJKLMNPQRSTVWXZ23456789]{8}\.[A-Za-z0-9_-]{43}$'
+    RefreshToken:
+      type: string
+      minLength: 56
+      maxLength: 56
+      pattern: '^ir1\.[BCDFGHJKLMNPQRSTVWXZ23456789]{8}\.[A-Za-z0-9_-]{43}$'
     LinkRequest:
       type: object
       required:
         [deviceCode, userCode, verificationUrl, expiresAt, interval]
       properties:
         deviceCode:
-          type: string
+          $ref: "#/components/schemas/DeviceCode"
           description: Kept private by the installation and sent when polling.
         userCode:
-          type: string
+          $ref: "#/components/schemas/UserCode"
           description: Shown to the creator, who enters it on Illarin.
         verificationUrl:
           type: string
@@ -1210,21 +1267,36 @@ components:
       additionalProperties: false
       required: [deviceCode]
       properties:
-        deviceCode: { type: string }
-    LinkPollResult:
+        deviceCode: { $ref: "#/components/schemas/DeviceCode" }
+    PendingLinkPollResult:
       type: object
       additionalProperties: false
       required: [status]
       properties:
-        status: { type: string, enum: [pending, linked] }
-        accessToken: { type: string }
+        status: { type: string, enum: [pending] }
+    LinkedLinkPollResult:
+      type: object
+      additionalProperties: false
+      required: [status, accessToken, accessTokenExpiresAt, refreshToken, instance]
+      properties:
+        status: { type: string, enum: [linked] }
+        accessToken: { $ref: "#/components/schemas/AccessToken" }
         accessTokenExpiresAt:
           type: string
           format: date-time
           description: The 15-minute access-token deadline.
-        refreshToken: { type: string }
+        refreshToken: { $ref: "#/components/schemas/RefreshToken" }
         instance:
           $ref: "#/components/schemas/LinkedInstance"
+    LinkPollResult:
+      oneOf:
+        - { $ref: "#/components/schemas/PendingLinkPollResult" }
+        - { $ref: "#/components/schemas/LinkedLinkPollResult" }
+      discriminator:
+        propertyName: status
+        mapping:
+          pending: "#/components/schemas/PendingLinkPollResult"
+          linked: "#/components/schemas/LinkedLinkPollResult"
     PendingLink:
       type: object
       required:
@@ -1246,14 +1318,14 @@ components:
           required: [approvalToken]
           properties:
             approvalToken:
-              type: string
+              $ref: "#/components/schemas/ApprovalToken"
               description: A private one-use proof that this code was reviewed.
     DeviceLinkDecision:
       type: object
       additionalProperties: false
       required: [approvalToken]
       properties:
-        approvalToken: { type: string }
+        approvalToken: { $ref: "#/components/schemas/ApprovalToken" }
     LinkAuthorization:
       type: object
       additionalProperties: false
@@ -1276,7 +1348,7 @@ components:
       additionalProperties: false
       required: [authorizationCode, codeVerifier, redirectUri]
       properties:
-        authorizationCode: { type: string }
+        authorizationCode: { $ref: "#/components/schemas/AuthorizationCode" }
         codeVerifier:
           type: string
           minLength: 43
@@ -1289,18 +1361,18 @@ components:
       additionalProperties: false
       required: [refreshToken]
       properties:
-        refreshToken: { type: string }
+        refreshToken: { $ref: "#/components/schemas/RefreshToken" }
     InstanceTokenGrant:
       type: object
       additionalProperties: false
       required: [accessToken, accessTokenExpiresAt, refreshToken, instance]
       properties:
-        accessToken: { type: string }
+        accessToken: { $ref: "#/components/schemas/AccessToken" }
         accessTokenExpiresAt:
           type: string
           format: date-time
           description: The 15-minute access-token deadline.
-        refreshToken: { type: string }
+        refreshToken: { $ref: "#/components/schemas/RefreshToken" }
         instance: { $ref: "#/components/schemas/LinkedInstance" }
     UpdateInstance:
       type: object

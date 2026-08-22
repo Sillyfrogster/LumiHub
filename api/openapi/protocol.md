@@ -3,6 +3,8 @@
 This guide is for developers adding Illarin support to an application or a new
 asset platform. The machine-readable contract is served at `/openapi.yaml`. If
 this guide and that contract differ, follow OpenAPI and report the mismatch.
+All API paths below are relative to the exact Illarin base URL and include the
+public `/api` prefix.
 
 The current protocol links an application installation, rotates its credentials,
 records what it can accept, and lets its owner revoke it. Asset delivery and
@@ -29,6 +31,10 @@ Every installation links independently. Do not ship a shared credential and do
 not copy one when cloning an application profile, container, or virtual machine.
 Clear Illarin credentials when an installation identity is cloned.
 
+Treat the exact base URL as part of the security identity. Send a code or token
+only to the server that issued it, and never merge records because two servers,
+applications, or installations use the same display name.
+
 ## Security model
 
 Illarin authenticates the account owner and the installation they approve. It
@@ -44,6 +50,14 @@ Use HTTPS for every request except the final same-device loopback callback. Trea
 all codes and tokens as opaque. Generate security values with a cryptographic
 random-number generator.
 
+This profile does not make a compromised installation safe. Access and refresh
+tokens are bearer secrets, so malware that can read the application's credential
+store can act as that installation until the token expires or the owner revokes
+it. Manual code matching reduces cross-device consent phishing but cannot protect
+an owner who approves an unsolicited matching request. Keep those limits visible
+in the application instead of describing a link as absolute proof of platform
+identity.
+
 ## Implementation order
 
 1. Define one durable local installation record.
@@ -53,7 +67,8 @@ random-number generator.
    is impossible.
 5. Serialize refreshes so only one refresh is in flight per installation.
 6. Add declaration updates after application upgrades.
-7. Handle `401` by stopping work and offering to link again.
+7. Refresh once after an access-endpoint `401`; treat a refresh-endpoint `401`
+   as terminal and offer to link again.
 8. Run the conformance checklist at the end of this guide.
 
 ## Describe the installation
@@ -67,7 +82,7 @@ Both authorization paths start with the same declaration:
   "applicationVersion": "4.2.0",
   "protocolVersion": 1,
   "capabilities": ["org.example.paperlantern:media-sidecars"],
-  "acceptedTargets": ["chara_card_v3", "chara_card_v2"],
+  "acceptedTargets": ["example_bundle_v2", "example_bundle_v1"],
   "scopes": ["asset:receive"]
 }
 ```
@@ -82,7 +97,7 @@ The limits are part of the wire contract:
 - Each array has at most 32 unique values, each at most 64 characters.
 - A capability has a namespace and name, such as
   `org.example.paperlantern:media-sidecars`.
-- An export target is a lowercase module ID such as `chara_card_v3`.
+- An export target is a lowercase module ID such as `example_bundle_v2`.
 - The whole JSON request body may not exceed 4 KiB. Unknown JSON fields are
   rejected.
 
@@ -91,12 +106,12 @@ only a claim about interoperability. It does not grant a permission, make an
 unknown server feature available, or cause Illarin to run application code.
 
 `acceptedTargets` is ordered from most to least preferred. It tells the delivery
-phase which Illarin export your application can read. Current format-module IDs
-include `chara_card_v2`, `chara_card_v3`, `charx`, `lorebook`,
-`lorebook_sillytavern`, `preset_sillytavern`, `preset_lumiverse`,
-`theme_sillytavern`, `theme_lumiverse`, and `pack_lumiverse`. `raw` is the safe
-fallback. This list can grow; an unknown ID grants nothing and cannot select a
-writer Illarin does not have.
+phase which Illarin exports your application can read. The `example_*` values in
+this guide are placeholders, not registered targets. Declare only IDs backed by
+readers your application actually ships. Illarin exposes the formats currently
+offered for an asset in that asset's `downloads[].format` values; there is no
+global target catalog in this protocol version. The list can grow, and an unknown
+ID grants nothing or selects no server-side writer.
 
 The only scopes are:
 
@@ -140,7 +155,7 @@ the verifier in the browser URL.
 ### 2. Start authorization
 
 ```http
-POST /v1/link/authorizations
+POST /api/v1/link/authorizations
 Content-Type: application/json
 
 {
@@ -149,7 +164,7 @@ Content-Type: application/json
   "applicationVersion": "4.2.0",
   "protocolVersion": 1,
   "capabilities": [],
-  "acceptedTargets": ["chara_card_v3"],
+  "acceptedTargets": ["example_bundle_v2"],
   "scopes": ["asset:receive"],
   "redirectUri": "http://127.0.0.1:49152/illarin/callback",
   "state": "<random-state>",
@@ -177,7 +192,7 @@ Before accepting a code:
 ### 4. Exchange the code
 
 ```http
-POST /v1/link/token
+POST /api/v1/link/token
 Content-Type: application/json
 
 {
@@ -204,7 +219,7 @@ statuses and response bodies are defined by Illarin's OpenAPI contract.
 ### 1. Start the device request
 
 ```http
-POST /v1/link/requests
+POST /api/v1/link/requests
 Content-Type: application/json
 
 {
@@ -212,7 +227,7 @@ Content-Type: application/json
   "instanceName": "render box",
   "protocolVersion": 1,
   "capabilities": [],
-  "acceptedTargets": ["chara_card_v3"],
+  "acceptedTargets": ["example_bundle_v2"],
   "scopes": ["asset:receive"]
 }
 ```
@@ -228,7 +243,7 @@ screen shows the same code, and decline any request they did not start.
 ### 2. Poll with finite requests
 
 ```http
-POST /v1/link/poll
+POST /api/v1/link/poll
 Content-Type: application/json
 
 {"deviceCode":"<private-device-code>"}
@@ -276,7 +291,7 @@ Authorization: Bearer ia1.…
 Refresh shortly before access expiry, allowing for clock skew:
 
 ```http
-POST /v1/link/refresh
+POST /api/v1/link/refresh
 Content-Type: application/json
 
 {"refreshToken":"ir1.…"}
@@ -292,8 +307,10 @@ Replay of a replaced refresh token retained in Illarin's 90-day detection window
 revokes the whole instance and all its access tokens. An older replacement is
 still rejected, but Illarin no longer keeps enough information to attribute it
 to an instance. A refresh family also expires after 90 days without authenticated
-use. After any terminal `401`, stop polling, delivery, and sync, remove local
-credentials, and offer to link again.
+use. After a `401` from an ordinary access endpoint, serialize one refresh and
+retry the original request once. A `401` from the refresh endpoint is terminal:
+stop polling, delivery, and sync, remove local credentials, and offer to link
+again. Never create a refresh-and-retry loop.
 
 Secret-bearing responses use `Cache-Control: no-store`. A conforming platform
 must apply the same policy to its own HTTP cache and diagnostic output.
@@ -303,7 +320,7 @@ must apply the same policy to its own HTTP cache and diagnostic output.
 An installation can replace its non-authoritative declaration without relinking:
 
 ```http
-PUT /v1/instances/me
+PUT /api/v1/instances/me
 Authorization: Bearer ia1.…
 Content-Type: application/json
 
@@ -311,7 +328,7 @@ Content-Type: application/json
   "applicationVersion": "4.3.0",
   "protocolVersion": 1,
   "capabilities": ["org.example.paperlantern:media-sidecars"],
-  "acceptedTargets": ["chara_card_v3", "chara_card_v2"]
+  "acceptedTargets": ["example_bundle_v2", "example_bundle_v1"]
 }
 ```
 
@@ -409,7 +426,8 @@ Before calling an integration complete, verify all of these:
 - Credentials are isolated per installation, stored securely, redacted from
   logs, and never placed in a URL.
 - Refresh is serialized and the replacement is committed atomically.
-- A `401` stops every background worker and removes unusable credentials.
+- An access-endpoint `401` causes at most one refresh and retry; a refresh-endpoint
+  `401` stops every background worker and removes unusable credentials.
 - Updating a declaration cannot change names or scopes.
 - Two installations of the same application can link, refresh, update, and
   unlink without sharing state.

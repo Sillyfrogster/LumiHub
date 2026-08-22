@@ -97,11 +97,11 @@ func Register(r *gin.Engine, h *Handlers, d Deadlines) error {
 		routeKey(http.MethodGet, "/media/:media_id/:variant/:derivative_version"): d.Download,
 	}
 
-	routes := r.Group("", deadlineByRoute(limits))
+	routes := r.Group("", deadlineByRoute(limits), noStoreLinkedInstanceResponses())
 	routes.GET("/healthz", health)
 	routes.GET("/protocol", document("text/plain; charset=utf-8", openapi.Guide))
 	routes.GET("/openapi.yaml", document("application/yaml", openapi.Contract))
-	RegisterHandlers(routes, h)
+	RegisterHandlersWithOptions(routes, h, GinServerOptions{ErrorHandler: generatedParameterError})
 
 	for _, route := range r.Routes() {
 		key := routeKey(route.Method, route.Path)

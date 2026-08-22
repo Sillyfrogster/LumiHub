@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -163,6 +164,85 @@ func TestLoopbackPKCEReviewApprovalAndOneUseExchange(t *testing.T) {
 	assertNoStore(t, secondExchange)
 	if secondExchange.Code != http.StatusBadRequest {
 		t.Errorf("second exchange status = %d, want 400", secondExchange.Code)
+	}
+}
+
+func TestBrowserAuthorizationReviewsAreReadOnlyAndTheFirstDecisionBindsTheUser(t *testing.T) {
+	r, firstSession, pool := newLinkingRouter(t)
+	secondSession := addVerifiedLinkingUser(
+		t, r, pool, "second.browser@example.com", "second.browser",
+	)
+	verifier := strings.Repeat("A", 43)
+	digest := sha256.Sum256([]byte(verifier))
+	body := linkStartBody("Example browser client", "review test", []string{"asset:receive"})
+	body["state"] = strings.Repeat("s", 43)
+	body["redirectUri"] = "http://127.0.0.1:49152/illarin/callback"
+	body["codeChallenge"] = base64.RawURLEncoding.EncodeToString(digest[:])
+	body["codeChallengeMethod"] = "S256"
+	startedRec := sendJSON(t, r, http.MethodPost, "/v1/link/authorizations", jsonText(t, body))
+	if startedRec.Code != http.StatusCreated {
+		t.Fatalf("start authorization status = %d, want 201. body: %s", startedRec.Code, startedRec.Body.String())
+	}
+	started := decodeResponse[startedAuthorization](t, startedRec)
+	authorizationURL, err := url.Parse(started.AuthorizationURL)
+	if err != nil {
+		t.Fatalf("parse authorization URL: %v", err)
+	}
+	requestCode := authorizationURL.Query().Get("request")
+	if requestCode == "" {
+		t.Fatal("authorization URL has no request code")
+	}
+
+	review := func(session *http.Cookie) *httptest.ResponseRecorder {
+		t.Helper()
+		req := httptest.NewRequest(
+			http.MethodGet, "/v1/link/authorizations/"+requestCode, nil,
+		)
+		return send(t, r, authorized(req, session))
+	}
+	for index, session := range []*http.Cookie{firstSession, firstSession, secondSession} {
+		rec := review(session)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("review %d status = %d, want 200. body: %s", index+1, rec.Code, rec.Body.String())
+		}
+	}
+
+	var reviewerMissing bool
+	if err := pool.QueryRow(context.Background(), `
+		select reviewed_by is null
+		  from link_authorizations
+		 where application_name = 'Example browser client' and instance_name = 'review test'
+	`).Scan(&reviewerMissing); err != nil {
+		t.Fatalf("read pending browser review state: %v", err)
+	}
+	if !reviewerMissing {
+		t.Fatal("review GET claimed the browser authorization")
+	}
+
+	denyTarget := "/v1/link/authorizations/" + requestCode + "/deny"
+	denied := send(t, r, browserRequest(
+		t, http.MethodPost, denyTarget, nil, firstSession,
+	))
+	if denied.Code != http.StatusOK {
+		t.Fatalf("first decision status = %d, want 200. body: %s", denied.Code, denied.Body.String())
+	}
+	var redirect struct {
+		URL string `json:"redirectUrl"`
+	}
+	if err := json.Unmarshal(denied.Body.Bytes(), &redirect); err != nil {
+		t.Fatalf("decode denial redirect: %v", err)
+	}
+	callback, err := url.Parse(redirect.URL)
+	if err != nil || callback.Query().Get("error") != "access_denied" {
+		t.Fatalf("denial redirect = %q, want access_denied", redirect.URL)
+	}
+
+	approved := send(t, r, browserRequest(
+		t, http.MethodPost,
+		"/v1/link/authorizations/"+requestCode+"/approve", nil, secondSession,
+	))
+	if approved.Code != http.StatusNotFound {
+		t.Fatalf("second user's decision status = %d, want 404. body: %s", approved.Code, approved.Body.String())
 	}
 }
 

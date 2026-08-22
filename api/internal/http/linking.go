@@ -82,19 +82,29 @@ func (h *Handlers) PollLinkRequest(c *gin.Context) {
 		return
 	}
 	if !linked {
-		c.JSON(http.StatusOK, LinkPollResult{Status: LinkPollResultStatusPending})
+		result, encodeErr := pendingLinkPollResult()
+		if encodeErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not encode the link status."})
+			return
+		}
+		c.JSON(http.StatusOK, result)
 		return
 	}
-	c.JSON(http.StatusOK, toAPIPollGrant(grant))
+	result, encodeErr := toAPIPollGrant(grant)
+	if encodeErr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not encode the link grant."})
+		return
+	}
+	c.JSON(http.StatusOK, result)
 }
 
-func (h *Handlers) GetLinkRequest(c *gin.Context, userCode string) {
+func (h *Handlers) GetLinkRequest(c *gin.Context, userCode UserCode) {
 	noStoreLink(c)
 	creator, ok := h.verifiedAccount(c, "reviewing a link")
 	if !ok {
 		return
 	}
-	pending, err := h.links.Pending(c.Request.Context(), creator.ID, userCode)
+	pending, err := h.links.Pending(c.Request.Context(), creator.ID, string(userCode))
 	if err != nil {
 		h.linkingError(c, err)
 		return
@@ -102,7 +112,11 @@ func (h *Handlers) GetLinkRequest(c *gin.Context, userCode string) {
 	c.JSON(http.StatusOK, toAPIPendingDeviceLink(pending))
 }
 
-func (h *Handlers) ApproveLinkRequest(c *gin.Context, userCode string) {
+func (h *Handlers) ApproveLinkRequest(
+	c *gin.Context,
+	userCode UserCode,
+	_ ApproveLinkRequestParams,
+) {
 	noStoreLink(c)
 	creator, ok := h.verifiedAccount(c, "approving a link")
 	if !ok || !h.allowLinkBrowserMutation(c) {
@@ -113,7 +127,7 @@ func (h *Handlers) ApproveLinkRequest(c *gin.Context, userCode string) {
 		return
 	}
 	approved, err := h.links.Approve(
-		c.Request.Context(), creator.ID, userCode, decision.ApprovalToken,
+		c.Request.Context(), creator.ID, string(userCode), decision.ApprovalToken,
 	)
 	if err != nil {
 		h.linkingError(c, err)
@@ -122,7 +136,11 @@ func (h *Handlers) ApproveLinkRequest(c *gin.Context, userCode string) {
 	c.JSON(http.StatusOK, toAPIPendingLink(approved))
 }
 
-func (h *Handlers) DenyLinkRequest(c *gin.Context, userCode string) {
+func (h *Handlers) DenyLinkRequest(
+	c *gin.Context,
+	userCode UserCode,
+	_ DenyLinkRequestParams,
+) {
 	noStoreLink(c)
 	creator, ok := h.verifiedAccount(c, "denying a link")
 	if !ok || !h.allowLinkBrowserMutation(c) {
@@ -133,7 +151,7 @@ func (h *Handlers) DenyLinkRequest(c *gin.Context, userCode string) {
 		return
 	}
 	if err := h.links.Deny(
-		c.Request.Context(), creator.ID, userCode, decision.ApprovalToken,
+		c.Request.Context(), creator.ID, string(userCode), decision.ApprovalToken,
 	); err != nil {
 		h.linkingError(c, err)
 		return
@@ -141,14 +159,14 @@ func (h *Handlers) DenyLinkRequest(c *gin.Context, userCode string) {
 	c.Status(http.StatusNoContent)
 }
 
-func (h *Handlers) GetLinkAuthorization(c *gin.Context, requestCode string) {
+func (h *Handlers) GetLinkAuthorization(c *gin.Context, requestCode RequestCode) {
 	noStoreLink(c)
 	creator, ok := h.verifiedAccount(c, "reviewing a link")
 	if !ok {
 		return
 	}
 	pending, err := h.links.PendingAuthorization(
-		c.Request.Context(), creator.ID, requestCode,
+		c.Request.Context(), creator.ID, string(requestCode),
 	)
 	if err != nil {
 		h.linkingError(c, err)
@@ -157,14 +175,18 @@ func (h *Handlers) GetLinkAuthorization(c *gin.Context, requestCode string) {
 	c.JSON(http.StatusOK, toAPIPendingLink(pending))
 }
 
-func (h *Handlers) ApproveLinkAuthorization(c *gin.Context, requestCode string) {
+func (h *Handlers) ApproveLinkAuthorization(
+	c *gin.Context,
+	requestCode RequestCode,
+	_ ApproveLinkAuthorizationParams,
+) {
 	noStoreLink(c)
 	creator, ok := h.verifiedAccount(c, "approving a link")
 	if !ok || !h.allowLinkBrowserMutation(c) {
 		return
 	}
 	redirect, err := h.links.ApproveAuthorization(
-		c.Request.Context(), creator.ID, requestCode,
+		c.Request.Context(), creator.ID, string(requestCode),
 	)
 	if err != nil {
 		h.linkingError(c, err)
@@ -173,14 +195,18 @@ func (h *Handlers) ApproveLinkAuthorization(c *gin.Context, requestCode string) 
 	c.JSON(http.StatusOK, LinkRedirect{RedirectUrl: redirect.URL})
 }
 
-func (h *Handlers) DenyLinkAuthorization(c *gin.Context, requestCode string) {
+func (h *Handlers) DenyLinkAuthorization(
+	c *gin.Context,
+	requestCode RequestCode,
+	_ DenyLinkAuthorizationParams,
+) {
 	noStoreLink(c)
 	creator, ok := h.verifiedAccount(c, "denying a link")
 	if !ok || !h.allowLinkBrowserMutation(c) {
 		return
 	}
 	redirect, err := h.links.DenyAuthorization(
-		c.Request.Context(), creator.ID, requestCode,
+		c.Request.Context(), creator.ID, string(requestCode),
 	)
 	if err != nil {
 		h.linkingError(c, err)
@@ -240,7 +266,7 @@ func (h *Handlers) ListInstances(c *gin.Context) {
 	c.JSON(http.StatusOK, LinkedInstanceList{Items: items})
 }
 
-func (h *Handlers) RevokeInstance(c *gin.Context, id types.UUID) {
+func (h *Handlers) RevokeInstance(c *gin.Context, id types.UUID, _ RevokeInstanceParams) {
 	noStoreLink(c)
 	creator, ok := h.signedInAccount(c, "managing linked instances")
 	if !ok || !h.allowLinkBrowserMutation(c) {
@@ -436,15 +462,24 @@ func toAPIPendingDeviceLink(pending linking.Pending) PendingDeviceLink {
 	}
 }
 
-func toAPIPollGrant(grant linking.TokenGrant) LinkPollResult {
+func pendingLinkPollResult() (LinkPollResult, error) {
+	var result LinkPollResult
+	err := result.FromPendingLinkPollResult(PendingLinkPollResult{
+		Status: PendingLinkPollResultStatusPending,
+	})
+	return result, err
+}
+
+func toAPIPollGrant(grant linking.TokenGrant) (LinkPollResult, error) {
 	instance := toAPIInstance(grant.Instance)
-	return LinkPollResult{
-		Status:               LinkPollResultStatusLinked,
-		AccessToken:          &grant.AccessToken,
-		AccessTokenExpiresAt: &grant.AccessTokenExpiresAt,
-		RefreshToken:         &grant.RefreshToken,
-		Instance:             &instance,
-	}
+	var result LinkPollResult
+	err := result.FromLinkedLinkPollResult(LinkedLinkPollResult{
+		Status: Linked, AccessToken: AccessToken(grant.AccessToken),
+		AccessTokenExpiresAt: grant.AccessTokenExpiresAt,
+		RefreshToken:         RefreshToken(grant.RefreshToken),
+		Instance:             instance,
+	})
+	return result, err
 }
 
 func toAPITokenGrant(grant linking.TokenGrant) InstanceTokenGrant {

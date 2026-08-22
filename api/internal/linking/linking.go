@@ -137,10 +137,13 @@ const (
 	maxRedirectLength   = 512
 	protocolVersion     = 1
 
-	codeAlphabet  = "BCDFGHJKLMNPQRSTVWXZ23456789"
-	codeLength    = 8
-	codeGroupSize = 4
-	secretBytes   = 32
+	codeAlphabet           = "BCDFGHJKLMNPQRSTVWXZ23456789"
+	codeLength             = 8
+	codeGroupSize          = 4
+	secretBytes            = 32
+	opaqueCodeLength       = 43
+	maxUserCodeInputLength = 16
+	credentialLength       = 3 + 1 + codeLength + 1 + opaqueCodeLength
 
 	accessTokenKind  = "ia1"
 	refreshTokenKind = "ir1"
@@ -293,6 +296,9 @@ func FormatUserCode(code string) string {
 }
 
 func normalizeUserCode(raw string) (string, bool) {
+	if len(raw) > maxUserCodeInputLength {
+		return "", false
+	}
 	var code strings.Builder
 	for _, char := range strings.ToUpper(raw) {
 		if strings.ContainsRune(codeAlphabet, char) {
@@ -317,6 +323,9 @@ func newOpaqueCode() (string, []byte, error) {
 }
 
 func opaqueCodeHash(code string) ([]byte, bool) {
+	if len(code) != opaqueCodeLength {
+		return nil, false
+	}
 	raw, err := base64.RawURLEncoding.DecodeString(code)
 	if err != nil || len(raw) != secretBytes {
 		return nil, false
@@ -338,6 +347,9 @@ func newCredential(kind string) (token, prefix string, hash []byte, err error) {
 }
 
 func credentialHash(token, kind string) ([]byte, bool) {
+	if len(token) != credentialLength {
+		return nil, false
+	}
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 || parts[0] != kind || len(parts[1]) != codeLength {
 		return nil, false

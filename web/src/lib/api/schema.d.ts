@@ -846,11 +846,18 @@ export interface components {
     ExportTargetId: string;
     AcceptedTargets: components["schemas"]["ExportTargetId"][];
     Scopes: components["schemas"]["Scope"][];
+    UserCode: string;
+    RequestCode: string;
+    DeviceCode: string;
+    ApprovalToken: string;
+    AuthorizationCode: string;
+    AccessToken: string;
+    RefreshToken: string;
     LinkRequest: {
       /** @description Kept private by the installation and sent when polling. */
-      deviceCode: string;
+      deviceCode: components["schemas"]["DeviceCode"];
       /** @description Shown to the creator, who enters it on Illarin. */
-      userCode: string;
+      userCode: components["schemas"]["UserCode"];
       /** @description Where the creator enters the user code. */
       verificationUrl: string;
       /** Format: date-time */
@@ -859,20 +866,33 @@ export interface components {
       interval: number;
     };
     PollLinkRequest: {
-      deviceCode: string;
+      deviceCode: components["schemas"]["DeviceCode"];
     };
-    LinkPollResult: {
-      /** @enum {string} */
-      status: "pending" | "linked";
-      accessToken?: string;
+    PendingLinkPollResult: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      status: "pending";
+    };
+    LinkedLinkPollResult: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      status: "linked";
+      accessToken: components["schemas"]["AccessToken"];
       /**
        * Format: date-time
        * @description The 15-minute access-token deadline.
        */
-      accessTokenExpiresAt?: string;
-      refreshToken?: string;
-      instance?: components["schemas"]["LinkedInstance"];
+      accessTokenExpiresAt: string;
+      refreshToken: components["schemas"]["RefreshToken"];
+      instance: components["schemas"]["LinkedInstance"];
     };
+    LinkPollResult:
+      | components["schemas"]["PendingLinkPollResult"]
+      | components["schemas"]["LinkedLinkPollResult"];
     PendingLink: {
       applicationName: components["schemas"]["ApplicationName"];
       instanceName: components["schemas"]["InstanceName"];
@@ -886,10 +906,10 @@ export interface components {
     };
     PendingDeviceLink: components["schemas"]["PendingLink"] & {
       /** @description A private one-use proof that this code was reviewed. */
-      approvalToken: string;
+      approvalToken: components["schemas"]["ApprovalToken"];
     };
     DeviceLinkDecision: {
-      approvalToken: string;
+      approvalToken: components["schemas"]["ApprovalToken"];
     };
     LinkAuthorization: {
       /** @description The Illarin page to open in the system browser. */
@@ -902,21 +922,21 @@ export interface components {
       redirectUrl: string;
     };
     ExchangeLinkAuthorization: {
-      authorizationCode: string;
+      authorizationCode: components["schemas"]["AuthorizationCode"];
       codeVerifier: string;
       redirectUri: string;
     };
     RefreshInstanceToken: {
-      refreshToken: string;
+      refreshToken: components["schemas"]["RefreshToken"];
     };
     InstanceTokenGrant: {
-      accessToken: string;
+      accessToken: components["schemas"]["AccessToken"];
       /**
        * Format: date-time
        * @description The 15-minute access-token deadline.
        */
       accessTokenExpiresAt: string;
-      refreshToken: string;
+      refreshToken: components["schemas"]["RefreshToken"];
       instance: components["schemas"]["LinkedInstance"];
     };
     UpdateInstance: {
@@ -1736,7 +1756,10 @@ export interface components {
     };
   };
   responses: never;
-  parameters: never;
+  parameters: {
+    /** @description Illarin's browser request proof. The value must be 1. */
+    IllarinRequest: "1";
+  };
   requestBodies: never;
   headers: never;
   pathItems: never;
@@ -2328,7 +2351,7 @@ export interface operations {
       query?: never;
       header?: never;
       path: {
-        userCode: string;
+        userCode: components["schemas"]["UserCode"];
       };
       cookie?: never;
     };
@@ -2376,9 +2399,12 @@ export interface operations {
   approveLinkRequest: {
     parameters: {
       query?: never;
-      header?: never;
+      header: {
+        /** @description Illarin's browser request proof. The value must be 1. */
+        "X-Illarin-Request": components["parameters"]["IllarinRequest"];
+      };
       path: {
-        userCode: string;
+        userCode: components["schemas"]["UserCode"];
       };
       cookie?: never;
     };
@@ -2397,6 +2423,13 @@ export interface operations {
           "application/json": components["schemas"]["PendingLink"];
         };
       };
+      /** @description A path or browser-proof header parameter is malformed */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
       /** @description No account is signed in */
       401: {
         headers: {
@@ -2404,7 +2437,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description The signed-in account has not verified its email */
+      /** @description Email is unverified or the browser origin/request proof is invalid */
       403: {
         headers: {
           [name: string]: unknown;
@@ -2423,9 +2456,12 @@ export interface operations {
   denyLinkRequest: {
     parameters: {
       query?: never;
-      header?: never;
+      header: {
+        /** @description Illarin's browser request proof. The value must be 1. */
+        "X-Illarin-Request": components["parameters"]["IllarinRequest"];
+      };
       path: {
-        userCode: string;
+        userCode: components["schemas"]["UserCode"];
       };
       cookie?: never;
     };
@@ -2442,6 +2478,13 @@ export interface operations {
         };
         content?: never;
       };
+      /** @description A path or browser-proof header parameter is malformed */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
       /** @description No account is signed in */
       401: {
         headers: {
@@ -2449,7 +2492,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description The signed-in account has not verified its email */
+      /** @description Email is unverified or the browser origin/request proof is invalid */
       403: {
         headers: {
           [name: string]: unknown;
@@ -2515,7 +2558,7 @@ export interface operations {
       query?: never;
       header?: never;
       path: {
-        requestCode: string;
+        requestCode: components["schemas"]["RequestCode"];
       };
       cookie?: never;
     };
@@ -2556,9 +2599,12 @@ export interface operations {
   approveLinkAuthorization: {
     parameters: {
       query?: never;
-      header?: never;
+      header: {
+        /** @description Illarin's browser request proof. The value must be 1. */
+        "X-Illarin-Request": components["parameters"]["IllarinRequest"];
+      };
       path: {
-        requestCode: string;
+        requestCode: components["schemas"]["RequestCode"];
       };
       cookie?: never;
     };
@@ -2573,6 +2619,13 @@ export interface operations {
           "application/json": components["schemas"]["LinkRedirect"];
         };
       };
+      /** @description A path or browser-proof header parameter is malformed */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
       /** @description No account is signed in */
       401: {
         headers: {
@@ -2580,7 +2633,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description The signed-in account has not verified its email */
+      /** @description Email is unverified or the browser origin/request proof is invalid */
       403: {
         headers: {
           [name: string]: unknown;
@@ -2599,9 +2652,12 @@ export interface operations {
   denyLinkAuthorization: {
     parameters: {
       query?: never;
-      header?: never;
+      header: {
+        /** @description Illarin's browser request proof. The value must be 1. */
+        "X-Illarin-Request": components["parameters"]["IllarinRequest"];
+      };
       path: {
-        requestCode: string;
+        requestCode: components["schemas"]["RequestCode"];
       };
       cookie?: never;
     };
@@ -2616,6 +2672,13 @@ export interface operations {
           "application/json": components["schemas"]["LinkRedirect"];
         };
       };
+      /** @description A path or browser-proof header parameter is malformed */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
       /** @description No account is signed in */
       401: {
         headers: {
@@ -2623,7 +2686,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description The signed-in account has not verified its email */
+      /** @description Email is unverified or the browser origin/request proof is invalid */
       403: {
         headers: {
           [name: string]: unknown;
@@ -2831,7 +2894,10 @@ export interface operations {
   revokeInstance: {
     parameters: {
       query?: never;
-      header?: never;
+      header: {
+        /** @description Illarin's browser request proof. The value must be 1. */
+        "X-Illarin-Request": components["parameters"]["IllarinRequest"];
+      };
       path: {
         id: string;
       };
@@ -2846,8 +2912,22 @@ export interface operations {
         };
         content?: never;
       };
+      /** @description The id or browser-proof header parameter is malformed */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
       /** @description No account is signed in */
       401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The browser origin or request proof is invalid */
+      403: {
         headers: {
           [name: string]: unknown;
         };

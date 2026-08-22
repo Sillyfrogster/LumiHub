@@ -94,7 +94,7 @@ func main() {
 	links := linking.NewService(pool, cfg.SiteURL, cfg.LinkingHMACKey)
 
 	r := gin.New()
-	r.Use(gin.Recovery())
+	r.Use(apihttp.Recovery(log.Default()))
 	handlers := apihttp.NewHandlers(svc, accounts, links, cfg.MaxUploadBytes)
 	if err := apihttp.Register(r, handlers, cfg.Deadlines); err != nil {
 		log.Fatalf("routes: %v", err)

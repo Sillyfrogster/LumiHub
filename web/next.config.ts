@@ -3,6 +3,16 @@ import type { NextConfig } from "next";
 const apiUrl = process.env.API_URL ?? "http://localhost:8080";
 
 const nextConfig: NextConfig = {
+  logging: {
+    incomingRequests: {
+      // These URLs carry short-lived link secrets. nginx redacts them too.
+      ignore: [
+        /^\/link(?:\?|$)/,
+        /^\/api\/v1\/link\/requests\/[^/]+/,
+        /^\/api\/v1\/link\/authorizations\/[^/]+/,
+      ],
+    },
+  },
   async headers() {
     return [
       {

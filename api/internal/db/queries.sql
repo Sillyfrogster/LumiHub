@@ -667,24 +667,24 @@ values (
 );
 
 -- name: ReviewDeviceLinkRequest :one
-update link_requests
-   set review_token_hash = sqlc.arg('review_token_hash'),
-       reviewed_by = sqlc.arg('reviewed_by')
+select application_name, instance_name, application_version, protocol_version,
+       capabilities, accepted_targets, scopes, expires_at
+  from link_requests
  where user_code_hash = sqlc.arg('user_code_hash')
    and expires_at > now()
    and (reviewed_by is null or reviewed_by = sqlc.arg('reviewed_by'))
    and approved_at is null
    and denied_at is null
-   and redeemed_at is null
-returning application_name, instance_name, application_version, protocol_version,
-          capabilities, accepted_targets, scopes, expires_at;
+   and redeemed_at is null;
 
 -- name: ApproveDeviceLinkRequest :one
 update link_requests
-   set approved_by = sqlc.arg('reviewed_by'), approved_at = now()
- where review_token_hash = sqlc.arg('review_token_hash')
-   and user_code_hash = sqlc.arg('user_code_hash')
-   and reviewed_by = sqlc.arg('reviewed_by')
+   set review_token_hash = sqlc.arg('review_token_hash'),
+       reviewed_by = sqlc.arg('reviewed_by'),
+       approved_by = sqlc.arg('reviewed_by'),
+       approved_at = now()
+ where user_code_hash = sqlc.arg('user_code_hash')
+   and (reviewed_by is null or reviewed_by = sqlc.arg('reviewed_by'))
    and expires_at > now()
    and approved_at is null
    and denied_at is null
@@ -694,10 +694,12 @@ returning application_name, instance_name, application_version, protocol_version
 
 -- name: DenyDeviceLinkRequest :execrows
 update link_requests
-   set denied_by = sqlc.arg('reviewed_by'), denied_at = now()
- where review_token_hash = sqlc.arg('review_token_hash')
-   and user_code_hash = sqlc.arg('user_code_hash')
-   and reviewed_by = sqlc.arg('reviewed_by')
+   set review_token_hash = sqlc.arg('review_token_hash'),
+       reviewed_by = sqlc.arg('reviewed_by'),
+       denied_by = sqlc.arg('reviewed_by'),
+       denied_at = now()
+ where user_code_hash = sqlc.arg('user_code_hash')
+   and (reviewed_by is null or reviewed_by = sqlc.arg('reviewed_by'))
    and expires_at > now()
    and approved_at is null
    and denied_at is null
@@ -748,40 +750,43 @@ values (
 );
 
 -- name: ReviewLinkAuthorization :one
-update link_authorizations
-   set reviewed_by = sqlc.arg('reviewed_by')
+select redirect_uri, state, application_name, instance_name,
+       application_version, protocol_version, capabilities,
+       accepted_targets, scopes, expires_at
+  from link_authorizations
  where request_hash = sqlc.arg('request_hash')
    and expires_at > now()
    and (reviewed_by is null or reviewed_by = sqlc.arg('reviewed_by'))
    and approved_at is null
    and denied_at is null
-   and redeemed_at is null
-returning redirect_uri, state, application_name, instance_name,
-          application_version, protocol_version, capabilities,
-          accepted_targets, scopes, expires_at;
+   and redeemed_at is null;
 
 -- name: ApproveLinkAuthorization :one
 update link_authorizations
-   set authorization_code_hash = sqlc.arg('authorization_code_hash'),
+   set reviewed_by = sqlc.arg('reviewed_by'),
+       authorization_code_hash = sqlc.arg('authorization_code_hash'),
        approved_by = sqlc.arg('reviewed_by'),
        approved_at = now()
  where request_hash = sqlc.arg('request_hash')
-   and reviewed_by = sqlc.arg('reviewed_by')
+   and (reviewed_by is null or reviewed_by = sqlc.arg('reviewed_by'))
    and expires_at > now()
    and approved_at is null
    and denied_at is null
    and redeemed_at is null
 returning redirect_uri, state, expires_at;
 
--- name: DenyLinkAuthorization :execrows
+-- name: DenyLinkAuthorization :one
 update link_authorizations
-   set denied_by = sqlc.arg('reviewed_by'), denied_at = now()
+   set reviewed_by = sqlc.arg('reviewed_by'),
+       denied_by = sqlc.arg('reviewed_by'),
+       denied_at = now()
  where request_hash = sqlc.arg('request_hash')
-   and reviewed_by = sqlc.arg('reviewed_by')
+   and (reviewed_by is null or reviewed_by = sqlc.arg('reviewed_by'))
    and expires_at > now()
    and approved_at is null
    and denied_at is null
-   and redeemed_at is null;
+   and redeemed_at is null
+returning redirect_uri, state;
 
 -- name: LockLinkAuthorization :one
 select approved_by, denied_at, redeemed_at, redirect_uri, state, code_challenge,
