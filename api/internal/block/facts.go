@@ -29,6 +29,18 @@ func (e Element) Facts() []string {
 		return e.itemFacts(len(content.Fields))
 	case LinkList:
 		return e.itemFacts(len(content.Links))
+	case ColorSet:
+		count := 0
+		for _, mode := range content.Modes {
+			count += len(mode.Colors)
+		}
+		return e.itemFacts(count)
+	case StylesheetSet:
+		count := 0
+		if content.Global != "" {
+			count++
+		}
+		return e.itemFacts(count + len(content.Stylesheets))
 	default:
 		return nil
 	}
@@ -128,6 +140,10 @@ func (e Element) itemNoun() (string, string) {
 		return "setting", "settings"
 	case TypeScriptList:
 		return "script", "scripts"
+	case TypeColorSet:
+		return "colour", "colours"
+	case TypeStylesheetSet:
+		return "stylesheet", "stylesheets"
 	default:
 		return "item", "items"
 	}

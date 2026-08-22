@@ -48,6 +48,17 @@ func ItemIDs(content Content) []uuid.UUID {
 		return collectItemIDs(held.Settings, func(item Setting) uuid.UUID { return item.ID })
 	case ScriptList:
 		return collectItemIDs(held.Scripts, func(item Script) uuid.UUID { return item.ID })
+	case ColorSet:
+		var ids []uuid.UUID
+		for _, mode := range held.Modes {
+			ids = append(ids, collectItemIDs(mode.Colors, func(item Color) uuid.UUID { return item.ID })...)
+		}
+		return ids
+	case StylesheetSet:
+		return append(
+			collectItemIDs(held.Stylesheets, func(item Stylesheet) uuid.UUID { return item.ID }),
+			collectItemIDs(held.Assets, func(item StylesheetAsset) uuid.UUID { return item.ID })...,
+		)
 	default:
 		return nil
 	}

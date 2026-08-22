@@ -54,6 +54,14 @@ var contentFloors = map[string][]Requirement{
 			Role:   RolePromptFragments,
 		},
 	},
+	"theme": {
+		{
+			ID:     "palette",
+			Label:  "Palette",
+			Detail: "Add at least one colour to the palette.",
+			Role:   RoleThemeTokens,
+		},
+	},
 }
 
 // ContentFloor measures a kind's content requirements against an asset's

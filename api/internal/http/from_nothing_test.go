@@ -247,7 +247,7 @@ func TestADraftIsInNoBrowseOrSearchResult(t *testing.T) {
 func TestAKindIllarinCannotBuildIsRefusedRatherThanStarted(t *testing.T) {
 	r, session := newVerifiedTestRouter(t)
 
-	for _, body := range []string{`{"kind":"theme"}`, `{"kind":"nonsense"}`, `{"kind":""}`, `{}`} {
+	for _, body := range []string{`{"kind":"pack"}`, `{"kind":"nonsense"}`, `{"kind":""}`, `{}`} {
 		request := httptest.NewRequest(http.MethodPost, "/v1/assets", strings.NewReader(body))
 		request.Header.Set("Content-Type", "application/json")
 		response := send(t, r, authorized(request, session))

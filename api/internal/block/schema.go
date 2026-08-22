@@ -102,4 +102,14 @@ var schemas = map[Type]schema{
 		empty:  func() Content { return ScriptList{Scripts: []Script{}} },
 		decode: decodeAs[ScriptList],
 	},
+	TypeColorSet: {
+		empty:  func() Content { return ColorSet{Modes: []ColorMode{}} },
+		decode: decodeAs[ColorSet],
+	},
+	TypeStylesheetSet: {
+		empty: func() Content {
+			return StylesheetSet{Stylesheets: []Stylesheet{}, Assets: []StylesheetAsset{}}
+		},
+		decode: decodeAs[StylesheetSet],
+	},
 }

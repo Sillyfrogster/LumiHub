@@ -28,6 +28,8 @@ const (
 	TypeVariableSchema Type = "variable_schema"
 	TypeSettingGroup   Type = "setting_group"
 	TypeScriptList     Type = "script_list"
+	TypeColorSet       Type = "color_set"
+	TypeStylesheetSet  Type = "stylesheet_set"
 )
 
 // Role is what an element's content means, and it is the whole of what import
@@ -64,6 +66,9 @@ const (
 	RoleAdvancedSettings   Role = "advanced_settings"
 	RolePromptNudges       Role = "prompt_nudges"
 	RoleRegexScripts       Role = "regex_scripts"
+	RoleThemeTokens        Role = "theme_tokens"
+	RoleThemeControls      Role = "theme_controls"
+	RoleStylesheets        Role = "stylesheets"
 )
 
 // Roles returns the semantic vocabulary in the order a report reads it, which
@@ -76,7 +81,7 @@ func Roles() []Role {
 		RoleExpressions, RoleLorebookEntries,
 		RolePromptFragments, RolePromptVariables, RoleSamplerSettings,
 		RoleCompletionSettings, RoleAdvancedSettings, RolePromptNudges,
-		RoleRegexScripts,
+		RoleRegexScripts, RoleThemeTokens, RoleThemeControls, RoleStylesheets,
 	}
 }
 
@@ -88,7 +93,8 @@ func (r Role) Known() bool {
 		RolePostHistoryInstructions, RoleCreatorNotes, RoleGallery,
 		RoleExpressions, RoleLorebookEntries, RolePromptFragments,
 		RolePromptVariables, RoleSamplerSettings, RoleCompletionSettings,
-		RoleAdvancedSettings, RolePromptNudges, RoleRegexScripts:
+		RoleAdvancedSettings, RolePromptNudges, RoleRegexScripts,
+		RoleThemeTokens, RoleThemeControls, RoleStylesheets:
 		return true
 	default:
 		return false
@@ -398,6 +404,10 @@ func DecodeContent(elementType Type, raw json.RawMessage) (Content, error) {
 		return decodeSettingGroup(raw)
 	case TypeScriptList:
 		return decodeScriptList(raw)
+	case TypeColorSet:
+		return decodeColorSet(raw)
+	case TypeStylesheetSet:
+		return decodeStylesheetSet(raw)
 	case TypeImageSet:
 		var incoming struct {
 			Images *[]ImageItem `json:"images"`
@@ -529,6 +539,9 @@ var labels = map[Role]string{
 	RoleAdvancedSettings:   "Advanced",
 	RolePromptNudges:       "Nudges",
 	RoleRegexScripts:       "Regex scripts",
+	RoleThemeTokens:        "Palette",
+	RoleThemeControls:      "Theme controls",
+	RoleStylesheets:        "Stylesheets",
 }
 
 // typeLabels name an element that carries no role, so a removal confirmation
@@ -545,6 +558,8 @@ var typeLabels = map[Type]string{
 	TypeVariableSchema: "Variables",
 	TypeSettingGroup:   "Settings",
 	TypeScriptList:     "Regex scripts",
+	TypeColorSet:       "Palette",
+	TypeStylesheetSet:  "Stylesheets",
 }
 
 // Label returns the element's wording, from its role where it has one and from
@@ -578,6 +593,9 @@ var roleTypes = map[Role][]Type{
 	RoleAdvancedSettings:   {TypeSettingGroup},
 	RolePromptNudges:       {TypeTextSet},
 	RoleRegexScripts:       {TypeScriptList},
+	RoleThemeTokens:        {TypeColorSet},
+	RoleThemeControls:      {TypeSettingGroup},
+	RoleStylesheets:        {TypeStylesheetSet},
 }
 
 // Label returns the role's wording on the page.

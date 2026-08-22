@@ -3,11 +3,12 @@ package asset
 import (
 	"github.com/Sillyfrogster/LumiHub/api/internal/block"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format/preset"
+	"github.com/Sillyfrogster/LumiHub/api/internal/format/theme"
 )
 
 // kindsAskedForAnApp lists kinds whose initial slot names depend on an app. The
 // choice seeds content but is not stored.
-var kindsAskedForAnApp = map[string]struct{}{"preset": {}}
+var kindsAskedForAnApp = map[string]struct{}{"preset": {}, "theme": {}}
 
 // KindAsksForAnApp reports whether creating this kind from nothing asks which
 // app it is for.
@@ -22,11 +23,18 @@ func Apps(kind string) []string {
 	if !KindAsksForAnApp(kind) {
 		return nil
 	}
-	apps := make([]string, 0, len(preset.Apps()))
-	for _, app := range preset.Apps() {
-		apps = append(apps, string(app))
+	var supported []string
+	switch kind {
+	case "preset":
+		for _, app := range preset.Apps() {
+			supported = append(supported, string(app))
+		}
+	case "theme":
+		for _, app := range theme.Apps() {
+			supported = append(supported, string(app))
+		}
 	}
-	return apps
+	return supported
 }
 
 // seedElements returns the elements a from-nothing asset starts with. Only a
@@ -39,9 +47,20 @@ func seedElements(kind string, app string) ([]block.Element, error) {
 		}
 		return nil, nil
 	}
-	chosen := preset.App(app)
-	if !chosen.Known() {
+	switch kind {
+	case "preset":
+		chosen := preset.App(app)
+		if !chosen.Known() {
+			return nil, ErrAppNotAnswered
+		}
+		return preset.Seed(chosen)
+	case "theme":
+		chosen := theme.App(app)
+		if !chosen.Known() {
+			return nil, ErrAppNotAnswered
+		}
+		return theme.Seed(chosen)
+	default:
 		return nil, ErrAppNotAnswered
 	}
-	return preset.Seed(chosen)
 }

@@ -120,6 +120,19 @@ func elementItems(content Content) []any {
 		for _, item := range value.Scripts {
 			items = append(items, item)
 		}
+	case ColorSet:
+		for _, mode := range value.Modes {
+			for _, item := range mode.Colors {
+				items = append(items, item)
+			}
+		}
+	case StylesheetSet:
+		for _, item := range value.Stylesheets {
+			items = append(items, item)
+		}
+		for _, item := range value.Assets {
+			items = append(items, item)
+		}
 	}
 	return items
 }
