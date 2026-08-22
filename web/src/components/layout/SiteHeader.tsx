@@ -148,6 +148,8 @@ export function SiteHeader() {
           ))}
         </nav>
 
+        <div className={styles.spacer} />
+
         <div className={styles.actions}>
           <Link
             href={publishHref}
@@ -254,8 +256,6 @@ export function SiteHeader() {
             </div>
           </details>
         </div>
-
-        <div className={styles.spacer} />
 
         <button
           type="button"
