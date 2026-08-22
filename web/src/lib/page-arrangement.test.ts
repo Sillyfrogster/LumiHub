@@ -6,8 +6,11 @@ import {
   LAYOUTS,
   layoutChoiceIssue,
   NARROW_BLOCK_GRID_PX,
+  ORNAMENT_MINIMUM_COLUMNS,
   opensFullScreen,
+  ornamentPlacement,
   packBlockRows,
+  rowRemainder,
   suggestedBlockWidth,
   suggestionCandidateWidths,
   WIDTH_COLUMNS,
@@ -282,6 +285,56 @@ describe("page arrangement", () => {
       { width: "half", renderedWidth: 440 },
       { width: "full", renderedWidth: 900 },
     ]);
+  });
+});
+
+describe("where a row ends short", () => {
+  test("a full row leaves no remainder", () => {
+    const [row] = packBlockRows([block("a", "half"), block("b", "half")], {});
+    expect(rowRemainder(row)).toBe(0);
+  });
+
+  test("a short row reports the columns nothing claimed", () => {
+    const [row] = packBlockRows([block("a", "two_thirds")], {});
+    expect(rowRemainder(row)).toBe(4);
+  });
+
+  test("the ornament takes the first remainder wide enough to hold it", () => {
+    const rows = packBlockRows(
+      [block("a", "half"), block("b", "third"), block("c", "two_thirds")],
+      {},
+    );
+    expect(rows.map(rowRemainder)).toEqual([2, 4]);
+    expect(ornamentPlacement(rows)).toEqual({
+      row: 1,
+      startColumn: 9,
+      columns: 4,
+    });
+  });
+
+  test("a remainder narrower than the ornament is left as space", () => {
+    const rows = packBlockRows([block("a", "half"), block("b", "third")], {});
+    expect(rowRemainder(rows[0])).toBeLessThan(ORNAMENT_MINIMUM_COLUMNS);
+    expect(ornamentPlacement(rows)).toBeNull();
+  });
+
+  test("a row holding the creator's own pictures is passed over", () => {
+    const rows = packBlockRows(
+      [block("gallery", "two_thirds"), block("notes", "half")],
+      {},
+    );
+    expect(ornamentPlacement(rows)?.row).toBe(0);
+    expect(
+      ornamentPlacement(rows, (row) => row[0].block.id === "gallery"),
+    ).toEqual({ row: 1, startColumn: 7, columns: 6 });
+  });
+
+  test("a page of full-width blocks has nowhere to put the ornament", () => {
+    expect(
+      ornamentPlacement(
+        packBlockRows([block("a", "full"), block("b", "full")], {}),
+      ),
+    ).toBeNull();
   });
 });
 

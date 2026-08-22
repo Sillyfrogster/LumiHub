@@ -23,10 +23,12 @@ import {
   type SaveAssetBlockRequest,
   saveAssetBlock,
 } from "@/lib/api/query";
+import { blockCounts, isTabularBlock } from "@/lib/asset-block-heading";
 import { splitAssetPageContent } from "@/lib/asset-page-content";
 import {
   BLOCK_GRID_GAP_PX,
   type BlockWidth,
+  ornamentPlacement,
   packBlockRows,
   suggestedBlockWidth,
   suggestionCandidateWidths,
@@ -205,6 +207,9 @@ export function AssetBlocks({
   const rows = packBlockRows(packable, {
     availableWidth,
   });
+  const ornament = ornamentPlacement(rows, holdsCreatorPictures);
+  const ornamentAtFoot =
+    rows.length > 0 && !ornament && !rows.some(holdsCreatorPictures);
   const contentsBlocks = useMemo(
     () =>
       editingVisible
@@ -408,7 +413,7 @@ export function AssetBlocks({
                 } as CSSProperties
               }
             >
-              {rows.map((row) => (
+              {rows.map((row, rowIndex) => (
                 <div
                   className={styles.row}
                   key={row.map((item) => item.block.id).join(":")}
@@ -424,6 +429,9 @@ export function AssetBlocks({
                         key={block.id}
                         className={styles.block}
                         data-block-id={block.id}
+                        data-field={
+                          isTabularBlock(block.elements) ? true : undefined
+                        }
                         data-hidden={
                           editingVisible && block.hidden ? true : undefined
                         }
@@ -442,6 +450,7 @@ export function AssetBlocks({
                                 {block.hideable ? "Required" : "Always shown"}
                               </span>
                             ) : null}
+                            <BlockCounts elements={block.elements} />
                           </div>
                           {editingVisible ? (
                             <div className={styles.controls}>
@@ -569,8 +578,28 @@ export function AssetBlocks({
                         </div>
                       </article>
                     ))}
+                  {ornament?.row === rowIndex ? (
+                    <div
+                      aria-hidden="true"
+                      data-measurement-ignore
+                      className={`${styles.ornament} ${styles.inRow}`}
+                      style={
+                        {
+                          "--block-columns": ornament.columns,
+                          "--block-start": ornament.startColumn,
+                        } as CSSProperties
+                      }
+                    />
+                  ) : null}
                 </div>
               ))}
+              {ornamentAtFoot ? (
+                <div
+                  aria-hidden="true"
+                  data-measurement-ignore
+                  className={`${styles.ornament} ${styles.atFoot}`}
+                />
+              ) : null}
             </div>
           )}
           {modelContent.length > 0 ? (
@@ -710,6 +739,20 @@ export function AssetBlocks({
         />
       ) : null}
     </>
+  );
+}
+
+function BlockCounts({ elements }: { elements: AssetElement[] }) {
+  const counts = blockCounts(elements);
+  if (!counts) return null;
+  return <p className={styles.counts}>{counts}</p>;
+}
+
+function holdsCreatorPictures(row: readonly { block: AssetBlock }[]): boolean {
+  return row.some(({ block }) =>
+    block.elements.some(
+      (element) => element.type === "image_set" && !element.isEmpty,
+    ),
   );
 }
 

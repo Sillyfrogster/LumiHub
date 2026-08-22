@@ -24,15 +24,6 @@
   text-transform: uppercase;
 }
 
-.facts {
-  color: var(--color-text-secondary);
-  font-size: 0.78rem;
-}
-
-.label + .facts {
-  margin-top: 4px;
-}
-
 .expand {
   display: inline-flex;
   min-height: 40px;
@@ -90,16 +81,13 @@
   overflow: hidden;
 }
 
-.lineExcerpt[data-truncated]::after,
-.itemExcerpt[data-truncated]::after {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 56px;
-  background: linear-gradient(to bottom, transparent, var(--color-surface));
-  content: "";
-  pointer-events: none;
+.lineExcerpt[data-truncated],
+.itemExcerpt[data-truncated] {
+  mask-image: linear-gradient(
+    to bottom,
+    var(--mask-opaque) calc(100% - 62px),
+    transparent
+  );
 }
 
 .itemExcerpt[data-image-excerpt] .imageSet {

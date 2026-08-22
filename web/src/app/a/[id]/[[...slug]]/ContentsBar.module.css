@@ -1,19 +1,25 @@
 .bar {
   position: sticky;
   z-index: 20;
-  top: calc(var(--header-height) + 10px);
+  top: var(--header-height);
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 16px;
   min-height: 60px;
-  margin: -42px 0 32px;
-  padding: 7px 10px 7px 18px;
-  border: 1px solid color-mix(in srgb, var(--color-border) 86%, transparent);
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--color-elevated) 94%, transparent);
-  box-shadow: var(--shadow-soft);
-  backdrop-filter: blur(14px) saturate(1.08);
+  margin: -44px 0 52px;
+  padding: 7px 8px;
+}
+
+.bar::before {
+  position: absolute;
+  z-index: -1;
+  inset-block: 0;
+  left: 50%;
+  width: 100vw;
+  margin-left: -50vw;
+  background: var(--color-background);
+  content: "";
 }
 
 .contents {
@@ -40,6 +46,11 @@
   overscroll-behavior-inline: contain;
   scrollbar-width: thin;
   list-style: none;
+  mask-image: linear-gradient(
+    to right,
+    var(--mask-opaque) calc(100% - 28px),
+    transparent
+  );
 }
 
 .entries li {
@@ -87,8 +98,7 @@
   flex: 0 0 auto;
   align-items: center;
   gap: 6px;
-  padding-left: 9px;
-  border-left: 1px solid var(--color-border);
+  padding-left: 14px;
 }
 
 .tools button,
@@ -129,8 +139,8 @@
 @media (max-width: 780px) {
   .bar {
     min-height: 58px;
-    margin: -20px 0 24px;
-    padding-inline: 8px;
+    margin: -22px 0 36px;
+    padding-inline: 4px;
   }
 
   .contents {

@@ -1,46 +1,40 @@
 .page {
   position: relative;
+  z-index: 0;
   overflow-x: clip;
   background: var(--color-background);
 }
 
-.hero {
-  position: relative;
-  overflow: hidden;
-  border-bottom: 1px solid var(--color-border);
+.page::before {
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: min(1120px, 118vh);
   background:
     radial-gradient(
-      circle at 82% 24%,
-      color-mix(in srgb, var(--color-accent) 10%, transparent),
-      transparent 34%
+      92% 54% at 88% -18%,
+      var(--color-ground-veil),
+      color-mix(in srgb, var(--color-ground-veil) 30%, transparent) 40%,
+      transparent 62%
     ),
-    var(--color-background);
-  color: var(--color-text-primary);
-}
-
-.detailArtwork {
-  position: absolute;
-  z-index: 0;
-  right: clamp(-150px, -7vw, -72px);
-  bottom: -88px;
-  width: clamp(420px, 42vw, 650px);
-  height: auto;
-  max-width: none;
-  opacity: 0.28;
-  mask-image: linear-gradient(
-    115deg,
-    transparent 2%,
-    var(--mask-opaque) 34%,
-    var(--mask-opaque) 88%,
-    transparent 100%
-  );
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--color-ground-depth) 34%, transparent),
+      transparent 58%
+    );
+  content: "";
   pointer-events: none;
 }
 
-.heroShell {
+.hero {
   position: relative;
-  z-index: 1;
-  padding-block: 24px 56px;
+  color: var(--color-text-primary);
+}
+
+.heroShell {
+  padding-block: 24px 52px;
 }
 
 .back {
@@ -277,7 +271,7 @@
 }
 
 .contentShell {
-  padding-block: 58px 96px;
+  padding-block: 44px 120px;
 }
 
 .blocks {
@@ -303,15 +297,8 @@
 }
 
 @media (max-width: 680px) {
-  .detailArtwork {
-    right: -125px;
-    bottom: -18px;
-    width: 320px;
-    opacity: 0.16;
-  }
-
   .heroShell {
-    padding-bottom: 42px;
+    padding-bottom: 40px;
   }
 
   .heroLayout {
@@ -349,6 +336,6 @@
   }
 
   .contentShell {
-    padding-block: 36px 72px;
+    padding-block: 28px 84px;
   }
 }

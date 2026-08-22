@@ -84,6 +84,8 @@
   --color-shadow: light-dark(#171719, #020202);
   --mask-opaque: var(--color-carbon);
   --art-wash-blend: multiply;
+  --color-ground-veil: light-dark(#ffffff, #191a1d);
+  --color-ground-depth: light-dark(#e7e7e2, #000000);
 
   --color-brand-detail: var(--color-emphasis);
 

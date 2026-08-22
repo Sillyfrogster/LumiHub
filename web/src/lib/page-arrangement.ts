@@ -339,3 +339,34 @@ function nestedCollectionSize(content: unknown, key: string): number {
     return total;
   }, 0);
 }
+
+export const ORNAMENT_MINIMUM_COLUMNS = WIDTH_COLUMNS.third;
+
+export function rowRemainder<T>(row: readonly PackedBlock<T>[]): number {
+  const occupied = row.reduce((total, item) => total + item.columns, 0);
+  return Math.max(0, WIDTH_COLUMNS.full - occupied);
+}
+
+export type OrnamentPlacement = {
+  row: number;
+  startColumn: number;
+  columns: number;
+};
+
+export function ornamentPlacement<T>(
+  rows: readonly (readonly PackedBlock<T>[])[],
+  holdsCreatorArt: (row: readonly PackedBlock<T>[]) => boolean = () => false,
+): OrnamentPlacement | null {
+  const row = rows.findIndex(
+    (candidate) =>
+      rowRemainder(candidate) >= ORNAMENT_MINIMUM_COLUMNS &&
+      !holdsCreatorArt(candidate),
+  );
+  if (row === -1) return null;
+  const columns = rowRemainder(rows[row]);
+  return {
+    row,
+    startColumn: WIDTH_COLUMNS.full - columns + 1,
+    columns,
+  };
+}

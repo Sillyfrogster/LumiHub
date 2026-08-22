@@ -1,7 +1,7 @@
 .rows {
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 88px;
   margin: 0;
 }
 
@@ -23,32 +23,31 @@
   grid-column: var(--block-start) / span var(--block-columns);
   container-name: block;
   container-type: inline-size;
-  padding: 28px 30px 32px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  background: var(--color-surface);
-  scroll-margin-top: calc(var(--header-height) + 92px);
+  scroll-margin-top: calc(var(--header-height) + 104px);
+}
+
+.block[data-field],
+.block[data-hidden] {
+  padding: 26px 28px 30px;
+}
+
+.block[data-field] {
+  background: color-mix(in srgb, var(--color-muted) 72%, transparent);
 }
 
 .block[data-hidden] {
-  border-style: dashed;
-  background: var(--color-muted);
+  background: color-mix(in srgb, var(--color-muted) 58%, transparent);
 }
 
 .block[data-hidden] > :not(.hiddenNotice) {
-  opacity: 0.48;
-}
-
-.block:target {
-  border-color: var(--color-accent);
-  background: var(--color-accent-soft);
+  opacity: 0.5;
 }
 
 .block[data-flashing]::after {
   position: absolute;
-  inset: -2px;
-  border: 2px solid var(--color-accent);
-  border-radius: inherit;
+  z-index: -1;
+  inset: -20px -24px;
+  background: color-mix(in srgb, var(--color-emphasis) 13%, transparent);
   animation: blockFlash 900ms var(--ease) both;
   content: "";
   pointer-events: none;
@@ -57,29 +56,24 @@
 @keyframes blockFlash {
   0% {
     opacity: 0;
-    transform: scale(0.985);
   }
 
   35% {
     opacity: 1;
-    transform: scale(1);
   }
 
   100% {
     opacity: 0;
-    transform: scale(1.005);
   }
 }
 
 .header {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 20px;
-  margin-bottom: 22px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--color-border);
+  gap: 14px 24px;
+  margin-bottom: 20px;
 }
 
 .hiddenNotice {
@@ -87,11 +81,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  margin: -6px 0 22px;
+  margin: -4px 0 22px;
   padding: 12px 14px;
-  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background: var(--color-surface);
+  background: color-mix(in srgb, var(--color-elevated) 82%, transparent);
   color: var(--color-text-secondary);
   font-size: 0.75rem;
   line-height: 1.45;
@@ -113,16 +106,18 @@
   display: flex;
   min-width: 0;
   flex: 1 1 180px;
-  align-items: center;
-  gap: 10px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
 }
 
 .title {
   color: var(--color-text-primary);
   font-family: var(--font-display);
-  font-size: 1.5rem;
-  font-weight: 500;
-  letter-spacing: -0.015em;
+  font-size: var(--type-block-title-size);
+  font-weight: 520;
+  line-height: var(--type-block-title-leading);
+  letter-spacing: -0.02em;
   overflow-wrap: anywhere;
 }
 
@@ -134,6 +129,13 @@
   color: var(--color-text-secondary);
   font-size: 0.65rem;
   line-height: 1;
+}
+
+.counts {
+  flex-basis: 100%;
+  color: var(--color-text-secondary);
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-leading);
 }
 
 .controls {
@@ -221,7 +223,6 @@
 .arrangementMessage {
   margin-bottom: 18px;
   padding: 12px 14px;
-  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-muted);
   color: var(--color-text-secondary);
@@ -230,10 +231,8 @@
 }
 
 .modelContent {
-  margin-top: 32px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  background: var(--color-surface);
+  margin-top: 88px;
+  background: color-mix(in srgb, var(--color-muted) 72%, transparent);
 }
 
 .modelContent summary {
@@ -257,15 +256,11 @@
   height: 20px;
   place-items: center;
   border-radius: 50%;
-  background: var(--color-muted);
-  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-text-secondary) 22%, transparent);
+  color: var(--color-text-primary);
   content: "+";
   font-size: 1rem;
   line-height: 1;
-}
-
-.modelContent[open] summary {
-  border-bottom: 1px solid var(--color-border);
 }
 
 .modelContent[open] summary::after {
@@ -295,6 +290,74 @@
   display: grid;
   gap: 28px;
   padding: 24px;
+}
+
+.ornament {
+  position: relative;
+  --art-bleed: max(72px, (100vw - var(--shell)) / 2 + var(--gutter));
+}
+
+.ornament::before {
+  position: absolute;
+  z-index: -1;
+  background-image: url("../../../../assets/art/full/illarin-detail-page-art-light-v2.webp");
+  background-repeat: no-repeat;
+  background-position: center 32%;
+  background-size: cover;
+  opacity: 0.5;
+  mask-image:
+    linear-gradient(to right, transparent, var(--mask-opaque) 52%),
+    linear-gradient(
+      to bottom,
+      transparent,
+      var(--mask-opaque) 30%,
+      var(--mask-opaque) 62%,
+      transparent
+    );
+  mask-composite: intersect;
+  animation: ornamentArrive 1.4s var(--ease) 0.1s both;
+  content: "";
+}
+
+@keyframes ornamentArrive {
+  from {
+    opacity: 0;
+    transform: translate3d(18px, 10px, 0);
+  }
+}
+
+:global(:root[data-theme="dark"]) .ornament::before {
+  background-image: url("../../../../assets/art/full/illarin-detail-page-art-dark-v2.webp");
+  opacity: 0.78;
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme])) .ornament::before {
+    background-image: url("../../../../assets/art/full/illarin-detail-page-art-dark-v2.webp");
+    opacity: 0.78;
+  }
+}
+
+.inRow {
+  grid-column: var(--block-start) / span var(--block-columns);
+  min-height: 240px;
+}
+
+.inRow::before {
+  inset-block: -48px;
+  left: 0;
+  width: calc(100% + var(--art-bleed));
+}
+
+.atFoot {
+  height: 280px;
+  margin-top: 40px;
+}
+
+.atFoot::before {
+  inset-block: 0;
+  left: 46%;
+  width: calc(54% + var(--art-bleed));
 }
 
 @container block (max-width: 650px) {
@@ -334,18 +397,36 @@
 }
 
 @media (max-width: 780px) {
+  .inRow,
+  .atFoot {
+    height: 210px;
+    min-height: 0;
+    margin-top: 0;
+  }
+
+  .inRow::before,
+  .atFoot::before {
+    inset-block: 0;
+    left: 10%;
+    width: calc(90% + var(--gutter));
+  }
+
   .rows {
-    gap: 20px;
+    gap: 56px;
   }
 
   .row {
     grid-template-columns: minmax(0, 1fr);
-    gap: 20px;
+    gap: 56px;
   }
 
   .block {
     grid-column: 1 / -1;
-    padding: 22px 20px 26px;
+  }
+
+  .block[data-field],
+  .block[data-hidden] {
+    padding: 22px 18px 26px;
   }
 
   .header {
@@ -371,9 +452,8 @@
 
   .narrowNote {
     display: block;
-    margin-bottom: -18px;
+    margin-bottom: 30px;
     padding: 12px 14px;
-    border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     background: var(--color-muted);
     color: var(--color-text-secondary);
@@ -387,7 +467,7 @@
   }
 
   .modelContent {
-    margin-top: 20px;
+    margin-top: 56px;
   }
 
   .modelContent summary {

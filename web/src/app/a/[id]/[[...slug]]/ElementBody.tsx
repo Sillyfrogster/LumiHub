@@ -17,7 +17,6 @@ import type {
 import {
   contentItemCount,
   excerptDefinition,
-  fitsInTheSheet,
   opensFullScreen,
 } from "@/lib/page-arrangement";
 import { formattingWasRemoved, richTextsOf } from "@/lib/rich-text";
@@ -46,19 +45,13 @@ export function ElementBody({
     element.role && element.label && element.label !== blockTitle
       ? element.label
       : null;
-  const facts = fitsInTheSheet(element) ? [] : element.facts;
   const expandable = isOwner && onExpand && opensFullScreen(element.type);
 
   return (
     <section className={styles.element}>
-      {label || facts.length > 0 || expandable ? (
+      {label || expandable ? (
         <div className={styles.heading}>
-          <div>
-            {label ? <h3 className={styles.label}>{label}</h3> : null}
-            {facts.length > 0 ? (
-              <p className={styles.facts}>{facts.join(" · ")}</p>
-            ) : null}
-          </div>
+          {label ? <h3 className={styles.label}>{label}</h3> : <span />}
           {expandable ? (
             <button
               type="button"

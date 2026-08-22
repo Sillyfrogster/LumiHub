@@ -1,18 +1,9 @@
 import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import Image, { type StaticImageData } from "next/image";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
-import archedCityWindow from "@/assets/art/arched-city-window.webp";
-import armillarySphere from "@/assets/art/armillary-sphere.webp";
-import booksAndQuill from "@/assets/art/books-and-quill.webp";
-import compassStarRibbon from "@/assets/art/compass-star-ribbon.webp";
-import floralCornerSpray from "@/assets/art/floral-corner-spray.webp";
-import floralLantern from "@/assets/art/floral-lantern.webp";
-import openStorybook from "@/assets/art/open-storybook.webp";
-import sealedCompassLetter from "@/assets/art/sealed-compass-letter.webp";
 import { Shell } from "@/components/layout/Shell";
 import { FormattingNotice, RichText } from "@/components/ui/RichText";
 import { type AssetDetail, fetchAsset } from "@/lib/api/query";
@@ -29,22 +20,6 @@ import styles from "./page.module.css";
 import { WithholdNotice } from "./WithholdNotice";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-const DETAIL_ART: Record<AssetDetail["kind"], readonly StaticImageData[]> = {
-  character: [floralLantern, floralCornerSpray, booksAndQuill],
-  lorebook: [archedCityWindow, openStorybook, booksAndQuill],
-  preset: [armillarySphere, compassStarRibbon],
-  theme: [sealedCompassLetter, floralCornerSpray, floralLantern],
-};
-
-function detailArtworkFor(
-  kind: AssetDetail["kind"],
-  assetId: string,
-): StaticImageData {
-  const choices = DETAIL_ART[kind];
-  const variant = Number.parseInt(assetId.slice(-2), 16) % choices.length;
-  return choices[variant] ?? choices[0];
-}
 
 const loadAsset = cache(async (id: string): Promise<AssetDetail | null> => {
   if (!UUID.test(id)) return null;
@@ -114,8 +89,6 @@ export default async function AssetPage({
 
   const kind = KIND_LABELS[asset.kind];
   const isDraft = asset.lifecycle === "draft";
-  const hasCreatorArtwork = asset.media.length > 0;
-  const detailArtwork = detailArtworkFor(asset.kind, asset.id);
   const formattedCreatedDate = new Date(asset.createdAt).toLocaleDateString(
     "en-GB",
     {
@@ -134,14 +107,6 @@ export default async function AssetPage({
     <div className={styles.page}>
       <article>
         <section className={styles.hero}>
-          {hasCreatorArtwork ? null : (
-            <Image
-              src={detailArtwork}
-              alt=""
-              sizes="(max-width: 680px) 320px, 42vw"
-              className={styles.detailArtwork}
-            />
-          )}
           <Shell className={styles.heroShell}>
             <Link href="/browse" className={styles.back}>
               <ArrowLeft size={15} aria-hidden="true" />
