@@ -1,18 +1,16 @@
-// Package linking joins a client application to a creator's account and holds
-// the credential that join produces.
-//
-// LumiHub authenticates the creator and the individual installation, never the
-// software vendor, so there is no registration step and any implementation may
-// link. A client starts a link request, shows the creator a short code, and
-// polls until the creator approves it.
+// Package linking joins an application installation to an Illarin account.
 package linking
 
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"net/url"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -20,8 +18,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// Scope is what a linked instance is permitted to do. A client asks for what it
-// needs and the creator sees the list before approving.
+// Scope is one permission granted to a linked instance.
 type Scope string
 
 const (
@@ -29,45 +26,84 @@ const (
 	ScopeSyncLibrary   Scope = "library:sync"
 )
 
-// scopeOrder is the order scopes are stored and shown in, so the same grant
-// always reads the same way.
 var scopeOrder = []Scope{ScopeReceiveAssets, ScopeSyncLibrary}
 
 var (
-	ErrInvalidName          = errors.New("a link request needs a name a creator can recognise")
-	ErrInvalidScopes        = errors.New("a link request needs at least one known scope")
-	ErrLinkRequestNotFound  = errors.New("no link request is waiting on that code")
-	ErrPollTooSoon          = errors.New("polled faster than the interval")
+	ErrInvalidName          = errors.New("application and instance names are required")
+	ErrInvalidDeclaration   = errors.New("the instance declaration is not valid")
+	ErrInvalidScopes        = errors.New("at least one known scope is required")
+	ErrInvalidRedirect      = errors.New("the redirect is not an exact loopback callback")
+	ErrInvalidPKCE          = errors.New("S256 PKCE data is not valid")
+	ErrLinkRequestNotFound  = errors.New("no pending link request has that code")
+	ErrLinkExpired          = errors.New("the link request expired")
+	ErrAccessDenied         = errors.New("the creator denied the link request")
+	ErrPollTooSoon          = errors.New("the client must slow down")
 	ErrTooManyCodes         = errors.New("too many link codes were entered")
+	ErrTooManyRequests      = errors.New("too many link requests were made")
 	ErrInstanceNotFound     = errors.New("no live instance has that id")
-	ErrInstanceCredential   = errors.New("credential does not identify a live instance")
-	ErrInstanceMissingScope = errors.New("instance was not granted that scope")
+	ErrInstanceCredential   = errors.New("the token does not identify a live instance")
+	ErrRefreshReuse         = errors.New("a replaced refresh token was reused")
+	ErrInstanceMissingScope = errors.New("the instance was not granted that scope")
 )
 
-// Request is what a client receives when it starts linking. The user code goes
-// to the creator and the device code stays with the client.
-type Request struct {
-	DeviceCode  string
-	UserCode    string
-	VerifyURL   string
-	CompleteURL string
-	ExpiresAt   time.Time
-	Interval    time.Duration
+// Declaration is self-asserted interoperability metadata, never authority.
+type Declaration struct {
+	ApplicationName    string
+	InstanceName       string
+	ApplicationVersion string
+	ProtocolVersion    int
+	Capabilities       []string
+	AcceptedTargets    []string
 }
 
-// Pending is what a creator sees before they approve.
-type Pending struct {
-	Name      string
-	Scopes    []Scope
+// StartInput is the common input for either authorization path.
+type StartInput struct {
+	Declaration
+	Scopes []Scope
+}
+
+// AuthorizationInput starts same-device browser authorization.
+type AuthorizationInput struct {
+	StartInput
+	RedirectURI         string
+	State               string
+	CodeChallenge       string
+	CodeChallengeMethod string
+}
+
+// Request is a device authorization request.
+type Request struct {
+	DeviceCode string
+	UserCode   string
+	VerifyURL  string
+	ExpiresAt  time.Time
+	Interval   time.Duration
+}
+
+// Authorization is the Illarin page a native application opens.
+type Authorization struct {
+	URL       string
 	ExpiresAt time.Time
 }
 
-// Instance is one installation a creator has authorised. A revoked one keeps
-// its name and dates so the creator can see what they cut.
+// Pending is what a creator reviews before deciding.
+type Pending struct {
+	Declaration
+	Scopes        []Scope
+	ExpiresAt     time.Time
+	ApprovalToken string
+}
+
+// Redirect is a validated loopback destination after a browser decision.
+type Redirect struct {
+	URL string
+}
+
+// Instance is one independently authorised installation.
 type Instance struct {
-	ID         uuid.UUID
-	UserID     uuid.UUID
-	Name       string
+	ID     uuid.UUID
+	UserID uuid.UUID
+	Declaration
 	Prefix     string
 	Scopes     []Scope
 	LinkedAt   time.Time
@@ -75,7 +111,7 @@ type Instance struct {
 	RevokedAt  *time.Time
 }
 
-// Grants says whether the instance holds a scope.
+// Grants reports whether the instance has a scope.
 func (i Instance) Grants(scope Scope) bool {
 	for _, held := range i.Scopes {
 		if held == scope {
@@ -85,37 +121,114 @@ func (i Instance) Grants(scope Scope) bool {
 	return false
 }
 
-// Credential is a new instance and the one time its secret is readable.
-type Credential struct {
-	Instance Instance
-	Token    string
+// TokenGrant is the only response that exposes a new token pair.
+type TokenGrant struct {
+	Instance             Instance
+	AccessToken          string
+	AccessTokenExpiresAt time.Time
+	RefreshToken         string
 }
 
 const (
-	maxNameLength = 64
+	maxNameLength       = 64
+	maxVersionLength    = 64
+	maxIdentifierLength = 64
+	maxDeclarationItems = 32
+	maxRedirectLength   = 512
+	protocolVersion     = 1
 
-	// codeAlphabet leaves out vowels so a code cannot spell anything, and
-	// leaves out the characters people confuse when reading one aloud.
 	codeAlphabet  = "BCDFGHJKLMNPQRSTVWXZ23456789"
 	codeLength    = 8
 	codeGroupSize = 4
+	secretBytes   = 32
+
+	accessTokenKind  = "ia1"
+	refreshTokenKind = "ir1"
 )
 
-func validateName(raw string) (string, error) {
-	name := strings.TrimSpace(raw)
-	if name == "" || len([]rune(name)) > maxNameLength {
-		return "", ErrInvalidName
+var (
+	capabilityPattern = regexp.MustCompile(`^[a-z][a-z0-9.-]*:[a-z][a-z0-9._-]*$`)
+	targetPattern     = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*$`)
+	pkcePattern       = regexp.MustCompile(`^[A-Za-z0-9._~-]+$`)
+)
+
+func validateStart(in StartInput) (StartInput, error) {
+	declaration, err := validateDeclaration(in.Declaration)
+	if err != nil {
+		return StartInput{}, err
 	}
-	for _, char := range name {
-		if !unicode.IsPrint(char) {
-			return "", ErrInvalidName
-		}
+	scopes, err := canonicalScopes(in.Scopes)
+	if err != nil {
+		return StartInput{}, err
 	}
-	return name, nil
+	return StartInput{Declaration: declaration, Scopes: scopes}, nil
 }
 
-// canonicalScopes rejects an unknown or repeated scope and puts the rest in one
-// fixed order.
+func validateDeclaration(in Declaration) (Declaration, error) {
+	application, err := validateText(in.ApplicationName, maxNameLength)
+	if err != nil {
+		return Declaration{}, ErrInvalidName
+	}
+	instance, err := validateText(in.InstanceName, maxNameLength)
+	if err != nil {
+		return Declaration{}, ErrInvalidName
+	}
+	version := strings.TrimSpace(in.ApplicationVersion)
+	if version != "" {
+		if _, err := validateText(version, maxVersionLength); err != nil {
+			return Declaration{}, ErrInvalidDeclaration
+		}
+	}
+	if in.ProtocolVersion != protocolVersion || in.Capabilities == nil || in.AcceptedTargets == nil {
+		return Declaration{}, ErrInvalidDeclaration
+	}
+	capabilities, err := canonicalIdentifiers(in.Capabilities, capabilityPattern)
+	if err != nil {
+		return Declaration{}, ErrInvalidDeclaration
+	}
+	targets, err := canonicalIdentifiers(in.AcceptedTargets, targetPattern)
+	if err != nil {
+		return Declaration{}, ErrInvalidDeclaration
+	}
+	return Declaration{
+		ApplicationName: application, InstanceName: instance,
+		ApplicationVersion: version, ProtocolVersion: protocolVersion,
+		Capabilities: capabilities, AcceptedTargets: targets,
+	}, nil
+}
+
+func validateText(raw string, limit int) (string, error) {
+	value := strings.TrimSpace(raw)
+	if value == "" || len([]rune(value)) > limit {
+		return "", ErrInvalidDeclaration
+	}
+	for _, char := range value {
+		if !unicode.IsPrint(char) {
+			return "", ErrInvalidDeclaration
+		}
+	}
+	return value, nil
+}
+
+func canonicalIdentifiers(values []string, pattern *regexp.Regexp) ([]string, error) {
+	if len(values) > maxDeclarationItems {
+		return nil, ErrInvalidDeclaration
+	}
+	result := make([]string, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for index, value := range values {
+		if len(value) > maxIdentifierLength || !pattern.MatchString(value) {
+			return nil, ErrInvalidDeclaration
+		}
+		if _, exists := seen[value]; exists {
+			return nil, ErrInvalidDeclaration
+		}
+		seen[value] = struct{}{}
+		result[index] = value
+	}
+	return result, nil
+}
+
 func canonicalScopes(requested []Scope) ([]Scope, error) {
 	if len(requested) == 0 {
 		return nil, ErrInvalidScopes
@@ -143,21 +256,20 @@ func canonicalScopes(requested []Scope) ([]Scope, error) {
 
 func scopeStrings(scopes []Scope) []string {
 	stored := make([]string, len(scopes))
-	for i, scope := range scopes {
-		stored[i] = string(scope)
+	for index, scope := range scopes {
+		stored[index] = string(scope)
 	}
 	return stored
 }
 
 func scopesFrom(stored []string) []Scope {
 	scopes := make([]Scope, len(stored))
-	for i, value := range stored {
-		scopes[i] = Scope(value)
+	for index, value := range stored {
+		scopes[index] = Scope(value)
 	}
 	return scopes
 }
 
-// newCode draws characters from the alphabet without favouring any of them.
 func newCode(length int) (string, error) {
 	limit := 256 / len(codeAlphabet) * len(codeAlphabet)
 	code := make([]byte, 0, length)
@@ -175,13 +287,11 @@ func newCode(length int) (string, error) {
 	return string(code), nil
 }
 
-// FormatUserCode groups a user code so it is easier to read out.
+// FormatUserCode groups a user code for reading aloud.
 func FormatUserCode(code string) string {
 	return code[:codeGroupSize] + "-" + code[codeGroupSize:]
 }
 
-// normalizeUserCode accepts whatever a creator typed and returns the stored
-// form, or false if those characters cannot be a code.
 func normalizeUserCode(raw string) (string, bool) {
 	var code strings.Builder
 	for _, char := range strings.ToUpper(raw) {
@@ -197,55 +307,117 @@ func normalizeUserCode(raw string) (string, bool) {
 	return code.String(), true
 }
 
-func newDeviceCode() (string, []byte, error) {
-	secret := make([]byte, 32)
+func newOpaqueCode() (string, []byte, error) {
+	secret := make([]byte, secretBytes)
 	if _, err := rand.Read(secret); err != nil {
-		return "", nil, fmt.Errorf("make device code: %w", err)
+		return "", nil, fmt.Errorf("make secret: %w", err)
 	}
 	code := base64.RawURLEncoding.EncodeToString(secret)
 	return code, hashOf(code), nil
 }
 
-func deviceCodeHash(code string) ([]byte, bool) {
+func opaqueCodeHash(code string) ([]byte, bool) {
 	raw, err := base64.RawURLEncoding.DecodeString(code)
-	if err != nil || len(raw) != 32 {
+	if err != nil || len(raw) != secretBytes {
 		return nil, false
 	}
 	return hashOf(code), true
 }
 
-// newToken builds an instance credential. The prefix is readable and is kept so
-// a creator can tell two links apart. The rest is the secret.
-func newToken() (token, prefix string, hash []byte, err error) {
+func newCredential(kind string) (token, prefix string, hash []byte, err error) {
 	prefix, err = newCode(codeLength)
 	if err != nil {
 		return "", "", nil, err
 	}
-	secret := make([]byte, 32)
+	secret := make([]byte, secretBytes)
 	if _, err := rand.Read(secret); err != nil {
-		return "", "", nil, fmt.Errorf("make credential: %w", err)
+		return "", "", nil, fmt.Errorf("make token: %w", err)
 	}
-	token = prefix + "." + base64.RawURLEncoding.EncodeToString(secret)
+	token = kind + "." + prefix + "." + base64.RawURLEncoding.EncodeToString(secret)
 	return token, prefix, hashOf(token), nil
 }
 
-// tokenHash refuses anything that is not shaped like a credential before it
-// reaches the database.
-func tokenHash(token string) ([]byte, bool) {
-	prefix, secret, found := strings.Cut(token, ".")
-	if !found || len(prefix) != codeLength {
+func credentialHash(token, kind string) ([]byte, bool) {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 || parts[0] != kind || len(parts[1]) != codeLength {
 		return nil, false
 	}
-	for _, char := range prefix {
+	for _, char := range parts[1] {
 		if !strings.ContainsRune(codeAlphabet, char) {
 			return nil, false
 		}
 	}
-	raw, err := base64.RawURLEncoding.DecodeString(secret)
-	if err != nil || len(raw) != 32 {
+	raw, err := base64.RawURLEncoding.DecodeString(parts[2])
+	if err != nil || len(raw) != secretBytes {
 		return nil, false
 	}
 	return hashOf(token), true
+}
+
+func validateAuthorization(in AuthorizationInput) (AuthorizationInput, error) {
+	start, err := validateStart(in.StartInput)
+	if err != nil {
+		return AuthorizationInput{}, err
+	}
+	if !validLoopbackRedirect(in.RedirectURI) {
+		return AuthorizationInput{}, ErrInvalidRedirect
+	}
+	if len(in.State) < 32 || len(in.State) > 128 || !pkcePattern.MatchString(in.State) {
+		return AuthorizationInput{}, ErrInvalidPKCE
+	}
+	if in.CodeChallengeMethod != "S256" || !validChallenge(in.CodeChallenge) {
+		return AuthorizationInput{}, ErrInvalidPKCE
+	}
+	return AuthorizationInput{
+		StartInput: start, RedirectURI: in.RedirectURI, State: in.State,
+		CodeChallenge: in.CodeChallenge, CodeChallengeMethod: "S256",
+	}, nil
+}
+
+func validLoopbackRedirect(raw string) bool {
+	if len(raw) > maxRedirectLength {
+		return false
+	}
+	parsed, err := url.ParseRequestURI(raw)
+	if err != nil || parsed.Scheme != "http" || parsed.Opaque != "" || parsed.User != nil ||
+		parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Path == "" {
+		return false
+	}
+	host := parsed.Hostname()
+	if host != "127.0.0.1" && host != "::1" {
+		return false
+	}
+	port, err := strconv.Atoi(parsed.Port())
+	return err == nil && port > 0 && port <= 65535
+}
+
+func validChallenge(value string) bool {
+	if len(value) != 43 || !pkcePattern.MatchString(value) {
+		return false
+	}
+	raw, err := base64.RawURLEncoding.DecodeString(value)
+	return err == nil && len(raw) == sha256.Size
+}
+
+func challengeMatches(verifier, challenge string) bool {
+	if len(verifier) < 43 || len(verifier) > 128 || !pkcePattern.MatchString(verifier) {
+		return false
+	}
+	digest := sha256.Sum256([]byte(verifier))
+	want := base64.RawURLEncoding.EncodeToString(digest[:])
+	return subtle.ConstantTimeCompare([]byte(want), []byte(challenge)) == 1
+}
+
+func redirectWith(raw, key, value, state string) (string, error) {
+	if !validLoopbackRedirect(raw) {
+		return "", ErrInvalidRedirect
+	}
+	parsed, _ := url.Parse(raw)
+	query := parsed.Query()
+	query.Set(key, value)
+	query.Set("state", state)
+	parsed.RawQuery = query.Encode()
+	return parsed.String(), nil
 }
 
 func hashOf(value string) []byte {

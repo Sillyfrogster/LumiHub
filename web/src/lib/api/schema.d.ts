@@ -237,7 +237,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Start linking a client application to a creator's account. Anyone may call this: LumiHub authenticates the creator and the individual installation, never the software vendor, so there is no registration step, no client id and no client secret. */
+    /** @description Start Illarin's registration-free device fallback for an installation that cannot receive a loopback callback. It follows RFC 8628 security and polling semantics but is not an OAuth token endpoint. */
     post: operations["startLinkRequest"];
     delete?: never;
     options?: never;
@@ -269,7 +269,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description What the client behind a user code is asking for. */
+    /** @description What the installation behind a user code is asking for. */
     get: operations["getLinkRequest"];
     put?: never;
     post?: never;
@@ -288,8 +288,127 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Approve a link request. A link request may be approved once and redeemed once. */
+    /** @description Approve a link request. A link request may be approved once and redeemed once. This browser-only operation requires Illarin's request header. */
     post: operations["approveLinkRequest"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/link/requests/{userCode}/deny": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Deny the reviewed device request and stop its polling installation. */
+    post: operations["denyLinkRequest"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/link/authorizations": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Start same-device browser authorization with S256 PKCE. Only an exact IPv4 or IPv6 loopback callback is accepted; its port may vary. */
+    post: operations["startLinkAuthorization"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/link/authorizations/{requestCode}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description What the installation behind a browser authorization is asking for. */
+    get: operations["getLinkAuthorization"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/link/authorizations/{requestCode}/approve": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Approve once and return the validated loopback redirect. */
+    post: operations["approveLinkAuthorization"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/link/authorizations/{requestCode}/deny": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Deny once and return the validated loopback error redirect. */
+    post: operations["denyLinkAuthorization"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/link/token": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Exchange one approved authorization code using its PKCE verifier. */
+    post: operations["exchangeLinkAuthorization"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/link/refresh": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Rotate one live refresh token. Replaying a replacement retained in the 90-day detection window revokes that instance and every access token it holds. A family also expires after 90 days without authenticated use. */
+    post: operations["refreshInstanceToken"];
     delete?: never;
     options?: never;
     head?: never;
@@ -320,9 +439,10 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description The instance the bearer credential belongs to. Every authenticated request updates lastSeenAt, and this one exists so a client can check its credential without sending anything. */
+    /** @description The instance the access token belongs to. Every authenticated request updates lastSeenAt, and this one exists so an installation can check its token without sending anything. */
     get: operations["getInstance"];
-    put?: never;
+    /** @description Replace the live instance's non-authoritative interoperability declaration. This cannot change its granted scopes. */
+    put: operations["updateInstance"];
     post?: never;
     delete?: never;
     options?: never;
@@ -340,7 +460,7 @@ export interface paths {
     get?: never;
     put?: never;
     post?: never;
-    /** @description Cut an instance off. Its credential stops working immediately and the state it held here is discarded. A record that it was linked and revoked stays. */
+    /** @description Cut an instance off. Its tokens stop working immediately and the state it held here is discarded. A record that it was linked and revoked stays. */
     delete: operations["revokeInstance"];
     options?: never;
     head?: never;
@@ -689,19 +809,50 @@ export interface components {
      */
     Scope: "asset:receive" | "library:sync";
     StartLinkRequest: {
-      /** @description What the creator sees on the approval screen. Name the installation, not the product, so somebody with two of them can tell which is which. */
-      name: string;
-      scopes: components["schemas"]["Scope"][];
+      applicationName: components["schemas"]["ApplicationName"];
+      instanceName: components["schemas"]["InstanceName"];
+      applicationVersion?: components["schemas"]["ApplicationVersion"];
+      protocolVersion: components["schemas"]["LinkProtocolVersion"];
+      capabilities: components["schemas"]["InstanceCapabilities"];
+      acceptedTargets: components["schemas"]["AcceptedTargets"];
+      scopes: components["schemas"]["Scopes"];
     };
+    StartLinkAuthorization: {
+      applicationName: components["schemas"]["ApplicationName"];
+      instanceName: components["schemas"]["InstanceName"];
+      applicationVersion?: components["schemas"]["ApplicationVersion"];
+      protocolVersion: components["schemas"]["LinkProtocolVersion"];
+      capabilities: components["schemas"]["InstanceCapabilities"];
+      acceptedTargets: components["schemas"]["AcceptedTargets"];
+      scopes: components["schemas"]["Scopes"];
+      /** @description An exact http callback using 127.0.0.1 or [::1], with an explicit port, a path, no user information, no query and no fragment. */
+      redirectUri: string;
+      state: string;
+      codeChallenge: string;
+      /** @enum {string} */
+      codeChallengeMethod: "S256";
+    };
+    /** @description A self-asserted, unverified application name. */
+    ApplicationName: string;
+    /** @description A self-asserted name for this installation. */
+    InstanceName: string;
+    ApplicationVersion: string | null;
+    /** @enum {integer} */
+    LinkProtocolVersion: 1;
+    /** @description A namespaced interoperability claim. It never grants permission and unknown values have no effect. */
+    CapabilityId: string;
+    InstanceCapabilities: components["schemas"]["CapabilityId"][];
+    /** @description A format-module identifier accepted by the instance. Unknown values do not make a target available. */
+    ExportTargetId: string;
+    AcceptedTargets: components["schemas"]["ExportTargetId"][];
+    Scopes: components["schemas"]["Scope"][];
     LinkRequest: {
-      /** @description Kept private by the client and sent when polling. */
+      /** @description Kept private by the installation and sent when polling. */
       deviceCode: string;
-      /** @description Shown to the creator, who enters it on LumiHub. */
+      /** @description Shown to the creator, who enters it on Illarin. */
       userCode: string;
       /** @description Where the creator enters the user code. */
       verificationUrl: string;
-      /** @description The same page with the code already filled in. A client running on the creator's own machine may open it. */
-      verificationUrlComplete: string;
       /** Format: date-time */
       expiresAt: string;
       /** @description Seconds to wait between polls. */
@@ -713,21 +864,77 @@ export interface components {
     LinkPollResult: {
       /** @enum {string} */
       status: "pending" | "linked";
-      /** @description The instance credential, sent once and never again. It does not expire and there is nothing to refresh. */
-      token?: string;
+      accessToken?: string;
+      /**
+       * Format: date-time
+       * @description The 15-minute access-token deadline.
+       */
+      accessTokenExpiresAt?: string;
+      refreshToken?: string;
       instance?: components["schemas"]["LinkedInstance"];
     };
     PendingLink: {
-      name: string;
-      scopes: components["schemas"]["Scope"][];
+      applicationName: components["schemas"]["ApplicationName"];
+      instanceName: components["schemas"]["InstanceName"];
+      applicationVersion?: components["schemas"]["ApplicationVersion"];
+      protocolVersion: components["schemas"]["LinkProtocolVersion"];
+      capabilities: components["schemas"]["InstanceCapabilities"];
+      acceptedTargets: components["schemas"]["AcceptedTargets"];
+      scopes: components["schemas"]["Scopes"];
       /** Format: date-time */
       expiresAt: string;
+    };
+    PendingDeviceLink: components["schemas"]["PendingLink"] & {
+      /** @description A private one-use proof that this code was reviewed. */
+      approvalToken: string;
+    };
+    DeviceLinkDecision: {
+      approvalToken: string;
+    };
+    LinkAuthorization: {
+      /** @description The Illarin page to open in the system browser. */
+      authorizationUrl: string;
+      /** Format: date-time */
+      expiresAt: string;
+    };
+    LinkRedirect: {
+      /** @description A server-validated exact loopback redirect. */
+      redirectUrl: string;
+    };
+    ExchangeLinkAuthorization: {
+      authorizationCode: string;
+      codeVerifier: string;
+      redirectUri: string;
+    };
+    RefreshInstanceToken: {
+      refreshToken: string;
+    };
+    InstanceTokenGrant: {
+      accessToken: string;
+      /**
+       * Format: date-time
+       * @description The 15-minute access-token deadline.
+       */
+      accessTokenExpiresAt: string;
+      refreshToken: string;
+      instance: components["schemas"]["LinkedInstance"];
+    };
+    UpdateInstance: {
+      applicationVersion?: components["schemas"]["ApplicationVersion"];
+      protocolVersion: components["schemas"]["LinkProtocolVersion"];
+      capabilities: components["schemas"]["InstanceCapabilities"];
+      acceptedTargets: components["schemas"]["AcceptedTargets"];
     };
     LinkedInstance: {
       /** Format: uuid */
       id: string;
-      name: string;
-      /** @description The start of the credential, so two links are told apart. */
+      applicationName: string;
+      instanceName: string;
+      applicationVersion?: string | null;
+      protocolVersion: number | null;
+      capabilities: string[];
+      acceptedTargets: string[];
+      /** @description The readable prefix of the current refresh token. */
       prefix: string;
       scopes: components["schemas"]["Scope"][];
       /** Format: date-time */
@@ -2031,7 +2238,7 @@ export interface operations {
       };
     };
     responses: {
-      /** @description The codes the client shows and the code it keeps */
+      /** @description The code the installation keeps and the code it shows */
       201: {
         headers: {
           [name: string]: unknown;
@@ -2040,8 +2247,22 @@ export interface operations {
           "application/json": components["schemas"]["LinkRequest"];
         };
       };
-      /** @description The name or the requested scopes are not valid */
+      /** @description The declaration or requested scopes are not valid */
       400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The request body is too large */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Too many link requests came from this source */
+      429: {
         headers: {
           [name: string]: unknown;
         };
@@ -2062,7 +2283,7 @@ export interface operations {
       };
     };
     responses: {
-      /** @description Still waiting, or linked and holding the credential */
+      /** @description Still waiting, or linked with a new token pair */
       200: {
         headers: {
           [name: string]: unknown;
@@ -2071,14 +2292,28 @@ export interface operations {
           "application/json": components["schemas"]["LinkPollResult"];
         };
       };
-      /** @description The link request has expired */
+      /** @description The request was denied or expired */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The request was redeemed or never existed */
       404: {
         headers: {
           [name: string]: unknown;
         };
         content?: never;
       };
-      /** @description Polled faster than the interval */
+      /** @description The request body is too large */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Slow down before polling again */
       429: {
         headers: {
           "Retry-After"?: number;
@@ -2099,13 +2334,13 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description The name and scopes to show before approving */
+      /** @description The unverified names, declaration and scopes to review */
       200: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["PendingLink"];
+          "application/json": components["schemas"]["PendingDeviceLink"];
         };
       };
       /** @description No account is signed in */
@@ -2147,7 +2382,11 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DeviceLinkDecision"];
+      };
+    };
     responses: {
       /** @description What was approved */
       200: {
@@ -2179,7 +2418,309 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Too many codes were entered */
+    };
+  };
+  denyLinkRequest: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        userCode: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DeviceLinkDecision"];
+      };
+    };
+    responses: {
+      /** @description The request is denied */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The signed-in account has not verified its email */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No pending reviewed request has that code */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  startLinkAuthorization: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["StartLinkAuthorization"];
+      };
+    };
+    responses: {
+      /** @description The short-lived Illarin URL to open in the system browser */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LinkAuthorization"];
+        };
+      };
+      /** @description The callback */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The request body is too large */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Too many link requests came from this source */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getLinkAuthorization: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        requestCode: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The unverified names, declaration and scopes to review */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PendingLink"];
+        };
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The signed-in account has not verified its email */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No pending authorization has that request code */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  approveLinkAuthorization: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        requestCode: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The exact loopback URL carrying the one-use code and state */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LinkRedirect"];
+        };
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The signed-in account has not verified its email */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No pending authorization has that request code */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  denyLinkAuthorization: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        requestCode: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The exact loopback URL carrying access_denied and state */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LinkRedirect"];
+        };
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The signed-in account has not verified its email */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No pending authorization has that request code */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  exchangeLinkAuthorization: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ExchangeLinkAuthorization"];
+      };
+    };
+    responses: {
+      /** @description A short-lived access token and rotating refresh token */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["InstanceTokenGrant"];
+        };
+      };
+      /** @description The code */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The request body is too large */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Too many exchanges came from this source */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  refreshInstanceToken: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RefreshInstanceToken"];
+      };
+    };
+    responses: {
+      /** @description A replacement access and refresh token pair */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["InstanceTokenGrant"];
+        };
+      };
+      /** @description The refresh token is not live */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The request body is too large */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Too many refresh attempts came from this source */
       429: {
         headers: {
           [name: string]: unknown;
@@ -2233,8 +2774,53 @@ export interface operations {
           "application/json": components["schemas"]["LinkedInstance"];
         };
       };
-      /** @description The credential does not identify a live instance */
+      /** @description The access token does not identify a live instance */
       401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  updateInstance: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateInstance"];
+      };
+    };
+    responses: {
+      /** @description The updated instance */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LinkedInstance"];
+        };
+      };
+      /** @description The declaration is not valid */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The access token does not identify a live instance */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The request body is too large */
+      413: {
         headers: {
           [name: string]: unknown;
         };

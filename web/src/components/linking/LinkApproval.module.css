@@ -1,6 +1,7 @@
 .panel {
   display: grid;
   width: 100%;
+  min-width: 0;
   justify-items: start;
 }
 
@@ -27,62 +28,85 @@
 
 .title,
 .name {
+  max-width: 100%;
   font-family: var(--font-display);
   font-size: var(--type-block-title-size);
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.15;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
 .body,
 .carried,
 .caution {
-  max-width: 46ch;
+  max-width: 52ch;
   margin-top: 12px;
   color: var(--color-text-secondary);
   font-size: var(--type-secondary-size);
   line-height: 1.7;
+  overflow-wrap: anywhere;
 }
 
 .asking {
   color: var(--color-text-secondary);
   font-size: var(--type-label-size);
   font-weight: 900;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
+  line-height: var(--type-label-leading);
   text-transform: uppercase;
 }
 
 .name {
   margin-top: 8px;
   font-size: var(--type-section-size);
+}
+
+.identity {
+  display: grid;
+  width: 100%;
+  margin-top: 18px;
+  box-shadow:
+    inset 0 1px 0 var(--color-border),
+    inset 0 -1px 0 var(--color-border);
+}
+
+.identity > div {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(92px, 0.35fr) minmax(0, 1fr);
+  gap: 16px;
+  padding-block: 11px;
+}
+
+.identity > div + div {
+  border-top: 1px solid var(--color-border);
+}
+
+.identity dt,
+.compatibilityList dt {
+  color: var(--color-text-secondary);
+  font-size: var(--type-label-size);
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+.identity dd,
+.compatibilityList dd {
+  min-width: 0;
+  color: var(--color-text-primary);
+  font-size: var(--type-secondary-size);
+  font-weight: 700;
+  line-height: 1.5;
   overflow-wrap: anywhere;
 }
 
 .code,
-.codeShown {
+.codeMatch b {
   font-family: var(--font-mono);
-  font-size: var(--type-lead-size);
-  letter-spacing: 0.2em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-}
-
-.expiry {
-  margin-top: 7px;
-  color: var(--color-text-secondary);
-  font-size: var(--type-label-size);
-  line-height: 1.5;
-}
-
-.codeShown {
-  display: inline-flex;
-  min-height: 42px;
-  align-items: center;
-  margin-top: 14px;
-  padding-inline: 14px;
-  border-radius: var(--radius-sm);
-  background: var(--color-muted);
-  color: var(--color-text-primary);
-  font-size: var(--type-secondary-size);
 }
 
 .code {
@@ -94,6 +118,8 @@
   border-radius: var(--radius-sm);
   background: var(--color-muted);
   color: var(--color-text-primary);
+  font-size: var(--type-lead-size);
+  letter-spacing: 0.2em;
   text-align: center;
 }
 
@@ -105,10 +131,64 @@
   border-color: var(--color-accent);
 }
 
+.codeMatch {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 12px;
+  margin-top: 22px;
+  padding: 14px;
+  border: 1px solid var(--color-critical-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-critical-soft);
+  color: var(--color-critical-strong);
+}
+
+.codeMatch svg {
+  margin-top: 2px;
+}
+
+.codeMatch strong,
+.codeMatch span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.codeMatch strong {
+  font-size: var(--type-secondary-size);
+  font-weight: 900;
+}
+
+.codeMatch span {
+  margin-top: 4px;
+  font-size: var(--type-secondary-size);
+  line-height: 1.6;
+}
+
+.codeMatch b {
+  margin-inline: 0.18em 0.03em;
+  font-weight: 800;
+}
+
+.permissions {
+  width: 100%;
+  min-width: 0;
+  margin-top: 26px;
+}
+
+.permissions h3,
+.compatibilityHeading h3 {
+  color: var(--color-text-primary);
+  font-size: var(--type-secondary-size);
+  font-weight: 900;
+  line-height: 1.5;
+}
+
 .scopes {
   display: grid;
   width: 100%;
-  margin-top: 26px;
+  margin-top: 10px;
   padding-inline: 18px;
   border-radius: var(--radius-sm);
   background: var(--color-muted);
@@ -117,9 +197,10 @@
 
 .scopes li {
   display: grid;
+  min-width: 0;
   grid-template-columns: 20px minmax(0, 1fr);
   gap: 12px;
-  padding-block: 18px;
+  padding-block: 16px;
 }
 
 .scopes li + li {
@@ -131,33 +212,92 @@
   color: var(--color-text-primary);
 }
 
-.scopes strong {
+.scopes strong,
+.scopes span {
   display: block;
+  overflow-wrap: anywhere;
+}
+
+.scopes strong {
   color: var(--color-text-primary);
   font-size: var(--type-secondary-size);
   font-weight: 900;
 }
 
 .scopes span {
-  display: block;
   margin-top: 4px;
   color: var(--color-text-secondary);
   font-size: var(--type-secondary-size);
   line-height: 1.6;
 }
 
+.compatibility {
+  width: 100%;
+  min-width: 0;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--color-border);
+}
+
+.compatibilityHeading p {
+  margin-top: 3px;
+  color: var(--color-text-secondary);
+  font-size: var(--type-label-size);
+  line-height: 1.55;
+}
+
+.compatibilityList {
+  display: grid;
+  margin-top: 12px;
+  gap: 10px;
+}
+
+.compatibilityList > div {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(112px, 0.4fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.technicalValues {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 5px;
+  list-style: none;
+}
+
+.technicalValues li {
+  max-width: 100%;
+  padding: 3px 7px;
+  border-radius: var(--radius-xs);
+  background: var(--color-muted);
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.notDeclared {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
 .caution {
+  width: 100%;
   padding: 12px 14px;
   border-radius: var(--radius-sm);
   background: var(--color-accent-soft);
   box-shadow: inset 0 0 0 1px var(--color-accent-border);
-  font-size: var(--type-secondary-size);
 }
 
-.carried strong {
-  margin-right: -0.16em;
-  font-family: var(--font-mono);
-  letter-spacing: 0.16em;
+.carried {
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--color-muted);
 }
 
 .notice {
@@ -171,6 +311,7 @@
   color: var(--color-critical-strong);
   font-size: var(--type-secondary-size);
   line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .waiting {
@@ -179,23 +320,27 @@
 }
 
 .decision {
-  display: flex;
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
-  align-items: center;
   margin-top: 24px;
 }
 
 .primary,
-.secondary {
+.secondary,
+.secondaryStandalone {
   display: inline-flex;
   min-height: 46px;
+  min-width: 0;
   align-items: center;
   justify-content: center;
-  padding-inline: 22px;
+  padding: 8px 20px;
   border-radius: var(--radius-sm);
   font-size: var(--type-label-size);
   font-weight: 900;
-  white-space: nowrap;
+  line-height: 1.35;
+  text-align: center;
   transition:
     border-color 180ms var(--ease),
     box-shadow 180ms var(--ease),
@@ -219,25 +364,44 @@
   transform: translateY(-1px);
 }
 
-.primary:disabled {
+.primary:disabled,
+.secondary:disabled {
   cursor: not-allowed;
-  opacity: 0.5;
+  opacity: 0.52;
 }
 
-.secondary {
+.secondary,
+.secondaryStandalone {
   border: 1px solid var(--color-accent-border);
   background: var(--color-surface);
   color: var(--color-text-primary);
 }
 
-.secondary:hover {
+.secondaryStandalone {
+  margin-top: 24px;
+}
+
+.secondary:hover:not(:disabled),
+.secondaryStandalone:hover {
   border-color: var(--color-text-secondary);
   color: var(--color-text-primary);
 }
 
-.secondary:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
+.leave {
+  min-height: 44px;
+  margin-top: 7px;
+  padding-inline: 3px;
+  color: var(--color-text-secondary);
+  font-size: var(--type-label-size);
+  font-weight: 750;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 0.22em;
+}
+
+.leave:hover {
+  color: var(--color-text-primary);
+  text-decoration-color: currentColor;
 }
 
 @media (max-width: 620px) {
@@ -246,13 +410,24 @@
     font-size: var(--type-block-title-size);
   }
 
+  .identity > div,
+  .compatibilityList > div {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+
   .decision {
-    display: grid;
-    width: 100%;
+    grid-template-columns: 1fr;
   }
 
   .primary,
-  .secondary {
+  .secondary,
+  .secondaryStandalone {
     width: 100%;
+    white-space: normal;
+  }
+
+  .leave {
+    justify-self: center;
   }
 }

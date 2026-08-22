@@ -689,6 +689,21 @@ func (e LinkPollResultStatus) Valid() bool {
 	}
 }
 
+// Defines values for LinkProtocolVersion.
+const (
+	LinkProtocolVersionN1 LinkProtocolVersion = 1
+)
+
+// Valid indicates whether the value is a known member of the LinkProtocolVersion enum.
+func (e LinkProtocolVersion) Valid() bool {
+	switch e {
+	case LinkProtocolVersionN1:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MediaRole.
 const (
 	MediaRoleAvatar           MediaRole = "avatar"
@@ -790,19 +805,19 @@ func (e PromptListContentFragmentsRole) Valid() bool {
 
 // Defines values for RecordListContentRecordsGenderIdentity.
 const (
-	N0 RecordListContentRecordsGenderIdentity = 0
-	N1 RecordListContentRecordsGenderIdentity = 1
-	N2 RecordListContentRecordsGenderIdentity = 2
+	RecordListContentRecordsGenderIdentityN0 RecordListContentRecordsGenderIdentity = 0
+	RecordListContentRecordsGenderIdentityN1 RecordListContentRecordsGenderIdentity = 1
+	RecordListContentRecordsGenderIdentityN2 RecordListContentRecordsGenderIdentity = 2
 )
 
 // Valid indicates whether the value is a known member of the RecordListContentRecordsGenderIdentity enum.
 func (e RecordListContentRecordsGenderIdentity) Valid() bool {
 	switch e {
-	case N0:
+	case RecordListContentRecordsGenderIdentityN0:
 		return true
-	case N1:
+	case RecordListContentRecordsGenderIdentityN1:
 		return true
-	case N2:
+	case RecordListContentRecordsGenderIdentityN2:
 		return true
 	default:
 		return false
@@ -998,6 +1013,21 @@ func (e StartAssetRequestApp) Valid() bool {
 	}
 }
 
+// Defines values for StartLinkAuthorizationCodeChallengeMethod.
+const (
+	S256 StartLinkAuthorizationCodeChallengeMethod = "S256"
+)
+
+// Valid indicates whether the value is a known member of the StartLinkAuthorizationCodeChallengeMethod enum.
+func (e StartLinkAuthorizationCodeChallengeMethod) Valid() bool {
+	switch e {
+	case S256:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for VariableSchemaContentVariablesWidget.
 const (
 	VariableSchemaContentVariablesWidgetMultiselect VariableSchemaContentVariablesWidget = "multiselect"
@@ -1154,6 +1184,9 @@ func (e BeginDiscordParamsIntent) Valid() bool {
 	}
 }
 
+// AcceptedTargets defines model for AcceptedTargets.
+type AcceptedTargets = []ExportTargetId
+
 // Account defines model for Account.
 type Account struct {
 	DiscordLinked bool                 `json:"discordLinked"`
@@ -1206,6 +1239,12 @@ type AddableSectionChoice struct {
 	// Type What an element's data structure is, from the global vocabulary.
 	Type ElementType `json:"type"`
 }
+
+// ApplicationName A self-asserted, unverified application name.
+type ApplicationName = string
+
+// ApplicationVersion defines model for ApplicationVersion.
+type ApplicationVersion = string
 
 // ArrangeAssetBlocksRequest defines model for ArrangeAssetBlocksRequest.
 type ArrangeAssetBlocksRequest struct {
@@ -1465,6 +1504,9 @@ type BrowseOption struct {
 	Value    string `json:"value"`
 }
 
+// CapabilityId A namespaced interoperability claim. It never grants permission and unknown values have no effect.
+type CapabilityId = string
+
 // ChangeEmailRequest defines model for ChangeEmailRequest.
 type ChangeEmailRequest struct {
 	Email openapi_types.Email `json:"email"`
@@ -1516,6 +1558,11 @@ type DeletedAssetKind string
 // DeletedAssetList defines model for DeletedAssetList.
 type DeletedAssetList struct {
 	Items []DeletedAsset `json:"items"`
+}
+
+// DeviceLinkDecision defines model for DeviceLinkDecision.
+type DeviceLinkDecision struct {
+	ApprovalToken string `json:"approvalToken"`
 }
 
 // DialogueSampleContent defines model for DialogueSampleContent.
@@ -1601,6 +1648,16 @@ type EntryTableContent struct {
 // EntryTableContentEntriesPosition Unset where the book leaves the choice to whatever reads it.
 type EntryTableContentEntriesPosition string
 
+// ExchangeLinkAuthorization defines model for ExchangeLinkAuthorization.
+type ExchangeLinkAuthorization struct {
+	AuthorizationCode string `json:"authorizationCode"`
+	CodeVerifier      string `json:"codeVerifier"`
+	RedirectUri       string `json:"redirectUri"`
+}
+
+// ExportTargetId A format-module identifier accepted by the instance. Unknown values do not make a target available.
+type ExportTargetId = string
+
 // FieldListContent defines model for FieldListContent.
 type FieldListContent struct {
 	Fields []struct {
@@ -1642,8 +1699,31 @@ type IngestOperation struct {
 // IngestOperationStatus defines model for IngestOperation.Status.
 type IngestOperationStatus string
 
+// InstanceCapabilities defines model for InstanceCapabilities.
+type InstanceCapabilities = []CapabilityId
+
+// InstanceName A self-asserted name for this installation.
+type InstanceName = string
+
+// InstanceTokenGrant defines model for InstanceTokenGrant.
+type InstanceTokenGrant struct {
+	AccessToken string `json:"accessToken"`
+
+	// AccessTokenExpiresAt The 15-minute access-token deadline.
+	AccessTokenExpiresAt time.Time      `json:"accessTokenExpiresAt"`
+	Instance             LinkedInstance `json:"instance"`
+	RefreshToken         string         `json:"refreshToken"`
+}
+
 // ItemSize How large the images inside an element are drawn. It names what it controls, and no element type declares a measurement of its own.
 type ItemSize string
+
+// LinkAuthorization defines model for LinkAuthorization.
+type LinkAuthorization struct {
+	// AuthorizationUrl The Illarin page to open in the system browser.
+	AuthorizationUrl string    `json:"authorizationUrl"`
+	ExpiresAt        time.Time `json:"expiresAt"`
+}
 
 // LinkListContent defines model for LinkListContent.
 type LinkListContent struct {
@@ -1658,46 +1738,59 @@ type LinkListContent struct {
 
 // LinkPollResult defines model for LinkPollResult.
 type LinkPollResult struct {
-	Instance *LinkedInstance      `json:"instance,omitempty"`
-	Status   LinkPollResultStatus `json:"status"`
+	AccessToken *string `json:"accessToken,omitempty"`
 
-	// Token The instance credential, sent once and never again. It does not expire and there is nothing to refresh.
-	Token *string `json:"token,omitempty"`
+	// AccessTokenExpiresAt The 15-minute access-token deadline.
+	AccessTokenExpiresAt *time.Time           `json:"accessTokenExpiresAt,omitempty"`
+	Instance             *LinkedInstance      `json:"instance,omitempty"`
+	RefreshToken         *string              `json:"refreshToken,omitempty"`
+	Status               LinkPollResultStatus `json:"status"`
 }
 
 // LinkPollResultStatus defines model for LinkPollResult.Status.
 type LinkPollResultStatus string
 
+// LinkProtocolVersion defines model for LinkProtocolVersion.
+type LinkProtocolVersion int
+
+// LinkRedirect defines model for LinkRedirect.
+type LinkRedirect struct {
+	// RedirectUrl A server-validated exact loopback redirect.
+	RedirectUrl string `json:"redirectUrl"`
+}
+
 // LinkRequest defines model for LinkRequest.
 type LinkRequest struct {
-	// DeviceCode Kept private by the client and sent when polling.
+	// DeviceCode Kept private by the installation and sent when polling.
 	DeviceCode string    `json:"deviceCode"`
 	ExpiresAt  time.Time `json:"expiresAt"`
 
 	// Interval Seconds to wait between polls.
 	Interval int `json:"interval"`
 
-	// UserCode Shown to the creator, who enters it on LumiHub.
+	// UserCode Shown to the creator, who enters it on Illarin.
 	UserCode string `json:"userCode"`
 
 	// VerificationUrl Where the creator enters the user code.
 	VerificationUrl string `json:"verificationUrl"`
-
-	// VerificationUrlComplete The same page with the code already filled in. A client running on the creator's own machine may open it.
-	VerificationUrlComplete string `json:"verificationUrlComplete"`
 }
 
 // LinkedInstance defines model for LinkedInstance.
 type LinkedInstance struct {
-	Id         openapi_types.UUID `json:"id"`
-	LastSeenAt *time.Time         `json:"lastSeenAt"`
-	LinkedAt   time.Time          `json:"linkedAt"`
-	Name       string             `json:"name"`
+	AcceptedTargets    []string           `json:"acceptedTargets"`
+	ApplicationName    string             `json:"applicationName"`
+	ApplicationVersion *string            `json:"applicationVersion,omitempty"`
+	Capabilities       []string           `json:"capabilities"`
+	Id                 openapi_types.UUID `json:"id"`
+	InstanceName       string             `json:"instanceName"`
+	LastSeenAt         *time.Time         `json:"lastSeenAt"`
+	LinkedAt           time.Time          `json:"linkedAt"`
 
-	// Prefix The start of the credential, so two links are told apart.
-	Prefix    string     `json:"prefix"`
-	RevokedAt *time.Time `json:"revokedAt"`
-	Scopes    []Scope    `json:"scopes"`
+	// Prefix The readable prefix of the current refresh token.
+	Prefix          string     `json:"prefix"`
+	ProtocolVersion *int       `json:"protocolVersion"`
+	RevokedAt       *time.Time `json:"revokedAt"`
+	Scopes          []Scope    `json:"scopes"`
 }
 
 // LinkedInstanceList defines model for LinkedInstanceList.
@@ -1753,11 +1846,39 @@ type PasswordResetRequest struct {
 	Email openapi_types.Email `json:"email"`
 }
 
+// PendingDeviceLink defines model for PendingDeviceLink.
+type PendingDeviceLink struct {
+	AcceptedTargets AcceptedTargets `json:"acceptedTargets"`
+
+	// ApplicationName A self-asserted, unverified application name.
+	ApplicationName    ApplicationName     `json:"applicationName"`
+	ApplicationVersion *ApplicationVersion `json:"applicationVersion,omitempty"`
+
+	// ApprovalToken A private one-use proof that this code was reviewed.
+	ApprovalToken string               `json:"approvalToken"`
+	Capabilities  InstanceCapabilities `json:"capabilities"`
+	ExpiresAt     time.Time            `json:"expiresAt"`
+
+	// InstanceName A self-asserted name for this installation.
+	InstanceName    InstanceName        `json:"instanceName"`
+	ProtocolVersion LinkProtocolVersion `json:"protocolVersion"`
+	Scopes          Scopes              `json:"scopes"`
+}
+
 // PendingLink defines model for PendingLink.
 type PendingLink struct {
-	ExpiresAt time.Time `json:"expiresAt"`
-	Name      string    `json:"name"`
-	Scopes    []Scope   `json:"scopes"`
+	AcceptedTargets AcceptedTargets `json:"acceptedTargets"`
+
+	// ApplicationName A self-asserted, unverified application name.
+	ApplicationName    ApplicationName      `json:"applicationName"`
+	ApplicationVersion *ApplicationVersion  `json:"applicationVersion,omitempty"`
+	Capabilities       InstanceCapabilities `json:"capabilities"`
+	ExpiresAt          time.Time            `json:"expiresAt"`
+
+	// InstanceName A self-asserted name for this installation.
+	InstanceName    InstanceName        `json:"instanceName"`
+	ProtocolVersion LinkProtocolVersion `json:"protocolVersion"`
+	Scopes          Scopes              `json:"scopes"`
 }
 
 // PollLinkRequest defines model for PollLinkRequest.
@@ -1864,6 +1985,11 @@ type RecordListContentRecordsGenderIdentity int
 // RecordListContentSchema defines model for RecordListContent.Schema.
 type RecordListContentSchema string
 
+// RefreshInstanceToken defines model for RefreshInstanceToken.
+type RefreshInstanceToken struct {
+	RefreshToken string `json:"refreshToken"`
+}
+
 // RenameHandleRequest defines model for RenameHandleRequest.
 type RenameHandleRequest struct {
 	Handle string `json:"handle"`
@@ -1908,6 +2034,9 @@ type SaveAssetElementDisplay string
 
 // Scope asset:receive lets an instance receive assets sent to it. library:sync lets it report what it has installed.
 type Scope string
+
+// Scopes defines model for Scopes.
+type Scopes = []Scope
 
 // ScriptListContent A preset's find and replace scripts, in the order they run.
 type ScriptListContent struct {
@@ -1991,11 +2120,43 @@ type StartAssetRequest struct {
 // StartAssetRequestApp Which app the asset is built for, asked once for the kinds whose settings have names only an app can give them. It seeds those names and is stored nowhere. Absent, and refused, for every other kind.
 type StartAssetRequestApp string
 
+// StartLinkAuthorization defines model for StartLinkAuthorization.
+type StartLinkAuthorization struct {
+	AcceptedTargets AcceptedTargets `json:"acceptedTargets"`
+
+	// ApplicationName A self-asserted, unverified application name.
+	ApplicationName     ApplicationName                           `json:"applicationName"`
+	ApplicationVersion  *ApplicationVersion                       `json:"applicationVersion,omitempty"`
+	Capabilities        InstanceCapabilities                      `json:"capabilities"`
+	CodeChallenge       string                                    `json:"codeChallenge"`
+	CodeChallengeMethod StartLinkAuthorizationCodeChallengeMethod `json:"codeChallengeMethod"`
+
+	// InstanceName A self-asserted name for this installation.
+	InstanceName    InstanceName        `json:"instanceName"`
+	ProtocolVersion LinkProtocolVersion `json:"protocolVersion"`
+
+	// RedirectUri An exact http callback using 127.0.0.1 or [::1], with an explicit port, a path, no user information, no query and no fragment.
+	RedirectUri string `json:"redirectUri"`
+	Scopes      Scopes `json:"scopes"`
+	State       string `json:"state"`
+}
+
+// StartLinkAuthorizationCodeChallengeMethod defines model for StartLinkAuthorization.CodeChallengeMethod.
+type StartLinkAuthorizationCodeChallengeMethod string
+
 // StartLinkRequest defines model for StartLinkRequest.
 type StartLinkRequest struct {
-	// Name What the creator sees on the approval screen. Name the installation, not the product, so somebody with two of them can tell which is which.
-	Name   string  `json:"name"`
-	Scopes []Scope `json:"scopes"`
+	AcceptedTargets AcceptedTargets `json:"acceptedTargets"`
+
+	// ApplicationName A self-asserted, unverified application name.
+	ApplicationName    ApplicationName      `json:"applicationName"`
+	ApplicationVersion *ApplicationVersion  `json:"applicationVersion,omitempty"`
+	Capabilities       InstanceCapabilities `json:"capabilities"`
+
+	// InstanceName A self-asserted name for this installation.
+	InstanceName    InstanceName        `json:"instanceName"`
+	ProtocolVersion LinkProtocolVersion `json:"protocolVersion"`
+	Scopes          Scopes              `json:"scopes"`
 }
 
 // StylesheetSetContent A theme's main CSS, component sheets, and the files those sheets use.
@@ -2033,6 +2194,14 @@ type TypedValue struct {
 	// Strings Kept as it was written and in the order it was written, duplicates included. An empty list here is a list somebody emptied on purpose.
 	Strings *[]string `json:"strings,omitempty"`
 	Text    *string   `json:"text,omitempty"`
+}
+
+// UpdateInstance defines model for UpdateInstance.
+type UpdateInstance struct {
+	AcceptedTargets    AcceptedTargets      `json:"acceptedTargets"`
+	ApplicationVersion *ApplicationVersion  `json:"applicationVersion,omitempty"`
+	Capabilities       InstanceCapabilities `json:"capabilities"`
+	ProtocolVersion    LinkProtocolVersion  `json:"protocolVersion"`
 }
 
 // VariableSchemaContent The form a preset asks a reader to fill in before they use it.
@@ -2229,11 +2398,29 @@ type SignUpJSONRequestBody = SignUpRequest
 // VerifyEmailJSONRequestBody defines body for VerifyEmail for application/json ContentType.
 type VerifyEmailJSONRequestBody = VerifyEmailRequest
 
+// UpdateInstanceJSONRequestBody defines body for UpdateInstance for application/json ContentType.
+type UpdateInstanceJSONRequestBody = UpdateInstance
+
+// StartLinkAuthorizationJSONRequestBody defines body for StartLinkAuthorization for application/json ContentType.
+type StartLinkAuthorizationJSONRequestBody = StartLinkAuthorization
+
 // PollLinkRequestJSONRequestBody defines body for PollLinkRequest for application/json ContentType.
 type PollLinkRequestJSONRequestBody = PollLinkRequest
 
+// RefreshInstanceTokenJSONRequestBody defines body for RefreshInstanceToken for application/json ContentType.
+type RefreshInstanceTokenJSONRequestBody = RefreshInstanceToken
+
 // StartLinkRequestJSONRequestBody defines body for StartLinkRequest for application/json ContentType.
 type StartLinkRequestJSONRequestBody = StartLinkRequest
+
+// ApproveLinkRequestJSONRequestBody defines body for ApproveLinkRequest for application/json ContentType.
+type ApproveLinkRequestJSONRequestBody = DeviceLinkDecision
+
+// DenyLinkRequestJSONRequestBody defines body for DenyLinkRequest for application/json ContentType.
+type DenyLinkRequestJSONRequestBody = DeviceLinkDecision
+
+// ExchangeLinkAuthorizationJSONRequestBody defines body for ExchangeLinkAuthorization for application/json ContentType.
+type ExchangeLinkAuthorizationJSONRequestBody = ExchangeLinkAuthorization
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -2358,11 +2545,29 @@ type ServerInterface interface {
 	// (GET /v1/instances/me)
 	GetInstance(c *gin.Context)
 
+	// (PUT /v1/instances/me)
+	UpdateInstance(c *gin.Context)
+
 	// (DELETE /v1/instances/{id})
 	RevokeInstance(c *gin.Context, id openapi_types.UUID)
 
+	// (POST /v1/link/authorizations)
+	StartLinkAuthorization(c *gin.Context)
+
+	// (GET /v1/link/authorizations/{requestCode})
+	GetLinkAuthorization(c *gin.Context, requestCode string)
+
+	// (POST /v1/link/authorizations/{requestCode}/approve)
+	ApproveLinkAuthorization(c *gin.Context, requestCode string)
+
+	// (POST /v1/link/authorizations/{requestCode}/deny)
+	DenyLinkAuthorization(c *gin.Context, requestCode string)
+
 	// (POST /v1/link/poll)
 	PollLinkRequest(c *gin.Context)
+
+	// (POST /v1/link/refresh)
+	RefreshInstanceToken(c *gin.Context)
 
 	// (POST /v1/link/requests)
 	StartLinkRequest(c *gin.Context)
@@ -2372,6 +2577,12 @@ type ServerInterface interface {
 
 	// (POST /v1/link/requests/{userCode}/approve)
 	ApproveLinkRequest(c *gin.Context, userCode string)
+
+	// (POST /v1/link/requests/{userCode}/deny)
+	DenyLinkRequest(c *gin.Context, userCode string)
+
+	// (POST /v1/link/token)
+	ExchangeLinkAuthorization(c *gin.Context)
 
 	// (GET /v1/profiles/{handle})
 	GetProfile(c *gin.Context, handle string)
@@ -3396,6 +3607,19 @@ func (siw *ServerInterfaceWrapper) GetInstance(c *gin.Context) {
 	siw.Handler.GetInstance(c)
 }
 
+// UpdateInstance operation middleware
+func (siw *ServerInterfaceWrapper) UpdateInstance(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.UpdateInstance(c)
+}
+
 // RevokeInstance operation middleware
 func (siw *ServerInterfaceWrapper) RevokeInstance(c *gin.Context) {
 
@@ -3421,6 +3645,94 @@ func (siw *ServerInterfaceWrapper) RevokeInstance(c *gin.Context) {
 	siw.Handler.RevokeInstance(c, id)
 }
 
+// StartLinkAuthorization operation middleware
+func (siw *ServerInterfaceWrapper) StartLinkAuthorization(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.StartLinkAuthorization(c)
+}
+
+// GetLinkAuthorization operation middleware
+func (siw *ServerInterfaceWrapper) GetLinkAuthorization(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "requestCode" -------------
+	var requestCode string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "requestCode", c.Param("requestCode"), &requestCode, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter requestCode: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetLinkAuthorization(c, requestCode)
+}
+
+// ApproveLinkAuthorization operation middleware
+func (siw *ServerInterfaceWrapper) ApproveLinkAuthorization(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "requestCode" -------------
+	var requestCode string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "requestCode", c.Param("requestCode"), &requestCode, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter requestCode: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ApproveLinkAuthorization(c, requestCode)
+}
+
+// DenyLinkAuthorization operation middleware
+func (siw *ServerInterfaceWrapper) DenyLinkAuthorization(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "requestCode" -------------
+	var requestCode string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "requestCode", c.Param("requestCode"), &requestCode, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter requestCode: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DenyLinkAuthorization(c, requestCode)
+}
+
 // PollLinkRequest operation middleware
 func (siw *ServerInterfaceWrapper) PollLinkRequest(c *gin.Context) {
 
@@ -3432,6 +3744,19 @@ func (siw *ServerInterfaceWrapper) PollLinkRequest(c *gin.Context) {
 	}
 
 	siw.Handler.PollLinkRequest(c)
+}
+
+// RefreshInstanceToken operation middleware
+func (siw *ServerInterfaceWrapper) RefreshInstanceToken(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.RefreshInstanceToken(c)
 }
 
 // StartLinkRequest operation middleware
@@ -3495,6 +3820,44 @@ func (siw *ServerInterfaceWrapper) ApproveLinkRequest(c *gin.Context) {
 	}
 
 	siw.Handler.ApproveLinkRequest(c, userCode)
+}
+
+// DenyLinkRequest operation middleware
+func (siw *ServerInterfaceWrapper) DenyLinkRequest(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "userCode" -------------
+	var userCode string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userCode", c.Param("userCode"), &userCode, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter userCode: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DenyLinkRequest(c, userCode)
+}
+
+// ExchangeLinkAuthorization operation middleware
+func (siw *ServerInterfaceWrapper) ExchangeLinkAuthorization(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ExchangeLinkAuthorization(c)
 }
 
 // GetProfile operation middleware
@@ -3592,8 +3955,16 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/v1/link/poll", wrapper.PollLinkRequest)
 	router.GET(options.BaseURL+"/v1/link/requests/:userCode", wrapper.GetLinkRequest)
 	router.POST(options.BaseURL+"/v1/link/requests/:userCode/approve", wrapper.ApproveLinkRequest)
+	router.POST(options.BaseURL+"/v1/link/requests/:userCode/deny", wrapper.DenyLinkRequest)
+	router.POST(options.BaseURL+"/v1/link/authorizations", wrapper.StartLinkAuthorization)
+	router.GET(options.BaseURL+"/v1/link/authorizations/:requestCode", wrapper.GetLinkAuthorization)
+	router.POST(options.BaseURL+"/v1/link/authorizations/:requestCode/approve", wrapper.ApproveLinkAuthorization)
+	router.POST(options.BaseURL+"/v1/link/authorizations/:requestCode/deny", wrapper.DenyLinkAuthorization)
+	router.POST(options.BaseURL+"/v1/link/token", wrapper.ExchangeLinkAuthorization)
+	router.POST(options.BaseURL+"/v1/link/refresh", wrapper.RefreshInstanceToken)
 	router.GET(options.BaseURL+"/v1/instances", wrapper.ListInstances)
 	router.GET(options.BaseURL+"/v1/instances/me", wrapper.GetInstance)
+	router.PUT(options.BaseURL+"/v1/instances/me", wrapper.UpdateInstance)
 	router.DELETE(options.BaseURL+"/v1/instances/:id", wrapper.RevokeInstance)
 	router.GET(options.BaseURL+"/v1/profiles/:handle", wrapper.GetProfile)
 	router.GET(options.BaseURL+"/v1/assets", wrapper.ListAssets)

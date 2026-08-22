@@ -1,8 +1,17 @@
 package config
 
-import "testing"
+import (
+	"bytes"
+	"testing"
+)
+
+func setLinkingKey(t *testing.T) {
+	t.Helper()
+	t.Setenv("LINKING_HMAC_KEY", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+}
 
 func TestLoadRequiresDatabaseURL(t *testing.T) {
+	setLinkingKey(t)
 	t.Setenv("DATABASE_URL", "")
 	t.Setenv("UPLOADS_DIR", "/tmp/uploads")
 
@@ -13,6 +22,7 @@ func TestLoadRequiresDatabaseURL(t *testing.T) {
 }
 
 func TestLoadUsesDefaultPort(t *testing.T) {
+	setLinkingKey(t)
 	t.Setenv("DATABASE_URL", "postgres://localhost/lumihub_dev")
 	t.Setenv("UPLOADS_DIR", "/tmp/uploads")
 	t.Setenv("PORT", "")
@@ -26,7 +36,33 @@ func TestLoadUsesDefaultPort(t *testing.T) {
 	}
 }
 
+func TestLoadRequiresAnExactUnpaddedLinkingKey(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://localhost/lumihub_dev")
+	t.Setenv("UPLOADS_DIR", "/tmp/uploads")
+
+	for _, key := range []string{
+		"",
+		"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+		"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+	} {
+		t.Setenv("LINKING_HMAC_KEY", key)
+		if _, err := Load(); err == nil {
+			t.Errorf("Load accepted linking key %q", key)
+		}
+	}
+
+	t.Setenv("LINKING_HMAC_KEY", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load with a 32-byte key: %v", err)
+	}
+	if len(cfg.LinkingHMACKey) != 32 || !bytes.Equal(cfg.LinkingHMACKey, make([]byte, 32)) {
+		t.Errorf("decoded linking key has %d bytes or the wrong value", len(cfg.LinkingHMACKey))
+	}
+}
+
 func TestLoadRejectsAnUnreadableUploadCeiling(t *testing.T) {
+	setLinkingKey(t)
 	t.Setenv("DATABASE_URL", "postgres://localhost/lumihub_dev")
 	t.Setenv("UPLOADS_DIR", "/tmp/uploads")
 	t.Setenv("MAX_UPLOAD_BYTES", "55mb")
@@ -37,6 +73,7 @@ func TestLoadRejectsAnUnreadableUploadCeiling(t *testing.T) {
 }
 
 func TestLoadRejectsIncompleteSMTPSettings(t *testing.T) {
+	setLinkingKey(t)
 	t.Setenv("DATABASE_URL", "postgres://localhost/lumihub_dev")
 	t.Setenv("UPLOADS_DIR", "/tmp/uploads")
 	t.Setenv("SMTP_ADDR", "smtp.example.com:587")
@@ -48,6 +85,7 @@ func TestLoadRejectsIncompleteSMTPSettings(t *testing.T) {
 }
 
 func TestLoadUsesSettledIngestLimits(t *testing.T) {
+	setLinkingKey(t)
 	t.Setenv("DATABASE_URL", "postgres://localhost/lumihub_dev")
 	t.Setenv("UPLOADS_DIR", "/tmp/uploads")
 	for _, name := range []string{
@@ -86,6 +124,7 @@ func TestLoadUsesSettledIngestLimits(t *testing.T) {
 }
 
 func TestLoadReadsIngestLimitOverrides(t *testing.T) {
+	setLinkingKey(t)
 	t.Setenv("DATABASE_URL", "postgres://localhost/lumihub_dev")
 	t.Setenv("UPLOADS_DIR", "/tmp/uploads")
 	t.Setenv("MAX_UPLOAD_BYTES", "101")

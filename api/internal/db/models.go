@@ -150,35 +150,89 @@ type IngestOperation struct {
 	FailureMessage pgtype.Text
 }
 
-type LinkCodeAttempt struct {
-	UserID      pgtype.UUID
-	Failures    int32
+type InstanceAccessToken struct {
+	TokenHash  []byte
+	InstanceID pgtype.UUID
+	CreatedAt  pgtype.Timestamptz
+	ExpiresAt  pgtype.Timestamptz
+}
+
+type InstanceRefreshHistory struct {
+	TokenHash       []byte
+	InstanceID      pgtype.UUID
+	RotatedAt       pgtype.Timestamptz
+	DetectableUntil pgtype.Timestamptz
+}
+
+type LinkAuthorization struct {
+	RequestHash           []byte
+	AuthorizationCodeHash []byte
+	RedirectUri           string
+	State                 string
+	CodeChallenge         string
+	ApplicationName       string
+	InstanceName          string
+	ApplicationVersion    pgtype.Text
+	ProtocolVersion       int32
+	Capabilities          []string
+	AcceptedTargets       []string
+	Scopes                []string
+	ReviewedBy            pgtype.UUID
+	ApprovedBy            pgtype.UUID
+	ApprovedAt            pgtype.Timestamptz
+	DeniedBy              pgtype.UUID
+	DeniedAt              pgtype.Timestamptz
+	RedeemedAt            pgtype.Timestamptz
+	CreatedAt             pgtype.Timestamptz
+	ExpiresAt             pgtype.Timestamptz
+}
+
+type LinkRateLimit struct {
+	KeyHash     []byte
+	Action      string
+	Attempts    int32
 	WindowStart pgtype.Timestamptz
 }
 
 type LinkRequest struct {
-	DeviceCodeHash []byte
-	UserCode       string
-	ClientName     string
-	Scopes         []string
-	ApprovedBy     pgtype.UUID
-	ApprovedAt     pgtype.Timestamptz
-	RedeemedAt     pgtype.Timestamptz
-	LastPolledAt   pgtype.Timestamptz
-	CreatedAt      pgtype.Timestamptz
-	ExpiresAt      pgtype.Timestamptz
+	DeviceCodeHash      []byte
+	UserCodeHash        []byte
+	ApplicationName     string
+	InstanceName        string
+	ApplicationVersion  pgtype.Text
+	ProtocolVersion     int32
+	Capabilities        []string
+	AcceptedTargets     []string
+	Scopes              []string
+	ReviewTokenHash     []byte
+	ReviewedBy          pgtype.UUID
+	ApprovedBy          pgtype.UUID
+	ApprovedAt          pgtype.Timestamptz
+	DeniedBy            pgtype.UUID
+	DeniedAt            pgtype.Timestamptz
+	RedeemedAt          pgtype.Timestamptz
+	LastPolledAt        pgtype.Timestamptz
+	CreatedAt           pgtype.Timestamptz
+	ExpiresAt           pgtype.Timestamptz
+	PollIntervalSeconds int32
 }
 
 type LinkedInstance struct {
-	ID          pgtype.UUID
-	UserID      pgtype.UUID
-	Name        string
-	TokenHash   []byte
-	TokenPrefix string
-	Scopes      []string
-	LinkedAt    pgtype.Timestamptz
-	LastSeenAt  pgtype.Timestamptz
-	RevokedAt   pgtype.Timestamptz
+	ID                 pgtype.UUID
+	UserID             pgtype.UUID
+	InstanceName       string
+	LegacyTokenHash    []byte
+	RefreshTokenPrefix string
+	Scopes             []string
+	LinkedAt           pgtype.Timestamptz
+	LastSeenAt         pgtype.Timestamptz
+	RevokedAt          pgtype.Timestamptz
+	RefreshTokenHash   []byte
+	ApplicationName    string
+	ApplicationVersion pgtype.Text
+	ProtocolVersion    pgtype.Int4
+	Capabilities       []string
+	AcceptedTargets    []string
 }
 
 type OauthIdentity struct {

@@ -120,7 +120,7 @@ func newTestHandlersWithPool(
 	}
 	svc := asset.NewService(pool, testRegistry(t), blob)
 	accounts := account.NewService(pool, sender, nil, "http://localhost:3000")
-	links := linking.NewService(pool, "http://localhost:3000")
+	links := newTestLinkingService(pool)
 
 	return NewHandlers(svc, accounts, links, maxUploadBytes)
 }
@@ -149,7 +149,11 @@ func newTestRouterWithDiscordAndOutbox(
 	accounts := account.NewService(
 		pool, outbox, provider, "http://localhost:3000",
 	)
-	return registerTestRouter(t, NewHandlers(assets, accounts, linking.NewService(pool, "http://localhost:3000"), 1<<20), DefaultDeadlines()), outbox
+	return registerTestRouter(t, NewHandlers(assets, accounts, newTestLinkingService(pool), 1<<20), DefaultDeadlines()), outbox
+}
+
+func newTestLinkingService(pool *pgxpool.Pool) *linking.Service {
+	return linking.NewService(pool, "http://localhost:3000", []byte("01234567890123456789012345678901"))
 }
 
 func registerTestRouter(t *testing.T, handlers *Handlers, deadlines Deadlines) *gin.Engine {

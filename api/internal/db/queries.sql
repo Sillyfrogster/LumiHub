@@ -571,68 +571,363 @@ delete from password_reset_tokens
  where token_hash = $1 and expires_at > now()
 returning user_id;
 
--- name: DeleteExpiredLinkRequests :exec
-delete from link_requests where expires_at <= now();
+-- name: DeleteExpiredDeviceLinkRequests :execrows
+with expired as (
+    select device_code_hash
+      from link_requests
+     where expires_at <= now()
+     order by expires_at
+     limit sqlc.arg('batch_size')
+     for update skip locked
+)
+delete from link_requests as request
+ using expired
+ where request.device_code_hash = expired.device_code_hash;
 
--- name: InsertLinkRequest :exec
-insert into link_requests (device_code_hash, user_code, client_name, scopes, expires_at)
-values ($1, $2, $3, $4, $5);
+-- name: DeleteExpiredLinkAuthorizations :execrows
+with expired as (
+    select request_hash
+      from link_authorizations
+     where expires_at <= now()
+     order by expires_at
+     limit sqlc.arg('batch_size')
+     for update skip locked
+)
+delete from link_authorizations as link_auth
+ using expired
+ where link_auth.request_hash = expired.request_hash;
 
--- name: LinkRequestByUserCode :one
-select client_name, scopes, expires_at
-  from link_requests
- where user_code = $1 and expires_at > now() and approved_at is null;
+-- name: DeleteExpiredInstanceAccessTokens :execrows
+with expired as (
+    select token_hash
+      from instance_access_tokens
+     where expires_at <= now()
+     order by expires_at
+     limit sqlc.arg('batch_size')
+     for update skip locked
+)
+delete from instance_access_tokens as token
+ using expired
+ where token.token_hash = expired.token_hash;
 
--- name: ApproveLinkRequest :execrows
+-- name: DeleteExpiredInstanceRefreshHistory :execrows
+with expired as (
+    select token_hash
+      from instance_refresh_history
+     where detectable_until <= now()
+     order by detectable_until
+     limit sqlc.arg('batch_size')
+     for update skip locked
+)
+delete from instance_refresh_history as history
+ using expired
+ where history.token_hash = expired.token_hash;
+
+-- name: DeleteExpiredLinkRateLimits :execrows
+with expired as (
+    select key_hash, action
+      from link_rate_limits
+     where link_rate_limits.window_start <= sqlc.arg('window_cutoff')
+     order by link_rate_limits.window_start
+     limit sqlc.arg('batch_size')
+     for update skip locked
+)
+delete from link_rate_limits as rate
+ using expired
+ where rate.key_hash = expired.key_hash and rate.action = expired.action;
+
+-- name: TakeLinkRateLimit :one
+insert into link_rate_limits as rate (key_hash, action, attempts, window_start)
+values (sqlc.arg('key_hash'), sqlc.arg('action'), 1, now())
+on conflict (key_hash, action) do update
+   set attempts = case
+           when rate.window_start > sqlc.arg('window_cutoff')
+               then rate.attempts + 1
+           else 1
+       end,
+       window_start = case
+           when rate.window_start > sqlc.arg('window_cutoff')
+               then rate.window_start
+           else now()
+       end
+returning rate.attempts, rate.window_start;
+
+-- name: InsertDeviceLinkRequest :exec
+insert into link_requests (
+    device_code_hash, user_code_hash,
+    application_name, instance_name, application_version, protocol_version,
+    capabilities, accepted_targets, scopes, expires_at
+)
+values (
+    sqlc.arg('device_code_hash'), sqlc.arg('user_code_hash'),
+    sqlc.arg('application_name'), sqlc.arg('instance_name'),
+    sqlc.narg('application_version'), sqlc.arg('protocol_version'),
+    sqlc.arg('capabilities'), sqlc.arg('accepted_targets'),
+    sqlc.arg('scopes'), sqlc.arg('expires_at')
+);
+
+-- name: ReviewDeviceLinkRequest :one
 update link_requests
-   set approved_by = $2, approved_at = now()
- where user_code = $1 and expires_at > now() and approved_at is null;
+   set review_token_hash = sqlc.arg('review_token_hash'),
+       reviewed_by = sqlc.arg('reviewed_by')
+ where user_code_hash = sqlc.arg('user_code_hash')
+   and expires_at > now()
+   and (reviewed_by is null or reviewed_by = sqlc.arg('reviewed_by'))
+   and approved_at is null
+   and denied_at is null
+   and redeemed_at is null
+returning application_name, instance_name, application_version, protocol_version,
+          capabilities, accepted_targets, scopes, expires_at;
 
--- name: LockLinkRequest :one
-select approved_by, client_name, scopes, approved_at, redeemed_at, last_polled_at
+-- name: ApproveDeviceLinkRequest :one
+update link_requests
+   set approved_by = sqlc.arg('reviewed_by'), approved_at = now()
+ where review_token_hash = sqlc.arg('review_token_hash')
+   and user_code_hash = sqlc.arg('user_code_hash')
+   and reviewed_by = sqlc.arg('reviewed_by')
+   and expires_at > now()
+   and approved_at is null
+   and denied_at is null
+   and redeemed_at is null
+returning application_name, instance_name, application_version, protocol_version,
+          capabilities, accepted_targets, scopes, expires_at;
+
+-- name: DenyDeviceLinkRequest :execrows
+update link_requests
+   set denied_by = sqlc.arg('reviewed_by'), denied_at = now()
+ where review_token_hash = sqlc.arg('review_token_hash')
+   and user_code_hash = sqlc.arg('user_code_hash')
+   and reviewed_by = sqlc.arg('reviewed_by')
+   and expires_at > now()
+   and approved_at is null
+   and denied_at is null
+   and redeemed_at is null;
+
+-- name: LockDeviceLinkRequest :one
+select approved_by, denied_at, redeemed_at, last_polled_at, poll_interval_seconds,
+       application_name, instance_name, application_version, protocol_version,
+       capabilities, accepted_targets, scopes, expires_at
   from link_requests
- where device_code_hash = $1 and expires_at > now()
+ where device_code_hash = sqlc.arg('device_code_hash')
  for update;
 
--- name: RecordLinkPoll :exec
-update link_requests set last_polled_at = now() where device_code_hash = $1;
+-- name: RecordDeviceLinkPoll :one
+update link_requests
+   set last_polled_at = now(),
+       poll_interval_seconds = case
+           when sqlc.arg('slow_down')::boolean
+               then least(poll_interval_seconds + 5, 60)
+           else poll_interval_seconds
+       end
+ where device_code_hash = sqlc.arg('device_code_hash')
+   and expires_at > now()
+   and redeemed_at is null
+returning poll_interval_seconds;
 
--- name: RedeemLinkRequest :execrows
+-- name: RedeemDeviceLinkRequest :execrows
 update link_requests
    set redeemed_at = now()
- where device_code_hash = $1 and approved_at is not null and redeemed_at is null;
+ where device_code_hash = sqlc.arg('device_code_hash')
+   and expires_at > now()
+   and approved_at is not null
+   and denied_at is null
+   and redeemed_at is null;
 
--- name: LinkCodeFailures :one
-select failures from link_code_attempts where user_id = $1 and window_start > $2;
+-- name: InsertLinkAuthorization :exec
+insert into link_authorizations (
+    request_hash, redirect_uri, state, code_challenge,
+    application_name, instance_name, application_version, protocol_version,
+    capabilities, accepted_targets, scopes, expires_at
+)
+values (
+    sqlc.arg('request_hash'), sqlc.arg('redirect_uri'), sqlc.arg('state'),
+    sqlc.arg('code_challenge'), sqlc.arg('application_name'),
+    sqlc.arg('instance_name'), sqlc.narg('application_version'),
+    sqlc.arg('protocol_version'), sqlc.arg('capabilities'),
+    sqlc.arg('accepted_targets'), sqlc.arg('scopes'), sqlc.arg('expires_at')
+);
 
--- name: RecordLinkCodeFailure :exec
-insert into link_code_attempts (user_id, failures, window_start)
-values ($1, 1, now())
-on conflict (user_id) do update
-   set failures = case when link_code_attempts.window_start > $2 then link_code_attempts.failures + 1 else 1 end,
-       window_start = case when link_code_attempts.window_start > $2 then link_code_attempts.window_start else now() end;
+-- name: ReviewLinkAuthorization :one
+update link_authorizations
+   set reviewed_by = sqlc.arg('reviewed_by')
+ where request_hash = sqlc.arg('request_hash')
+   and expires_at > now()
+   and (reviewed_by is null or reviewed_by = sqlc.arg('reviewed_by'))
+   and approved_at is null
+   and denied_at is null
+   and redeemed_at is null
+returning redirect_uri, state, application_name, instance_name,
+          application_version, protocol_version, capabilities,
+          accepted_targets, scopes, expires_at;
 
--- name: ClearLinkCodeFailures :exec
-delete from link_code_attempts where user_id = $1;
+-- name: ApproveLinkAuthorization :one
+update link_authorizations
+   set authorization_code_hash = sqlc.arg('authorization_code_hash'),
+       approved_by = sqlc.arg('reviewed_by'),
+       approved_at = now()
+ where request_hash = sqlc.arg('request_hash')
+   and reviewed_by = sqlc.arg('reviewed_by')
+   and expires_at > now()
+   and approved_at is null
+   and denied_at is null
+   and redeemed_at is null
+returning redirect_uri, state, expires_at;
+
+-- name: DenyLinkAuthorization :execrows
+update link_authorizations
+   set denied_by = sqlc.arg('reviewed_by'), denied_at = now()
+ where request_hash = sqlc.arg('request_hash')
+   and reviewed_by = sqlc.arg('reviewed_by')
+   and expires_at > now()
+   and approved_at is null
+   and denied_at is null
+   and redeemed_at is null;
+
+-- name: LockLinkAuthorization :one
+select approved_by, denied_at, redeemed_at, redirect_uri, state, code_challenge,
+       application_name, instance_name, application_version, protocol_version,
+       capabilities, accepted_targets, scopes, expires_at
+ from link_authorizations
+ where authorization_code_hash = sqlc.arg('authorization_code_hash')
+ for update;
+
+-- name: RedeemLinkAuthorization :execrows
+update link_authorizations
+   set redeemed_at = now()
+ where authorization_code_hash = sqlc.arg('authorization_code_hash')
+   and expires_at > now()
+   and approved_at is not null
+   and denied_at is null
+   and redeemed_at is null;
 
 -- name: InsertLinkedInstance :one
-insert into linked_instances (id, user_id, name, token_hash, token_prefix, scopes)
-values ($1, $2, $3, $4, $5, $6)
-returning id, name, token_prefix, scopes, linked_at, last_seen_at, revoked_at;
+insert into linked_instances (
+    id, user_id, application_name, instance_name, application_version,
+    protocol_version, capabilities, accepted_targets,
+    refresh_token_hash, refresh_token_prefix, scopes
+)
+values (
+    sqlc.arg('id'), sqlc.arg('user_id'), sqlc.arg('application_name'),
+    sqlc.arg('instance_name'), sqlc.narg('application_version'),
+    sqlc.arg('protocol_version'), sqlc.arg('capabilities'),
+    sqlc.arg('accepted_targets'), sqlc.arg('refresh_token_hash'),
+    sqlc.arg('refresh_token_prefix'), sqlc.arg('scopes')
+)
+returning id, application_name, instance_name, application_version,
+          protocol_version, capabilities, accepted_targets,
+          refresh_token_prefix, scopes, linked_at, last_seen_at, revoked_at;
+
+-- name: InsertInstanceAccessToken :one
+with live_instance as (
+    select id
+      from linked_instances
+     where id = sqlc.arg('instance_id') and revoked_at is null
+     for update
+)
+insert into instance_access_tokens (token_hash, instance_id, expires_at)
+select sqlc.arg('token_hash'), sqlc.arg('instance_id'), sqlc.arg('expires_at')
+  from live_instance
+returning token_hash, instance_id, expires_at;
 
 -- name: ListLinkedInstances :many
-select id, name, token_prefix, scopes, linked_at, last_seen_at, revoked_at
+select id, application_name, instance_name, application_version,
+       protocol_version, capabilities, accepted_targets,
+       refresh_token_prefix, scopes, linked_at, last_seen_at, revoked_at
   from linked_instances
- where user_id = $1
+ where user_id = sqlc.arg('user_id')
  order by (revoked_at is not null), coalesce(last_seen_at, linked_at) desc, linked_at desc;
 
--- name: RevokeLinkedInstance :execrows
-update linked_instances
-   set token_hash = null, revoked_at = now()
- where id = $1 and user_id = $2 and revoked_at is null;
-
--- name: TouchLinkedInstance :one
-update linked_instances
+-- name: TouchLinkedInstanceByAccessToken :one
+update linked_instances as instance
    set last_seen_at = now()
- where token_hash = $1 and revoked_at is null
-returning id, user_id, name, token_prefix, scopes, linked_at, last_seen_at;
+  from instance_access_tokens as token
+ where token.token_hash = sqlc.arg('token_hash')
+   and token.expires_at > now()
+   and instance.id = token.instance_id
+   and instance.revoked_at is null
+returning instance.id, instance.user_id,
+          instance.application_name, instance.instance_name,
+          instance.application_version, instance.protocol_version,
+          instance.capabilities, instance.accepted_targets,
+          instance.refresh_token_prefix, instance.scopes,
+          instance.linked_at, instance.last_seen_at;
+
+-- name: LockLinkedInstanceByRefreshToken :one
+select id, user_id, application_name, instance_name, application_version,
+       protocol_version, capabilities, accepted_targets,
+       refresh_token_prefix, scopes, linked_at, last_seen_at
+  from linked_instances
+ where refresh_token_hash = sqlc.arg('refresh_token_hash') and revoked_at is null
+ for update;
+
+-- name: InstanceForUsedRefreshToken :one
+select history.instance_id, instance.user_id
+  from instance_refresh_history as history
+  join linked_instances as instance on instance.id = history.instance_id
+ where history.token_hash = sqlc.arg('refresh_token_hash')
+   and history.detectable_until > now();
+
+-- name: RotateInstanceRefreshToken :one
+with rotated as (
+    update linked_instances
+       set refresh_token_hash = sqlc.arg('new_refresh_token_hash'),
+           refresh_token_prefix = sqlc.arg('new_refresh_token_prefix'),
+           last_seen_at = now()
+     where id = sqlc.arg('instance_id')
+       and refresh_token_hash = sqlc.arg('old_refresh_token_hash')
+       and revoked_at is null
+    returning id
+)
+insert into instance_refresh_history (token_hash, instance_id, detectable_until)
+select sqlc.arg('old_refresh_token_hash'), id, sqlc.arg('detectable_until')
+  from rotated
+returning instance_id;
+
+-- name: UpdateLinkedInstanceDeclaration :one
+update linked_instances
+   set application_version = sqlc.narg('application_version'),
+       protocol_version = sqlc.arg('protocol_version'),
+       capabilities = sqlc.arg('capabilities'),
+       accepted_targets = sqlc.arg('accepted_targets')
+ where id = sqlc.arg('instance_id') and revoked_at is null
+returning id, application_name, instance_name, application_version,
+          protocol_version, capabilities, accepted_targets,
+          refresh_token_prefix, scopes, linked_at, last_seen_at;
+
+-- name: RevokeLinkedInstance :one
+with revoked as (
+    update linked_instances
+       set refresh_token_hash = null,
+           legacy_token_hash = null,
+           application_version = null,
+           protocol_version = null,
+           capabilities = '{}',
+           accepted_targets = '{}',
+           revoked_at = now()
+     where id = sqlc.arg('instance_id')
+       and user_id = sqlc.arg('user_id')
+       and revoked_at is null
+    returning id
+), deleted_access as (
+    delete from instance_access_tokens
+     where instance_id in (select id from revoked)
+)
+select exists(select 1 from revoked) as revoked;
+
+-- name: RevokeLinkedInstanceByID :one
+with revoked as (
+    update linked_instances
+       set refresh_token_hash = null,
+           legacy_token_hash = null,
+           application_version = null,
+           protocol_version = null,
+           capabilities = '{}',
+           accepted_targets = '{}',
+           revoked_at = now()
+     where id = sqlc.arg('instance_id') and revoked_at is null
+    returning id
+), deleted_access as (
+    delete from instance_access_tokens
+     where instance_id in (select id from revoked)
+)
+select exists(select 1 from revoked) as revoked;

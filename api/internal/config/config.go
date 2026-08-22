@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
 	"strconv"
@@ -22,6 +23,7 @@ type Config struct {
 	Database       postgres.Settings
 	UploadsDir     string
 	MaxUploadBytes int64
+	LinkingHMACKey []byte
 	ProbeLimits    probe.Limits
 	IngestWorkers  int
 	Server         apihttp.Timeouts
@@ -76,6 +78,11 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	cfg.MaxUploadBytes = max
+	linkingKey, err := base64.RawURLEncoding.DecodeString(get("LINKING_HMAC_KEY", ""))
+	if err != nil || len(linkingKey) != 32 {
+		return Config{}, fmt.Errorf("LINKING_HMAC_KEY must be 32 bytes encoded as unpadded base64url")
+	}
+	cfg.LinkingHMACKey = linkingKey
 	limits := probe.DefaultLimits()
 	entries, err := intOrDefault("MAX_ARCHIVE_ENTRIES", limits.MaxArchiveEntries)
 	if err != nil {

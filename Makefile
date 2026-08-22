@@ -26,6 +26,8 @@ help: ## List every target
 .PHONY: setup
 setup: ## Get a fresh clone ready to run
 	@test -f api/.env || { cp api/.env.example api/.env; \
+		linking_key=$$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n'); \
+		sed -i "s/^LINKING_HMAC_KEY=$$/LINKING_HMAC_KEY=$$linking_key/" api/.env; \
 		echo "Wrote api/.env from the example. Check the database URLs in it."; }
 	cd web && bun install
 	$(MAKE) migrate migrate-test

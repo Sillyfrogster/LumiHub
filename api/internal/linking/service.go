@@ -2,6 +2,8 @@ package linking
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"net/url"
@@ -17,236 +19,556 @@ import (
 )
 
 const (
-	// requestLifetime is how long a creator has to approve a code.
-	requestLifetime = 15 * time.Minute
+	requestLifetime       = 10 * time.Minute
+	authorizationLifetime = 5 * time.Minute
+	accessTokenLifetime   = 15 * time.Minute
+	refreshIdleLifetime   = 90 * 24 * time.Hour
+	refreshReuseWindow    = 90 * 24 * time.Hour
 
-	// pollInterval is what a client is told to wait between polls, and
-	// pollFloor is what is actually enforced, so a client polling on time is
-	// not refused for being a moment early.
 	pollInterval = 5 * time.Second
-	pollFloor    = 4 * time.Second
 
-	// A creator who enters this many codes that match nothing within the
-	// window is asked to stop, so codes cannot be guessed by volume.
-	codeFailureLimit  = 10
-	codeFailureWindow = time.Hour
+	codeAttemptLimit = 5
+	cleanupBatch     = 100
 )
 
-// Service links instances to accounts and authenticates the credentials it
-// hands out.
+// PollDelayError carries the device client's next polling interval.
+type PollDelayError struct {
+	After time.Duration
+}
+
+func (e *PollDelayError) Error() string { return ErrPollTooSoon.Error() }
+func (e *PollDelayError) Unwrap() error { return ErrPollTooSoon }
+
+// RateLimitError gives the earliest useful retry time for a source limit.
+type RateLimitError struct {
+	After time.Duration
+}
+
+func (e *RateLimitError) Error() string { return ErrTooManyRequests.Error() }
+func (e *RateLimitError) Unwrap() error { return ErrTooManyRequests }
+
+// Service links instances and authenticates their tokens.
 type Service struct {
-	pool    *pgxpool.Pool
-	siteURL string
+	pool          *pgxpool.Pool
+	siteURL       string
+	browserOrigin string
+	hmacKey       []byte
 }
 
-func NewService(pool *pgxpool.Pool, siteURL string) *Service {
-	return &Service{pool: pool, siteURL: strings.TrimRight(siteURL, "/")}
+func NewService(pool *pgxpool.Pool, siteURL string, hmacKey []byte) *Service {
+	trimmed := strings.TrimRight(siteURL, "/")
+	origin := trimmed
+	if parsed, err := url.Parse(trimmed); err == nil && parsed.Scheme != "" && parsed.Host != "" {
+		origin = parsed.Scheme + "://" + parsed.Host
+	}
+	return &Service{
+		pool: pool, siteURL: trimmed, browserOrigin: origin,
+		hmacKey: append([]byte(nil), hmacKey...),
+	}
 }
 
-// StartInput is what a client says about itself. Nothing here is verified,
-// because LumiHub does not authenticate the software, so the creator is shown
-// the name and decides.
-type StartInput struct {
-	Name   string
-	Scopes []Scope
-}
+// BrowserOrigin is the only origin allowed to mutate a browser-reviewed link.
+func (s *Service) BrowserOrigin() string { return s.browserOrigin }
 
-// Start opens a link request. It needs no credentials of any kind.
-func (s *Service) Start(ctx context.Context, in StartInput) (Request, error) {
-	name, err := validateName(in.Name)
+// Start opens a manual device authorization request.
+func (s *Service) Start(ctx context.Context, source string, input StartInput) (Request, error) {
+	in, err := validateStart(input)
 	if err != nil {
 		return Request{}, err
 	}
-	scopes, err := canonicalScopes(in.Scopes)
-	if err != nil {
+	if err := s.takeRate(ctx, "start", source, 30, time.Hour); err != nil {
 		return Request{}, err
 	}
-	deviceCode, deviceHash, err := newDeviceCode()
-	if err != nil {
-		return Request{}, err
-	}
-
 	queries := db.New(s.pool)
-	if err := queries.DeleteExpiredLinkRequests(ctx); err != nil {
-		return Request{}, fmt.Errorf("clear expired link requests: %w", err)
+	if _, err := queries.DeleteExpiredDeviceLinkRequests(ctx, cleanupBatch); err != nil {
+		return Request{}, fmt.Errorf("clear device requests: %w", err)
 	}
-
-	expires := time.Now().Add(requestLifetime)
-	userCode, err := s.insertWithFreeCode(ctx, queries, db.InsertLinkRequestParams{
-		DeviceCodeHash: deviceHash,
-		ClientName:     name,
-		Scopes:         scopeStrings(scopes),
-		ExpiresAt:      timestamptz(expires),
-	})
-	if err != nil {
+	if err := deleteExpiredRates(ctx, queries); err != nil {
 		return Request{}, err
 	}
 
-	shown := FormatUserCode(userCode)
-	return Request{
-		DeviceCode:  deviceCode,
-		UserCode:    shown,
-		VerifyURL:   s.siteURL + "/link",
-		CompleteURL: s.siteURL + "/link?code=" + url.QueryEscape(shown),
-		ExpiresAt:   expires,
-		Interval:    pollInterval,
-	}, nil
-}
-
-// insertWithFreeCode keeps drawing a user code until one lands on a code no
-// live request is holding.
-func (s *Service) insertWithFreeCode(
-	ctx context.Context,
-	queries *db.Queries,
-	request db.InsertLinkRequestParams,
-) (string, error) {
+	expiresAt := time.Now().Add(requestLifetime)
 	for attempt := 0; attempt < 8; attempt++ {
-		code, err := newCode(codeLength)
+		deviceCode, deviceHash, err := newOpaqueCode()
 		if err != nil {
-			return "", err
+			return Request{}, err
 		}
-		request.UserCode = code
-		err = queries.InsertLinkRequest(ctx, request)
+		userCode, err := newCode(codeLength)
+		if err != nil {
+			return Request{}, err
+		}
+		err = queries.InsertDeviceLinkRequest(ctx, db.InsertDeviceLinkRequestParams{
+			DeviceCodeHash:     deviceHash,
+			UserCodeHash:       s.digest("user-code", userCode),
+			ApplicationName:    in.ApplicationName,
+			InstanceName:       in.InstanceName,
+			ApplicationVersion: optionalText(in.ApplicationVersion),
+			ProtocolVersion:    int32(in.ProtocolVersion),
+			Capabilities:       in.Capabilities,
+			AcceptedTargets:    in.AcceptedTargets,
+			Scopes:             scopeStrings(in.Scopes),
+			ExpiresAt:          timestamptz(expiresAt),
+		})
 		if err == nil {
-			return code, nil
+			return Request{
+				DeviceCode: deviceCode, UserCode: FormatUserCode(userCode),
+				VerifyURL: s.siteURL + "/link", ExpiresAt: expiresAt,
+				Interval: pollInterval,
+			}, nil
 		}
 		if !isUniqueViolation(err) {
-			return "", fmt.Errorf("store link request: %w", err)
+			return Request{}, fmt.Errorf("store device request: %w", err)
 		}
 	}
-	return "", errors.New("could not find a free link code")
+	return Request{}, errors.New("could not allocate a link code")
 }
 
-// Pending says what the client behind a user code is asking for.
+// StartAuthorization opens same-device loopback authorization.
+func (s *Service) StartAuthorization(
+	ctx context.Context,
+	source string,
+	input AuthorizationInput,
+) (Authorization, error) {
+	in, err := validateAuthorization(input)
+	if err != nil {
+		return Authorization{}, err
+	}
+	if err := s.takeRate(ctx, "start", source, 30, time.Hour); err != nil {
+		return Authorization{}, err
+	}
+	queries := db.New(s.pool)
+	if _, err := queries.DeleteExpiredLinkAuthorizations(ctx, cleanupBatch); err != nil {
+		return Authorization{}, fmt.Errorf("clear browser authorizations: %w", err)
+	}
+	if err := deleteExpiredRates(ctx, queries); err != nil {
+		return Authorization{}, err
+	}
+	expiresAt := time.Now().Add(authorizationLifetime)
+	for attempt := 0; attempt < 8; attempt++ {
+		requestCode, requestHash, err := newOpaqueCode()
+		if err != nil {
+			return Authorization{}, err
+		}
+		err = queries.InsertLinkAuthorization(ctx, db.InsertLinkAuthorizationParams{
+			RequestHash: requestHash, RedirectUri: in.RedirectURI,
+			State: in.State, CodeChallenge: in.CodeChallenge,
+			ApplicationName: in.ApplicationName, InstanceName: in.InstanceName,
+			ApplicationVersion: optionalText(in.ApplicationVersion),
+			ProtocolVersion:    int32(in.ProtocolVersion),
+			Capabilities:       in.Capabilities, AcceptedTargets: in.AcceptedTargets,
+			Scopes: scopeStrings(in.Scopes), ExpiresAt: timestamptz(expiresAt),
+		})
+		if err == nil {
+			return Authorization{
+				URL:       s.siteURL + "/link?request=" + url.QueryEscape(requestCode),
+				ExpiresAt: expiresAt,
+			}, nil
+		}
+		if !isUniqueViolation(err) {
+			return Authorization{}, fmt.Errorf("store browser authorization: %w", err)
+		}
+	}
+	return Authorization{}, errors.New("could not allocate an authorization request")
+}
+
+// Pending reviews a manually entered user code.
 func (s *Service) Pending(ctx context.Context, userID uuid.UUID, rawCode string) (Pending, error) {
+	if err := s.takeRate(ctx, "user-code", userID.String(), codeAttemptLimit, time.Hour); err != nil {
+		return Pending{}, ErrTooManyCodes
+	}
 	code, ok := normalizeUserCode(rawCode)
 	if !ok {
-		return Pending{}, s.recordCodeFailure(ctx, userID)
+		return Pending{}, ErrLinkRequestNotFound
 	}
-	if err := s.checkCodeAttempts(ctx, userID); err != nil {
+	approvalToken, approvalHash, err := newOpaqueCode()
+	if err != nil {
 		return Pending{}, err
 	}
-	row, err := db.New(s.pool).LinkRequestByUserCode(ctx, code)
+	row, err := db.New(s.pool).ReviewDeviceLinkRequest(ctx, db.ReviewDeviceLinkRequestParams{
+		ReviewTokenHash: approvalHash,
+		ReviewedBy:      uuidValue(userID),
+		UserCodeHash:    s.digest("user-code", code),
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return Pending{}, s.recordCodeFailure(ctx, userID)
+		return Pending{}, ErrLinkRequestNotFound
 	}
 	if err != nil {
-		return Pending{}, fmt.Errorf("read link request: %w", err)
+		return Pending{}, fmt.Errorf("review device request: %w", err)
 	}
-	if err := db.New(s.pool).ClearLinkCodeFailures(ctx, uuidValue(userID)); err != nil {
-		return Pending{}, fmt.Errorf("clear link code attempts: %w", err)
+	return pendingFromDeviceReview(row, approvalToken), nil
+}
+
+// Approve approves one reviewed device request.
+func (s *Service) Approve(
+	ctx context.Context,
+	userID uuid.UUID,
+	rawCode string,
+	approvalToken string,
+) (Pending, error) {
+	code, ok := normalizeUserCode(rawCode)
+	tokenHash, tokenOK := opaqueCodeHash(approvalToken)
+	if !ok || !tokenOK {
+		return Pending{}, ErrLinkRequestNotFound
+	}
+	row, err := db.New(s.pool).ApproveDeviceLinkRequest(ctx, db.ApproveDeviceLinkRequestParams{
+		ReviewedBy: uuidValue(userID), ReviewTokenHash: tokenHash,
+		UserCodeHash: s.digest("user-code", code),
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Pending{}, ErrLinkRequestNotFound
+	}
+	if err != nil {
+		return Pending{}, fmt.Errorf("approve device request: %w", err)
+	}
+	return pendingFromDeviceApproval(row), nil
+}
+
+// Deny denies one reviewed device request.
+func (s *Service) Deny(
+	ctx context.Context,
+	userID uuid.UUID,
+	rawCode string,
+	approvalToken string,
+) error {
+	code, ok := normalizeUserCode(rawCode)
+	tokenHash, tokenOK := opaqueCodeHash(approvalToken)
+	if !ok || !tokenOK {
+		return ErrLinkRequestNotFound
+	}
+	denied, err := db.New(s.pool).DenyDeviceLinkRequest(ctx, db.DenyDeviceLinkRequestParams{
+		ReviewedBy: uuidValue(userID), ReviewTokenHash: tokenHash,
+		UserCodeHash: s.digest("user-code", code),
+	})
+	if err != nil {
+		return fmt.Errorf("deny device request: %w", err)
+	}
+	if denied == 0 {
+		return ErrLinkRequestNotFound
+	}
+	return nil
+}
+
+// PendingAuthorization reviews a browser authorization.
+func (s *Service) PendingAuthorization(
+	ctx context.Context,
+	userID uuid.UUID,
+	requestCode string,
+) (Pending, error) {
+	hash, ok := opaqueCodeHash(requestCode)
+	if !ok {
+		return Pending{}, ErrLinkRequestNotFound
+	}
+	row, err := db.New(s.pool).ReviewLinkAuthorization(ctx, db.ReviewLinkAuthorizationParams{
+		ReviewedBy: uuidValue(userID), RequestHash: hash,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Pending{}, ErrLinkRequestNotFound
+	}
+	if err != nil {
+		return Pending{}, fmt.Errorf("review browser authorization: %w", err)
 	}
 	return Pending{
-		Name:      row.ClientName,
-		Scopes:    scopesFrom(row.Scopes),
-		ExpiresAt: row.ExpiresAt.Time,
+		Declaration: declarationFrom(
+			row.ApplicationName, row.InstanceName, row.ApplicationVersion,
+			row.ProtocolVersion, row.Capabilities, row.AcceptedTargets,
+		),
+		Scopes: scopesFrom(row.Scopes), ExpiresAt: row.ExpiresAt.Time,
 	}, nil
 }
 
-// Approve is the only way an instance gains access. A link request may be
-// approved once.
-func (s *Service) Approve(ctx context.Context, userID uuid.UUID, rawCode string) (Pending, error) {
-	pending, err := s.Pending(ctx, userID, rawCode)
-	if err != nil {
-		return Pending{}, err
+// ApproveAuthorization approves once and creates a one-use code.
+func (s *Service) ApproveAuthorization(
+	ctx context.Context,
+	userID uuid.UUID,
+	requestCode string,
+) (Redirect, error) {
+	if _, err := s.PendingAuthorization(ctx, userID, requestCode); err != nil {
+		return Redirect{}, err
 	}
-	code, _ := normalizeUserCode(rawCode)
-	approved, err := db.New(s.pool).ApproveLinkRequest(ctx, db.ApproveLinkRequestParams{
-		UserCode:   code,
-		ApprovedBy: uuidValue(userID),
+	requestHash, _ := opaqueCodeHash(requestCode)
+	code, codeHash, err := newOpaqueCode()
+	if err != nil {
+		return Redirect{}, err
+	}
+	row, err := db.New(s.pool).ApproveLinkAuthorization(ctx, db.ApproveLinkAuthorizationParams{
+		AuthorizationCodeHash: codeHash, ReviewedBy: uuidValue(userID),
+		RequestHash: requestHash,
 	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Redirect{}, ErrLinkRequestNotFound
+	}
 	if err != nil {
-		return Pending{}, fmt.Errorf("approve link request: %w", err)
+		return Redirect{}, fmt.Errorf("approve browser authorization: %w", err)
 	}
-	if approved == 0 {
-		return Pending{}, ErrLinkRequestNotFound
+	destination, err := redirectWith(row.RedirectUri, "code", code, row.State)
+	if err != nil {
+		return Redirect{}, err
 	}
-	return pending, nil
+	return Redirect{URL: destination}, nil
 }
 
-// Poll answers a client waiting for its creator. It reports whether the request
-// is still pending, and hands over the credential the one time approval lands.
-func (s *Service) Poll(ctx context.Context, deviceCode string) (Credential, bool, error) {
-	hash, ok := deviceCodeHash(deviceCode)
+// DenyAuthorization denies once and creates an error redirect.
+func (s *Service) DenyAuthorization(
+	ctx context.Context,
+	userID uuid.UUID,
+	requestCode string,
+) (Redirect, error) {
+	hash, ok := opaqueCodeHash(requestCode)
 	if !ok {
-		return Credential{}, false, ErrLinkRequestNotFound
+		return Redirect{}, ErrLinkRequestNotFound
+	}
+	row, err := db.New(s.pool).ReviewLinkAuthorization(ctx, db.ReviewLinkAuthorizationParams{
+		ReviewedBy: uuidValue(userID), RequestHash: hash,
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Redirect{}, ErrLinkRequestNotFound
+	}
+	if err != nil {
+		return Redirect{}, fmt.Errorf("review denied authorization: %w", err)
+	}
+	denied, err := db.New(s.pool).DenyLinkAuthorization(ctx, db.DenyLinkAuthorizationParams{
+		ReviewedBy: uuidValue(userID), RequestHash: hash,
+	})
+	if err != nil {
+		return Redirect{}, fmt.Errorf("deny browser authorization: %w", err)
+	}
+	if denied == 0 {
+		return Redirect{}, ErrLinkRequestNotFound
+	}
+	destination, err := redirectWith(row.RedirectUri, "error", "access_denied", row.State)
+	if err != nil {
+		return Redirect{}, err
+	}
+	return Redirect{URL: destination}, nil
+}
+
+// Poll checks one device request and returns tokens after approval.
+func (s *Service) Poll(
+	ctx context.Context,
+	source string,
+	deviceCode string,
+) (TokenGrant, bool, error) {
+	if err := s.takeRate(ctx, "poll", source, 600, time.Minute); err != nil {
+		return TokenGrant{}, false, err
+	}
+	hash, ok := opaqueCodeHash(deviceCode)
+	if !ok {
+		return TokenGrant{}, false, ErrLinkRequestNotFound
 	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return Credential{}, false, fmt.Errorf("begin poll: %w", err)
+		return TokenGrant{}, false, fmt.Errorf("begin device poll: %w", err)
 	}
 	defer tx.Rollback(ctx)
 	queries := db.New(tx)
-
-	request, err := queries.LockLinkRequest(ctx, hash)
+	request, err := queries.LockDeviceLinkRequest(ctx, hash)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return Credential{}, false, ErrLinkRequestNotFound
+		return TokenGrant{}, false, ErrLinkRequestNotFound
 	}
 	if err != nil {
-		return Credential{}, false, fmt.Errorf("read link request: %w", err)
+		return TokenGrant{}, false, fmt.Errorf("read device request: %w", err)
 	}
 	if request.RedeemedAt.Valid {
-		return Credential{}, false, ErrLinkRequestNotFound
+		return TokenGrant{}, false, ErrLinkRequestNotFound
 	}
+	if time.Now().After(request.ExpiresAt.Time) {
+		return TokenGrant{}, false, ErrLinkExpired
+	}
+	if request.DeniedAt.Valid {
+		return TokenGrant{}, false, ErrAccessDenied
+	}
+	currentInterval := time.Duration(request.PollIntervalSeconds) * time.Second
 	tooSoon := request.LastPolledAt.Valid &&
-		time.Since(request.LastPolledAt.Time) < pollFloor
-	if err := queries.RecordLinkPoll(ctx, hash); err != nil {
-		return Credential{}, false, fmt.Errorf("record poll: %w", err)
+		time.Since(request.LastPolledAt.Time) < currentInterval
+	nextInterval, err := queries.RecordDeviceLinkPoll(ctx, db.RecordDeviceLinkPollParams{
+		SlowDown: tooSoon, DeviceCodeHash: hash,
+	})
+	if err != nil {
+		return TokenGrant{}, false, fmt.Errorf("record device poll: %w", err)
 	}
 	if tooSoon {
 		if err := tx.Commit(ctx); err != nil {
-			return Credential{}, false, fmt.Errorf("commit poll: %w", err)
+			return TokenGrant{}, false, fmt.Errorf("commit slow down: %w", err)
 		}
-		return Credential{}, false, ErrPollTooSoon
+		return TokenGrant{}, false, &PollDelayError{After: time.Duration(nextInterval) * time.Second}
 	}
-	if !request.ApprovedAt.Valid {
+	if !request.ApprovedBy.Valid {
 		if err := tx.Commit(ctx); err != nil {
-			return Credential{}, false, fmt.Errorf("commit poll: %w", err)
+			return TokenGrant{}, false, fmt.Errorf("commit pending poll: %w", err)
 		}
-		return Credential{}, false, nil
+		return TokenGrant{}, false, nil
 	}
-
-	redeemed, err := queries.RedeemLinkRequest(ctx, hash)
+	grant, err := issueGrant(ctx, queries, request.ApprovedBy, Declaration{
+		ApplicationName: request.ApplicationName, InstanceName: request.InstanceName,
+		ApplicationVersion: textFrom(request.ApplicationVersion),
+		ProtocolVersion:    int(request.ProtocolVersion), Capabilities: request.Capabilities,
+		AcceptedTargets: request.AcceptedTargets,
+	}, scopesFrom(request.Scopes))
 	if err != nil {
-		return Credential{}, false, fmt.Errorf("redeem link request: %w", err)
+		return TokenGrant{}, false, err
 	}
-	if redeemed == 0 {
-		return Credential{}, false, ErrLinkRequestNotFound
-	}
-	token, prefix, tokenHash, err := newToken()
-	if err != nil {
-		return Credential{}, false, err
-	}
-	row, err := queries.InsertLinkedInstance(ctx, db.InsertLinkedInstanceParams{
-		ID:          uuidValue(uuid.New()),
-		UserID:      request.ApprovedBy,
-		Name:        request.ClientName,
-		TokenHash:   tokenHash,
-		TokenPrefix: prefix,
-		Scopes:      request.Scopes,
-	})
-	if err != nil {
-		return Credential{}, false, fmt.Errorf("create linked instance: %w", err)
+	redeemed, err := queries.RedeemDeviceLinkRequest(ctx, hash)
+	if err != nil || redeemed != 1 {
+		if err == nil {
+			err = ErrLinkRequestNotFound
+		}
+		return TokenGrant{}, false, fmt.Errorf("redeem device request: %w", err)
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return Credential{}, false, fmt.Errorf("commit poll: %w", err)
+		return TokenGrant{}, false, fmt.Errorf("commit device grant: %w", err)
 	}
-	return Credential{
-		Instance: Instance{
-			ID:         uuid.UUID(row.ID.Bytes),
-			UserID:     uuid.UUID(request.ApprovedBy.Bytes),
-			Name:       row.Name,
-			Prefix:     row.TokenPrefix,
-			Scopes:     scopesFrom(row.Scopes),
-			LinkedAt:   row.LinkedAt.Time,
-			LastSeenAt: optionalTime(row.LastSeenAt),
-			RevokedAt:  optionalTime(row.RevokedAt),
-		},
-		Token: token,
-	}, true, nil
+	return grant, true, nil
 }
 
-// List is every instance the creator has linked, the ones still live first.
+// Exchange trades an approved browser code for the first token pair.
+func (s *Service) Exchange(
+	ctx context.Context,
+	source string,
+	authorizationCode string,
+	verifier string,
+	redirectURI string,
+) (TokenGrant, error) {
+	if err := s.takeRate(ctx, "exchange", source, 60, time.Hour); err != nil {
+		return TokenGrant{}, err
+	}
+	codeHash, ok := opaqueCodeHash(authorizationCode)
+	if !ok || !validLoopbackRedirect(redirectURI) {
+		return TokenGrant{}, ErrInvalidPKCE
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return TokenGrant{}, fmt.Errorf("begin code exchange: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	queries := db.New(tx)
+	request, err := queries.LockLinkAuthorization(ctx, codeHash)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return TokenGrant{}, ErrInvalidPKCE
+	}
+	if err != nil {
+		return TokenGrant{}, fmt.Errorf("read authorization code: %w", err)
+	}
+	if request.RedeemedAt.Valid || request.DeniedAt.Valid ||
+		!request.ApprovedBy.Valid || time.Now().After(request.ExpiresAt.Time) ||
+		request.RedirectUri != redirectURI ||
+		!challengeMatches(verifier, request.CodeChallenge) {
+		return TokenGrant{}, ErrInvalidPKCE
+	}
+	grant, err := issueGrant(ctx, queries, request.ApprovedBy, Declaration{
+		ApplicationName: request.ApplicationName, InstanceName: request.InstanceName,
+		ApplicationVersion: textFrom(request.ApplicationVersion),
+		ProtocolVersion:    int(request.ProtocolVersion), Capabilities: request.Capabilities,
+		AcceptedTargets: request.AcceptedTargets,
+	}, scopesFrom(request.Scopes))
+	if err != nil {
+		return TokenGrant{}, err
+	}
+	redeemed, err := queries.RedeemLinkAuthorization(ctx, codeHash)
+	if err != nil || redeemed != 1 {
+		if err == nil {
+			err = ErrInvalidPKCE
+		}
+		return TokenGrant{}, fmt.Errorf("redeem authorization code: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return TokenGrant{}, fmt.Errorf("commit code exchange: %w", err)
+	}
+	return grant, nil
+}
+
+// Refresh rotates one refresh token and detects reuse.
+func (s *Service) Refresh(ctx context.Context, source, refreshToken string) (TokenGrant, error) {
+	if err := s.takeRate(ctx, "refresh", source, 600, time.Hour); err != nil {
+		return TokenGrant{}, err
+	}
+	oldHash, ok := credentialHash(refreshToken, refreshTokenKind)
+	if !ok {
+		return TokenGrant{}, ErrInstanceCredential
+	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return TokenGrant{}, fmt.Errorf("begin token refresh: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	queries := db.New(tx)
+	instance, err := queries.LockLinkedInstanceByRefreshToken(ctx, oldHash)
+	if errors.Is(err, pgx.ErrNoRows) {
+		used, usedErr := queries.InstanceForUsedRefreshToken(ctx, oldHash)
+		if errors.Is(usedErr, pgx.ErrNoRows) {
+			return TokenGrant{}, ErrInstanceCredential
+		}
+		if usedErr != nil {
+			return TokenGrant{}, fmt.Errorf("check refresh reuse: %w", usedErr)
+		}
+		if _, revokeErr := queries.RevokeLinkedInstanceByID(ctx, used.InstanceID); revokeErr != nil {
+			return TokenGrant{}, fmt.Errorf("revoke reused refresh token: %w", revokeErr)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return TokenGrant{}, fmt.Errorf("commit refresh reuse revocation: %w", err)
+		}
+		return TokenGrant{}, ErrRefreshReuse
+	}
+	if err != nil {
+		return TokenGrant{}, fmt.Errorf("read refresh token: %w", err)
+	}
+	lastActive := instance.LinkedAt.Time
+	if instance.LastSeenAt.Valid && instance.LastSeenAt.Time.After(lastActive) {
+		lastActive = instance.LastSeenAt.Time
+	}
+	if time.Now().After(lastActive.Add(refreshIdleLifetime)) {
+		if _, revokeErr := queries.RevokeLinkedInstanceByID(ctx, instance.ID); revokeErr != nil {
+			return TokenGrant{}, fmt.Errorf("revoke inactive refresh token: %w", revokeErr)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return TokenGrant{}, fmt.Errorf("commit inactive refresh revocation: %w", err)
+		}
+		return TokenGrant{}, ErrInstanceCredential
+	}
+	accessToken, _, accessHash, err := newCredential(accessTokenKind)
+	if err != nil {
+		return TokenGrant{}, err
+	}
+	newRefresh, newPrefix, newRefreshHash, err := newCredential(refreshTokenKind)
+	if err != nil {
+		return TokenGrant{}, err
+	}
+	expiresAt := time.Now().Add(accessTokenLifetime)
+	_, err = queries.RotateInstanceRefreshToken(ctx, db.RotateInstanceRefreshTokenParams{
+		OldRefreshTokenHash:   oldHash,
+		DetectableUntil:       timestamptz(time.Now().Add(refreshReuseWindow)),
+		NewRefreshTokenHash:   newRefreshHash,
+		NewRefreshTokenPrefix: newPrefix,
+		InstanceID:            instance.ID,
+	})
+	if err != nil {
+		return TokenGrant{}, fmt.Errorf("rotate refresh token: %w", err)
+	}
+	if _, err := queries.InsertInstanceAccessToken(ctx, db.InsertInstanceAccessTokenParams{
+		TokenHash: accessHash, InstanceID: instance.ID, ExpiresAt: timestamptz(expiresAt),
+	}); err != nil {
+		return TokenGrant{}, fmt.Errorf("store access token: %w", err)
+	}
+	_, _ = queries.DeleteExpiredInstanceAccessTokens(ctx, cleanupBatch)
+	_, _ = queries.DeleteExpiredInstanceRefreshHistory(ctx, cleanupBatch)
+	if err := tx.Commit(ctx); err != nil {
+		return TokenGrant{}, fmt.Errorf("commit token refresh: %w", err)
+	}
+	return TokenGrant{
+		Instance: Instance{
+			ID: uuid.UUID(instance.ID.Bytes), UserID: uuid.UUID(instance.UserID.Bytes),
+			Declaration: declarationFrom(
+				instance.ApplicationName, instance.InstanceName, instance.ApplicationVersion,
+				instance.ProtocolVersion.Int32, instance.Capabilities, instance.AcceptedTargets,
+			),
+			Prefix: newPrefix, Scopes: scopesFrom(instance.Scopes),
+			LinkedAt: instance.LinkedAt.Time, LastSeenAt: optionalTime(instance.LastSeenAt),
+		},
+		AccessToken: accessToken, AccessTokenExpiresAt: expiresAt,
+		RefreshToken: newRefresh,
+	}, nil
+}
+
+// List returns every instance for one creator.
 func (s *Service) List(ctx context.Context, userID uuid.UUID) ([]Instance, error) {
 	rows, err := db.New(s.pool).ListLinkedInstances(ctx, uuidValue(userID))
 	if err != nil {
@@ -255,58 +577,54 @@ func (s *Service) List(ctx context.Context, userID uuid.UUID) ([]Instance, error
 	instances := make([]Instance, 0, len(rows))
 	for _, row := range rows {
 		instances = append(instances, Instance{
-			ID:         uuid.UUID(row.ID.Bytes),
-			UserID:     userID,
-			Name:       row.Name,
-			Prefix:     row.TokenPrefix,
-			Scopes:     scopesFrom(row.Scopes),
-			LinkedAt:   row.LinkedAt.Time,
-			LastSeenAt: optionalTime(row.LastSeenAt),
-			RevokedAt:  optionalTime(row.RevokedAt),
+			ID: uuid.UUID(row.ID.Bytes), UserID: userID,
+			Declaration: declarationFrom(
+				row.ApplicationName, row.InstanceName, row.ApplicationVersion,
+				row.ProtocolVersion.Int32, row.Capabilities, row.AcceptedTargets,
+			),
+			Prefix: row.RefreshTokenPrefix, Scopes: scopesFrom(row.Scopes),
+			LinkedAt: row.LinkedAt.Time, LastSeenAt: optionalTime(row.LastSeenAt),
+			RevokedAt: optionalTime(row.RevokedAt),
 		})
 	}
 	return instances, nil
 }
 
-// Revoke cuts an instance off. The credential stops working at once and the
-// record that the instance was linked and revoked stays.
+// Revoke cuts off one instance without affecting the creator's other links.
 func (s *Service) Revoke(ctx context.Context, userID, instanceID uuid.UUID) error {
 	revoked, err := db.New(s.pool).RevokeLinkedInstance(ctx, db.RevokeLinkedInstanceParams{
-		ID:     uuidValue(instanceID),
-		UserID: uuidValue(userID),
+		InstanceID: uuidValue(instanceID), UserID: uuidValue(userID),
 	})
 	if err != nil {
 		return fmt.Errorf("revoke linked instance: %w", err)
 	}
-	if revoked == 0 {
+	if !revoked {
 		return ErrInstanceNotFound
 	}
 	return nil
 }
 
-// Authenticate identifies the instance holding a credential and records that it
-// was seen. Pass the scope the endpoint needs, or an empty scope where any live
-// credential is enough.
+// Authenticate resolves a short-lived access token and checks its scope.
 func (s *Service) Authenticate(ctx context.Context, token string, needs Scope) (Instance, error) {
-	hash, ok := tokenHash(token)
+	hash, ok := credentialHash(token, accessTokenKind)
 	if !ok {
 		return Instance{}, ErrInstanceCredential
 	}
-	row, err := db.New(s.pool).TouchLinkedInstance(ctx, hash)
+	row, err := db.New(s.pool).TouchLinkedInstanceByAccessToken(ctx, hash)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Instance{}, ErrInstanceCredential
 	}
 	if err != nil {
-		return Instance{}, fmt.Errorf("read linked instance: %w", err)
+		return Instance{}, fmt.Errorf("read access token: %w", err)
 	}
 	instance := Instance{
-		ID:         uuid.UUID(row.ID.Bytes),
-		UserID:     uuid.UUID(row.UserID.Bytes),
-		Name:       row.Name,
-		Prefix:     row.TokenPrefix,
-		Scopes:     scopesFrom(row.Scopes),
-		LinkedAt:   row.LinkedAt.Time,
-		LastSeenAt: optionalTime(row.LastSeenAt),
+		ID: uuid.UUID(row.ID.Bytes), UserID: uuid.UUID(row.UserID.Bytes),
+		Declaration: declarationFrom(
+			row.ApplicationName, row.InstanceName, row.ApplicationVersion,
+			row.ProtocolVersion.Int32, row.Capabilities, row.AcceptedTargets,
+		),
+		Prefix: row.RefreshTokenPrefix, Scopes: scopesFrom(row.Scopes),
+		LinkedAt: row.LinkedAt.Time, LastSeenAt: optionalTime(row.LastSeenAt),
 	}
 	if needs != "" && !instance.Grants(needs) {
 		return Instance{}, ErrInstanceMissingScope
@@ -314,39 +632,174 @@ func (s *Service) Authenticate(ctx context.Context, token string, needs Scope) (
 	return instance, nil
 }
 
-func (s *Service) checkCodeAttempts(ctx context.Context, userID uuid.UUID) error {
-	failures, err := db.New(s.pool).LinkCodeFailures(ctx, db.LinkCodeFailuresParams{
-		UserID:      uuidValue(userID),
-		WindowStart: timestamptz(time.Now().Add(-codeFailureWindow)),
-	})
+// UpdateDeclaration replaces non-authoritative interoperability metadata.
+func (s *Service) UpdateDeclaration(
+	ctx context.Context,
+	instanceID uuid.UUID,
+	declaration Declaration,
+) (Instance, error) {
+	validated, err := validateDeclaration(declaration)
+	if err != nil {
+		return Instance{}, err
+	}
+	row, err := db.New(s.pool).UpdateLinkedInstanceDeclaration(
+		ctx,
+		db.UpdateLinkedInstanceDeclarationParams{
+			ApplicationVersion: optionalText(validated.ApplicationVersion),
+			ProtocolVersion:    pgtype.Int4{Int32: int32(validated.ProtocolVersion), Valid: true},
+			Capabilities:       validated.Capabilities, AcceptedTargets: validated.AcceptedTargets,
+			InstanceID: uuidValue(instanceID),
+		},
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil
+		return Instance{}, ErrInstanceNotFound
 	}
 	if err != nil {
-		return fmt.Errorf("read link code attempts: %w", err)
+		return Instance{}, fmt.Errorf("update instance declaration: %w", err)
 	}
-	if failures >= codeFailureLimit {
-		return ErrTooManyCodes
+	return Instance{
+		ID: uuid.UUID(row.ID.Bytes),
+		Declaration: declarationFrom(
+			row.ApplicationName, row.InstanceName, row.ApplicationVersion,
+			row.ProtocolVersion.Int32, row.Capabilities, row.AcceptedTargets,
+		),
+		Prefix: row.RefreshTokenPrefix, Scopes: scopesFrom(row.Scopes),
+		LinkedAt: row.LinkedAt.Time, LastSeenAt: optionalTime(row.LastSeenAt),
+	}, nil
+}
+
+func issueGrant(
+	ctx context.Context,
+	queries *db.Queries,
+	userID pgtype.UUID,
+	declaration Declaration,
+	scopes []Scope,
+) (TokenGrant, error) {
+	accessToken, _, accessHash, err := newCredential(accessTokenKind)
+	if err != nil {
+		return TokenGrant{}, err
+	}
+	refreshToken, refreshPrefix, refreshHash, err := newCredential(refreshTokenKind)
+	if err != nil {
+		return TokenGrant{}, err
+	}
+	instanceID := uuid.New()
+	row, err := queries.InsertLinkedInstance(ctx, db.InsertLinkedInstanceParams{
+		ID: uuidValue(instanceID), UserID: userID,
+		ApplicationName:    declaration.ApplicationName,
+		InstanceName:       declaration.InstanceName,
+		ApplicationVersion: optionalText(declaration.ApplicationVersion),
+		ProtocolVersion:    pgtype.Int4{Int32: int32(declaration.ProtocolVersion), Valid: true},
+		Capabilities:       declaration.Capabilities,
+		AcceptedTargets:    declaration.AcceptedTargets,
+		RefreshTokenHash:   refreshHash, RefreshTokenPrefix: refreshPrefix,
+		Scopes: scopeStrings(scopes),
+	})
+	if err != nil {
+		return TokenGrant{}, fmt.Errorf("create linked instance: %w", err)
+	}
+	expiresAt := time.Now().Add(accessTokenLifetime)
+	if _, err := queries.InsertInstanceAccessToken(ctx, db.InsertInstanceAccessTokenParams{
+		TokenHash: accessHash, InstanceID: uuidValue(instanceID),
+		ExpiresAt: timestamptz(expiresAt),
+	}); err != nil {
+		return TokenGrant{}, fmt.Errorf("store access token: %w", err)
+	}
+	_, _ = queries.DeleteExpiredInstanceAccessTokens(ctx, cleanupBatch)
+	return TokenGrant{
+		Instance: Instance{
+			ID: instanceID, UserID: uuid.UUID(userID.Bytes),
+			Declaration: declaration, Prefix: row.RefreshTokenPrefix,
+			Scopes: scopesFrom(row.Scopes), LinkedAt: row.LinkedAt.Time,
+		},
+		AccessToken: accessToken, AccessTokenExpiresAt: expiresAt,
+		RefreshToken: refreshToken,
+	}, nil
+}
+
+func pendingFromDeviceReview(row db.ReviewDeviceLinkRequestRow, token string) Pending {
+	return Pending{
+		Declaration: declarationFrom(
+			row.ApplicationName, row.InstanceName, row.ApplicationVersion,
+			row.ProtocolVersion, row.Capabilities, row.AcceptedTargets,
+		),
+		Scopes: scopesFrom(row.Scopes), ExpiresAt: row.ExpiresAt.Time,
+		ApprovalToken: token,
+	}
+}
+
+func pendingFromDeviceApproval(row db.ApproveDeviceLinkRequestRow) Pending {
+	return Pending{
+		Declaration: declarationFrom(
+			row.ApplicationName, row.InstanceName, row.ApplicationVersion,
+			row.ProtocolVersion, row.Capabilities, row.AcceptedTargets,
+		),
+		Scopes: scopesFrom(row.Scopes), ExpiresAt: row.ExpiresAt.Time,
+	}
+}
+
+func declarationFrom(
+	applicationName string,
+	instanceName string,
+	applicationVersion pgtype.Text,
+	version int32,
+	capabilities []string,
+	targets []string,
+) Declaration {
+	return Declaration{
+		ApplicationName: applicationName, InstanceName: instanceName,
+		ApplicationVersion: textFrom(applicationVersion), ProtocolVersion: int(version),
+		Capabilities: capabilities, AcceptedTargets: targets,
+	}
+}
+
+func (s *Service) takeRate(
+	ctx context.Context,
+	action string,
+	source string,
+	limit int32,
+	window time.Duration,
+) error {
+	if source == "" {
+		source = "unknown"
+	}
+	row, err := db.New(s.pool).TakeLinkRateLimit(ctx, db.TakeLinkRateLimitParams{
+		KeyHash: s.digest("rate:"+action, source), Action: action,
+		WindowCutoff: timestamptz(time.Now().Add(-window)),
+	})
+	if err != nil {
+		return fmt.Errorf("rate link request: %w", err)
+	}
+	if row.Attempts > limit {
+		after := time.Until(row.WindowStart.Time.Add(window))
+		if after < time.Second {
+			after = time.Second
+		}
+		return &RateLimitError{After: after}
 	}
 	return nil
 }
 
-// recordCodeFailure counts a code that matched nothing and returns what the
-// caller should report.
-func (s *Service) recordCodeFailure(ctx context.Context, userID uuid.UUID) error {
-	if err := s.checkCodeAttempts(ctx, userID); err != nil {
-		return err
+func deleteExpiredRates(ctx context.Context, queries *db.Queries) error {
+	_, err := queries.DeleteExpiredLinkRateLimits(ctx, db.DeleteExpiredLinkRateLimitsParams{
+		WindowCutoff: timestamptz(time.Now().Add(-24 * time.Hour)),
+		BatchSize:    cleanupBatch,
+	})
+	if err != nil {
+		return fmt.Errorf("clear link rate limits: %w", err)
 	}
-	if err := db.New(s.pool).RecordLinkCodeFailure(ctx, db.RecordLinkCodeFailureParams{
-		UserID:      uuidValue(userID),
-		WindowStart: timestamptz(time.Now().Add(-codeFailureWindow)),
-	}); err != nil {
-		return fmt.Errorf("record link code attempt: %w", err)
-	}
-	return ErrLinkRequestNotFound
+	return nil
 }
 
-// PollInterval is what a client is told to wait between polls.
+func (s *Service) digest(purpose, value string) []byte {
+	mac := hmac.New(sha256.New, s.hmacKey)
+	mac.Write([]byte(purpose))
+	mac.Write([]byte{0})
+	mac.Write([]byte(value))
+	return mac.Sum(nil)
+}
+
+// PollInterval is the initial device polling interval.
 func PollInterval() time.Duration { return pollInterval }
 
 func isUniqueViolation(err error) bool {
@@ -360,6 +813,17 @@ func optionalTime(value pgtype.Timestamptz) *time.Time {
 	}
 	moment := value.Time
 	return &moment
+}
+
+func textFrom(value pgtype.Text) string {
+	if !value.Valid {
+		return ""
+	}
+	return value.String
+}
+
+func optionalText(value string) pgtype.Text {
+	return pgtype.Text{String: value, Valid: value != ""}
 }
 
 func uuidValue(value uuid.UUID) pgtype.UUID {

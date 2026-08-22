@@ -11,11 +11,9 @@
   padding-bottom: 20px;
 }
 
-.panel {
-  overflow: hidden;
-  border-radius: var(--radius-xl);
-  background: var(--color-elevated);
-  box-shadow: var(--shadow-soft);
+.heading > div,
+.about {
+  min-width: 0;
 }
 
 .heading h2 {
@@ -23,14 +21,24 @@
   font-size: var(--type-section-size);
   font-weight: 600;
   letter-spacing: -0.02em;
+  line-height: var(--type-section-leading);
+  text-wrap: balance;
 }
 
 .heading p {
-  max-width: 58ch;
+  max-width: 63ch;
   margin-top: 10px;
   color: var(--color-text-secondary);
-  font-size: 0.88rem;
+  font-size: var(--type-secondary-size);
   line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.panel {
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  background: var(--color-elevated);
+  box-shadow: var(--shadow-soft);
 }
 
 .list {
@@ -39,18 +47,15 @@
 
 .list > li {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) auto;
+  min-width: 0;
+  grid-template-columns: 44px minmax(0, 1fr) minmax(142px, auto);
   gap: 22px;
-  align-items: center;
-  padding: 24px 32px;
+  align-items: start;
+  padding: 26px 32px;
 }
 
 .list > li + li {
   border-top: 1px solid var(--color-border);
-}
-
-.revoked {
-  opacity: 0.62;
 }
 
 .mark {
@@ -64,41 +69,69 @@
   color: var(--color-accent);
 }
 
-.revoked .mark {
+.revoked .mark,
+.revoked h3 {
   color: var(--color-text-secondary);
 }
 
 .about h3 {
+  max-width: 100%;
   color: var(--color-text-primary);
   font-size: 0.98rem;
   font-weight: 900;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.instanceName {
+  margin-top: 2px;
+  color: var(--color-text-secondary);
+  font-size: var(--type-secondary-size);
+  font-weight: 700;
+  line-height: 1.5;
   overflow-wrap: anywhere;
 }
 
 .prefix {
-  margin-top: 5px;
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  align-items: baseline;
+  margin-top: 9px;
   color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.prefix code {
+  max-width: 100%;
   font-family: var(--font-mono);
-  font-size: 0.78rem;
-  letter-spacing: 0.14em;
+  font-size: 0.76rem;
+  letter-spacing: 0.12em;
+  overflow-wrap: anywhere;
 }
 
 .when {
-  margin-top: 6px;
+  margin-top: 5px;
   color: var(--color-text-secondary);
   font-size: var(--type-secondary-size);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
 }
 
 .scopes {
   display: flex;
+  min-width: 0;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 10px;
+  margin-top: 11px;
   list-style: none;
 }
 
 .scopes li {
   display: block;
+  max-width: 100%;
   padding: 4px 10px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-pill);
@@ -106,37 +139,109 @@
   color: var(--color-text-secondary);
   font-size: 0.74rem;
   font-weight: 700;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
-.action {
+.interoperability {
+  min-width: 0;
+  margin-top: 15px;
+  padding-top: 13px;
+  border-top: 1px solid var(--color-border);
+}
+
+.interoperabilityNote {
+  color: var(--color-text-secondary);
+  font-size: 0.72rem;
+  font-weight: 750;
+  line-height: 1.5;
+}
+
+.interoperability dl {
+  display: grid;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.interoperability dl > div {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(84px, 0.24fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.interoperability dt,
+.interoperability dd {
+  min-width: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.72rem;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.interoperability dt {
+  font-weight: 750;
+}
+
+.values {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 5px;
+  list-style: none;
+}
+
+.values li {
+  max-width: 100%;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  background: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: var(--type-label-size);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.notDeclared {
+  font-style: italic;
+}
+
+.action,
+.retry {
   display: inline-flex;
-  min-height: 42px;
+  min-height: 44px;
   align-items: center;
   justify-content: center;
-  padding-inline: 16px;
+  padding: 8px 16px;
   border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-sm);
   background: var(--color-surface);
   color: var(--color-text-primary);
   font-size: 0.78rem;
   font-weight: 900;
-  white-space: nowrap;
+  line-height: 1.35;
+  text-align: center;
   transition:
     border-color 180ms var(--ease),
     color 180ms var(--ease);
 }
 
-.action:hover:not(:disabled) {
+.action:hover:not(:disabled),
+.retry:hover {
   border-color: var(--color-text-secondary);
   color: var(--color-text-primary);
 }
 
-.action:disabled {
+.action:disabled,
+.cancel:disabled {
   cursor: not-allowed;
-  opacity: 0.5;
+  opacity: 0.52;
 }
 
 .cut {
+  justify-self: end;
+  padding-top: 10px;
   color: var(--color-text-secondary);
   font-size: 0.76rem;
   font-weight: 900;
@@ -144,7 +249,8 @@
   text-transform: uppercase;
 }
 
-.empty {
+.empty,
+.loadFailure {
   display: grid;
   grid-template-columns: 22px minmax(0, 1fr);
   gap: 14px;
@@ -153,49 +259,86 @@
   color: var(--color-text-secondary);
 }
 
-.empty svg {
-  margin-top: 1px;
+.empty svg,
+.loadFailure svg {
+  margin-top: 2px;
   color: var(--color-text-secondary);
 }
 
-.empty p {
-  max-width: 56ch;
-  font-size: 0.88rem;
+.empty p,
+.loadFailure p {
+  max-width: 60ch;
+  font-size: var(--type-secondary-size);
   line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.retry {
+  margin-top: 13px;
 }
 
 .waiting {
   padding: 30px 32px;
   color: var(--color-text-secondary);
-  font-size: 0.88rem;
+  font-size: var(--type-secondary-size);
 }
 
 .notice {
   display: block;
-  margin-top: 18px;
+  width: 100%;
+  margin: 0 0 18px;
   padding: 11px 13px;
-  border: 1px solid var(--color-border);
-  background: var(--color-muted);
-  color: var(--color-text-secondary);
+  border-radius: var(--radius-sm);
   font-size: var(--type-secondary-size);
-  line-height: 1.5;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.noticeSuccess {
+  border: 1px solid var(--color-accent-border);
+  background: var(--color-accent-soft);
+  color: var(--color-text-primary);
+}
+
+.noticeError {
+  border: 1px solid var(--color-critical-border);
+  background: var(--color-critical-soft);
+  color: var(--color-critical-strong);
 }
 
 .revokeActions {
-  display: flex;
+  display: grid;
+  min-width: 0;
+  justify-items: end;
   gap: 8px;
-  align-items: center;
+}
+
+.confirmation {
+  max-width: 23ch;
+  color: var(--color-critical-strong);
+  font-size: 0.73rem;
+  font-weight: 700;
+  line-height: 1.5;
+  text-align: end;
+  overflow-wrap: anywhere;
+}
+
+.revokeButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
 .cancel {
-  min-height: 42px;
+  min-height: 44px;
   padding-inline: 10px;
   color: var(--color-text-secondary);
   font-size: 0.76rem;
   font-weight: 760;
 }
 
-.cancel:hover {
+.cancel:hover:not(:disabled) {
   color: var(--color-text-primary);
 }
 
@@ -213,7 +356,6 @@
   .list > li {
     grid-template-columns: 42px minmax(0, 1fr);
     gap: 16px;
-    align-items: start;
     padding-inline: 22px;
   }
 
@@ -222,36 +364,53 @@
     justify-self: start;
   }
 
+  .revokeActions {
+    justify-items: start;
+  }
+
+  .revokeButtons {
+    justify-content: flex-start;
+  }
+
+  .confirmation {
+    text-align: start;
+  }
+
   .empty,
+  .loadFailure,
   .waiting {
     padding-inline: 22px;
   }
 }
 
 @container (max-width: 480px) {
-  .heading {
-    grid-template-columns: 1fr;
-    align-items: start;
-    gap: 16px;
-  }
-
-  .heading .action {
-    justify-self: start;
-  }
-
   .list > li {
     grid-template-columns: 38px minmax(0, 1fr);
     gap: 14px;
-    align-items: start;
-    padding: 20px;
+    padding: 22px 20px;
   }
 
-  .list > li > :last-child {
-    grid-column: 2;
-    justify-self: start;
+  .mark {
+    width: 38px;
+    height: 38px;
+  }
+
+  .interoperability dl > div {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .revokeButtons,
+  .revokeButtons .action {
+    width: 100%;
+  }
+
+  .cancel {
+    flex: 1;
   }
 
   .empty,
+  .loadFailure,
   .waiting {
     padding: 24px 20px;
   }

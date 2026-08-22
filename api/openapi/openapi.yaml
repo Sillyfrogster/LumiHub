@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: LumiHub API
+  title: Illarin API
   version: 0.1.0
 paths:
   /v1/account/discord:
@@ -199,10 +199,9 @@ paths:
     post:
       operationId: startLinkRequest
       description: >-
-        Start linking a client application to a creator's account. Anyone may
-        call this: LumiHub authenticates the creator and the individual
-        installation, never the software vendor, so there is no registration
-        step, no client id and no client secret.
+        Start Illarin's registration-free device fallback for an installation
+        that cannot receive a loopback callback. It follows RFC 8628 security
+        and polling semantics but is not an OAuth token endpoint.
       requestBody:
         required: true
         content:
@@ -210,11 +209,13 @@ paths:
             schema: { $ref: "#/components/schemas/StartLinkRequest" }
       responses:
         "201":
-          description: The codes the client shows and the code it keeps
+          description: The code the installation keeps and the code it shows
           content:
             application/json:
               schema: { $ref: "#/components/schemas/LinkRequest" }
-        "400": { description: The name or the requested scopes are not valid }
+        "400": { description: The declaration or requested scopes are not valid }
+        "413": { description: The request body is too large }
+        "429": { description: Too many link requests came from this source }
   /v1/link/poll:
     post:
       operationId: pollLinkRequest
@@ -228,29 +229,31 @@ paths:
             schema: { $ref: "#/components/schemas/PollLinkRequest" }
       responses:
         "200":
-          description: Still waiting, or linked and holding the credential
+          description: Still waiting, or linked with a new token pair
           content:
             application/json:
               schema: { $ref: "#/components/schemas/LinkPollResult" }
-        "404": { description: The link request has expired, was redeemed, or never existed }
+        "400": { description: The request was denied or expired }
+        "404": { description: The request was redeemed or never existed }
+        "413": { description: The request body is too large }
         "429":
-          description: Polled faster than the interval
+          description: Slow down before polling again
           headers:
             Retry-After:
               schema: { type: integer }
   /v1/link/requests/{userCode}:
     get:
       operationId: getLinkRequest
-      description: What the client behind a user code is asking for.
+      description: What the installation behind a user code is asking for.
       security: [{ sessionCookie: [] }]
       parameters:
         - { name: userCode, in: path, required: true, schema: { type: string } }
       responses:
         "200":
-          description: The name and scopes to show before approving
+          description: The unverified names, declaration and scopes to review
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/PendingLink" }
+              schema: { $ref: "#/components/schemas/PendingDeviceLink" }
         "401": { description: No account is signed in }
         "403": { description: The signed-in account has not verified its email }
         "404": { description: No unapproved link request has that code }
@@ -260,10 +263,15 @@ paths:
       operationId: approveLinkRequest
       description: >-
         Approve a link request. A link request may be approved once and redeemed
-        once.
+        once. This browser-only operation requires Illarin's request header.
       security: [{ sessionCookie: [] }]
       parameters:
         - { name: userCode, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeviceLinkDecision" }
       responses:
         "200":
           description: What was approved
@@ -273,7 +281,130 @@ paths:
         "401": { description: No account is signed in }
         "403": { description: The signed-in account has not verified its email }
         "404": { description: No unapproved link request has that code }
-        "429": { description: Too many codes were entered }
+  /v1/link/requests/{userCode}/deny:
+    post:
+      operationId: denyLinkRequest
+      description: Deny the reviewed device request and stop its polling installation.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: userCode, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeviceLinkDecision" }
+      responses:
+        "204": { description: The request is denied }
+        "401": { description: No account is signed in }
+        "403": { description: The signed-in account has not verified its email }
+        "404": { description: No pending reviewed request has that code }
+  /v1/link/authorizations:
+    post:
+      operationId: startLinkAuthorization
+      description: >-
+        Start same-device browser authorization with S256 PKCE. Only an exact
+        IPv4 or IPv6 loopback callback is accepted; its port may vary.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StartLinkAuthorization" }
+      responses:
+        "201":
+          description: The short-lived Illarin URL to open in the system browser
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LinkAuthorization" }
+        "400": { description: The callback, PKCE data or declaration is not valid }
+        "413": { description: The request body is too large }
+        "429": { description: Too many link requests came from this source }
+  /v1/link/authorizations/{requestCode}:
+    get:
+      operationId: getLinkAuthorization
+      description: What the installation behind a browser authorization is asking for.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: requestCode, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: The unverified names, declaration and scopes to review
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PendingLink" }
+        "401": { description: No account is signed in }
+        "403": { description: The signed-in account has not verified its email }
+        "404": { description: No pending authorization has that request code }
+  /v1/link/authorizations/{requestCode}/approve:
+    post:
+      operationId: approveLinkAuthorization
+      description: Approve once and return the validated loopback redirect.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: requestCode, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: The exact loopback URL carrying the one-use code and state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LinkRedirect" }
+        "401": { description: No account is signed in }
+        "403": { description: The signed-in account has not verified its email }
+        "404": { description: No pending authorization has that request code }
+  /v1/link/authorizations/{requestCode}/deny:
+    post:
+      operationId: denyLinkAuthorization
+      description: Deny once and return the validated loopback error redirect.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: requestCode, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: The exact loopback URL carrying access_denied and state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LinkRedirect" }
+        "401": { description: No account is signed in }
+        "403": { description: The signed-in account has not verified its email }
+        "404": { description: No pending authorization has that request code }
+  /v1/link/token:
+    post:
+      operationId: exchangeLinkAuthorization
+      description: Exchange one approved authorization code using its PKCE verifier.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExchangeLinkAuthorization" }
+      responses:
+        "200":
+          description: A short-lived access token and rotating refresh token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InstanceTokenGrant" }
+        "400": { description: The code, verifier or callback is not valid }
+        "413": { description: The request body is too large }
+        "429": { description: Too many exchanges came from this source }
+  /v1/link/refresh:
+    post:
+      operationId: refreshInstanceToken
+      description: >-
+        Rotate one live refresh token. Replaying a replacement retained in the
+        90-day detection window revokes that instance and every access token it
+        holds. A family also expires after 90 days without authenticated use.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RefreshInstanceToken" }
+      responses:
+        "200":
+          description: A replacement access and refresh token pair
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InstanceTokenGrant" }
+        "401": { description: The refresh token is not live }
+        "413": { description: The request body is too large }
+        "429": { description: Too many refresh attempts came from this source }
   /v1/instances:
     get:
       operationId: listInstances
@@ -292,9 +423,9 @@ paths:
     get:
       operationId: getInstance
       description: >-
-        The instance the bearer credential belongs to. Every authenticated
-        request updates lastSeenAt, and this one exists so a client can check
-        its credential without sending anything.
+        The instance the access token belongs to. Every authenticated
+        request updates lastSeenAt, and this one exists so an installation can check
+        its token without sending anything.
       security: [{ instanceToken: [] }]
       responses:
         "200":
@@ -302,12 +433,32 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/LinkedInstance" }
-        "401": { description: The credential does not identify a live instance }
+        "401": { description: The access token does not identify a live instance }
+    put:
+      operationId: updateInstance
+      description: >-
+        Replace the live instance's non-authoritative interoperability
+        declaration. This cannot change its granted scopes.
+      security: [{ instanceToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateInstance" }
+      responses:
+        "200":
+          description: The updated instance
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LinkedInstance" }
+        "400": { description: The declaration is not valid }
+        "401": { description: The access token does not identify a live instance }
+        "413": { description: The request body is too large }
   /v1/instances/{id}:
     delete:
       operationId: revokeInstance
       description: >-
-        Cut an instance off. Its credential stops working immediately and the
+        Cut an instance off. Its tokens stop working immediately and the
         state it held here is discarded. A record that it was linked and revoked
         stays.
       security: [{ sessionCookie: [] }]
@@ -933,7 +1084,7 @@ components:
     instanceToken:
       type: http
       scheme: bearer
-      description: The credential a linked instance received when it was approved.
+      description: A short-lived access token issued to one linked instance.
   schemas:
     Scope:
       type: string
@@ -944,39 +1095,112 @@ components:
     StartLinkRequest:
       type: object
       additionalProperties: false
-      required: [name, scopes]
+      required:
+        [applicationName, instanceName, protocolVersion, capabilities,
+         acceptedTargets, scopes]
       properties:
-        name:
+        applicationName: { $ref: "#/components/schemas/ApplicationName" }
+        instanceName: { $ref: "#/components/schemas/InstanceName" }
+        applicationVersion: { $ref: "#/components/schemas/ApplicationVersion" }
+        protocolVersion: { $ref: "#/components/schemas/LinkProtocolVersion" }
+        capabilities: { $ref: "#/components/schemas/InstanceCapabilities" }
+        acceptedTargets: { $ref: "#/components/schemas/AcceptedTargets" }
+        scopes: { $ref: "#/components/schemas/Scopes" }
+    StartLinkAuthorization:
+      type: object
+      additionalProperties: false
+      required:
+        [applicationName, instanceName, protocolVersion, capabilities,
+         acceptedTargets, scopes, redirectUri, state, codeChallenge,
+         codeChallengeMethod]
+      properties:
+        applicationName: { $ref: "#/components/schemas/ApplicationName" }
+        instanceName: { $ref: "#/components/schemas/InstanceName" }
+        applicationVersion: { $ref: "#/components/schemas/ApplicationVersion" }
+        protocolVersion: { $ref: "#/components/schemas/LinkProtocolVersion" }
+        capabilities: { $ref: "#/components/schemas/InstanceCapabilities" }
+        acceptedTargets: { $ref: "#/components/schemas/AcceptedTargets" }
+        scopes: { $ref: "#/components/schemas/Scopes" }
+        redirectUri:
           type: string
-          minLength: 1
-          maxLength: 64
+          maxLength: 512
           description: >-
-            What the creator sees on the approval screen. Name the installation,
-            not the product, so somebody with two of them can tell which is which.
-        scopes:
-          type: array
-          minItems: 1
-          items: { $ref: "#/components/schemas/Scope" }
+            An exact http callback using 127.0.0.1 or [::1], with an explicit
+            port, a path, no user information, no query and no fragment.
+        state:
+          type: string
+          minLength: 32
+          maxLength: 128
+        codeChallenge:
+          type: string
+          minLength: 43
+          maxLength: 43
+        codeChallengeMethod:
+          type: string
+          enum: [S256]
+    ApplicationName:
+      type: string
+      minLength: 1
+      maxLength: 64
+      description: A self-asserted, unverified application name.
+    InstanceName:
+      type: string
+      minLength: 1
+      maxLength: 64
+      description: A self-asserted name for this installation.
+    ApplicationVersion:
+      type: [string, "null"]
+      minLength: 1
+      maxLength: 64
+    LinkProtocolVersion:
+      type: integer
+      enum: [1]
+    CapabilityId:
+      type: string
+      minLength: 3
+      maxLength: 64
+      pattern: "^[a-z][a-z0-9.-]*:[a-z][a-z0-9._-]*$"
+      description: >-
+        A namespaced interoperability claim. It never grants permission and
+        unknown values have no effect.
+    InstanceCapabilities:
+      type: array
+      maxItems: 32
+      uniqueItems: true
+      items: { $ref: "#/components/schemas/CapabilityId" }
+    ExportTargetId:
+      type: string
+      minLength: 1
+      maxLength: 64
+      pattern: "^[a-z0-9][a-z0-9._-]*$"
+      description: >-
+        A format-module identifier accepted by the instance. Unknown values do
+        not make a target available.
+    AcceptedTargets:
+      type: array
+      maxItems: 32
+      uniqueItems: true
+      items: { $ref: "#/components/schemas/ExportTargetId" }
+    Scopes:
+      type: array
+      minItems: 1
+      maxItems: 2
+      uniqueItems: true
+      items: { $ref: "#/components/schemas/Scope" }
     LinkRequest:
       type: object
       required:
-        [deviceCode, userCode, verificationUrl, verificationUrlComplete,
-         expiresAt, interval]
+        [deviceCode, userCode, verificationUrl, expiresAt, interval]
       properties:
         deviceCode:
           type: string
-          description: Kept private by the client and sent when polling.
+          description: Kept private by the installation and sent when polling.
         userCode:
           type: string
-          description: Shown to the creator, who enters it on LumiHub.
+          description: Shown to the creator, who enters it on Illarin.
         verificationUrl:
           type: string
           description: Where the creator enters the user code.
-        verificationUrlComplete:
-          type: string
-          description: >-
-            The same page with the code already filled in. A client running on
-            the creator's own machine may open it.
         expiresAt: { type: string, format: date-time }
         interval:
           type: integer
@@ -989,34 +1213,124 @@ components:
         deviceCode: { type: string }
     LinkPollResult:
       type: object
+      additionalProperties: false
       required: [status]
       properties:
         status: { type: string, enum: [pending, linked] }
-        token:
+        accessToken: { type: string }
+        accessTokenExpiresAt:
           type: string
-          description: >-
-            The instance credential, sent once and never again. It does not
-            expire and there is nothing to refresh.
+          format: date-time
+          description: The 15-minute access-token deadline.
+        refreshToken: { type: string }
         instance:
           $ref: "#/components/schemas/LinkedInstance"
     PendingLink:
       type: object
-      required: [name, scopes, expiresAt]
+      required:
+        [applicationName, instanceName, protocolVersion, capabilities,
+         acceptedTargets, scopes, expiresAt]
       properties:
-        name: { type: string }
-        scopes:
-          type: array
-          items: { $ref: "#/components/schemas/Scope" }
+        applicationName: { $ref: "#/components/schemas/ApplicationName" }
+        instanceName: { $ref: "#/components/schemas/InstanceName" }
+        applicationVersion: { $ref: "#/components/schemas/ApplicationVersion" }
+        protocolVersion: { $ref: "#/components/schemas/LinkProtocolVersion" }
+        capabilities: { $ref: "#/components/schemas/InstanceCapabilities" }
+        acceptedTargets: { $ref: "#/components/schemas/AcceptedTargets" }
+        scopes: { $ref: "#/components/schemas/Scopes" }
         expiresAt: { type: string, format: date-time }
+    PendingDeviceLink:
+      allOf:
+        - { $ref: "#/components/schemas/PendingLink" }
+        - type: object
+          required: [approvalToken]
+          properties:
+            approvalToken:
+              type: string
+              description: A private one-use proof that this code was reviewed.
+    DeviceLinkDecision:
+      type: object
+      additionalProperties: false
+      required: [approvalToken]
+      properties:
+        approvalToken: { type: string }
+    LinkAuthorization:
+      type: object
+      additionalProperties: false
+      required: [authorizationUrl, expiresAt]
+      properties:
+        authorizationUrl:
+          type: string
+          description: The Illarin page to open in the system browser.
+        expiresAt: { type: string, format: date-time }
+    LinkRedirect:
+      type: object
+      additionalProperties: false
+      required: [redirectUrl]
+      properties:
+        redirectUrl:
+          type: string
+          description: A server-validated exact loopback redirect.
+    ExchangeLinkAuthorization:
+      type: object
+      additionalProperties: false
+      required: [authorizationCode, codeVerifier, redirectUri]
+      properties:
+        authorizationCode: { type: string }
+        codeVerifier:
+          type: string
+          minLength: 43
+          maxLength: 128
+        redirectUri:
+          type: string
+          maxLength: 512
+    RefreshInstanceToken:
+      type: object
+      additionalProperties: false
+      required: [refreshToken]
+      properties:
+        refreshToken: { type: string }
+    InstanceTokenGrant:
+      type: object
+      additionalProperties: false
+      required: [accessToken, accessTokenExpiresAt, refreshToken, instance]
+      properties:
+        accessToken: { type: string }
+        accessTokenExpiresAt:
+          type: string
+          format: date-time
+          description: The 15-minute access-token deadline.
+        refreshToken: { type: string }
+        instance: { $ref: "#/components/schemas/LinkedInstance" }
+    UpdateInstance:
+      type: object
+      additionalProperties: false
+      required: [protocolVersion, capabilities, acceptedTargets]
+      properties:
+        applicationVersion: { $ref: "#/components/schemas/ApplicationVersion" }
+        protocolVersion: { $ref: "#/components/schemas/LinkProtocolVersion" }
+        capabilities: { $ref: "#/components/schemas/InstanceCapabilities" }
+        acceptedTargets: { $ref: "#/components/schemas/AcceptedTargets" }
     LinkedInstance:
       type: object
-      required: [id, name, prefix, scopes, linkedAt, lastSeenAt, revokedAt]
+      required:
+        [id, applicationName, instanceName, protocolVersion, capabilities,
+         acceptedTargets, prefix, scopes, linkedAt, lastSeenAt, revokedAt]
       properties:
         id: { type: string, format: uuid }
-        name: { type: string }
+        applicationName: { type: string }
+        instanceName: { type: string }
+        applicationVersion: { type: [string, "null"] }
+        protocolVersion: { type: [integer, "null"] }
+        capabilities:
+          type: array
+          items: { type: string }
+        acceptedTargets:
+          type: array
+          items: { type: string }
         prefix:
           type: string
-          description: The start of the credential, so two links are told apart.
+          description: The readable prefix of the current refresh token.
         scopes:
           type: array
           items: { $ref: "#/components/schemas/Scope" }

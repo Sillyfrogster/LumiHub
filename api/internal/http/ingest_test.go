@@ -23,7 +23,6 @@ import (
 	"github.com/Sillyfrogster/LumiHub/api/internal/block"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format/character"
-	"github.com/Sillyfrogster/LumiHub/api/internal/linking"
 	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
 	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
 	"github.com/Sillyfrogster/LumiHub/api/internal/testdb"
@@ -271,7 +270,7 @@ func newVerifiedIngestRouterWithStore(
 	assets := asset.NewServiceWithIngestSettings(pool, registry, blobs, settings)
 	outbox := &verificationOutbox{}
 	accounts := account.NewService(pool, outbox, nil, "http://localhost:3000")
-	links := linking.NewService(pool, "http://localhost:3000")
+	links := newTestLinkingService(pool)
 	handlers := NewHandlers(assets, accounts, links, 1<<20)
 	setup := registerTestRouter(t, handlers, DefaultDeadlines())
 	session := signUp(t, setup, "verified@example.com", "verified.creator")

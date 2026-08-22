@@ -91,7 +91,7 @@ func main() {
 		}
 	}
 	accounts := account.NewService(pool, verificationSender, discordProvider, cfg.SiteURL)
-	links := linking.NewService(pool, cfg.SiteURL)
+	links := linking.NewService(pool, cfg.SiteURL, cfg.LinkingHMACKey)
 
 	r := gin.New()
 	r.Use(gin.Recovery())
