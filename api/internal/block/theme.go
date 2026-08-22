@@ -119,14 +119,24 @@ func decodeStylesheetSet(raw json.RawMessage) (Content, error) {
 		return nil, fmt.Errorf("global, stylesheets and assets must be present")
 	}
 	stylesheets := *incoming.Stylesheets
+	stylesheetNames := make(map[string]struct{}, len(stylesheets))
 	for i := range stylesheets {
+		if _, duplicate := stylesheetNames[stylesheets[i].Name]; duplicate {
+			return nil, fmt.Errorf("stylesheet %d repeats the name %q", i+1, stylesheets[i].Name)
+		}
+		stylesheetNames[stylesheets[i].Name] = struct{}{}
 		stylesheets[i].ID = itemID(stylesheets[i].ID)
 	}
 	assets := *incoming.Assets
+	assetPaths := make(map[string]struct{}, len(assets))
 	for i := range assets {
 		if assets[i].Path == "" {
 			return nil, fmt.Errorf("asset %d must include a path", i+1)
 		}
+		if _, duplicate := assetPaths[assets[i].Path]; duplicate {
+			return nil, fmt.Errorf("asset %d repeats the path %q", i+1, assets[i].Path)
+		}
+		assetPaths[assets[i].Path] = struct{}{}
 		assets[i].ID = itemID(assets[i].ID)
 	}
 	return StylesheetSet{

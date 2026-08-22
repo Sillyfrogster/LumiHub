@@ -64,6 +64,7 @@ var sillyTavernControls = []namedSlot{
 	{"font_scale", block.SettingNumber},
 	{"avatar_style", block.SettingNumber},
 	{"chat_display", block.SettingNumber},
+	{"toastr_position", block.SettingText},
 	{"chat_width", block.SettingNumber},
 	{"fast_ui_mode", block.SettingBoolean},
 	{"waifuMode", block.SettingBoolean},
@@ -79,6 +80,7 @@ var sillyTavernControls = []namedSlot{
 	{"enableLabMode", block.SettingBoolean},
 	{"hotswap_enabled", block.SettingBoolean},
 	{"bogus_folders", block.SettingBoolean},
+	{"zoomed_avatar_magnification", block.SettingBoolean},
 	{"reduced_motion", block.SettingBoolean},
 	{"compact_input_area", block.SettingBoolean},
 }

@@ -125,3 +125,32 @@ func TestAStylesheetSetKeepsTheFilesItsCSSUses(t *testing.T) {
 		t.Errorf("stylesheet assets = %+v, want the font bytes", set.Assets)
 	}
 }
+
+func TestAStylesheetSetRejectsNamesAndPathsThatWouldOverwriteContent(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+	}{
+		{
+			name: "component names",
+			raw: `{"global":"","stylesheets":[
+				{"name":"messages","css":".one{}","enabled":true},
+				{"name":"messages","css":".two{}","enabled":true}
+			],"assets":[]}`,
+		},
+		{
+			name: "asset paths",
+			raw: `{"global":"","stylesheets":[],"assets":[
+				{"path":"assets/theme.woff2","data":"b25l"},
+				{"path":"assets/theme.woff2","data":"dHdv"}
+			]}`,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if _, err := DecodeContent(TypeStylesheetSet, []byte(test.raw)); err == nil {
+				t.Fatal("duplicate content was accepted")
+			}
+		})
+	}
+}

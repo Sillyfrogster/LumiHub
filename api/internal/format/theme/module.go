@@ -47,7 +47,7 @@ func (LumiverseModule) Declaration() format.Declaration {
 }
 
 func (SillyTavernModule) Declaration() format.Declaration {
-	return themeDeclaration(
+	declaration := themeDeclaration(
 		SillyTavernID,
 		"SillyTavern theme",
 		[]format.Recognition{{
@@ -69,6 +69,17 @@ func (SillyTavernModule) Declaration() format.Declaration {
 		},
 		[]format.HeaderField{format.HeaderName},
 	)
+	tokens := declaration.Roles[block.RoleThemeTokens]
+	tokens.Write = format.RoleSupport{
+		Grade: format.SupportPartial,
+		Condition: &format.ContentCondition{
+			Description: "only the first colour mode and names this theme format understands are carried",
+			Matches:     sillyTavernColorsReduced,
+		},
+		DropWhen: &format.ContentCondition{Matches: sillyTavernColorsDropped},
+	}
+	declaration.Roles[block.RoleThemeTokens] = tokens
+	return declaration
 }
 
 func themeDeclaration(
@@ -117,9 +128,20 @@ func themeDeclaration(
 			ItemBytes: block.MaxItemBytes,
 		},
 		ConsumedKeys:  themeConsumedKeys(id, colors, controls),
+		Boilerplate:   themeBoilerplate(id),
 		Preservation:  format.PreservationDeclaration{Body: id},
 		TestedOrigins: []string{id, format.OriginIllarin},
 	}
+}
+
+func themeBoilerplate(id string) []format.Boilerplate {
+	if id != LumiverseID {
+		return nil
+	}
+	return []format.Boilerplate{{
+		Namespace: LumiverseID,
+		Unchosen:  []string{`{"theme":{"tsx":""}}`},
+	}}
 }
 
 func declaredColorSlots(names []string) []format.SlotDeclaration {
@@ -191,6 +213,37 @@ func hasNoKnownColors(known []string) func(block.Content) bool {
 		}
 		return true
 	}
+}
+
+func sillyTavernColorsReduced(content block.Content) bool {
+	set, ok := content.(block.ColorSet)
+	if !ok {
+		return false
+	}
+	if hasUnknownColors(sillyTavernColors)(content) {
+		return true
+	}
+	for _, mode := range set.Modes[1:] {
+		for _, color := range mode.Colors {
+			if color.Value != "" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func sillyTavernColorsDropped(content block.Content) bool {
+	set, ok := content.(block.ColorSet)
+	if !ok || len(set.Modes) == 0 {
+		return false
+	}
+	for _, color := range set.Modes[0].Colors {
+		if color.Value != "" && slices.Contains(sillyTavernColors, color.Name) {
+			return false
+		}
+	}
+	return true
 }
 
 func hasUnknownControls(known []namedSlot) func(block.Content) bool {

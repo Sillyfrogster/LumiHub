@@ -106,6 +106,13 @@
   cursor: pointer;
 }
 
+.colorPicker:focus-within,
+.addFile:focus-within {
+  border-color: var(--color-accent);
+  outline: 3px solid color-mix(in srgb, var(--color-accent) 22%, transparent);
+  outline-offset: 2px;
+}
+
 .srOnly {
   position: absolute;
   width: 1px;

@@ -35,6 +35,7 @@ const sillyTavernTheme = `{
 	"font_scale":1,
 	"avatar_style":1,
 	"chat_display":1,
+	"toastr_position":"toast-top-right",
 	"chat_width":56,
 	"fast_ui_mode":false,
 	"waifuMode":false,
@@ -50,6 +51,7 @@ const sillyTavernTheme = `{
 	"enableLabMode":false,
 	"hotswap_enabled":true,
 	"bogus_folders":false,
+	"zoomed_avatar_magnification":false,
 	"reduced_motion":false,
 	"compact_input_area":false,
 	"custom_css":"body { letter-spacing: .01em; }",
@@ -142,8 +144,8 @@ func TestSillyTavernThemeReadsAndWritesItsFlatVocabulary(t *testing.T) {
 		t.Fatalf("palette = %+v, want the ten flat colours", palette)
 	}
 	controls := elementFor(t, parsed.Elements, block.RoleThemeControls).(block.SettingGroup)
-	if controls.Supplied() != len(sillyTavernControls) {
-		t.Errorf("supplied controls = %d, want %d", controls.Supplied(), len(sillyTavernControls))
+	if len(sillyTavernControls) != 24 || controls.Supplied() != len(sillyTavernControls) {
+		t.Errorf("supplied controls = %d of %d, want all 24", controls.Supplied(), len(sillyTavernControls))
 	}
 	styles := elementFor(t, parsed.Elements, block.RoleStylesheets).(block.StylesheetSet)
 	if styles.Global != "body { letter-spacing: .01em; }" || len(styles.Stylesheets) != 0 {
@@ -158,6 +160,51 @@ func TestSillyTavernThemeReadsAndWritesItsFlatVocabulary(t *testing.T) {
 	if string(document["future_setting"]) != `"kept"` ||
 		string(document["main_text_color"]) != `"rgba(244,241,246,1)"` {
 		t.Errorf("written theme did not restore known and preserved fields: %s", written.Body)
+	}
+}
+
+func TestSillyTavernReportsAndAvoidsFlatteningExtraColourModes(t *testing.T) {
+	registry := testRegistry(t)
+	palette := block.ColorSet{Modes: []block.ColorMode{
+		{Name: "dark", Colors: []block.Color{{
+			ID: block.NewItemID(), Name: "main_text_color", Value: "#111111",
+		}}},
+		{Name: "light", Colors: []block.Color{{
+			ID: block.NewItemID(), Name: "main_text_color", Value: "#eeeeee",
+		}}},
+	}}
+	elements := []block.Element{{
+		ID: uuid.New(), Type: block.TypeColorSet, Role: block.RoleThemeTokens, Content: palette,
+	}}
+	targets := registry.OfferedTargets(format.CapabilitySubject{Kind: Kind, Elements: elements})
+	if len(targets) != 1 {
+		t.Fatalf("targets = %+v, want the SillyTavern target", targets)
+	}
+	loss, ok := roleLoss(targets[0], block.RoleThemeTokens)
+	if !ok || loss.Verdict != format.Reduced || !strings.Contains(loss.Reason, "first") {
+		t.Errorf("palette loss = %+v, want reduced with the first mode named", loss)
+	}
+
+	written := write(t, SillyTavernModule{}, format.Parsed{Elements: elements})
+	var document map[string]json.RawMessage
+	if err := json.Unmarshal(written.Body, &document); err != nil {
+		t.Fatalf("decode written theme: %v", err)
+	}
+	if string(document["main_text_color"]) != `"#111111"` {
+		t.Errorf("written main colour = %s, want the first mode without flattening", document["main_text_color"])
+	}
+}
+
+func TestLumiverseEmptyTSXIsDeclaredAsDisplayBoilerplate(t *testing.T) {
+	declaration := (LumiverseModule{}).Declaration()
+	if !declaration.RecordsNothing(LumiverseID, []byte(`{"theme":{"tsx":""}}`)) {
+		t.Error("an empty tsx stamp would appear in the creator's preserved-data panel")
+	}
+	if declaration.RecordsNothing(LumiverseID, []byte(`{"theme":{"tsx":"return <Theme />"}}`)) {
+		t.Error("a tsx value with content was hidden as boilerplate")
+	}
+	if declaration.RecordsNothing(LumiverseID, []byte(`{"future":"kept","theme":{"tsx":""}}`)) {
+		t.Error("meaningful data beside an empty tsx stamp was hidden as boilerplate")
 	}
 }
 

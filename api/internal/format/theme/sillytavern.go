@@ -75,8 +75,8 @@ func (SillyTavernModule) Write(_ context.Context, asset format.ExportAsset) (for
 
 	if content, ok := asset.Content(block.RoleThemeTokens); ok {
 		if palette, isPalette := content.(block.ColorSet); isPalette {
-			for _, mode := range palette.Modes {
-				for _, color := range mode.Colors {
+			if len(palette.Modes) > 0 {
+				for _, color := range palette.Modes[0].Colors {
 					if color.Value != "" && slices.Contains(sillyTavernColors, color.Name) {
 						body[color.Name] = raw(color.Value)
 					}
