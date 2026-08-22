@@ -91,7 +91,7 @@
   margin-left: auto;
 }
 
-/* Two classes, because ElementBody's `.element p` is otherwise more specific. */
+/* .element p is otherwise the more specific rule. */
 .lorebook .nothing {
   color: var(--color-text-secondary);
   font-size: var(--type-secondary-size);
@@ -106,16 +106,11 @@
   position: relative;
   display: grid;
   align-items: start;
-  /* The index takes what a name needs; everything left is the entry. */
   grid-template-columns: var(--index-width) minmax(0, 1fr);
   gap: var(--index-gap);
 }
 
-/*
- * The rule between the two panes belongs to the row, not to either pane: the
- * index is sticky and short, the entry is as long as it is, and a rule that
- * stopped with either of them would look like it had run out.
- */
+/* The rule belongs to the row, because either pane can be the shorter one. */
 .body::before {
   position: absolute;
   top: 0;
@@ -139,7 +134,7 @@
   scrollbar-width: thin;
 }
 
-/* Firefox takes the two properties above. Chromium needs to be shown a track. */
+/* Chromium needs a track of its own. */
 .index::-webkit-scrollbar {
   width: 7px;
 }
@@ -172,10 +167,7 @@
   background: color-mix(in srgb, var(--color-muted) 62%, transparent);
 }
 
-/*
- * The tint alone is a 1.09:1 difference from the ground, which is not a state a
- * reader can see. The mark is what says which entry is open.
- */
+/* The tint is a 1.09:1 difference, so the mark is what a reader sees. */
 .index button[aria-selected="true"] {
   background: var(--color-muted);
   box-shadow: inset 2px 0 0 var(--color-emphasis);
@@ -266,7 +258,6 @@
   white-space: nowrap;
 }
 
-/* Below this the entry column would be narrower than the index beside it. */
 @container element (max-width: 760px) {
   .body {
     grid-template-columns: minmax(0, 1fr);

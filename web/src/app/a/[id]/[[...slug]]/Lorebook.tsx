@@ -20,14 +20,9 @@ import {
 } from "@/lib/lorebook-entry";
 import styles from "./Lorebook.module.css";
 
-/** Enough keys to recognise an entry by. The rest are one press away. */
 const KEY_PREVIEW_LIMIT = 6;
 
-/**
- * A lorebook, as the book it is: an index of every entry it holds, and the one
- * a reader picked open beside it. The index scrolls inside itself, so a book of
- * a thousand entries is the same height on the page as a book of five.
- */
+/** A book as an index of its entries and the one a reader picked open. */
 export function Lorebook({ entries }: { entries: LorebookEntry[] }) {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<EntrySort>("book");
@@ -73,11 +68,7 @@ export function Lorebook({ entries }: { entries: LorebookEntry[] }) {
   );
 }
 
-/**
- * Every entry the view holds, as one tab stop with arrow keys through it. A
- * reader tabbing past a book of 285 entries would otherwise press tab 285
- * times.
- */
+/** Every entry as one tab stop, with the arrow keys moving between them. */
 function Index({
   entries,
   names,
@@ -91,7 +82,6 @@ function Index({
 }) {
   const index = useRef<HTMLDivElement>(null);
 
-  /* Sorting or searching can leave the open entry outside the rows on show. */
   useEffect(() => {
     const list = index.current;
     const row = shownId
@@ -146,7 +136,6 @@ function Index({
   );
 }
 
-/** Why the index shows nothing, which is not always the same reason. */
 function Nothing({ search, book }: { search: string; book: LorebookIndex }) {
   const wanted = search.trim();
   if (wanted !== "") {
@@ -230,9 +219,8 @@ function Controls({
   );
 }
 
-// biome-ignore-start lint/a11y/noNoninteractiveTabindex: A tab panel holding
-// nothing focusable has to be reachable itself, or the entry a reader just
-// picked is the one thing the keyboard cannot get to.
+// biome-ignore-start lint/a11y/noNoninteractiveTabindex: The panel holds
+// nothing focusable, so it has to be reachable itself.
 function Entry({
   entry,
   labelledBy,
@@ -247,7 +235,6 @@ function Entry({
       aria-labelledby={labelledBy}
       tabIndex={0}
     >
-      {/* A name taken from the opening would say the text's first line twice. */}
       {entry.named === "opening" ? null : (
         <h4 className={styles.entryName}>{entry.name}</h4>
       )}
@@ -271,7 +258,6 @@ function Entry({
 }
 // biome-ignore-end lint/a11y/noNoninteractiveTabindex: The panel ends here.
 
-/** Where an arrow key sends focus in the index, or nothing if it is not one. */
 function nextRow(key: string, from: number, rows: number): number | null {
   if (rows === 0) return null;
   if (key === "ArrowDown") return Math.min(from + 1, rows - 1);

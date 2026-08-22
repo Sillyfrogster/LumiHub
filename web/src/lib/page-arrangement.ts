@@ -67,11 +67,7 @@ export const LAYOUT_LABELS: Record<BlockLayout, string> = {
 
 const ONE_COLUMN = "minmax(0, 1fr)";
 
-/**
- * The columns a block's elements arrange into, given how many of them the page
- * actually renders. An element nobody sees holds no slot, so a trio whose
- * middle element is empty is two columns rather than three with a hole in it.
- */
+/** The columns a block's elements arrange into. An empty one holds no slot. */
 export function elementTracks(layout: BlockLayout, rendered: number): string {
   const columns = Math.min(Math.max(rendered, 1), LAYOUTS[layout].slots.length);
   if (columns === 1) return ONE_COLUMN;
@@ -231,10 +227,7 @@ export const FULL_SCREEN_TYPES = [
   "script_list",
 ] as const;
 
-/**
- * How much of an element the page shows before offering the rest. `self` is an
- * element that bounds its own height, so nothing is held back from it.
- */
+/** How much of an element the page shows. `self` bounds its own height. */
 export type ExcerptDefinition =
   | { unit: "lines"; limit: number }
   | { unit: "items"; limit: number }

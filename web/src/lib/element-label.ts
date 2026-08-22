@@ -9,11 +9,7 @@ type LabellingBlock = {
   elements: number;
 };
 
-/**
- * The label an element carries above its content, or nothing. A label is worth
- * rendering when it tells one element in a block from another and says
- * something the block's title has not already said.
- */
+/** An element's label, or nothing where the block's title already says it. */
 export function elementLabel(
   element: LabelledElement,
   block: LabellingBlock,
@@ -34,7 +30,6 @@ function labelRepeatsTitle(
   return containsRun(titleWords, words);
 }
 
-/** The words of a phrase, stripped of the differences a reader does not hear. */
 function sameWords(phrase: string): string[] {
   return phrase
     .toLocaleLowerCase()

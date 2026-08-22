@@ -23,17 +23,15 @@ type ReadableEntry = {
 export type EntryNaming = "written" | "key" | "opening" | "position";
 
 export type EntryPresentation = {
-  /** Distinct within the book, so the index can key and address a row. */
   id: string;
-  /** Where the entry sits in the book, counted from one. */
+  /** Its place in the book, counted from one. */
   position: number;
   name: string;
   named: EntryNaming;
-  /** The keys that fire the entry, as chips. */
   keys: ChipItem[];
-  /** Keys the entry needs on top of the first set, as chips. */
+  /** Keys the entry needs on top of the first set. */
   secondaryKeys: ChipItem[];
-  /** What decides whether this entry fires, in the order a reader wants it. */
+  /** What decides whether this entry fires. */
   firing: string[];
   /** What the index row says beside the name. */
   note: string;
@@ -53,16 +51,12 @@ export type LorebookView = {
 export type LorebookIndex = {
   /** Every entry the book holds, whatever the view shows. */
   total: number;
-  /** How many of them are switched off. */
   off: number;
   /** The entries the view shows, in the order it shows them. */
   entries: EntryPresentation[];
 };
 
-/**
- * A whole lorebook, read for the page: every entry it holds, narrowed to the
- * ones the reader asked for and put in the order they asked for.
- */
+/** A whole book, read for the page and narrowed to what the view asks for. */
 export function readLorebook(
   entries: readonly ReadableEntry[],
   view: LorebookView,
@@ -84,10 +78,7 @@ type BookContext = {
   showsOrder: boolean;
 };
 
-/**
- * What one lorebook entry shows of itself. `position` is its place in the book,
- * counted from one, which names an entry whose creator never did.
- */
+/** What one entry shows of itself. */
 export function readEntry(
   entry: ReadableEntry,
   position: number,
@@ -114,11 +105,7 @@ export function readEntry(
   };
 }
 
-/**
- * What to call an entry. Plenty of books name none of their entries, and a
- * column of `Entry 41` is an index nobody can read, so an entry that was never
- * named is called after the key that fires it or after how it opens.
- */
+/** What to call an entry, since plenty of books name none of theirs. */
 function nameFor(
   entry: ReadableEntry,
   position: number,
@@ -134,7 +121,6 @@ function nameFor(
 
 const NAME_LENGTH = 54;
 
-/** Marks a reader would see as formatting rather than as words. */
 const MARKDOWN = /(\*\*|\*|__|`|^#{1,6}\s+|^>\s+)/gm;
 
 function opening(text: string): string {
@@ -152,7 +138,6 @@ function chips(keys: readonly string[]): ChipItem[] {
     .filter((chip) => chip.label !== "");
 }
 
-/** Every entry in a book is on, so saying so on each of them says nothing. */
 function indexNote(
   enabled: boolean,
   constant: boolean,
@@ -164,10 +149,7 @@ function indexNote(
   return keyCount === 1 ? "1 key" : `${keyCount} keys`;
 }
 
-/**
- * What decides whether an entry fires, in the block sheet's own words, so a
- * creator who switches an entry off there meets the same sentence on the page.
- */
+/** What switches an entry on, in the same words the block sheet uses. */
 function firingRules(
   entry: ReadableEntry,
   keyCount: number,
@@ -200,7 +182,7 @@ function firingRules(
   return rules;
 }
 
-/** An order every entry shares tells a reader nothing about any of them. */
+/** An order every entry shares says nothing about any of them. */
 function ordersDiffer(entries: readonly ReadableEntry[]): boolean {
   const orders = new Set(entries.map((entry) => entry.order));
   return orders.size > 1;

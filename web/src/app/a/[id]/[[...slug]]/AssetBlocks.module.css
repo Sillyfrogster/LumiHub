@@ -160,7 +160,6 @@
   color: var(--color-text-primary);
 }
 
-/* The tracks come from elementTracks, not from a map of named slots. */
 .elements {
   display: grid;
   grid-template-columns: var(--element-tracks, minmax(0, 1fr));

@@ -5,17 +5,13 @@ import { useState } from "react";
 import styles from "./Chip.module.css";
 
 export type ChipItem = {
-  /** Distinct within the set. A lorebook may list the same key word twice. */
+  /** Distinct within the set, because a value may repeat. */
   id: string;
   label: string;
   href?: string;
 };
 
-/**
- * A set of short values a reader scans rather than reads. Asset tags and
- * lorebook keys share it. A limit keeps a long set from growing the page it
- * sits in.
- */
+/** A set of short values a reader scans, cut off after `limit` of them. */
 export function ChipSet({
   items,
   limit,
