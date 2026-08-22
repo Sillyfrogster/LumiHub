@@ -1,0 +1,291 @@
+.lorebook {
+  --index-width: 272px;
+  --index-gap: 34px;
+
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+}
+
+.search {
+  display: flex;
+  min-width: 0;
+  flex: 0 1 340px;
+  align-items: center;
+  gap: 10px;
+  padding-inline: 13px;
+  border: 1px solid var(--color-accent-border);
+  border-radius: var(--radius-md);
+  background: var(--color-muted);
+  color: var(--color-text-secondary);
+}
+
+.search input {
+  min-width: 0;
+  min-height: 44px;
+  flex: 1 1 auto;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: 0.82rem;
+}
+
+.search input:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.sort {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sort label,
+.includeOff,
+.showing {
+  color: var(--color-text-secondary);
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-leading);
+}
+
+.sort select {
+  min-height: 44px;
+  padding-inline: 11px;
+  border: 1px solid var(--color-accent-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 0.78rem;
+}
+
+.sort select:focus-visible,
+.includeOff input:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.includeOff {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+}
+
+.includeOff input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-accent);
+}
+
+.showing {
+  margin-left: auto;
+}
+
+/* Two classes, because ElementBody's `.element p` is otherwise more specific. */
+.lorebook .nothing {
+  color: var(--color-text-secondary);
+  font-size: var(--type-secondary-size);
+  line-height: var(--type-secondary-leading);
+}
+
+.nothing strong {
+  color: var(--color-text-primary);
+}
+
+.body {
+  position: relative;
+  display: grid;
+  align-items: start;
+  /* The index takes what a name needs; everything left is the entry. */
+  grid-template-columns: var(--index-width) minmax(0, 1fr);
+  gap: var(--index-gap);
+}
+
+/*
+ * The rule between the two panes belongs to the row, not to either pane: the
+ * index is sticky and short, the entry is as long as it is, and a rule that
+ * stopped with either of them would look like it had run out.
+ */
+.body::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--index-width) + var(--index-gap) / 2);
+  border-left: 1px solid var(--color-border);
+  content: "";
+}
+
+.index {
+  position: sticky;
+  top: calc(var(--header-height) + 22px);
+  display: flex;
+  max-height: min(70dvh, 616px);
+  flex-direction: column;
+  padding-right: 12px;
+  gap: 1px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: var(--color-border) transparent;
+  scrollbar-width: thin;
+}
+
+/* Firefox takes the two properties above. Chromium needs to be shown a track. */
+.index::-webkit-scrollbar {
+  width: 7px;
+}
+
+.index::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: var(--color-border);
+}
+
+.index::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--color-muted) 55%, transparent);
+  border-radius: 4px;
+}
+
+.index button {
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  gap: 10px;
+  padding: 9px 11px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.index button:hover {
+  background: color-mix(in srgb, var(--color-muted) 62%, transparent);
+}
+
+/*
+ * The tint alone is a 1.09:1 difference from the ground, which is not a state a
+ * reader can see. The mark is what says which entry is open.
+ */
+.index button[aria-selected="true"] {
+  background: var(--color-muted);
+  box-shadow: inset 2px 0 0 var(--color-emphasis);
+}
+
+.index button:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: -1px;
+}
+
+.rowName {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowNote {
+  flex: 0 0 auto;
+  color: var(--color-text-secondary);
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-leading);
+  font-variant-numeric: tabular-nums;
+}
+
+.index button[data-off] .rowName {
+  color: var(--color-text-secondary);
+}
+
+.entry {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.entry:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 8px;
+}
+
+.entryName {
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: 1.36rem;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.entry .firing,
+.entry .secondary p {
+  color: var(--color-text-secondary);
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-leading);
+}
+
+.keys {
+  margin-top: 2px;
+}
+
+.secondary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+}
+
+.text {
+  margin-top: 6px;
+  max-width: 70ch;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+/* Below this the entry column would be narrower than the index beside it. */
+@container element (max-width: 760px) {
+  .body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+
+  .body::before {
+    display: none;
+  }
+
+  .index {
+    position: static;
+    max-height: 268px;
+    padding-right: 4px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .showing {
+    margin-left: 0;
+  }
+}

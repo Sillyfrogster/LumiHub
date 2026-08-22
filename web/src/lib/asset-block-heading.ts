@@ -1,5 +1,4 @@
 type HeadingElement = {
-  type: string;
   isEmpty: boolean;
   facts: string[];
 };
@@ -40,12 +39,6 @@ export function blockCounts(elements: readonly HeadingElement[]): string {
     written.push(`${writeCount(total.count)} ${noun}`);
   }
   return written.join(" · ");
-}
-
-export function isTabularBlock(elements: readonly HeadingElement[]): boolean {
-  return elements.some(
-    (element) => element.type === "entry_table" && !element.isEmpty,
-  );
 }
 
 function nounStem(noun: string): string {

@@ -231,10 +231,14 @@ export const FULL_SCREEN_TYPES = [
   "script_list",
 ] as const;
 
-export type ExcerptDefinition = {
-  unit: "lines" | "items";
-  limit: number;
-};
+/**
+ * How much of an element the page shows before offering the rest. `self` is an
+ * element that bounds its own height, so nothing is held back from it.
+ */
+export type ExcerptDefinition =
+  | { unit: "lines"; limit: number }
+  | { unit: "items"; limit: number }
+  | { unit: "self" };
 
 type FutureElementType = "color_set" | "stylesheet_set" | "record_list";
 
@@ -245,7 +249,7 @@ export const EXCERPT_DEFINITIONS = {
   text_set: { unit: "items", limit: 3 },
   field_list: { unit: "items", limit: 6 },
   dialogue_sample: { unit: "items", limit: 3 },
-  entry_table: { unit: "items", limit: 8 },
+  entry_table: { unit: "self" },
   image_set: { unit: "items", limit: 3 },
   link_list: { unit: "items", limit: 4 },
   prompt_list: { unit: "items", limit: 3 },

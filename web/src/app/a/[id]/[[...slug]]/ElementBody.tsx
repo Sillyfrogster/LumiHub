@@ -14,7 +14,6 @@ import { FormattingNotice, RichText } from "@/components/ui/RichText";
 import type {
   AssetElement,
   AssetImage,
-  LorebookEntry,
   PresetSetting,
   PresetVariable,
   PromptListContent,
@@ -29,6 +28,7 @@ import {
 } from "@/lib/page-arrangement";
 import { formattingWasRemoved, richTextsOf } from "@/lib/rich-text";
 import styles from "./ElementBody.module.css";
+import { Lorebook } from "./Lorebook";
 
 const ITEM_WIDTHS = { small: "120px", medium: "180px", large: "260px" };
 
@@ -131,6 +131,11 @@ function ExcerptedElementContent({
   const isCut = definition.unit === "lines" ? lineCut : hasItemCut;
   const itemLimit = definition.unit === "items" ? definition.limit : undefined;
 
+  /* An element that bounds its own height is rendered whole. */
+  if (definition.unit === "self") {
+    return <ElementContent element={element} images={images} />;
+  }
+
   return (
     <>
       <div
@@ -199,8 +204,6 @@ function excerptNoun(element: AssetElement): string {
       return element.role === "expressions" ? "expressions" : "images";
     case "link_list":
       return "links";
-    case "entry_table":
-      return "entries";
     case "prompt_list":
       return "fragments";
     case "variable_schema":
@@ -328,7 +331,7 @@ export function ElementContent({
   }
 
   if (element.type === "entry_table" && "entries" in content) {
-    return <EntryTable entries={content.entries.slice(0, itemLimit)} />;
+    return <Lorebook entries={content.entries} />;
   }
 
   if (element.type === "prompt_list" && "fragments" in content) {
@@ -530,54 +533,6 @@ function ScriptList({
         </li>
       ))}
     </ul>
-  );
-}
-
-function EntryTable({ entries }: { entries: LorebookEntry[] }) {
-  return (
-    <div className={styles.entryTableScroll}>
-      <table className={styles.entryTable}>
-        <thead>
-          <tr>
-            <th scope="col">Entry</th>
-            <th scope="col">Keys</th>
-            <th scope="col">Text</th>
-            <th scope="col">State</th>
-          </tr>
-        </thead>
-        <tbody>
-          {entries.map((entry, index) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: Entries stay ordered and hold no local state.
-            <tr key={index} data-off={entry.enabled ? undefined : true}>
-              <td data-column="Entry">
-                <span className={styles.entryName}>
-                  {entry.name?.trim() || `Entry ${index + 1}`}
-                </span>
-              </td>
-              <td data-column="Keys">
-                {entry.keys.length === 0 ? (
-                  <span className={styles.entryNoKeys}>
-                    {entry.constant ? "Always on" : "No keys"}
-                  </span>
-                ) : (
-                  <ChipSet
-                    limit={KEY_PREVIEW_LIMIT}
-                    items={entry.keys.map((key, position) => ({
-                      id: `${position}-${key}`,
-                      label: key,
-                    }))}
-                  />
-                )}
-              </td>
-              <td data-column="Text">
-                <RichText text={entry.text} />
-              </td>
-              <td data-column="State">{entry.enabled ? "On" : "Off"}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
   );
 }
 

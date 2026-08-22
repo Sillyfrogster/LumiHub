@@ -23,7 +23,7 @@ import {
   type SaveAssetBlockRequest,
   saveAssetBlock,
 } from "@/lib/api/query";
-import { blockCounts, isTabularBlock } from "@/lib/asset-block-heading";
+import { blockCounts } from "@/lib/asset-block-heading";
 import { splitAssetPageContent } from "@/lib/asset-page-content";
 import {
   BLOCK_GRID_GAP_PX,
@@ -420,9 +420,6 @@ export function AssetBlocks({
                         key={block.id}
                         className={styles.block}
                         data-block-id={block.id}
-                        data-field={
-                          isTabularBlock(block.elements) ? true : undefined
-                        }
                         data-hidden={
                           editingVisible && block.hidden ? true : undefined
                         }

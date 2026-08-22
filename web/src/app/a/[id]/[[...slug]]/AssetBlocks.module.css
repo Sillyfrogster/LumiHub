@@ -26,16 +26,8 @@
   scroll-margin-top: calc(var(--header-height) + 104px);
 }
 
-.block[data-field],
 .block[data-hidden] {
   padding: 26px 28px 30px;
-}
-
-.block[data-field] {
-  background: color-mix(in srgb, var(--color-muted) 72%, transparent);
-}
-
-.block[data-hidden] {
   background: color-mix(in srgb, var(--color-muted) 58%, transparent);
 }
 
@@ -381,7 +373,6 @@
     grid-column: 1 / -1;
   }
 
-  .block[data-field],
   .block[data-hidden] {
     padding: 22px 18px 26px;
   }
