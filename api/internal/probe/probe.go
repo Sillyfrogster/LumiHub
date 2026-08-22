@@ -94,6 +94,9 @@ type Image struct {
 // ErrImageUnavailable marks an optional image that cannot be reopened from the source.
 var ErrImageUnavailable = errors.New("the probe located no such image")
 
+// ErrZIPEntryUnavailable marks an archive entry the inspection did not find.
+var ErrZIPEntryUnavailable = errors.New("the probe located no such archive entry")
+
 // OpenImage streams one located image through the same bounded range reads the
 // inspection itself used.
 func (i Inspection) OpenImage(ctx context.Context, id uint32) (io.ReadCloser, error) {
@@ -127,6 +130,39 @@ func (i Inspection) OpenImage(ctx context.Context, id uint32) (io.ReadCloser, er
 		return opened, nil
 	}
 	return nil, fmt.Errorf("archive entry %q: %w", found.Locator.Name, ErrImageUnavailable)
+}
+
+// OpenZIPEntry streams one named file from an inspected archive.
+func (i Inspection) OpenZIPEntry(ctx context.Context, name string) (io.ReadCloser, error) {
+	if i.Container != ZIP {
+		return nil, fmt.Errorf("archive entry %q: %w", name, ErrZIPEntryUnavailable)
+	}
+	found := false
+	for _, entry := range i.ZIPEntries {
+		if entry.Name == name && !entry.Directory {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil, fmt.Errorf("archive entry %q: %w", name, ErrZIPEntryUnavailable)
+	}
+	reader := &rangeReaderAt{ctx: ctx, store: i.source.store, id: i.source.id, size: i.source.size}
+	archive, err := zip.NewReader(reader, i.source.size)
+	if err != nil {
+		return nil, fmt.Errorf("reopen archive entry %q: %w", name, err)
+	}
+	for _, entry := range archive.File {
+		if entry.Name != name {
+			continue
+		}
+		opened, err := entry.Open()
+		if err != nil {
+			return nil, fmt.Errorf("open archive entry %q: %w", name, err)
+		}
+		return opened, nil
+	}
+	return nil, fmt.Errorf("archive entry %q: %w", name, ErrZIPEntryUnavailable)
 }
 
 // imageExtensions name the raster formats the media layer can decode. An
@@ -421,7 +457,8 @@ func inspectZIP(reader *rangeReaderAt, result *Inspection, limits Limits) error 
 		if imageExtensions[strings.ToLower(path.Ext(entry.Name))] {
 			result.addImage(Locator{Container: ZIP, Name: entry.Name, Offset: offset})
 		}
-		if !strings.EqualFold(entry.Name, "card.json") {
+		if !strings.EqualFold(entry.Name, "card.json") &&
+			!strings.EqualFold(entry.Name, "theme.json") {
 			continue
 		}
 		opened, err := entry.Open()

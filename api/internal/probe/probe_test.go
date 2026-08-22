@@ -113,7 +113,7 @@ func TestInspectTellsRootZIPEntriesApart(t *testing.T) {
 		body      string
 		payloads  int
 	}{
-		{name: "theme", entryName: "theme.json", body: `{"name":"Midnight"}`, payloads: 0},
+		{name: "theme", entryName: "theme.json", body: `{"name":"Midnight"}`, payloads: 1},
 		{name: "character", entryName: "card.json", body: `{"spec":"chara_card_v3"}`, payloads: 1},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -137,6 +137,34 @@ func TestInspectTellsRootZIPEntriesApart(t *testing.T) {
 				t.Fatalf("payloads = %+v, want decoded %s", got.Payloads, test.entryName)
 			}
 		})
+	}
+}
+
+func TestAThemeBundleExposesItsJSONAndReferencedFiles(t *testing.T) {
+	file := zipEntries(t,
+		zipEntry{"theme.json", `{"format":3,"assets":[{"archivePath":"assets/host.woff2"}]}`, zip.Store},
+		zipEntry{"assets/host.woff2", "font fixture", zip.Store},
+	)
+	inspected, err := Inspect(
+		context.Background(), &recordingStore{data: file}, uuid.New(), int64(len(file)), "midnight.lumitheme",
+	)
+	if err != nil {
+		t.Fatalf("inspect theme bundle: %v", err)
+	}
+	if len(inspected.Payloads) != 1 || inspected.Payloads[0].Locator.Name != "theme.json" {
+		t.Fatalf("payloads = %+v, want theme.json", inspected.Payloads)
+	}
+	opened, err := inspected.OpenZIPEntry(context.Background(), "assets/host.woff2")
+	if err != nil {
+		t.Fatalf("open theme asset: %v", err)
+	}
+	defer opened.Close()
+	font, err := io.ReadAll(opened)
+	if err != nil {
+		t.Fatalf("read theme asset: %v", err)
+	}
+	if string(font) != "font fixture" {
+		t.Errorf("theme asset = %q, want the archived bytes", font)
 	}
 }
 

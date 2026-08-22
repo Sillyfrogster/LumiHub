@@ -169,7 +169,7 @@ func lossReport(declaration Declaration, subject CapabilitySubject) ([]RoleLoss,
 			Destination: support.Destination, Sample: block.TakeSample(written),
 		}
 		switch {
-		case support.Grade == SupportNone:
+		case support.Grade == SupportNone || matchesAny(support.DropWhen, written):
 			loss.Verdict = Dropped
 			loss.Destination = ""
 		case support.Grade == SupportPartial && matchesAny(support.Condition, written):

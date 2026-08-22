@@ -322,6 +322,10 @@ type ContentCondition struct {
 type RoleSupport struct {
 	Grade     SupportGrade
 	Condition *ContentCondition
+	// DropWhen identifies content for which this format has no counterpart at
+	// all. It lets a partially compatible required role remove the target from
+	// the menu instead of pretending an empty output would still be usable.
+	DropWhen *ContentCondition
 	// Destination names a nonstandard location for otherwise carried content.
 	Destination string
 }
@@ -519,6 +523,9 @@ func ValidateDeclaration(d Declaration) error {
 			if support.Grade == SupportPartial &&
 				(support.Condition == nil || support.Condition.Matches == nil || support.Condition.Description == "") {
 				return fmt.Errorf("%s %s partial support needs a content condition", role, direction)
+			}
+			if support.DropWhen != nil && support.DropWhen.Matches == nil {
+				return fmt.Errorf("%s %s drop condition needs a matcher", role, direction)
 			}
 		}
 	}

@@ -14,6 +14,7 @@ import (
 	"github.com/Sillyfrogster/LumiHub/api/internal/format/character"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format/lorebook"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format/preset"
+	"github.com/Sillyfrogster/LumiHub/api/internal/format/theme"
 	apihttp "github.com/Sillyfrogster/LumiHub/api/internal/http"
 	"github.com/Sillyfrogster/LumiHub/api/internal/linking"
 	"github.com/Sillyfrogster/LumiHub/api/internal/postgres"
@@ -40,7 +41,7 @@ func main() {
 
 	// Every format module is registered here and nowhere else.
 	registry := format.NewRegistry()
-	for _, module := range slices.Concat(character.Modules(), lorebook.Modules(), preset.Modules()) {
+	for _, module := range slices.Concat(character.Modules(), lorebook.Modules(), preset.Modules(), theme.Modules()) {
 		if err := registry.Register(module); err != nil {
 			log.Fatalf("format module: %v", err)
 		}
