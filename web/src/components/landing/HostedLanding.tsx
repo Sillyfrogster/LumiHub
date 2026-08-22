@@ -43,10 +43,7 @@ export function HostedLanding({
   return (
     <div className={styles.page}>
       <section className={styles.hero}>
-        <div className={styles.environment} aria-hidden="true">
-          <span className={styles.aperture} />
-          <span className={styles.host} />
-        </div>
+        <div className={styles.environment} aria-hidden="true" />
 
         <Shell className={styles.heroShell}>
           <div className={styles.heroCopy}>
@@ -75,10 +72,7 @@ export function HostedLanding({
             </ul>
           </div>
 
-          <div className={styles.mobileArt} aria-hidden="true">
-            <span className={styles.mobileAperture} />
-            <span className={styles.mobileHost} />
-          </div>
+          <div className={styles.mobileArt} aria-hidden="true" />
 
           <section
             className={styles.catalogSeam}
