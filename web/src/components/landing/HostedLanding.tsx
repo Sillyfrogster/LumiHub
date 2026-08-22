@@ -1,13 +1,4 @@
-import {
-  ArrowRight,
-  BookOpenText,
-  Cable,
-  Download,
-  PackageOpen,
-  Palette,
-  SlidersHorizontal,
-  UserRound,
-} from "lucide-react";
+import { ArrowRight, Cable, Download, FileCheck2 } from "lucide-react";
 import Link from "next/link";
 import { Shell } from "@/components/layout/Shell";
 import { Button } from "@/components/ui/Button";
@@ -17,12 +8,10 @@ import { KIND_LABELS } from "@/lib/kinds";
 import { HostedCatalogPreview } from "./HostedCatalogPreview";
 import styles from "./HostedLanding.module.css";
 
-const KINDS = [
-  { label: "Character", Icon: UserRound },
-  { label: "Lorebook", Icon: BookOpenText },
-  { label: "Preset", Icon: SlidersHorizontal },
-  { label: "Theme", Icon: Palette },
-  { label: "Pack", Icon: PackageOpen },
+const HERO_PROMISES = [
+  { label: "Source file intact", Icon: FileCheck2 },
+  { label: "Compatible exports", Icon: Download },
+  { label: "Linked delivery", Icon: Cable },
 ] as const;
 
 type HostedLandingProps = {
@@ -49,8 +38,8 @@ export function HostedLanding({
           <div className={styles.heroCopy}>
             <h1>AI roleplay, in one catalog.</h1>
             <p>
-              Characters, lorebooks, presets, themes, and packs—published
-              together without pretending they are the same thing.
+              Characters, lorebooks, and presets—one catalog, independent of any
+              single application&apos;s format.
             </p>
             <div className={styles.actions}>
               <Button href="/browse" size="large">
@@ -62,8 +51,11 @@ export function HostedLanding({
               </Button>
             </div>
 
-            <ul className={styles.kindIndex} aria-label="Catalog asset kinds">
-              {KINDS.map(({ label, Icon }) => (
+            <ul
+              className={styles.heroPromises}
+              aria-label="How Illarin works across applications"
+            >
+              {HERO_PROMISES.map(({ label, Icon }) => (
                 <li key={label}>
                   <Icon size={16} strokeWidth={1.35} aria-hidden="true" />
                   <span>{label}</span>
