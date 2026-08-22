@@ -23,10 +23,12 @@ export function ProfileListing({
 }) {
   const basePath = `/@${profile.handle}`;
   const initial = profile.handle.slice(0, 1).toUpperCase();
+  const isOwner = deletedAssets !== null;
 
   return (
     <div className={styles.page}>
       <header className={styles.profileHeader}>
+        <div className={styles.profileArt} aria-hidden="true" />
         <Shell className={styles.profileHeaderInner}>
           <div className={styles.portrait} aria-hidden="true">
             <span>{initial}</span>
@@ -35,32 +37,48 @@ export function ProfileListing({
             <h1 data-long={profile.handle.length > 20 || undefined}>
               @{profile.handle}
             </h1>
-            <p className={styles.introduction}>
-              Assets published by @{profile.handle}.
-            </p>
+            <div className={styles.scope}>
+              <strong>{isOwner ? "Owner view" : "Public profile"}</strong>
+              <span>
+                {isOwner
+                  ? "All active work and recoverable deletions"
+                  : "Published work"}
+              </span>
+            </div>
           </div>
         </Shell>
       </header>
 
-      <div className={styles.sectionBar}>
-        <Shell>
-          <nav className={styles.sections} aria-label="Profile sections">
-            <Link href={basePath} aria-current="page">
-              Creations
-            </Link>
-            {deletedAssets ? <Link href="#deleted">Deleted</Link> : null}
-          </nav>
-        </Shell>
-      </div>
+      {deletedAssets !== null ? (
+        <div className={styles.sectionBar}>
+          <Shell>
+            <nav className={styles.sections} aria-label="Profile sections">
+              <Link href={basePath} aria-current="page">
+                Creations
+              </Link>
+              <Link href="#deleted">
+                Deleted
+                <span>{deletedAssets.length}</span>
+              </Link>
+            </nav>
+          </Shell>
+        </div>
+      ) : null}
 
-      <BrowseResults
-        filters={filters}
-        initialPage={initialPage}
-        creator={profile.handle}
-        basePath={basePath}
-        heading="Latest creations"
-      />
-      {deletedAssets ? <DeletedAssets initialItems={deletedAssets} /> : null}
+      <div className={styles.work}>
+        <BrowseResults
+          filters={filters}
+          initialPage={initialPage}
+          creator={profile.handle}
+          basePath={basePath}
+          heading={isOwner ? "Your creations" : "Published work"}
+        />
+      </div>
+      {deletedAssets !== null ? (
+        <div className={styles.deletedRegion}>
+          <DeletedAssets initialItems={deletedAssets} />
+        </div>
+      ) : null}
     </div>
   );
 }
