@@ -8,6 +8,43 @@
   overflow: hidden;
   background: var(--color-media-surface);
   color: var(--color-media-text);
+  isolation: isolate;
+}
+
+.cover::before,
+.cover::after {
+  position: absolute;
+  z-index: 0;
+  content: "";
+  pointer-events: none;
+}
+
+.cover::before {
+  top: -13%;
+  right: -20%;
+  width: 88%;
+  height: 52%;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  clip-path: polygon(18% 0, 100% 0, 82% 100%, 0 100%);
+  transform: rotate(-16deg);
+}
+
+.cover::after {
+  right: -27%;
+  bottom: -35%;
+  width: 72%;
+  aspect-ratio: 1;
+  background: color-mix(in srgb, currentColor 5%, transparent);
+  clip-path: polygon(
+    50% 0,
+    58% 42%,
+    100% 50%,
+    58% 58%,
+    50% 100%,
+    42% 58%,
+    0 50%,
+    42% 42%
+  );
 }
 
 .cover[data-kind="lorebook"] {
@@ -19,6 +56,18 @@
   color: var(--color-media-muted);
 }
 
+.cover[data-kind="lorebook"]::before {
+  top: -8%;
+  right: 35%;
+  transform: rotate(18deg);
+}
+
+.cover[data-kind="lorebook"]::after {
+  right: -18%;
+  bottom: -42%;
+  transform: rotate(12deg);
+}
+
 .cover[data-kind="preset"] {
   background: color-mix(
     in srgb,
@@ -26,6 +75,19 @@
     var(--color-media-surface)
   );
   color: var(--color-media-text);
+}
+
+.cover[data-kind="preset"]::before {
+  top: 14%;
+  right: -28%;
+  transform: rotate(-8deg);
+}
+
+.cover[data-kind="preset"]::after {
+  right: auto;
+  bottom: -38%;
+  left: -24%;
+  transform: rotate(45deg);
 }
 
 .cover[data-kind="theme"] {
@@ -37,21 +99,50 @@
   color: var(--color-silver);
 }
 
+.cover[data-kind="theme"]::before {
+  top: -22%;
+  right: -8%;
+  width: 68%;
+  transform: rotate(24deg);
+}
+
+.cover[data-kind="theme"]::after {
+  right: -34%;
+  bottom: -28%;
+  transform: rotate(22.5deg);
+}
+
 .arch {
   position: relative;
   z-index: 1;
   display: grid;
-  width: 76px;
+  width: 90px;
   aspect-ratio: 1;
   place-items: center;
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, currentColor 11%, transparent);
+  isolation: isolate;
+}
+
+.arch::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  clip-path: polygon(
+    50% 0,
+    61% 39%,
+    100% 50%,
+    61% 61%,
+    50% 100%,
+    39% 61%,
+    0 50%,
+    39% 39%
+  );
 }
 
 .label {
   position: relative;
   z-index: 1;
-  font-size: 0.65rem;
+  font-size: var(--type-label-size);
   font-weight: 800;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -68,10 +159,6 @@
 
 @media (max-width: 500px) {
   .arch {
-    width: 48px;
-  }
-
-  .label {
-    font-size: 0.54rem;
+    width: 54px;
   }
 }

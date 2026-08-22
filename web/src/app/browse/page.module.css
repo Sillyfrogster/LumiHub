@@ -4,9 +4,9 @@
 
 .masthead {
   position: relative;
-  min-height: 206px;
+  min-height: 176px;
   overflow: hidden;
-  background: var(--color-media-surface);
+  background: var(--color-background);
   isolation: isolate;
 }
 
@@ -14,31 +14,31 @@
   position: relative;
   z-index: 2;
   display: flex;
-  min-height: 206px;
+  min-height: 176px;
   align-items: center;
 }
 
 .intro {
-  width: min(590px, 58%);
-  padding-block: 38px 48px;
-  color: var(--color-media-text);
+  width: min(470px, 42%);
+  padding-block: 28px 32px;
+  color: var(--color-text-primary);
   animation: lhRise 0.7s var(--ease) both;
 }
 
 .intro h1 {
   max-width: 500px;
   font-family: var(--font-display);
-  font-size: clamp(2.7rem, 4.4vw, 4.25rem);
+  font-size: clamp(var(--type-section-size), 4vw, var(--type-display-size));
   font-weight: 560;
   line-height: 0.98;
   letter-spacing: -0.035em;
 }
 
 .intro p {
-  max-width: 520px;
+  max-width: 48ch;
   margin-top: 12px;
-  color: var(--color-media-muted);
-  font-size: 0.88rem;
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
   line-height: 1.62;
 }
 
@@ -46,49 +46,75 @@
   position: absolute;
   z-index: -2;
   inset: 0;
+  background-image: url("../../assets/art/full/illarin-browse-aperture-light-v1.webp");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
   animation: lhArt 1s var(--ease) 0.08s both;
 }
 
-.friezeArt img {
-  object-fit: cover;
-  object-position: center 55%;
+:global(:root[data-theme="dark"]) .friezeArt {
+  background-image: url("../../assets/art/full/illarin-browse-aperture-dark-v1.webp");
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme])) .friezeArt {
+    background-image: url("../../assets/art/full/illarin-browse-aperture-dark-v1.webp");
+  }
 }
 
 .masthead::before {
   position: absolute;
   z-index: -1;
   inset: 0;
-  background: linear-gradient(
-    90deg,
-    var(--color-media-surface) 0%,
-    color-mix(in srgb, var(--color-media-surface) 90%, transparent) 32%,
-    transparent 76%
-  );
+  background: var(--color-background);
+  clip-path: polygon(0 0, 43% 0, 37% 100%, 0 100%);
   content: "";
+}
+
+@media (max-width: 1080px) {
+  .intro {
+    width: min(390px, 45%);
+  }
 }
 
 @media (max-width: 760px) {
   .masthead,
   .mastheadInner {
-    min-height: 190px;
+    min-height: 164px;
   }
 
   .intro {
-    width: min(100%, 530px);
-    padding-block: 32px 40px;
+    width: min(300px, 78%);
+    padding-block: 22px 26px;
   }
 
   .intro h1 {
-    font-size: clamp(2.6rem, 11vw, 3.5rem);
+    font-size: var(--type-section-size);
   }
 
   .intro p {
-    max-width: 46ch;
+    max-width: 34ch;
     margin-top: 8px;
-    font-size: 0.78rem;
+    font-size: 0.76rem;
   }
 
-  .friezeArt img {
-    object-position: 70% center;
+  .friezeArt {
+    background-image: url("../../assets/art/full/illarin-browse-aperture-light-phone-v1.webp");
+    background-position: center 50%;
+  }
+
+  :global(:root[data-theme="dark"]) .friezeArt {
+    background-image: url("../../assets/art/full/illarin-browse-aperture-dark-phone-v1.webp");
+  }
+
+  .masthead::before {
+    clip-path: polygon(0 0, 80% 0, 65% 100%, 0 100%);
+  }
+}
+
+@media (max-width: 760px) and (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme])) .friezeArt {
+    background-image: url("../../assets/art/full/illarin-browse-aperture-dark-phone-v1.webp");
   }
 }

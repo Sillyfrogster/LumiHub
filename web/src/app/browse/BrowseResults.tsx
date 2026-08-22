@@ -50,12 +50,14 @@ export function BrowseResults({
   creator,
   basePath = "/browse",
   heading = "Catalog",
+  headingVisuallyHidden = false,
 }: {
   filters: BrowseFilters;
   initialPage: BrowsePage | null;
   creator?: string;
   basePath?: string;
   heading?: string;
+  headingVisuallyHidden?: boolean;
 }) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -108,6 +110,8 @@ export function BrowseResults({
   );
   const activeVisibility =
     visibilityOverride ?? overview?.visibility ?? "blurred";
+  const applicationOptions =
+    overview?.platforms.filter((option) => option.value !== "raw") ?? [];
   const hasFilters = Boolean(
     filters.kind || filters.platform || filters.q || filters.facet?.length,
   );
@@ -176,9 +180,17 @@ export function BrowseResults({
   return (
     <Shell className={styles.shell}>
       <header className={styles.resultsHeader}>
-        <div className={styles.resultsHeaderContent}>
-          <div>
-            <h2 id="browse-heading">{heading}</h2>
+        <div
+          className={styles.resultsHeaderContent}
+          data-compact={headingVisuallyHidden || undefined}
+        >
+          <div className={styles.resultSummary}>
+            <h2
+              id="browse-heading"
+              className={headingVisuallyHidden ? "sr-only" : undefined}
+            >
+              {heading}
+            </h2>
             {overview ? (
               <p aria-live="polite">
                 {overview.total === 1
@@ -222,7 +234,8 @@ export function BrowseResults({
               </form>
             </search>
             <p className={styles.searchHint}>
-              Query names and descriptions. Use <code>tag:fantasy</code>
+              Search names, creator handles, and blurbs. Use{" "}
+              <code>tag:fantasy</code>
               {creator ? (
                 "."
               ) : (
@@ -291,14 +304,14 @@ export function BrowseResults({
             </div>
           </fieldset>
 
-          {overview?.platforms.length ? (
+          {applicationOptions.length ? (
             <fieldset className={styles.filterGroup}>
-              <legend>Export to</legend>
+              <legend>Works with</legend>
               <label className={styles.option}>
                 <input
                   type="radio"
                   name="platform"
-                  checked={!filters.platform}
+                  checked={!filters.platform || filters.platform === "raw"}
                   onChange={() =>
                     navigate({
                       ...filters,
@@ -307,9 +320,9 @@ export function BrowseResults({
                     })
                   }
                 />
-                <span>Any platform</span>
+                <span>Any app</span>
               </label>
-              {overview.platforms.map((platform) => (
+              {applicationOptions.map((platform) => (
                 <label
                   key={platform.value}
                   className={styles.option}
@@ -329,7 +342,9 @@ export function BrowseResults({
                       })
                     }
                   />
-                  <span>{platform.label}</span>
+                  <span>
+                    {platform.value === "risu" ? "RisuAI" : platform.label}
+                  </span>
                   <small>{platform.count}</small>
                 </label>
               ))}
@@ -390,6 +405,16 @@ export function BrowseResults({
               </p>
             ) : null}
           </fieldset>
+
+          <button
+            type="button"
+            className={styles.finishFilters}
+            onClick={() => setFiltersOpen(false)}
+          >
+            {overview
+              ? `View ${overview.total} ${overview.total === 1 ? "result" : "results"}`
+              : "View results"}
+          </button>
         </aside>
 
         <section

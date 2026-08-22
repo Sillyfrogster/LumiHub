@@ -1,5 +1,3 @@
-import Image from "next/image";
-import browseFrieze from "@/assets/art/full/illarin-browse-frieze-v1.webp";
 import { Shell } from "@/components/layout/Shell";
 import type { BrowseFilters, BrowsePage } from "@/lib/api/query";
 import { BrowseResults } from "./BrowseResults";
@@ -19,9 +17,7 @@ export function CatalogListing({
   return (
     <div className={styles.page}>
       <section className={styles.masthead}>
-        <div className={styles.friezeArt}>
-          <Image src={browseFrieze} alt="" fill priority sizes="100vw" />
-        </div>
+        <div className={styles.friezeArt} aria-hidden="true" />
         <Shell className={styles.mastheadInner}>
           <div className={styles.intro}>
             <h1>{title}</h1>
@@ -29,7 +25,12 @@ export function CatalogListing({
           </div>
         </Shell>
       </section>
-      <BrowseResults filters={filters} initialPage={initialPage} />
+      <BrowseResults
+        filters={filters}
+        initialPage={initialPage}
+        heading="Browse results"
+        headingVisuallyHidden
+      />
     </div>
   );
 }

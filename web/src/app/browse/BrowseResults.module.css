@@ -18,6 +18,29 @@
   align-items: start;
 }
 
+.resultSummary {
+  min-width: 0;
+}
+
+.resultsHeaderContent[data-compact] {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: end;
+}
+
+.resultsHeaderContent[data-compact] .resultSummary {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 84px;
+  padding-bottom: 9px;
+  text-align: right;
+}
+
+.resultsHeaderContent[data-compact] .searchRegion {
+  grid-column: 1;
+  grid-row: 1;
+}
+
 .resultsHeader h2 {
   font-family: var(--font-display);
   font-size: clamp(1.7rem, 3vw, 2.35rem);
@@ -120,6 +143,10 @@
   font-weight: 700;
 }
 
+.resultsHeaderContent[data-compact] .searchHint {
+  text-align: left;
+}
+
 .layout {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);
@@ -134,6 +161,10 @@
 }
 
 .filterToggle {
+  display: none;
+}
+
+.finishFilters {
   display: none;
 }
 
@@ -440,6 +471,11 @@
     gap: 15px;
   }
 
+  .resultsHeaderContent[data-compact] {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 24px;
+  }
+
   .searchHint {
     text-align: left;
   }
@@ -457,6 +493,25 @@
 
   .resultsHeaderContent {
     display: block;
+  }
+
+  .resultsHeaderContent[data-compact] {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .resultsHeaderContent[data-compact] .resultSummary {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+    padding-bottom: 0;
+    text-align: left;
+  }
+
+  .resultsHeaderContent[data-compact] .searchRegion {
+    grid-column: 1;
+    grid-row: 2;
   }
 
   .searchRegion {
@@ -526,10 +581,35 @@
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0 28px;
-    padding: 19px;
+    padding: 19px 19px 80px;
     border-radius: var(--radius-lg);
     background: var(--color-elevated);
     box-shadow: var(--shadow-soft);
+  }
+
+  .finishFilters {
+    position: sticky;
+    z-index: 2;
+    bottom: 12px;
+    display: inline-flex;
+    grid-column: 1 / -1;
+    width: 100%;
+    min-height: 48px;
+    align-items: center;
+    justify-content: center;
+    margin-top: 22px;
+    padding-inline: 18px;
+    border-radius: var(--radius-sm);
+    background: var(--color-text-primary);
+    box-shadow: var(--shadow-button);
+    color: var(--color-background);
+    font-size: 0.76rem;
+    font-weight: 900;
+  }
+
+  .finishFilters:hover {
+    box-shadow: var(--shadow-button-hover);
+    color: var(--color-background);
   }
 
   .filters[data-mobile-hidden] {
