@@ -5,6 +5,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { Shell } from "@/components/layout/Shell";
+import { ChipSet } from "@/components/ui/Chip";
 import { FormattingNotice, RichText } from "@/components/ui/RichText";
 import { type AssetDetail, fetchAsset } from "@/lib/api/query";
 import { assetMetadata } from "@/lib/asset-metadata";
@@ -39,34 +40,17 @@ function browseTagHref(value: string): string {
 
 const TAG_PREVIEW_LIMIT = 8;
 
-function TagLinks({ tags }: { tags: AssetDetail["tags"] }) {
-  return (
-    <ul className={styles.tagGrid}>
-      {tags.map((tag) => (
-        <li key={tag.value}>
-          <Link href={browseTagHref(tag.value)}>{tag.label}</Link>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 function TagShelf({ tags }: { tags: AssetDetail["tags"] }) {
-  const remaining = tags.slice(TAG_PREVIEW_LIMIT);
-
   return (
-    <div className={styles.tagShelf}>
-      <TagLinks tags={tags.slice(0, TAG_PREVIEW_LIMIT)} />
-      {remaining.length > 0 ? (
-        <details className={styles.moreTags}>
-          <summary>
-            <span className={styles.showTags}>Show all {tags.length} tags</span>
-            <span className={styles.hideTags}>Show fewer tags</span>
-          </summary>
-          <TagLinks tags={remaining} />
-        </details>
-      ) : null}
-    </div>
+    <ChipSet
+      className={styles.tagShelf}
+      limit={TAG_PREVIEW_LIMIT}
+      items={tags.map((tag) => ({
+        id: tag.value,
+        label: tag.label,
+        href: browseTagHref(tag.value),
+      }))}
+    />
   );
 }
 

@@ -28,6 +28,7 @@ import { splitAssetPageContent } from "@/lib/asset-page-content";
 import {
   BLOCK_GRID_GAP_PX,
   type BlockWidth,
+  elementTracks,
   ornamentPlacement,
   packBlockRows,
   suggestedBlockWidth,
@@ -113,16 +114,6 @@ function returnToBlock(blockId: string) {
   document.getElementById(anchor)?.scrollIntoView({ block: "start" });
   window.location.hash = anchor;
 }
-
-/** One row arrangement per layout preset the catalog can choose. */
-const LAYOUT_CLASS: Record<AssetBlock["layout"], string> = {
-  single: styles.single,
-  duo: styles.duo,
-  "main-aside": styles.mainAside,
-  trio: styles.trio,
-  "stack-2": styles.stack2,
-  "stack-3": styles.stack3,
-};
 
 /**
  * The asset's content, in page order. A reader is shown the blocks that carry
@@ -538,12 +529,19 @@ export function AssetBlocks({
                           </div>
                         ) : null}
                         <div
-                          className={LAYOUT_CLASS[block.layout]}
+                          className={styles.elements}
                           data-block-content
+                          style={
+                            {
+                              "--element-tracks": elementTracks(
+                                block.layout,
+                                block.elements.length,
+                              ),
+                            } as CSSProperties
+                          }
                         >
                           {block.elements.map((element) => (
                             <div
-                              style={{ gridArea: element.slot }}
                               key={element.id}
                               data-empty={element.isEmpty ? true : undefined}
                             >
@@ -552,6 +550,7 @@ export function AssetBlocks({
                                 isOwner={editingVisible}
                                 images={images}
                                 blockTitle={block.title}
+                                blockElements={block.elements.length}
                                 onExpand={() =>
                                   setExpanding({
                                     blockId: block.id,

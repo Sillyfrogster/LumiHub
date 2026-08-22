@@ -18,10 +18,9 @@
 .label {
   color: var(--color-text-secondary);
   font-family: var(--font-body);
-  font-size: 0.7rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-size: var(--type-label-size);
+  font-weight: 400;
+  line-height: var(--type-label-leading);
 }
 
 .expand {
@@ -63,11 +62,11 @@
   max-width: 70ch;
 }
 
-.blank {
+/* Scoped under .element because .element p is the more specific rule. */
+.element .blank {
   color: var(--color-text-secondary);
-  font-family: var(--font-display);
-  font-size: 1rem;
-  font-style: italic;
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-leading);
 }
 
 .lineExcerpt,
@@ -154,28 +153,24 @@
 
 .fieldList {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 12px;
-}
-
-.fieldList > div {
-  padding: 11px 13px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-muted);
+  align-items: baseline;
+  /* The names index the values, so they take what they need up to a third. */
+  grid-template-columns: fit-content(38%) minmax(0, 1fr);
+  gap: 11px 20px;
 }
 
 .fieldList dt {
   color: var(--color-text-secondary);
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: var(--type-label-size);
+  font-weight: 400;
+  line-height: var(--type-label-leading);
+  overflow-wrap: anywhere;
 }
 
 .fieldList dd {
-  margin-top: 4px;
   color: var(--color-text-primary);
+  font-size: var(--type-secondary-size);
+  line-height: var(--type-secondary-leading);
   overflow-wrap: anywhere;
 }
 
@@ -187,6 +182,8 @@
 
 .fieldList dd p {
   color: var(--color-text-primary);
+  font-size: var(--type-secondary-size);
+  line-height: var(--type-secondary-leading);
 }
 
 .note p {
@@ -273,10 +270,9 @@
   padding: 0 12px 8px 0;
   border-bottom: 1px solid var(--color-border);
   color: var(--color-text-secondary);
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: var(--type-label-size);
+  font-weight: 400;
+  line-height: var(--type-label-leading);
 }
 
 .entryTable th:last-child,
@@ -315,26 +311,10 @@
   color: var(--color-text-secondary);
 }
 
-.entryKeys {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  list-style: none;
-}
-
-.entryKeys > li {
-  padding: 3px 8px;
-  border-radius: var(--radius-pill);
-  background: var(--color-muted);
-  color: var(--color-text-secondary);
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  overflow-wrap: anywhere;
-}
-
 .entryNoKeys {
   color: var(--color-text-secondary);
-  font-size: 0.78rem;
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-leading);
 }
 
 @container block (max-width: 620px) {
@@ -364,10 +344,9 @@
     margin-bottom: 4px;
     color: var(--color-text-secondary);
     content: attr(data-column);
-    font-size: 0.66rem;
-    font-weight: 800;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+    font-size: var(--type-label-size);
+    font-weight: 400;
+    line-height: var(--type-label-leading);
   }
 
   .entryTable td:first-child,
@@ -379,6 +358,15 @@
 }
 
 @container element (max-width: 330px) {
+  .fieldList {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 3px;
+  }
+
+  .fieldList dd + dt {
+    margin-top: 11px;
+  }
+
   .heading {
     flex-direction: column;
     gap: 10px;
@@ -477,20 +465,7 @@
 }
 
 .choices {
-  display: flex;
-  flex-wrap: wrap;
-  margin-top: 7px;
-  gap: 5px;
-  list-style: none;
-}
-
-.choices > li {
-  padding: 3px 9px;
-  border-radius: var(--radius-pill);
-  background: var(--color-muted);
-  color: var(--color-text-secondary);
-  font-size: 0.74rem;
-  overflow-wrap: anywhere;
+  margin-top: 8px;
 }
 
 .pattern {

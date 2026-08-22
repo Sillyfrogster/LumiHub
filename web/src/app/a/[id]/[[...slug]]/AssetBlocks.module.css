@@ -168,51 +168,10 @@
   color: var(--color-text-primary);
 }
 
-.single,
-.stack2,
-.stack3 {
+/* The tracks come from elementTracks, not from a map of named slots. */
+.elements {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 26px;
-}
-
-.single {
-  grid-template-areas: "main";
-}
-
-.stack2 {
-  grid-template-areas:
-    "top"
-    "bottom";
-}
-
-.stack3 {
-  grid-template-areas:
-    "top"
-    "middle"
-    "bottom";
-}
-
-.duo,
-.trio {
-  display: grid;
-  gap: 26px 34px;
-}
-
-.duo {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-areas: "left right";
-}
-
-.trio {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-template-areas: "left middle right";
-}
-
-.mainAside {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-  grid-template-areas: "main aside";
+  grid-template-columns: var(--element-tracks, minmax(0, 1fr));
   gap: 26px 34px;
 }
 
@@ -361,9 +320,7 @@
 }
 
 @container block (max-width: 650px) {
-  .duo,
-  .trio,
-  .mainAside {
+  .elements {
     column-gap: 22px;
   }
 }
@@ -439,15 +396,9 @@
     gap: 7px;
   }
 
-  .single,
-  .stack2,
-  .stack3,
-  .duo,
-  .trio,
-  .mainAside {
+  .elements {
     display: flex;
     flex-direction: column;
-    grid-template-columns: minmax(0, 1fr);
   }
 
   .narrowNote {

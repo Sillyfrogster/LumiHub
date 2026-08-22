@@ -2,7 +2,14 @@
 
 import { Maximize2 } from "lucide-react";
 import Image from "next/image";
-import { type CSSProperties, useEffect, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  Fragment,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { ChipSet } from "@/components/ui/Chip";
 import { FormattingNotice, RichText } from "@/components/ui/RichText";
 import type {
   AssetElement,
@@ -14,6 +21,7 @@ import type {
   RegexScript,
   TypedValue,
 } from "@/lib/api/query";
+import { elementLabel } from "@/lib/element-label";
 import {
   contentItemCount,
   excerptDefinition,
@@ -24,11 +32,15 @@ import styles from "./ElementBody.module.css";
 
 const ITEM_WIDTHS = { small: "120px", medium: "180px", large: "260px" };
 
+/** Enough keys to recognise an entry by. The rest are one press away. */
+const KEY_PREVIEW_LIMIT = 6;
+
 export function ElementBody({
   element,
   isOwner,
   images = [],
   blockTitle,
+  blockElements = 2,
   onExpand,
   onReadMore,
 }: {
@@ -36,15 +48,17 @@ export function ElementBody({
   isOwner: boolean;
   images?: AssetImage[];
   blockTitle?: string;
+  /** How many elements the block renders, this one included. */
+  blockElements?: number;
   onExpand?: () => void;
   onReadMore?: () => void;
 }) {
   if (element.isEmpty && !isOwner) return null;
 
-  const label =
-    element.role && element.label && element.label !== blockTitle
-      ? element.label
-      : null;
+  const label = elementLabel(element, {
+    title: blockTitle,
+    elements: blockElements,
+  });
   const expandable = isOwner && onExpand && opensFullScreen(element.type);
 
   return (
@@ -67,7 +81,7 @@ export function ElementBody({
         </div>
       ) : null}
       {element.isEmpty ? (
-        <p className={styles.blank}>Nothing written here yet.</p>
+        <p className={styles.blank}>Empty</p>
       ) : (
         <>
           <ExcerptedElementContent
@@ -256,12 +270,12 @@ export function ElementContent({
     return (
       <dl className={styles.fieldList}>
         {content.fields.slice(0, itemLimit).map((field, index) => (
-          <div key={`${index}-${field.name ?? ""}`}>
+          <Fragment key={`${index}-${field.name ?? ""}`}>
             <dt>{field.name || "Unnamed"}</dt>
             <dd>
               <RichText text={field.value} className={styles.tight} />
             </dd>
-          </div>
+          </Fragment>
         ))}
       </dl>
     );
@@ -436,10 +450,10 @@ function SettingGroup({
   return (
     <dl className={styles.fieldList}>
       {supplied.map((setting) => (
-        <div key={setting.id ?? setting.name}>
+        <Fragment key={setting.id ?? setting.name}>
           <dt>{setting.name}</dt>
           <dd>{writeValue(setting.value)}</dd>
-        </div>
+        </Fragment>
       ))}
     </dl>
   );
@@ -473,12 +487,14 @@ function VariableSchema({
             <RichText text={variable.description} />
           ) : null}
           {variable.options && variable.options.length > 0 ? (
-            <ul className={styles.choices}>
-              {variable.options.map((option, position) => (
-                // biome-ignore lint/suspicious/noArrayIndexKey: Choices stay ordered and hold no local state.
-                <li key={position}>{option.label || option.value}</li>
-              ))}
-            </ul>
+            <ChipSet
+              className={styles.choices}
+              limit={KEY_PREVIEW_LIMIT}
+              items={variable.options.map((option, position) => ({
+                id: `${position}-${option.value}`,
+                label: option.label || option.value,
+              }))}
+            />
           ) : null}
         </li>
       ))}
@@ -544,12 +560,13 @@ function EntryTable({ entries }: { entries: LorebookEntry[] }) {
                     {entry.constant ? "Always on" : "No keys"}
                   </span>
                 ) : (
-                  <ul className={styles.entryKeys}>
-                    {/* A book may list the same key word twice. */}
-                    {entry.keys.map((key, position) => (
-                      <li key={`${position}-${key}`}>{key}</li>
-                    ))}
-                  </ul>
+                  <ChipSet
+                    limit={KEY_PREVIEW_LIMIT}
+                    items={entry.keys.map((key, position) => ({
+                      id: `${position}-${key}`,
+                      label: key,
+                    }))}
+                  />
                 )}
               </td>
               <td data-column="Text">

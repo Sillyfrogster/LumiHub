@@ -65,6 +65,23 @@ export const LAYOUT_LABELS: Record<BlockLayout, string> = {
   "stack-3": "Stack 3",
 };
 
+const ONE_COLUMN = "minmax(0, 1fr)";
+
+/**
+ * The columns a block's elements arrange into, given how many of them the page
+ * actually renders. An element nobody sees holds no slot, so a trio whose
+ * middle element is empty is two columns rather than three with a hole in it.
+ */
+export function elementTracks(layout: BlockLayout, rendered: number): string {
+  const columns = Math.min(Math.max(rendered, 1), LAYOUTS[layout].slots.length);
+  if (columns === 1) return ONE_COLUMN;
+  if (layout === "main-aside") return "minmax(0, 2fr) minmax(0, 1fr)";
+  if (layout === "duo" || layout === "trio") {
+    return `repeat(${columns}, ${ONE_COLUMN})`;
+  }
+  return ONE_COLUMN;
+}
+
 export function layoutChoiceIssue(
   layout: BlockLayout,
   width: BlockWidth,

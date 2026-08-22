@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   contentItemCount,
+  elementTracks,
   fitsInTheSheet,
   INLINE_ITEM_LIMIT,
   LAYOUTS,
@@ -450,5 +451,36 @@ describe("where an element is edited", () => {
     expect(
       fitsInTheSheet({ type: "prose", content: { text: "x".repeat(9000) } }),
     ).toBe(true);
+  });
+});
+
+describe("the columns a block's elements arrange into", () => {
+  test("a stack is one column whatever it holds", () => {
+    expect(elementTracks("single", 1)).toBe("minmax(0, 1fr)");
+    expect(elementTracks("stack-2", 2)).toBe("minmax(0, 1fr)");
+    expect(elementTracks("stack-3", 3)).toBe("minmax(0, 1fr)");
+  });
+
+  test("a full row takes the columns its layout declares", () => {
+    expect(elementTracks("duo", 2)).toBe("repeat(2, minmax(0, 1fr))");
+    expect(elementTracks("trio", 3)).toBe("repeat(3, minmax(0, 1fr))");
+    expect(elementTracks("main-aside", 2)).toBe(
+      "minmax(0, 2fr) minmax(0, 1fr)",
+    );
+  });
+
+  test("a row closes up around what it no longer renders", () => {
+    expect(elementTracks("trio", 2)).toBe("repeat(2, minmax(0, 1fr))");
+    expect(elementTracks("trio", 1)).toBe("minmax(0, 1fr)");
+    expect(elementTracks("duo", 1)).toBe("minmax(0, 1fr)");
+    expect(elementTracks("main-aside", 1)).toBe("minmax(0, 1fr)");
+  });
+
+  test("a block rendering nothing still declares one column", () => {
+    expect(elementTracks("trio", 0)).toBe("minmax(0, 1fr)");
+  });
+
+  test("more elements than slots take the slots the layout has", () => {
+    expect(elementTracks("duo", 5)).toBe("repeat(2, minmax(0, 1fr))");
   });
 });
