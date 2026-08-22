@@ -235,13 +235,14 @@ select media.id, media.role, media.width, media.height,
    and media.height is not null
    and media.blob_id is not null
  order by (media.id = a.cover_media_id) desc,
-          case media.role
-            when 'avatar' then 1
-            when 'avatar_alt' then 2
-            when 'gallery' then 3
-            when 'expression' then 4
-            else 5
-          end,
+		  case media.role
+		    when 'avatar' then 1
+		    when 'avatar_alt' then 2
+		    when 'gallery' then 3
+		    when 'expression' then 4
+		    when 'pack_item' then 5
+		    else 6
+		  end,
           media.created_at desc, media.id desc
 `
 

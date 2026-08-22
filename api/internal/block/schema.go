@@ -112,4 +112,8 @@ var schemas = map[Type]schema{
 		},
 		decode: decodeAs[StylesheetSet],
 	},
+	TypeRecordList: {
+		empty:  func() Content { return RecordList{Schema: LumiaRecordSchema, Records: []LumiaRecord{}} },
+		decode: decodeStoredRecordList,
+	},
 }

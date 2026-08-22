@@ -1,6 +1,12 @@
 import type { BrowseFilters, BrowseKind } from "./api/query";
 
-const KINDS = new Set<BrowseKind>(["character", "lorebook", "preset", "theme"]);
+const KINDS = new Set<BrowseKind>([
+  "character",
+  "lorebook",
+  "preset",
+  "theme",
+  "pack",
+]);
 
 function first(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;

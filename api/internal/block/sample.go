@@ -94,6 +94,10 @@ func sampleOf(content Content) Sample {
 			sample.Images = append(sample.Images, image.MediaID)
 		}
 		return sample
+	case RecordList:
+		return textSample(held.Records, func(item LumiaRecord) string {
+			return opening(item.LumiaName)
+		})
 	default:
 		return Sample{}
 	}

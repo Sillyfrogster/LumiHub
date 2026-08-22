@@ -16,7 +16,7 @@ export default async function BrowsePage({
   return (
     <CatalogListing
       title="Browse"
-      introduction="Find characters, lorebooks, presets, and themes. Narrow by kind, the app you use, or what the asset includes."
+      introduction="Find characters, lorebooks, presets, themes, and packs. Narrow by kind, the app you use, or what the asset includes."
       filters={filters}
       initialPage={initialPage}
     />

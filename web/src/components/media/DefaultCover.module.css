@@ -112,6 +112,29 @@
   transform: rotate(22.5deg);
 }
 
+.cover[data-kind="pack"] {
+  background: color-mix(
+    in srgb,
+    var(--color-media-text) 6%,
+    var(--color-media-surface)
+  );
+  color: var(--color-media-text);
+}
+
+.cover[data-kind="pack"]::before {
+  top: -18%;
+  right: -2%;
+  width: 58%;
+  transform: rotate(34deg);
+}
+
+.cover[data-kind="pack"]::after {
+  right: auto;
+  bottom: -32%;
+  left: -20%;
+  transform: rotate(12deg);
+}
+
 .arch {
   position: relative;
   z-index: 1;

@@ -12,6 +12,8 @@ export type ArrangeAssetBlocksRequest =
   components["schemas"]["ArrangeAssetBlocksRequest"];
 export type EntryTableContent = components["schemas"]["EntryTableContent"];
 export type LorebookEntry = EntryTableContent["entries"][number];
+export type RecordListContent = components["schemas"]["RecordListContent"];
+export type LumiaRecord = RecordListContent["records"][number];
 export type PromptListContent = components["schemas"]["PromptListContent"];
 export type PromptGroup = PromptListContent["groups"][number];
 export type PromptFragment = PromptListContent["fragments"][number];
@@ -201,7 +203,7 @@ export async function addAssetBlock(
 export async function addAssetImage(
   assetId: string,
   file: File,
-  role: "expression" | "gallery",
+  role: components["schemas"]["AddMediaRequest"]["role"],
 ): Promise<string> {
   const body = new FormData();
   body.append("metadata", JSON.stringify({ role }));

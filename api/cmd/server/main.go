@@ -13,6 +13,7 @@ import (
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format/character"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format/lorebook"
+	"github.com/Sillyfrogster/LumiHub/api/internal/format/pack"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format/preset"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format/theme"
 	apihttp "github.com/Sillyfrogster/LumiHub/api/internal/http"
@@ -41,7 +42,7 @@ func main() {
 
 	// Every format module is registered here and nowhere else.
 	registry := format.NewRegistry()
-	for _, module := range slices.Concat(character.Modules(), lorebook.Modules(), preset.Modules(), theme.Modules()) {
+	for _, module := range slices.Concat(character.Modules(), lorebook.Modules(), preset.Modules(), theme.Modules(), pack.Modules()) {
 		if err := registry.Register(module); err != nil {
 			log.Fatalf("format module: %v", err)
 		}
@@ -50,7 +51,7 @@ func main() {
 		log.Fatalf("format declarations: %v", err)
 	}
 
-	svc := asset.NewServiceWithProbeLimits(pool, registry, blob, cfg.ProbeLimits)
+	svc := asset.NewServiceForSite(pool, registry, blob, cfg.ProbeLimits, cfg.SiteURL)
 	// Changing what a format declares is a deploy, so the deploy is what
 	// recomputes the loss reports the declaration invalidated.
 	recomputed, err := svc.RecomputeStaleExportProjections(context.Background())

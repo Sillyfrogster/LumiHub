@@ -15,6 +15,7 @@ const (
 	PresetNudges      DefinitionID = "nudges"
 	ThemeCore         DefinitionID = "theme_core"
 	ThemeStylesheet   DefinitionID = "stylesheet"
+	PackCore          DefinitionID = "pack_core"
 	Messages          DefinitionID = "messages"
 	Expressions       DefinitionID = "expressions"
 	Lorebook          DefinitionID = "lorebook"
@@ -317,6 +318,20 @@ var theme = []Definition{
 	},
 }
 
+var pack = []Definition{
+	{
+		ID:       PackCore,
+		Title:    "Pack items",
+		Required: true,
+		Hideable: false,
+		Elements: []DefinedElement{
+			{Role: RolePackItems, Type: TypeRecordList, Pinned: true},
+		},
+		Layouts: []Layout{Single},
+		Width:   Full,
+	},
+}
+
 // shared is the seven definitions every kind lists. They hold the parts no
 // file format carries, whatever a creator is building.
 var shared = []Definition{
@@ -402,6 +417,7 @@ var catalogs = map[string][]Definition{
 	"lorebook":  lorebook,
 	"preset":    preset,
 	"theme":     theme,
+	"pack":      pack,
 }
 
 // Catalog returns the block definitions a kind declares, in page order. Every

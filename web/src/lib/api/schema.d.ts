@@ -880,7 +880,8 @@ export interface components {
         | components["schemas"]["SettingGroupContent"]
         | components["schemas"]["ScriptListContent"]
         | components["schemas"]["ColorSetContent"]
-        | components["schemas"]["StylesheetSetContent"];
+        | components["schemas"]["StylesheetSetContent"]
+        | components["schemas"]["RecordListContent"];
     };
     /** @description One piece of content. Its role is what import and export read, and it travels with the element wherever the creator moves it. */
     AssetElement: {
@@ -913,7 +914,8 @@ export interface components {
         | components["schemas"]["SettingGroupContent"]
         | components["schemas"]["ScriptListContent"]
         | components["schemas"]["ColorSetContent"]
-        | components["schemas"]["StylesheetSetContent"];
+        | components["schemas"]["StylesheetSetContent"]
+        | components["schemas"]["RecordListContent"];
     };
     ProseContent: {
       text: string;
@@ -1151,6 +1153,28 @@ export interface components {
         data: string;
       }[];
     };
+    /** @description Ordered records whose field schema is one of the closed schemas Illarin names in code. A creator chooses no columns of their own. */
+    RecordListContent: {
+      /** @enum {string} */
+      schema: "lumia";
+      records: {
+        /** Format: uuid */
+        id?: string;
+        lumiaName: string;
+        lumiaDefinition: string;
+        lumiaPersonality: string;
+        lumiaBehavior: string;
+        /**
+         * Format: uuid
+         * @description The asset-scoped media id for this item's avatar.
+         */
+        avatarUrl?: string;
+        /** @enum {integer} */
+        genderIdentity: 0 | 1 | 2;
+        authorName: string;
+        version: number;
+      }[];
+    };
     /** @description A preset's find and replace scripts, in the order they run. */
     ScriptListContent: {
       scripts: {
@@ -1199,7 +1223,8 @@ export interface components {
       | "setting_group"
       | "script_list"
       | "color_set"
-      | "stylesheet_set";
+      | "stylesheet_set"
+      | "record_list";
     /**
      * @description How large the images inside an element are drawn. It names what it controls, and no element type declares a measurement of its own.
      * @enum {string}
@@ -1243,7 +1268,7 @@ export interface components {
       /** Format: uuid */
       id: string;
       /** @enum {string} */
-      kind: "character" | "lorebook" | "preset" | "theme";
+      kind: "character" | "lorebook" | "preset" | "theme" | "pack";
       name: string;
       /** @description The catalog blurb the creator wrote for a person. Never the file's own description, which is a prompt written for a model. */
       blurb: string;
@@ -1354,7 +1379,7 @@ export interface components {
       id: string;
       name: string;
       /** @enum {string} */
-      kind: "character" | "lorebook" | "preset" | "theme";
+      kind: "character" | "lorebook" | "preset" | "theme" | "pack";
       /** Format: date-time */
       deletedAt: string;
       /** Format: date-time */
@@ -1384,7 +1409,8 @@ export interface components {
         | "expression"
         | "gallery"
         | "avatar_alt"
-        | "perspective_layer";
+        | "perspective_layer"
+        | "pack_item";
       isCover: boolean;
       detailUrl: string;
       thumbUrl: string;
@@ -1409,7 +1435,7 @@ export interface components {
       name: string;
       creator: string;
       /** @enum {string} */
-      kind: "character" | "lorebook" | "preset" | "theme";
+      kind: "character" | "lorebook" | "preset" | "theme" | "pack";
       /** @description Null on a draft whose creator has not answered the adult content question. */
       isNsfw: boolean | null;
       /**
@@ -1458,7 +1484,8 @@ export interface components {
         | "expression"
         | "gallery"
         | "avatar_alt"
-        | "perspective_layer";
+        | "perspective_layer"
+        | "pack_item";
     };
     Media: {
       /** Format: uuid */
@@ -1471,7 +1498,8 @@ export interface components {
         | "expression"
         | "gallery"
         | "avatar_alt"
-        | "perspective_layer";
+        | "perspective_layer"
+        | "pack_item";
       width: number;
       height: number;
       derivativeVersion: number;
@@ -2280,7 +2308,7 @@ export interface operations {
   listAssets: {
     parameters: {
       query?: {
-        kind?: "character" | "lorebook" | "preset" | "theme";
+        kind?: "character" | "lorebook" | "preset" | "theme" | "pack";
         platform?: string;
         /** @description Scope the listing to one creator's public profile. */
         creator?: string;

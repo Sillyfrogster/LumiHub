@@ -12,6 +12,7 @@ import { fitsInTheSheet, opensFullScreen } from "@/lib/page-arrangement";
 import styles from "./BlockSheet.module.css";
 import { replaceAt, without } from "./CollectionEditor";
 import { EntryTableEditor } from "./EntryTableEditor";
+import { PackEditor } from "./PackEditor";
 import {
   PromptListEditor,
   ScriptListEditor,
@@ -228,6 +229,29 @@ export function ElementFields({
             ...element,
             content: { entries },
             isEmpty: entries.every((entry) => entry.text.trim() === ""),
+          })
+        }
+      />
+    );
+  }
+
+  if (
+    element.type === "record_list" &&
+    "schema" in element.content &&
+    element.content.schema === "lumia"
+  ) {
+    return (
+      <PackEditor
+        assetId={assetId}
+        content={element.content}
+        images={images}
+        pending={pending}
+        onImageAdded={onImageAdded}
+        onChange={(content) =>
+          onChange({
+            ...element,
+            content,
+            isEmpty: content.records.length === 0,
           })
         }
       />
@@ -789,6 +813,8 @@ function elementHint(type: AssetElement["type"]): string {
       return "Each variable is one thing a reader chooses before the preset runs.";
     case "script_list":
       return "Each script finds something and writes something else in its place.";
+    case "record_list":
+      return "Each Lumia keeps its identity, writing, and avatar together in Pack order.";
   }
 }
 function capitalize(value: string) {

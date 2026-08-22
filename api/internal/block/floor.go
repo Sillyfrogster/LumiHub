@@ -62,6 +62,14 @@ var contentFloors = map[string][]Requirement{
 			Role:   RoleThemeTokens,
 		},
 	},
+	"pack": {
+		{
+			ID:     "items",
+			Label:  "Item",
+			Detail: "Add at least one item to the pack.",
+			Role:   RolePackItems,
+		},
+	},
 }
 
 // ContentFloor measures a kind's content requirements against an asset's

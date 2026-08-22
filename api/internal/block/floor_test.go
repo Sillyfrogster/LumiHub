@@ -106,8 +106,8 @@ func TestTheFloorPointsAtTheBlockHoldingTheContent(t *testing.T) {
 	}
 }
 
-func TestAKindWithNoFloorAsksForNothingBeyondTheHeader(t *testing.T) {
-	if checks := ContentFloor("pack", nil); len(checks) != 0 {
-		t.Errorf("pack floor = %+v, want nothing until the kind is built", checks)
+func TestAnUnknownKindHasNoContentFloor(t *testing.T) {
+	if checks := ContentFloor("unknown", nil); len(checks) != 0 {
+		t.Errorf("unknown floor = %+v, want no requirements", checks)
 	}
 }

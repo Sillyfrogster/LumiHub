@@ -32,15 +32,16 @@ export function AssetMedia({
   visibility,
 }: AssetMediaProps) {
   const { account } = useAuth();
+  const presentationMedia = media.filter((image) => image.role !== "pack_item");
   const [chosen, setChosen] = useState<number | null>(() => {
-    const cover = media.findIndex((image) => image.isCover);
+    const cover = presentationMedia.findIndex((image) => image.isCover);
     return cover >= 0 ? cover : null;
   });
   const [failed, setFailed] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const [signedOutVisibility, setSignedOutVisibility] =
     useState<NsfwVisibility>();
-  const shown = chosen === null ? undefined : media[chosen];
+  const shown = chosen === null ? undefined : presentationMedia[chosen];
   const useFallback = failed || !shown;
   const showClear =
     visibility === "shown" || signedOutVisibility === "shown" || revealed;
@@ -103,15 +104,16 @@ export function AssetMedia({
         ) : null}
       </div>
 
-      {media.length > 1 || (media.length === 1 && chosen === null) ? (
+      {presentationMedia.length > 1 ||
+      (presentationMedia.length === 1 && chosen === null) ? (
         <ul className={styles.strip}>
-          {media.map((image, index) => (
+          {presentationMedia.map((image, index) => (
             <li key={image.id}>
               <button
                 type="button"
                 className={index === chosen ? styles.pickedThumb : styles.thumb}
                 aria-current={index === chosen}
-                aria-label={`Image ${index + 1} of ${media.length}`}
+                aria-label={`Image ${index + 1} of ${presentationMedia.length}`}
                 onClick={() => {
                   setChosen(index);
                   setFailed(false);

@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: "Illarin",
   description:
-    "Discover characters, lorebooks, presets, and themes while keeping every creator's source file intact.",
+    "Discover characters, lorebooks, presets, themes, and packs while keeping every creator's source file intact.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

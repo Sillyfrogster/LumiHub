@@ -36,6 +36,7 @@ const KINDS: Array<{ value?: BrowseKind; label: string }> = [
   { value: "lorebook", label: "Lorebooks" },
   { value: "preset", label: "Presets" },
   { value: "theme", label: "Themes" },
+  { value: "pack", label: "Packs" },
 ];
 
 const VISIBILITY: Array<{ value: NsfwVisibility; label: string }> = [

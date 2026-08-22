@@ -219,12 +219,17 @@ func (s *Service) exportImages(
 ) (*format.ExportMedia, map[uuid.UUID]format.ExportMedia, error) {
 	wanted := make([]uuid.UUID, 0)
 	for _, element := range subject.elements() {
-		set, isSet := element.Content.(block.ImageSet)
-		if !isSet {
-			continue
-		}
-		for _, image := range set.Images {
-			wanted = append(wanted, image.MediaID)
+		switch content := element.Content.(type) {
+		case block.ImageSet:
+			for _, image := range content.Images {
+				wanted = append(wanted, image.MediaID)
+			}
+		case block.RecordList:
+			for _, record := range content.Records {
+				if record.AvatarURL != nil {
+					wanted = append(wanted, *record.AvatarURL)
+				}
+			}
 		}
 	}
 	var held pgtype.UUID
@@ -262,11 +267,13 @@ func (s *Service) exportImages(
 	}
 
 	images := make(map[uuid.UUID]format.ExportMedia, len(blobs))
+	private := subject.lifecycle == LifecycleDraft
 	for mediaID, blobID := range blobs {
 		picture, err := s.readBlob(ctx, blobID)
 		if err != nil {
 			return nil, nil, fmt.Errorf("read picture %s: %w", mediaID, err)
 		}
+		picture.URL = s.exportMediaURL(mediaID, private)
 		images[mediaID] = picture
 	}
 	var cover *format.ExportMedia
@@ -277,6 +284,10 @@ func (s *Service) exportImages(
 		}
 	}
 	return cover, images, nil
+}
+
+func (s *Service) exportMediaURL(mediaID uuid.UUID, private bool) string {
+	return s.siteURL + s.variantURL(mediaID, "detail", false, private)
 }
 
 func (s *Service) readBlob(ctx context.Context, blobID uuid.UUID) (format.ExportMedia, error) {

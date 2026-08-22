@@ -336,7 +336,7 @@ paths:
         -
           name: kind
           in: query
-          schema: { type: string, enum: [character, lorebook, preset, theme] }
+          schema: { type: string, enum: [character, lorebook, preset, theme, pack] }
         - { name: platform, in: query, schema: { type: string } }
         -
           name: creator
@@ -1224,6 +1224,7 @@ components:
             - $ref: "#/components/schemas/ScriptListContent"
             - $ref: "#/components/schemas/ColorSetContent"
             - $ref: "#/components/schemas/StylesheetSetContent"
+            - $ref: "#/components/schemas/RecordListContent"
     AssetElement:
       type: object
       description: >-
@@ -1268,6 +1269,7 @@ components:
             - $ref: "#/components/schemas/ScriptListContent"
             - $ref: "#/components/schemas/ColorSetContent"
             - $ref: "#/components/schemas/StylesheetSetContent"
+            - $ref: "#/components/schemas/RecordListContent"
     ProseContent:
       type: object
       required: [text]
@@ -1627,6 +1629,34 @@ components:
               path: { type: string }
               mediaType: { type: string }
               data: { type: string, format: byte }
+    RecordListContent:
+      type: object
+      required: [schema, records]
+      description: >-
+        Ordered records whose field schema is one of the closed schemas Illarin
+        names in code. A creator chooses no columns of their own.
+      properties:
+        schema: { type: string, enum: [lumia] }
+        records:
+          type: array
+          items:
+            type: object
+            required:
+              [lumiaName, lumiaDefinition, lumiaPersonality, lumiaBehavior,
+               genderIdentity, authorName, version]
+            properties:
+              id: { type: string, format: uuid }
+              lumiaName: { type: string }
+              lumiaDefinition: { type: string }
+              lumiaPersonality: { type: string }
+              lumiaBehavior: { type: string }
+              avatarUrl:
+                description: The asset-scoped media id for this item's avatar.
+                type: string
+                format: uuid
+              genderIdentity: { type: integer, enum: [0, 1, 2] }
+              authorName: { type: string }
+              version: { type: integer, minimum: 1 }
     ScriptListContent:
       type: object
       required: [scripts]
@@ -1688,6 +1718,7 @@ components:
           script_list,
           color_set,
           stylesheet_set,
+          record_list,
         ]
     ItemSize:
       type: string
@@ -1748,7 +1779,7 @@ components:
          visibility]
       properties:
         id: { type: string, format: uuid }
-        kind: { type: string, enum: [character, lorebook, preset, theme] }
+        kind: { type: string, enum: [character, lorebook, preset, theme, pack] }
         name: { type: string }
         blurb:
           type: string
@@ -1942,7 +1973,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
-        kind: { type: string, enum: [character, lorebook, preset, theme] }
+        kind: { type: string, enum: [character, lorebook, preset, theme, pack] }
         deletedAt: { type: string, format: date-time }
         recoverableUntil: { type: string, format: date-time }
     WithholdAssetRequest:
@@ -1976,7 +2007,7 @@ components:
         id: { type: string, format: uuid }
         role:
           type: string
-          enum: [avatar, expression, gallery, avatar_alt, perspective_layer]
+          enum: [avatar, expression, gallery, avatar_alt, perspective_layer, pack_item]
         isCover: { type: boolean }
         detailUrl: { type: string }
         thumbUrl: { type: string }
@@ -2012,7 +2043,7 @@ components:
         id: { type: string, format: uuid }
         name: { type: string }
         creator: { type: string }
-        kind: { type: string, enum: [character, lorebook, preset, theme] }
+        kind: { type: string, enum: [character, lorebook, preset, theme, pack] }
         isNsfw:
           description: >-
             Null on a draft whose creator has not answered the adult content
@@ -2075,7 +2106,7 @@ components:
       properties:
         role:
           type: string
-          enum: [avatar, expression, gallery, avatar_alt, perspective_layer]
+          enum: [avatar, expression, gallery, avatar_alt, perspective_layer, pack_item]
     Media:
       type: object
       required: [id, assetId, role, width, height, derivativeVersion]
@@ -2084,7 +2115,7 @@ components:
         assetId: { type: string, format: uuid }
         role:
           type: string
-          enum: [avatar, expression, gallery, avatar_alt, perspective_layer]
+          enum: [avatar, expression, gallery, avatar_alt, perspective_layer, pack_item]
         width: { type: integer, minimum: 1 }
         height: { type: integer, minimum: 1 }
         derivativeVersion: { type: integer, minimum: 1 }

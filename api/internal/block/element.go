@@ -30,6 +30,7 @@ const (
 	TypeScriptList     Type = "script_list"
 	TypeColorSet       Type = "color_set"
 	TypeStylesheetSet  Type = "stylesheet_set"
+	TypeRecordList     Type = "record_list"
 )
 
 // Role is what an element's content means, and it is the whole of what import
@@ -69,6 +70,7 @@ const (
 	RoleThemeTokens        Role = "theme_tokens"
 	RoleThemeControls      Role = "theme_controls"
 	RoleStylesheets        Role = "stylesheets"
+	RolePackItems          Role = "pack_items"
 )
 
 // Roles returns the semantic vocabulary in the order a report reads it, which
@@ -82,6 +84,7 @@ func Roles() []Role {
 		RolePromptFragments, RolePromptVariables, RoleSamplerSettings,
 		RoleCompletionSettings, RoleAdvancedSettings, RolePromptNudges,
 		RoleRegexScripts, RoleThemeTokens, RoleThemeControls, RoleStylesheets,
+		RolePackItems,
 	}
 }
 
@@ -94,7 +97,7 @@ func (r Role) Known() bool {
 		RoleExpressions, RoleLorebookEntries, RolePromptFragments,
 		RolePromptVariables, RoleSamplerSettings, RoleCompletionSettings,
 		RoleAdvancedSettings, RolePromptNudges, RoleRegexScripts,
-		RoleThemeTokens, RoleThemeControls, RoleStylesheets:
+		RoleThemeTokens, RoleThemeControls, RoleStylesheets, RolePackItems:
 		return true
 	default:
 		return false
@@ -408,6 +411,8 @@ func DecodeContent(elementType Type, raw json.RawMessage) (Content, error) {
 		return decodeColorSet(raw)
 	case TypeStylesheetSet:
 		return decodeStylesheetSet(raw)
+	case TypeRecordList:
+		return decodeRecordList(raw)
 	case TypeImageSet:
 		var incoming struct {
 			Images *[]ImageItem `json:"images"`
@@ -542,6 +547,7 @@ var labels = map[Role]string{
 	RoleThemeTokens:        "Palette",
 	RoleThemeControls:      "Theme controls",
 	RoleStylesheets:        "Stylesheets",
+	RolePackItems:          "Items",
 }
 
 // typeLabels name an element that carries no role, so a removal confirmation
@@ -560,6 +566,7 @@ var typeLabels = map[Type]string{
 	TypeScriptList:     "Regex scripts",
 	TypeColorSet:       "Palette",
 	TypeStylesheetSet:  "Stylesheets",
+	TypeRecordList:     "Records",
 }
 
 // Label returns the element's wording, from its role where it has one and from
@@ -596,6 +603,7 @@ var roleTypes = map[Role][]Type{
 	RoleThemeTokens:        {TypeColorSet},
 	RoleThemeControls:      {TypeSettingGroup},
 	RoleStylesheets:        {TypeStylesheetSet},
+	RolePackItems:          {TypeRecordList},
 }
 
 // Label returns the role's wording on the page.

@@ -133,6 +133,10 @@ func elementItems(content Content) []any {
 		for _, item := range value.Assets {
 			items = append(items, item)
 		}
+	case RecordList:
+		for _, item := range value.Records {
+			items = append(items, item)
+		}
 	}
 	return items
 }

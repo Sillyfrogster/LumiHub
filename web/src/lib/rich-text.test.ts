@@ -320,6 +320,16 @@ describe("which of an element's text is prose", () => {
         },
       }),
     ).toEqual(["How she sounds"]);
+    expect(
+      richTextsOf({
+        type: "record_list",
+        content: {
+          records: [
+            { lumiaName: "Guide", lumiaDefinition: "Keeps **good** notes." },
+          ],
+        },
+      }),
+    ).toEqual(["Keeps **good** notes."]);
   });
 
   test("a prompt fragment is the prompt, so it is not prose", () => {

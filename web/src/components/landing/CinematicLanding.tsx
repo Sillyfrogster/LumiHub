@@ -7,6 +7,7 @@ import {
   Boxes,
   Cable,
   Layers,
+  PackageOpen,
   Palette,
   SlidersHorizontal,
   Upload,
@@ -42,6 +43,7 @@ const KIND_ICON = {
   lorebook: BookOpenText,
   preset: SlidersHorizontal,
   theme: Palette,
+  pack: PackageOpen,
 } as const;
 
 /** Each chapter sits on the scroll position where its movement resolves. */

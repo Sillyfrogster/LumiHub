@@ -26,4 +26,9 @@ describe("browse URL state", () => {
       buildBrowseHref({ kind: "lorebook", q: "moonlit" }, "/@verified.creator"),
     ).toBe("/@verified.creator?kind=lorebook&q=moonlit");
   });
+
+  test("keeps Pack as a catalog kind", () => {
+    expect(readBrowseFilters({ kind: "pack" }).kind).toBe("pack");
+    expect(buildBrowseHref({ kind: "pack" })).toBe("/browse?kind=pack");
+  });
 });

@@ -227,6 +227,7 @@ export const FULL_SCREEN_TYPES = [
   "script_list",
   "color_set",
   "stylesheet_set",
+  "record_list",
 ] as const;
 
 /** How much of an element the page shows. `self` bounds its own height. */
@@ -234,10 +235,6 @@ export type ExcerptDefinition =
   | { unit: "lines"; limit: number }
   | { unit: "items"; limit: number }
   | { unit: "self" };
-
-type FutureElementType = "record_list";
-
-type ExcerptElementType = ElementType | FutureElementType;
 
 export const EXCERPT_DEFINITIONS = {
   prose: { unit: "lines", limit: 12 },
@@ -254,7 +251,7 @@ export const EXCERPT_DEFINITIONS = {
   color_set: { unit: "items", limit: 10 },
   stylesheet_set: { unit: "items", limit: 2 },
   record_list: { unit: "items", limit: 6 },
-} as const satisfies Record<ExcerptElementType, ExcerptDefinition>;
+} as const satisfies Record<ElementType, ExcerptDefinition>;
 
 export function excerptDefinition(type: ElementType): ExcerptDefinition {
   return EXCERPT_DEFINITIONS[type];

@@ -232,11 +232,11 @@ func TestTwoBlocksOnOneAssetCannotShareAPosition(t *testing.T) {
 	}
 }
 
-func TestAssetKindIsClosedToFourValues(t *testing.T) {
+func TestAssetKindIsClosedToKnownValues(t *testing.T) {
 	pool := Connect(t)
 	ctx := context.Background()
 
-	for _, kind := range []string{"character", "lorebook", "preset", "theme"} {
+	for _, kind := range []string{"character", "lorebook", "preset", "theme", "pack"} {
 		_, err := pool.Exec(ctx,
 			`insert into assets (id, kind, name, lifecycle)
 			 values (gen_random_uuid(), $1, $2, 'published')`,
@@ -248,7 +248,7 @@ func TestAssetKindIsClosedToFourValues(t *testing.T) {
 
 	_, err := pool.Exec(ctx,
 		`insert into assets (id, kind, name, lifecycle)
-		 values (gen_random_uuid(), 'pack', 'Pack', 'published')`)
+		 values (gen_random_uuid(), 'bundle', 'Bundle', 'published')`)
 	if err == nil {
 		t.Fatal("kind outside the catalog vocabulary was accepted")
 	}
@@ -552,7 +552,9 @@ func TestMediaBelongsToOneAsset(t *testing.T) {
 		t.Fatalf("media columns = %v, want %v", columns, want)
 	}
 
-	roles := []string{"avatar", "expression", "gallery", "avatar_alt", "perspective_layer"}
+	roles := []string{
+		"avatar", "expression", "gallery", "avatar_alt", "perspective_layer", "pack_item",
+	}
 	for _, role := range roles {
 		_, err = pool.Exec(ctx,
 			`insert into asset_media (id, asset_id, role, blob_id)

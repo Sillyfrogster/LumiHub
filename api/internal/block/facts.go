@@ -41,6 +41,8 @@ func (e Element) Facts() []string {
 			count++
 		}
 		return e.itemFacts(count + len(content.Stylesheets))
+	case RecordList:
+		return e.itemFacts(len(content.Records))
 	default:
 		return nil
 	}
@@ -120,6 +122,8 @@ func (e Element) itemNoun() (string, string) {
 		return "entry", "entries"
 	case RolePromptNudges:
 		return "nudge", "nudges"
+	case RolePackItems:
+		return "item", "items"
 	}
 	switch e.Type {
 	case TypeImageSet:
@@ -144,6 +148,8 @@ func (e Element) itemNoun() (string, string) {
 		return "colour", "colours"
 	case TypeStylesheetSet:
 		return "stylesheet", "stylesheets"
+	case TypeRecordList:
+		return "record", "records"
 	default:
 		return "item", "items"
 	}

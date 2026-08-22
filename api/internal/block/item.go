@@ -59,6 +59,8 @@ func ItemIDs(content Content) []uuid.UUID {
 			collectItemIDs(held.Stylesheets, func(item Stylesheet) uuid.UUID { return item.ID }),
 			collectItemIDs(held.Assets, func(item StylesheetAsset) uuid.UUID { return item.ID })...,
 		)
+	case RecordList:
+		return collectItemIDs(held.Records, func(item LumiaRecord) uuid.UUID { return item.ID })
 	default:
 		return nil
 	}

@@ -5,6 +5,7 @@ export const KIND_LABELS: Record<BrowseKind, string> = {
   lorebook: "Lorebook",
   preset: "Preset",
   theme: "Theme",
+  pack: "Pack",
 };
 
 export const BUILDABLE_KINDS: BrowseKind[] = [
@@ -12,6 +13,7 @@ export const BUILDABLE_KINDS: BrowseKind[] = [
   "lorebook",
   "preset",
   "theme",
+  "pack",
 ];
 
 export const KINDS_ASKING_FOR_AN_APP: BrowseKind[] = ["preset", "theme"];

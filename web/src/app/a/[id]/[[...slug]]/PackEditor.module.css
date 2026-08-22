@@ -1,0 +1,115 @@
+.avatarField {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 18px;
+  padding-block: 4px 18px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.avatarPreview {
+  display: grid;
+  width: 120px;
+  aspect-ratio: 1;
+  place-items: center;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--color-muted);
+  color: var(--color-text-secondary);
+}
+
+.avatarPreview img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.avatarActions {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+}
+
+.avatarActions > p {
+  color: var(--color-text-primary);
+  font-size: var(--type-secondary-size);
+  font-weight: 800;
+}
+
+.avatarActions > span {
+  max-width: 60ch;
+  color: var(--color-text-secondary);
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-leading);
+}
+
+.avatarActions > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 5px;
+}
+
+.upload,
+.removeAvatar {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  font-size: var(--type-label-size);
+  font-weight: 750;
+}
+
+.upload {
+  padding-inline: 14px;
+  border: 1px solid var(--color-accent-border);
+  border-radius: var(--radius-md);
+  background: var(--color-muted);
+  color: var(--color-text-primary);
+}
+
+.upload:hover {
+  border-color: var(--color-accent);
+  background: var(--color-surface);
+}
+
+.upload input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.upload:has(input:focus-visible) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+.upload:has(input:disabled),
+.removeAvatar:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.removeAvatar {
+  color: var(--color-critical-strong);
+}
+
+.avatarActions > .error {
+  color: var(--color-critical-strong);
+}
+
+@media (max-width: 520px) {
+  .avatarField {
+    grid-template-columns: 84px minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .avatarPreview {
+    width: 84px;
+  }
+}

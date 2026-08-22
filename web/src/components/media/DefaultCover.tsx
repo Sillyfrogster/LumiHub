@@ -1,4 +1,10 @@
-import { BookOpen, Palette, SlidersHorizontal, UserRound } from "lucide-react";
+import {
+  BookOpen,
+  PackageOpen,
+  Palette,
+  SlidersHorizontal,
+  UserRound,
+} from "lucide-react";
 import type { BrowseKind } from "@/lib/api/query";
 import { KIND_LABELS } from "@/lib/kinds";
 import styles from "./DefaultCover.module.css";
@@ -8,6 +14,7 @@ const ICONS = {
   lorebook: BookOpen,
   preset: SlidersHorizontal,
   theme: Palette,
+  pack: PackageOpen,
 } as const;
 
 export function DefaultCover({

@@ -41,6 +41,7 @@ const (
 	AddMediaRequestRoleAvatarAlt        AddMediaRequestRole = "avatar_alt"
 	AddMediaRequestRoleExpression       AddMediaRequestRole = "expression"
 	AddMediaRequestRoleGallery          AddMediaRequestRole = "gallery"
+	AddMediaRequestRolePackItem         AddMediaRequestRole = "pack_item"
 	AddMediaRequestRolePerspectiveLayer AddMediaRequestRole = "perspective_layer"
 )
 
@@ -54,6 +55,8 @@ func (e AddMediaRequestRole) Valid() bool {
 	case AddMediaRequestRoleExpression:
 		return true
 	case AddMediaRequestRoleGallery:
+		return true
+	case AddMediaRequestRolePackItem:
 		return true
 	case AddMediaRequestRolePerspectiveLayer:
 		return true
@@ -234,6 +237,7 @@ func (e AssetDetailDiscovery) Valid() bool {
 const (
 	AssetDetailKindCharacter AssetDetailKind = "character"
 	AssetDetailKindLorebook  AssetDetailKind = "lorebook"
+	AssetDetailKindPack      AssetDetailKind = "pack"
 	AssetDetailKindPreset    AssetDetailKind = "preset"
 	AssetDetailKindTheme     AssetDetailKind = "theme"
 )
@@ -244,6 +248,8 @@ func (e AssetDetailKind) Valid() bool {
 	case AssetDetailKindCharacter:
 		return true
 	case AssetDetailKindLorebook:
+		return true
+	case AssetDetailKindPack:
 		return true
 	case AssetDetailKindPreset:
 		return true
@@ -335,6 +341,7 @@ const (
 	AssetImageRoleAvatarAlt        AssetImageRole = "avatar_alt"
 	AssetImageRoleExpression       AssetImageRole = "expression"
 	AssetImageRoleGallery          AssetImageRole = "gallery"
+	AssetImageRolePackItem         AssetImageRole = "pack_item"
 	AssetImageRolePerspectiveLayer AssetImageRole = "perspective_layer"
 )
 
@@ -348,6 +355,8 @@ func (e AssetImageRole) Valid() bool {
 	case AssetImageRoleExpression:
 		return true
 	case AssetImageRoleGallery:
+		return true
+	case AssetImageRolePackItem:
 		return true
 	case AssetImageRolePerspectiveLayer:
 		return true
@@ -405,6 +414,7 @@ func (e AssetListVisibility) Valid() bool {
 const (
 	BrowseAssetKindCharacter BrowseAssetKind = "character"
 	BrowseAssetKindLorebook  BrowseAssetKind = "lorebook"
+	BrowseAssetKindPack      BrowseAssetKind = "pack"
 	BrowseAssetKindPreset    BrowseAssetKind = "preset"
 	BrowseAssetKindTheme     BrowseAssetKind = "theme"
 )
@@ -415,6 +425,8 @@ func (e BrowseAssetKind) Valid() bool {
 	case BrowseAssetKindCharacter:
 		return true
 	case BrowseAssetKindLorebook:
+		return true
+	case BrowseAssetKindPack:
 		return true
 	case BrowseAssetKindPreset:
 		return true
@@ -468,6 +480,7 @@ func (e CreateAssetRequestDiscovery) Valid() bool {
 const (
 	DeletedAssetKindCharacter DeletedAssetKind = "character"
 	DeletedAssetKindLorebook  DeletedAssetKind = "lorebook"
+	DeletedAssetKindPack      DeletedAssetKind = "pack"
 	DeletedAssetKindPreset    DeletedAssetKind = "preset"
 	DeletedAssetKindTheme     DeletedAssetKind = "theme"
 )
@@ -478,6 +491,8 @@ func (e DeletedAssetKind) Valid() bool {
 	case DeletedAssetKindCharacter:
 		return true
 	case DeletedAssetKindLorebook:
+		return true
+	case DeletedAssetKindPack:
 		return true
 	case DeletedAssetKindPreset:
 		return true
@@ -519,6 +534,7 @@ const (
 	LinkList       ElementType = "link_list"
 	PromptList     ElementType = "prompt_list"
 	Prose          ElementType = "prose"
+	RecordList     ElementType = "record_list"
 	ScriptList     ElementType = "script_list"
 	SettingGroup   ElementType = "setting_group"
 	StylesheetSet  ElementType = "stylesheet_set"
@@ -544,6 +560,8 @@ func (e ElementType) Valid() bool {
 	case PromptList:
 		return true
 	case Prose:
+		return true
+	case RecordList:
 		return true
 	case ScriptList:
 		return true
@@ -677,6 +695,7 @@ const (
 	MediaRoleAvatarAlt        MediaRole = "avatar_alt"
 	MediaRoleExpression       MediaRole = "expression"
 	MediaRoleGallery          MediaRole = "gallery"
+	MediaRolePackItem         MediaRole = "pack_item"
 	MediaRolePerspectiveLayer MediaRole = "perspective_layer"
 )
 
@@ -690,6 +709,8 @@ func (e MediaRole) Valid() bool {
 	case MediaRoleExpression:
 		return true
 	case MediaRoleGallery:
+		return true
+	case MediaRolePackItem:
 		return true
 	case MediaRolePerspectiveLayer:
 		return true
@@ -761,6 +782,42 @@ func (e PromptListContentFragmentsRole) Valid() bool {
 	case PromptListContentFragmentsRoleUser:
 		return true
 	case PromptListContentFragmentsRoleUserAppend:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RecordListContentRecordsGenderIdentity.
+const (
+	N0 RecordListContentRecordsGenderIdentity = 0
+	N1 RecordListContentRecordsGenderIdentity = 1
+	N2 RecordListContentRecordsGenderIdentity = 2
+)
+
+// Valid indicates whether the value is a known member of the RecordListContentRecordsGenderIdentity enum.
+func (e RecordListContentRecordsGenderIdentity) Valid() bool {
+	switch e {
+	case N0:
+		return true
+	case N1:
+		return true
+	case N2:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RecordListContentSchema.
+const (
+	Lumia RecordListContentSchema = "lumia"
+)
+
+// Valid indicates whether the value is a known member of the RecordListContentSchema enum.
+func (e RecordListContentSchema) Valid() bool {
+	switch e {
+	case Lumia:
 		return true
 	default:
 		return false
@@ -1014,6 +1071,7 @@ func (e GetMediaVariantParamsVariant) Valid() bool {
 const (
 	ListAssetsParamsKindCharacter ListAssetsParamsKind = "character"
 	ListAssetsParamsKindLorebook  ListAssetsParamsKind = "lorebook"
+	ListAssetsParamsKindPack      ListAssetsParamsKind = "pack"
 	ListAssetsParamsKindPreset    ListAssetsParamsKind = "preset"
 	ListAssetsParamsKindTheme     ListAssetsParamsKind = "theme"
 )
@@ -1024,6 +1082,8 @@ func (e ListAssetsParamsKind) Valid() bool {
 	case ListAssetsParamsKindCharacter:
 		return true
 	case ListAssetsParamsKindLorebook:
+		return true
+	case ListAssetsParamsKindPack:
 		return true
 	case ListAssetsParamsKindPreset:
 		return true
@@ -1779,6 +1839,30 @@ type ReadinessItem struct {
 	Label   string              `json:"label"`
 	Met     bool                `json:"met"`
 }
+
+// RecordListContent Ordered records whose field schema is one of the closed schemas Illarin names in code. A creator chooses no columns of their own.
+type RecordListContent struct {
+	Records []struct {
+		AuthorName string `json:"authorName"`
+
+		// AvatarUrl The asset-scoped media id for this item's avatar.
+		AvatarUrl        *openapi_types.UUID                    `json:"avatarUrl,omitempty"`
+		GenderIdentity   RecordListContentRecordsGenderIdentity `json:"genderIdentity"`
+		Id               *openapi_types.UUID                    `json:"id,omitempty"`
+		LumiaBehavior    string                                 `json:"lumiaBehavior"`
+		LumiaDefinition  string                                 `json:"lumiaDefinition"`
+		LumiaName        string                                 `json:"lumiaName"`
+		LumiaPersonality string                                 `json:"lumiaPersonality"`
+		Version          int                                    `json:"version"`
+	} `json:"records"`
+	Schema RecordListContentSchema `json:"schema"`
+}
+
+// RecordListContentRecordsGenderIdentity defines model for RecordListContent.Records.GenderIdentity.
+type RecordListContentRecordsGenderIdentity int
+
+// RecordListContentSchema defines model for RecordListContent.Schema.
+type RecordListContentSchema string
 
 // RenameHandleRequest defines model for RenameHandleRequest.
 type RenameHandleRequest struct {

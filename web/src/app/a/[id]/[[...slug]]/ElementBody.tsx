@@ -1,6 +1,6 @@
 "use client";
 
-import { Maximize2 } from "lucide-react";
+import { Maximize2, UserRound } from "lucide-react";
 import Image from "next/image";
 import {
   type CSSProperties,
@@ -18,6 +18,7 @@ import type {
   PresetSetting,
   PresetVariable,
   PromptListContent,
+  RecordListContent,
   RegexScript,
   StylesheetSetContent,
   TypedValue,
@@ -225,6 +226,8 @@ function excerptNoun(element: AssetElement): string {
       return "stylesheets";
     case "script_list":
       return "scripts";
+    case "record_list":
+      return "Lumia";
     default:
       return "items";
   }
@@ -352,6 +355,16 @@ export function ElementContent({
     return <Lorebook entries={content.entries} />;
   }
 
+  if (
+    element.type === "record_list" &&
+    "schema" in content &&
+    content.schema === "lumia"
+  ) {
+    return (
+      <PackItems content={content} images={images} itemLimit={itemLimit} />
+    );
+  }
+
   if (element.type === "prompt_list" && "fragments" in content) {
     return <PromptList content={content} itemLimit={itemLimit} />;
   }
@@ -379,6 +392,70 @@ export function ElementContent({
   }
 
   return null;
+}
+
+const PACK_PRONOUNS: Record<
+  RecordListContent["records"][number]["genderIdentity"],
+  string
+> = {
+  0: "she / her",
+  1: "he / him",
+  2: "they / them",
+};
+
+function PackItems({
+  content,
+  images,
+  itemLimit,
+}: {
+  content: RecordListContent;
+  images: AssetImage[];
+  itemLimit?: number;
+}) {
+  const imagesById = new Map(images.map((image) => [image.id, image]));
+  return (
+    <ol className={styles.packItems}>
+      {content.records.slice(0, itemLimit).map((record, index) => {
+        const avatar = record.avatarUrl
+          ? imagesById.get(record.avatarUrl)
+          : undefined;
+        return (
+          <li key={record.id ?? `${record.lumiaName}-${index}`}>
+            <div className={styles.packAvatar}>
+              {avatar ? (
+                <Image
+                  src={avatar.thumbUrl}
+                  alt=""
+                  width={avatar.width}
+                  height={avatar.height}
+                  sizes="96px"
+                  unoptimized
+                />
+              ) : (
+                <UserRound size={28} strokeWidth={1.3} aria-hidden="true" />
+              )}
+            </div>
+            <div className={styles.packItemBody}>
+              <div className={styles.packItemHeading}>
+                <h4>{record.lumiaName || `Lumia ${index + 1}`}</h4>
+                <span>
+                  {PACK_PRONOUNS[record.genderIdentity]}
+                  {record.authorName ? ` · by ${record.authorName}` : ""}
+                  {` · v${record.version}`}
+                </span>
+              </div>
+              {record.lumiaDefinition ? (
+                <RichText
+                  text={record.lumiaDefinition}
+                  className={styles.packDefinition}
+                />
+              ) : null}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
 }
 
 function ThemePalette({

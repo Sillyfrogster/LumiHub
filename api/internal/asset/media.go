@@ -31,6 +31,7 @@ const (
 	MediaGallery          = mediaproc.Gallery
 	MediaAvatarAlt        = mediaproc.AvatarAlt
 	MediaPerspectiveLayer = mediaproc.PerspectiveLayer
+	MediaPackItem         = mediaproc.PackItem
 )
 
 type Media struct {

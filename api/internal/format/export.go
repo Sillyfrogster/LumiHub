@@ -36,6 +36,9 @@ type ExportAsset struct {
 type ExportMedia struct {
 	MediaType string
 	Data      []byte
+	// URL is where a format that links images instead of embedding them sends
+	// its reader. It is root-relative where the service has no public base URL.
+	URL string
 }
 
 // Element returns the first element carrying a role, and whether the asset has

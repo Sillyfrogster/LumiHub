@@ -169,7 +169,7 @@ func TestRequiredCoreElementsArePinnedToTheirBlock(t *testing.T) {
 }
 
 func TestPlacementRefusesRatherThanDroppingWhatItCannotPut(t *testing.T) {
-	_, err := Place("pack", nil)
+	_, err := Place("unknown", nil)
 	if err == nil {
 		t.Errorf("a kind with no catalog was placed anyway")
 	}

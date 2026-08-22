@@ -415,6 +415,7 @@ describe("where an element is edited", () => {
       "variable_schema",
       "setting_group",
       "script_list",
+      "record_list",
     ]) {
       expect(opensFullScreen(type)).toBe(true);
     }

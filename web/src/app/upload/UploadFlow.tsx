@@ -25,6 +25,7 @@ import {
 import type { components } from "@/lib/api/schema";
 import { assetHref } from "@/lib/asset-url";
 import { useAuth } from "@/lib/auth";
+import { KIND_LABELS } from "@/lib/kinds";
 import { describePreservedNamespaces } from "@/lib/preserved";
 import { StartFromNothing } from "./StartFromNothing";
 import styles from "./UploadPage.module.css";
@@ -33,13 +34,6 @@ type IngestOperation = components["schemas"]["IngestOperation"];
 type CreatedAsset = NonNullable<IngestOperation["asset"]>;
 type ErrorAnswer = { error?: string };
 type EntryMode = "choose" | "import" | "create";
-
-const KIND_LABELS = {
-  character: "Character",
-  lorebook: "Lorebook",
-  preset: "Preset",
-  theme: "Theme",
-} as const;
 
 function operationPath(url: string) {
   return `/api${url}`;
@@ -306,7 +300,7 @@ export function UploadFlow() {
           <h2 id="path-heading">Choose how to begin</h2>
           <p>
             Import an existing source file or start a private draft in the
-            builder. The pack builder is not available yet.
+            builder.
           </p>
         </div>
         <button type="button" onClick={() => setEntryMode("import")}>
@@ -322,8 +316,7 @@ export function UploadFlow() {
           <span>
             <strong>Start a new asset</strong>
             <small>
-              Open a private character, lorebook, preset, or theme draft. The
-              pack builder is still to come.
+              Open a private character, lorebook, preset, theme, or pack draft.
             </small>
           </span>
           <ArrowRight size={18} aria-hidden="true" />

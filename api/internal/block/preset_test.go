@@ -24,8 +24,10 @@ func TestThePresetElementTypesAreFourSeparateTypes(t *testing.T) {
 			t.Errorf("a new %s starts with content in it: %+v", elementType, content)
 		}
 	}
-	if Type("record_list").Known() {
-		t.Error("record_list exists, and no preset type may be a schema of it")
+	if slices.Contains([]Type{
+		TypePromptList, TypeVariableSchema, TypeSettingGroup, TypeScriptList,
+	}, TypeRecordList) {
+		t.Error("a preset type was collapsed into the pack record list")
 	}
 }
 

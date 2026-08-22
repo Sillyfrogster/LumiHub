@@ -95,6 +95,8 @@ export function richTextsOf(element: {
       return texts(items(content.links), "note");
     case "variable_schema":
       return texts(items(content.variables), "description");
+    case "record_list":
+      return texts(items(content.records), "lumiaDefinition");
     default:
       return [];
   }

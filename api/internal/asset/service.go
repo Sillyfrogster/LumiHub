@@ -50,6 +50,7 @@ type Service struct {
 	ingest      IngestSettings
 	signer      signing.Key
 	now         func() time.Time
+	siteURL     string
 }
 
 type IngestSettings struct {
@@ -90,6 +91,18 @@ func NewServiceWithProbeLimits(
 	settings := DefaultIngestSettings()
 	settings.ProbeLimits = limits
 	return NewServiceWithIngestSettings(pool, reg, store, settings)
+}
+
+func NewServiceForSite(
+	pool *pgxpool.Pool,
+	reg *format.Registry,
+	store storage.Store,
+	limits probe.Limits,
+	siteURL string,
+) *Service {
+	service := NewServiceWithProbeLimits(pool, reg, store, limits)
+	service.siteURL = strings.TrimRight(siteURL, "/")
+	return service
 }
 
 func NewServiceWithIngestSettings(

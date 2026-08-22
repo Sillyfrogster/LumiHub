@@ -21,8 +21,7 @@ export type QuietPageArt = {
   dark: StaticImageData;
 };
 
-/** Packs are not a kind Illarin builds yet, and their piece is ready for it. */
-const QUIET_PAGE_ART: Record<BrowseKind | "pack", QuietPageArt> = {
+const QUIET_PAGE_ART: Record<BrowseKind, QuietPageArt> = {
   character: { light: characterLight, dark: characterDark },
   lorebook: { light: lorebookLight, dark: lorebookDark },
   preset: { light: presetLight, dark: presetDark },
@@ -30,7 +29,7 @@ const QUIET_PAGE_ART: Record<BrowseKind | "pack", QuietPageArt> = {
   pack: { light: packLight, dark: packDark },
 };
 
-export function quietPageArt(kind: BrowseKind | "pack"): QuietPageArt {
+export function quietPageArt(kind: BrowseKind): QuietPageArt {
   return QUIET_PAGE_ART[kind];
 }
 
@@ -39,7 +38,7 @@ export function quietPageArt(kind: BrowseKind | "pack"): QuietPageArt {
  * pick the theme.
  */
 export function quietPageArtVariables(
-  kind: BrowseKind | "pack",
+  kind: BrowseKind,
 ): Record<string, string> {
   const art = quietPageArt(kind);
   return {
