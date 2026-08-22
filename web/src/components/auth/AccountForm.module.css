@@ -80,7 +80,7 @@
 }
 
 .handleField[data-error="true"] {
-  border-color: var(--color-highlight);
+  border-color: var(--color-critical);
 }
 
 .handleField {

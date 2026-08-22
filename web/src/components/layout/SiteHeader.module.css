@@ -2,97 +2,119 @@
   position: sticky;
   top: 0;
   z-index: 80;
-  background: color-mix(in srgb, var(--color-background) 91%, transparent);
-  backdrop-filter: blur(18px) saturate(1.15);
-  border-bottom: 1px solid
-    color-mix(in srgb, var(--color-border) 72%, transparent);
+  isolation: isolate;
+  background: var(--color-surface);
+  box-shadow: 0 1px 0
+    color-mix(in srgb, var(--color-text-primary) 10%, transparent);
 }
 
 .bar {
-  height: var(--header-height);
   display: flex;
+  height: var(--header-height);
   align-items: center;
-  gap: 32px;
 }
 
 .brand {
-  display: flex;
+  display: inline-flex;
+  min-height: 44px;
+  flex: none;
   align-items: center;
   gap: 9px;
-  flex: none;
   color: var(--color-text-primary);
+}
+
+.brand svg {
+  flex: none;
 }
 
 .wordmark {
   font-family: var(--font-display);
-  font-size: 1.32rem;
-  font-weight: 650;
-  line-height: var(--type-block-title-leading);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-size: var(--type-block-title-size);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .nav {
   display: flex;
   align-items: center;
-  gap: 26px;
+  margin-inline-start: clamp(26px, 3vw, 44px);
   font-size: var(--type-secondary-size);
   line-height: var(--type-secondary-leading);
-  color: var(--color-text-primary);
 }
 
 .navLink {
   position: relative;
-  display: flex;
+  display: inline-flex;
+  min-height: 44px;
   align-items: center;
-  gap: 5px;
-  padding: 24px 0 22px;
-  font-weight: 760;
-  color: inherit;
+  padding-inline: 14px;
+  color: var(--color-text-secondary);
+  font-weight: 720;
+  transition: color 180ms var(--ease);
 }
 
-.navLink:hover {
+.navLink:hover,
+.navLink[aria-current="page"] {
   color: var(--color-text-primary);
 }
 
-.navLink[aria-current="page"]::after {
-  content: "";
+.navLink::after {
   position: absolute;
-  inset-inline: 0;
-  bottom: 0;
-  height: 2px;
-  background: var(--color-accent);
+  right: 14px;
+  bottom: 6px;
+  left: 14px;
+  height: 1px;
+  background: currentColor;
+  content: "";
+  opacity: 0;
+  transform: scaleX(0.35);
+  transition:
+    opacity 180ms var(--ease),
+    transform 180ms var(--ease);
+}
+
+.navLink:hover::after,
+.navLink[aria-current="page"]::after {
+  opacity: 1;
+  transform: scaleX(1);
 }
 
 .spacer {
-  flex: 1;
+  min-width: 24px;
+  flex: 1 1 64px;
 }
 
 .publish {
-  display: flex;
+  display: inline-flex;
+  min-height: 44px;
+  flex: none;
   align-items: center;
-  gap: 7px;
-  height: 36px;
-  padding-inline: 15px;
+  gap: 8px;
+  padding-inline: 18px;
   border-radius: var(--radius-sm);
-  background: var(--color-accent);
-  color: var(--color-on-accent);
-  font-size: var(--type-label-size);
-  font-weight: 700;
-  line-height: var(--type-label-leading);
-  letter-spacing: 0.02em;
+  background: var(--color-text-primary);
   box-shadow: var(--shadow-button);
-  transition: box-shadow 0.3s;
+  color: var(--color-background);
+  font-size: var(--type-secondary-size);
+  font-weight: 800;
+  line-height: var(--type-secondary-leading);
+  transition:
+    box-shadow 180ms var(--ease),
+    transform 180ms var(--ease);
 }
 
 .publish:hover {
   box-shadow: var(--shadow-button-hover);
-  color: var(--color-on-accent);
+  color: var(--color-background);
+  transform: translateY(-1px);
 }
 
 .account {
   position: relative;
   flex: none;
+  margin-inline-start: 8px;
 }
 
 .menuToggle,
@@ -102,20 +124,19 @@
 
 .accountTrigger {
   display: inline-flex;
-  min-height: 40px;
+  min-height: 44px;
+  max-width: 184px;
   align-items: center;
   gap: 8px;
-  max-width: 190px;
-  padding-inline: 12px;
-  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  padding-inline: 11px;
   border-radius: var(--radius-sm);
-  background: var(--color-surface);
   color: var(--color-text-primary);
-  font-size: var(--type-label-size);
-  font-weight: 760;
-  line-height: var(--type-label-leading);
-  list-style: none;
   cursor: pointer;
+  font-size: var(--type-secondary-size);
+  font-weight: 720;
+  line-height: var(--type-secondary-leading);
+  list-style: none;
+  transition: background-color 180ms var(--ease);
 }
 
 .accountTrigger::-webkit-details-marker {
@@ -128,8 +149,9 @@
   white-space: nowrap;
 }
 
-.account[open] .accountTrigger {
-  border-color: var(--color-accent);
+.account[open] .accountTrigger,
+.accountTrigger:hover {
+  background: var(--color-muted);
 }
 
 .accountMenu {
@@ -137,29 +159,29 @@
   top: calc(100% + 10px);
   right: 0;
   display: grid;
-  width: min(300px, calc(100vw - 32px));
+  width: min(292px, calc(100vw - 32px));
   padding: 10px;
-  border: 0;
   border-radius: var(--radius-lg);
   background: var(--color-elevated);
-  box-shadow:
-    0 18px 42px color-mix(in srgb, var(--color-shadow) 10%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--color-border) 62%, transparent);
+  box-shadow: var(--shadow-panel);
 }
 
 .accountMenu > a,
 .signOut {
-  min-height: 42px;
-  align-content: center;
+  display: flex;
+  min-height: 44px;
+  align-items: center;
   padding-inline: 12px;
   border-radius: var(--radius-sm);
   color: var(--color-text-primary);
-  font-size: 0.78rem;
-  font-weight: 720;
+  font-size: var(--type-secondary-size);
+  font-weight: 700;
+  line-height: var(--type-secondary-leading);
   text-align: left;
 }
 
 .accountMenu > a:hover,
+.accountMenu > a[aria-current="page"],
 .signOut:hover {
   background: var(--color-muted);
   color: var(--color-text-primary);
@@ -167,40 +189,31 @@
 
 .accountIdentity {
   display: grid;
-  gap: 2px;
-  margin-bottom: 6px;
+  gap: 3px;
+  margin-bottom: 4px;
   padding: 8px 12px 12px;
-  border-bottom: 1px solid
-    color-mix(in srgb, var(--color-border) 62%, transparent);
 }
 
 .accountIdentity strong {
   overflow-wrap: anywhere;
-  font-size: 0.82rem;
+  font-size: var(--type-secondary-size);
 }
 
 .accountIdentity span {
   color: var(--color-text-secondary);
-  font-size: 0.68rem;
-  line-height: 1.45;
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-leading);
 }
 
 .accountMenu > label {
-  margin-block: 5px;
-  padding: 4px 12px;
-  border-block: 1px solid
-    color-mix(in srgb, var(--color-border) 58%, transparent);
+  margin-block: 4px;
+  padding: 6px 12px;
 }
 
-.signOut:disabled {
+.signOut:disabled,
+.mobileSignOut:disabled {
   cursor: wait;
-  opacity: 0.6;
-}
-
-@media (max-width: 1180px) {
-  .bar {
-    gap: 24px;
-  }
+  opacity: 0.58;
 }
 
 @media (max-width: 980px) {
@@ -208,10 +221,6 @@
   .publish,
   .account {
     display: none;
-  }
-
-  .bar {
-    gap: 18px;
   }
 
   .spacer {
@@ -224,15 +233,26 @@
     height: 44px;
     flex: none;
     place-items: center;
+    border-radius: var(--radius-sm);
     color: var(--color-text-primary);
+    transition: background-color 180ms var(--ease);
+  }
+
+  .menuToggle:hover,
+  .menuToggle[aria-expanded="true"] {
+    background: var(--color-muted);
   }
 
   .mobileNav {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: 0;
     display: block;
-    border-top: 1px solid
-      color-mix(in srgb, var(--color-border) 66%, transparent);
-    background: color-mix(in srgb, var(--color-background) 98%, transparent);
-    box-shadow: var(--shadow-soft);
+    max-height: calc(100svh - var(--header-height));
+    overflow-y: auto;
+    background: var(--color-elevated);
+    box-shadow: var(--shadow-lift);
   }
 
   .mobileNavInner {
@@ -241,65 +261,72 @@
   }
 
   .mobileNavInner > label {
-    min-height: 58px;
-    padding-block: 7px;
-    border-bottom: 1px solid
-      color-mix(in srgb, var(--color-border) 62%, transparent);
+    min-height: 56px;
+    margin-block: 4px;
+    padding: 6px 12px;
   }
 
-  .mobileNavInner a {
-    min-height: 48px;
-    align-content: center;
-    border-bottom: 1px solid
-      color-mix(in srgb, var(--color-border) 62%, transparent);
-    color: var(--color-text-primary);
-    font-family: var(--font-display);
-    font-size: var(--type-body-size);
-    font-weight: 600;
-    line-height: var(--type-body-leading);
-  }
-
-  .mobileNavInner a:last-child {
-    border-bottom: 0;
-    color: var(--color-accent);
-  }
-
+  .mobileNavInner a,
   .mobileSignOut {
+    display: flex;
     min-height: 48px;
-    border-top: 1px solid var(--color-border);
-    color: var(--color-text-secondary);
-    font-family: var(--font-display);
-    font-size: var(--type-body-size);
-    font-weight: 600;
-    line-height: var(--type-body-leading);
+    align-items: center;
+    padding-inline: 12px;
+    border-radius: var(--radius-xs);
+    color: var(--color-text-primary);
+    font-size: var(--type-secondary-size);
+    font-weight: 700;
+    line-height: var(--type-secondary-leading);
     text-align: left;
+    transition: background-color 180ms var(--ease);
   }
 
-  .mobileSignOut:disabled {
-    cursor: wait;
-    opacity: 0.6;
-  }
-}
-
-@media (max-width: 620px) {
-  .bar {
-    height: 62px;
+  .mobileNavInner a:hover,
+  .mobileNavInner a[aria-current="page"]:not(.mobilePublish),
+  .mobileSignOut:hover {
+    background: var(--color-muted);
+    color: var(--color-text-primary);
   }
 
-  .publish,
-  .account {
-    display: none;
+  .mobileNavInner .mobilePublish {
+    margin-block: 4px 10px;
+    background: var(--color-text-primary);
+    box-shadow: var(--shadow-button);
+    color: var(--color-background);
+    font-weight: 800;
   }
 
-  .bar {
-    gap: 8px;
+  .mobileNavInner .mobilePublish:hover {
+    background: var(--color-text-primary);
+    color: var(--color-background);
   }
 
-  .menuToggle {
-    margin-left: 4px;
+  .mobileAccountIdentity {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    margin-top: 4px;
+    padding: 10px 12px 8px;
+    color: var(--color-text-secondary);
   }
 
-  .navLink {
-    padding-block: 20px 18px;
+  .mobileAccountIdentity > span {
+    display: grid;
+    min-width: 0;
+    gap: 2px;
+  }
+
+  .mobileAccountIdentity strong {
+    overflow-wrap: anywhere;
+    color: var(--color-text-primary);
+    font-size: var(--type-secondary-size);
+    line-height: var(--type-secondary-leading);
+  }
+
+  .mobileAccountIdentity small {
+    color: var(--color-text-secondary);
+    font-size: var(--type-label-size);
+    line-height: var(--type-label-leading);
   }
 }

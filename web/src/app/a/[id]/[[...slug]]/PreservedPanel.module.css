@@ -97,8 +97,8 @@
 
 .remove:hover,
 .remove:focus-visible {
-  border-color: var(--color-highlight-border);
-  color: var(--color-highlight-strong);
+  border-color: var(--color-critical-border);
+  color: var(--color-critical-strong);
 }
 
 .retry {
@@ -122,10 +122,10 @@
 .error {
   margin-top: 13px;
   padding: 11px 13px;
-  border: 1px solid var(--color-highlight-border);
+  border: 1px solid var(--color-critical-border);
   border-radius: var(--radius-md);
-  background: var(--color-highlight-soft);
-  color: var(--color-highlight-strong);
+  background: var(--color-critical-soft);
+  color: var(--color-critical-strong);
   font-size: 0.76rem;
   line-height: 1.45;
 }
@@ -207,9 +207,9 @@
 }
 
 .dialogFooter .confirmDelete {
-  border-color: var(--color-highlight);
-  background: var(--color-highlight);
-  color: var(--color-on-highlight);
+  border-color: var(--color-critical);
+  background: var(--color-critical);
+  color: var(--color-on-critical);
 }
 
 .dialogFooter button:disabled {

@@ -18,7 +18,7 @@
   height: 38px;
   place-items: center;
   border-radius: 50%;
-  background: var(--color-focus-ring);
+  background: var(--color-emphasis-soft);
   color: var(--color-accent);
 }
 
@@ -61,7 +61,7 @@
 }
 
 .copy .error {
-  color: var(--color-highlight-strong);
+  color: var(--color-critical-strong);
 }
 
 @media (max-width: 560px) {

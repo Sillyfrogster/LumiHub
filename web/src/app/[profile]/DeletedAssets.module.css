@@ -107,7 +107,7 @@
 .error {
   max-width: 760px;
   margin-top: 22px;
-  color: var(--color-highlight-strong);
+  color: var(--color-critical-strong);
   font-size: 0.82rem;
 }
 

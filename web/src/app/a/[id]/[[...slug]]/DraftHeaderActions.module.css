@@ -3,7 +3,7 @@
   gap: 18px;
   padding: 20px;
   border-radius: var(--radius-xl);
-  background: var(--color-highlight-soft);
+  background: var(--color-emphasis-soft);
 }
 
 .panel h2 {

@@ -22,7 +22,7 @@
 .icon {
   display: grid;
   place-items: center;
-  color: var(--color-brand-detail);
+  color: var(--color-text-secondary);
 }
 
 .label {

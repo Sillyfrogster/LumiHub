@@ -84,7 +84,7 @@
   background: color-mix(
     in srgb,
     var(--color-media-surface) 78%,
-    var(--color-highlight)
+    var(--color-critical)
   );
   letter-spacing: 0.06em;
 }

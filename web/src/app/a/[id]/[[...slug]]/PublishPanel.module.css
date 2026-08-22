@@ -103,7 +103,7 @@
 
 .error {
   margin-top: 9px;
-  color: var(--color-highlight-strong);
+  color: var(--color-critical-strong);
   font-size: 0.76rem;
 }
 

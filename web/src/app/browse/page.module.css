@@ -6,7 +6,7 @@
   position: relative;
   min-height: 206px;
   overflow: hidden;
-  background: #111016;
+  background: var(--color-media-surface);
   isolation: isolate;
 }
 
@@ -21,7 +21,7 @@
 .intro {
   width: min(590px, 58%);
   padding-block: 38px 48px;
-  color: #fff8fb;
+  color: var(--color-media-text);
   animation: lhRise 0.7s var(--ease) both;
 }
 
@@ -37,7 +37,7 @@
 .intro p {
   max-width: 520px;
   margin-top: 12px;
-  color: #c9bdc6;
+  color: var(--color-media-muted);
   font-size: 0.88rem;
   line-height: 1.62;
 }
@@ -60,8 +60,8 @@
   inset: 0;
   background: linear-gradient(
     90deg,
-    #0e0d12 0%,
-    rgba(14, 13, 18, 0.9) 32%,
+    var(--color-media-surface) 0%,
+    color-mix(in srgb, var(--color-media-surface) 90%, transparent) 32%,
     transparent 76%
   );
   content: "";

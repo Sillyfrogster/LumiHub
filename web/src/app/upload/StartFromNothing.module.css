@@ -5,7 +5,7 @@
 }
 
 .panel h2 {
-  color: var(--color-text-primary);
+  color: var(--color-critical-strong);
   font-family: var(--font-display);
   font-size: 1.35rem;
   font-weight: 500;

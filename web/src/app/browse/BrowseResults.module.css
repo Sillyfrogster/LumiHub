@@ -281,7 +281,7 @@
 }
 
 .preferenceError {
-  color: var(--color-highlight-strong);
+  color: var(--color-critical-strong);
 }
 
 .results {

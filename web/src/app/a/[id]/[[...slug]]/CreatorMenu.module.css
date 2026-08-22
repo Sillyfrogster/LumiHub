@@ -9,8 +9,8 @@
   place-items: center;
   padding-inline: 5px;
   border-radius: var(--radius-pill);
-  background: var(--color-highlight-soft);
-  color: var(--color-highlight-strong);
+  background: var(--color-emphasis-soft);
+  color: var(--color-emphasis-strong);
   font-size: 0.66rem;
   line-height: 1;
 }

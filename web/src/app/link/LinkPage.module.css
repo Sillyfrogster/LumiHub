@@ -73,7 +73,7 @@
   position: relative;
   min-height: 230px;
   overflow: hidden;
-  background: #111016;
+  background: var(--color-media-surface);
 }
 
 .artwork img {

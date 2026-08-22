@@ -53,14 +53,14 @@
 }
 
 .field > input[aria-invalid="true"] {
-  border-color: var(--color-highlight);
+  border-color: var(--color-critical);
 }
 
 .error {
   padding: 11px 13px;
-  border: 1px solid var(--color-highlight-border);
-  background: var(--color-highlight-soft);
-  color: var(--color-highlight-strong);
+  border: 1px solid var(--color-critical-border);
+  background: var(--color-critical-soft);
+  color: var(--color-critical-strong);
   font-size: 0.83rem;
   line-height: 1.5;
 }
