@@ -133,34 +133,18 @@ export function HostedLanding({
       <section className={styles.journey}>
         <Shell className={styles.journeyShell}>
           <div className={styles.compositionCopy}>
-            <h2>Build the page they read.</h2>
+            <h2>Edit the page itself.</h2>
             <p>
-              Import a file or start from nothing. Blocks arrange the page;
-              elements hold the work. Readers see the composition you publish.
+              Import a file or start from scratch. Choose the layout, edit the
+              content, and publish from the same page readers will open.
             </p>
           </div>
 
-          <div className={styles.blockCanvas} aria-hidden="true">
-            <span className={`${styles.demoBlock} ${styles.demoPrimary}`}>
-              <strong>Description</strong>
-              <i />
-              <i />
-              <i />
-            </span>
-            <span className={`${styles.demoBlock} ${styles.demoGallery}`}>
-              <strong>Gallery</strong>
-              <span className={styles.imageRun}>
-                <i />
-                <i />
-                <i />
-              </span>
-            </span>
-            <span className={`${styles.demoBlock} ${styles.demoScenario}`}>
-              <strong>Scenario</strong>
-              <i />
-              <i />
-            </span>
-          </div>
+          <figure
+            className={styles.builderProof}
+            role="img"
+            aria-label="The character block editor with section naming, page layout, width, and description controls"
+          />
 
           <div className={styles.deliveryPlane}>
             <div className={styles.deliveryCopy}>

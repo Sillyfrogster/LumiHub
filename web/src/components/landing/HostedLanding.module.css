@@ -303,13 +303,13 @@
 
 .journeyShell {
   display: grid;
-  grid-template-columns: minmax(260px, 0.78fr) minmax(520px, 1.22fr);
-  gap: clamp(64px, 9vw, 132px);
+  grid-template-columns: minmax(300px, 0.68fr) minmax(620px, 1.32fr);
+  gap: clamp(56px, 7vw, 104px);
   align-items: center;
 }
 
 .compositionCopy {
-  max-width: 520px;
+  max-width: 470px;
 }
 
 .compositionCopy h2,
@@ -322,6 +322,10 @@
   text-wrap: balance;
 }
 
+.compositionCopy h2 {
+  max-width: 12ch;
+}
+
 .compositionCopy p,
 .deliveryCopy p {
   max-width: 56ch;
@@ -331,91 +335,30 @@
   line-height: var(--type-body-leading);
 }
 
-.blockCanvas {
-  position: relative;
-  display: grid;
-  min-height: 500px;
-  grid-template-columns: repeat(12, 1fr);
-  grid-template-rows: repeat(9, 1fr);
-  gap: 10px;
-  padding: clamp(28px, 4vw, 48px);
+.builderProof {
+  width: 100%;
+  max-width: 720px;
+  min-width: 0;
+  aspect-ratio: 68 / 65;
+  justify-self: end;
   overflow: hidden;
   border-radius: var(--radius-lg);
-  background: var(--color-background);
+  background-color: var(--color-background);
+  background-image: url("../../assets/art/full/illarin-landing-builder-light-v1.webp");
+  background-position: top left;
+  background-repeat: no-repeat;
+  background-size: cover;
   box-shadow: var(--shadow-panel);
-  isolation: isolate;
 }
 
-.blockCanvas::before {
-  position: absolute;
-  z-index: -1;
-  top: -18%;
-  right: -12%;
-  width: 62%;
-  height: 52%;
-  background: var(--color-text-primary);
-  clip-path: polygon(18% 0, 100% 0, 82% 100%, 0 100%);
-  content: "";
-  opacity: 0.06;
-  transform: rotate(-14deg);
+:global(:root[data-theme="dark"]) .builderProof {
+  background-image: url("../../assets/art/full/illarin-landing-builder-dark-v1.webp");
 }
 
-.demoBlock {
-  display: grid;
-  align-content: start;
-  gap: 12px;
-  padding: 20px;
-  overflow: hidden;
-  border-radius: var(--radius-sm);
-  background: var(--color-elevated);
-  box-shadow: var(--shadow-card);
-}
-
-.demoBlock strong {
-  font-size: var(--type-secondary-size);
-  line-height: var(--type-secondary-leading);
-}
-
-.demoBlock > i {
-  display: block;
-  height: 9px;
-  border-radius: var(--radius-xs);
-  background: var(--color-muted);
-}
-
-.demoBlock > i:nth-of-type(2) {
-  width: 84%;
-}
-
-.demoBlock > i:nth-of-type(3) {
-  width: 68%;
-}
-
-.demoPrimary {
-  grid-row: 1 / span 5;
-  grid-column: 1 / span 8;
-}
-
-.demoGallery {
-  grid-row: 1 / span 4;
-  grid-column: 9 / span 4;
-}
-
-.demoScenario {
-  grid-row: 6 / span 4;
-  grid-column: 4 / span 9;
-}
-
-.imageRun {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 7px;
-}
-
-.imageRun i {
-  aspect-ratio: 3 / 4;
-  border-radius: var(--radius-xs);
-  background: var(--color-muted);
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme])) .builderProof {
+    background-image: url("../../assets/art/full/illarin-landing-builder-dark-v1.webp");
+  }
 }
 
 .deliveryPlane {
@@ -547,7 +490,7 @@
   }
 
   .journeyShell {
-    grid-template-columns: minmax(240px, 0.72fr) minmax(460px, 1.28fr);
+    grid-template-columns: minmax(260px, 0.68fr) minmax(480px, 1.32fr);
     gap: 52px;
   }
 }
@@ -680,10 +623,6 @@
     max-width: 560px;
   }
 
-  .blockCanvas {
-    min-height: 420px;
-  }
-
   .deliveryPlane {
     grid-column: 1;
     grid-template-columns: 1fr;
@@ -734,36 +673,22 @@
     background: transparent;
   }
 
-  .blockCanvas {
-    min-height: 360px;
-    padding: 22px;
+  .builderProof {
+    max-width: 390px;
+    aspect-ratio: 39 / 62;
+    justify-self: start;
+    background-image: url("../../assets/art/full/illarin-landing-builder-light-phone-v1.webp");
+    background-size: cover;
   }
 
-  .demoBlock {
-    padding: 15px;
+  :global(:root[data-theme="dark"]) .builderProof {
+    background-image: url("../../assets/art/full/illarin-landing-builder-dark-phone-v1.webp");
   }
 
-  .demoPrimary {
-    grid-row: 1 / span 5;
-    grid-column: 1 / span 9;
-  }
-
-  .demoGallery {
-    grid-row: 1 / span 4;
-    grid-column: 10 / span 3;
-  }
-
-  .demoScenario {
-    grid-row: 6 / span 4;
-    grid-column: 3 / span 10;
-  }
-
-  .imageRun {
-    grid-template-columns: 1fr;
-  }
-
-  .imageRun i:nth-child(n + 2) {
-    display: none;
+  @media (prefers-color-scheme: dark) {
+    :global(:root:not([data-theme])) .builderProof {
+      background-image: url("../../assets/art/full/illarin-landing-builder-dark-phone-v1.webp");
+    }
   }
 
   .deliveryPlane {
