@@ -148,108 +148,114 @@ export function SiteHeader() {
           ))}
         </nav>
 
-        <div className={styles.spacer} />
+        <div className={styles.actions}>
+          <Link
+            href={publishHref}
+            className={styles.publish}
+            aria-current={pathname === "/upload" ? "page" : undefined}
+          >
+            <Upload size={15} strokeWidth={1.6} aria-hidden="true" />
+            {publishLabel}
+          </Link>
 
-        <Link
-          href={publishHref}
-          className={styles.publish}
-          aria-current={pathname === "/upload" ? "page" : undefined}
-        >
-          <Upload size={15} strokeWidth={1.6} aria-hidden="true" />
-          {publishLabel}
-        </Link>
-
-        <details ref={accountRef} className={styles.account}>
-          <summary ref={accountTriggerRef} className={styles.accountTrigger}>
-            <CircleUserRound size={18} strokeWidth={1.55} aria-hidden="true" />
-            <span>
-              {account === undefined
-                ? "Account"
-                : account
-                  ? `@${account.handle}`
-                  : "Account"}
-            </span>
-          </summary>
-          <div className={styles.accountMenu}>
-            {account ? (
-              <>
-                <div className={styles.accountIdentity}>
-                  <strong>@{account.handle}</strong>
-                  <span>
-                    {account.emailVerified
-                      ? "Verified account"
-                      : "Email verification needed to publish"}
-                  </span>
-                </div>
-                <Link
-                  href={`/@${account.handle}`}
-                  aria-current={
-                    isCurrentPage(pathname, `/@${account.handle}`)
-                      ? "page"
-                      : undefined
-                  }
-                  onClick={closeAccountMenu}
-                >
-                  View profile
-                </Link>
-                <Link
-                  href="/settings"
-                  aria-current={
-                    isCurrentPage(pathname, "/settings") ? "page" : undefined
-                  }
-                  onClick={closeAccountMenu}
-                >
-                  Account settings
-                </Link>
-                {!account.emailVerified ? (
+          <details ref={accountRef} className={styles.account}>
+            <summary ref={accountTriggerRef} className={styles.accountTrigger}>
+              <CircleUserRound
+                size={18}
+                strokeWidth={1.55}
+                aria-hidden="true"
+              />
+              <span>
+                {account === undefined
+                  ? "Account"
+                  : account
+                    ? `@${account.handle}`
+                    : "Account"}
+              </span>
+            </summary>
+            <div className={styles.accountMenu}>
+              {account ? (
+                <>
+                  <div className={styles.accountIdentity}>
+                    <strong>@{account.handle}</strong>
+                    <span>
+                      {account.emailVerified
+                        ? "Verified account"
+                        : "Email verification needed to publish"}
+                    </span>
+                  </div>
                   <Link
-                    href={`/verify-email?returnTo=${UPLOAD_RETURN}`}
+                    href={`/@${account.handle}`}
                     aria-current={
-                      isCurrentPage(pathname, "/verify-email")
+                      isCurrentPage(pathname, `/@${account.handle}`)
                         ? "page"
                         : undefined
                     }
                     onClick={closeAccountMenu}
                   >
-                    Verify email
+                    View profile
                   </Link>
-                ) : null}
-              </>
-            ) : (
-              <>
-                <Link
-                  href="/sign-in"
-                  aria-current={
-                    isCurrentPage(pathname, "/sign-in") ? "page" : undefined
-                  }
-                  onClick={closeAccountMenu}
+                  <Link
+                    href="/settings"
+                    aria-current={
+                      isCurrentPage(pathname, "/settings") ? "page" : undefined
+                    }
+                    onClick={closeAccountMenu}
+                  >
+                    Account settings
+                  </Link>
+                  {!account.emailVerified ? (
+                    <Link
+                      href={`/verify-email?returnTo=${UPLOAD_RETURN}`}
+                      aria-current={
+                        isCurrentPage(pathname, "/verify-email")
+                          ? "page"
+                          : undefined
+                      }
+                      onClick={closeAccountMenu}
+                    >
+                      Verify email
+                    </Link>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/sign-in"
+                    aria-current={
+                      isCurrentPage(pathname, "/sign-in") ? "page" : undefined
+                    }
+                    onClick={closeAccountMenu}
+                  >
+                    Sign in
+                  </Link>
+                  <Link
+                    href="/sign-up"
+                    aria-current={
+                      isCurrentPage(pathname, "/sign-up") ? "page" : undefined
+                    }
+                    onClick={closeAccountMenu}
+                  >
+                    Create account
+                  </Link>
+                </>
+              )}
+              <ThemeControl />
+              {account ? (
+                <button
+                  type="button"
+                  className={styles.signOut}
+                  onClick={handleSignOut}
+                  disabled={signingOut}
                 >
-                  Sign in
-                </Link>
-                <Link
-                  href="/sign-up"
-                  aria-current={
-                    isCurrentPage(pathname, "/sign-up") ? "page" : undefined
-                  }
-                  onClick={closeAccountMenu}
-                >
-                  Create account
-                </Link>
-              </>
-            )}
-            <ThemeControl />
-            {account ? (
-              <button
-                type="button"
-                className={styles.signOut}
-                onClick={handleSignOut}
-                disabled={signingOut}
-              >
-                {signingOut ? "Signing out…" : "Sign out"}
-              </button>
-            ) : null}
-          </div>
-        </details>
+                  {signingOut ? "Signing out…" : "Sign out"}
+                </button>
+              ) : null}
+            </div>
+          </details>
+        </div>
+
+        <div className={styles.spacer} />
 
         <button
           type="button"
