@@ -10,6 +10,7 @@ import { FormattingNotice, RichText } from "@/components/ui/RichText";
 import { type AssetDetail, fetchAsset } from "@/lib/api/query";
 import { assetMetadata } from "@/lib/asset-metadata";
 import { assetDisplayName } from "@/lib/asset-name";
+import { assetHoldsNothing } from "@/lib/asset-page-content";
 import { assetRedirect } from "@/lib/asset-url";
 import { KIND_LABELS } from "@/lib/kinds";
 import { formattingWasRemoved } from "@/lib/rich-text";
@@ -81,6 +82,7 @@ export default async function AssetPage({
       year: "numeric",
     },
   );
+  const holdsNothing = assetHoldsNothing(asset.blocks);
   const hasHeaderActions = Boolean(
     (isDraft && asset.isOwner && asset.readiness) ||
       asset.downloads.length > 0 ||
@@ -136,6 +138,7 @@ export default async function AssetPage({
                     downloads={asset.downloads}
                     original={asset.original}
                     images={asset.media}
+                    holdsNothing={holdsNothing}
                   />
                 </div>
               ) : null}
@@ -180,6 +183,7 @@ export default async function AssetPage({
           <section className={styles.blocks} aria-label="Asset content">
             <AssetBlocks
               assetId={asset.id}
+              kind={asset.kind}
               blocks={asset.blocks}
               images={asset.media}
               addableSections={asset.addableSections ?? []}

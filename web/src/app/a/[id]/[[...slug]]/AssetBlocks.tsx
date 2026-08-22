@@ -17,6 +17,7 @@ import {
   type AssetImage,
   addAssetBlock,
   arrangeAssetBlocks,
+  type BrowseKind,
   type ElementType,
   moveAssetBlockContent,
   removeAssetBlock,
@@ -25,6 +26,8 @@ import {
 } from "@/lib/api/query";
 import { blockCounts } from "@/lib/asset-block-heading";
 import {
+  assetHoldsNothing,
+  coreBlockTitles,
   rendersOnThePage,
   splitAssetPageContent,
 } from "@/lib/asset-page-content";
@@ -34,6 +37,7 @@ import {
   elementTracks,
   ornamentPlacement,
   packBlockRows,
+  pageFullness,
   suggestedBlockWidth,
   suggestionCandidateWidths,
 } from "@/lib/page-arrangement";
@@ -52,6 +56,12 @@ import type { CreatorMenuProps } from "./CreatorMenu";
 import { ElementBody } from "./ElementBody";
 import { ElementOverlay } from "./ElementOverlay";
 import { ElementReader } from "./ElementReader";
+import {
+  type ArtPlacement,
+  EmptyPage,
+  EmptyPageInvitation,
+  QuietPageArt,
+} from "./QuietPage";
 
 function measureCandidateHeights(
   source: HTMLElement,
@@ -121,6 +131,7 @@ function returnToBlock(blockId: string) {
 /** The asset's content. An owner also sees the blocks they have yet to fill. */
 export function AssetBlocks({
   assetId,
+  kind,
   blocks,
   images,
   addableSections,
@@ -128,6 +139,7 @@ export function AssetBlocks({
   creatorMenu,
 }: {
   assetId: string;
+  kind: BrowseKind;
   blocks: AssetBlock[];
   images: AssetImage[];
   addableSections: AddableSection[];
@@ -197,9 +209,17 @@ export function AssetBlocks({
   const rows = packBlockRows(packable, {
     availableWidth,
   });
-  const ornament = ornamentPlacement(rows, holdsCreatorPictures);
+  const fullness = pageFullness(rows);
+  /** An owner filling in an empty page is invited once, not block by block. */
+  const invited = editingVisible && assetHoldsNothing(currentBlocks);
+  const ornament = invited
+    ? null
+    : ornamentPlacement(rows, holdsCreatorPictures);
   const ornamentAtFoot =
-    rows.length > 0 && !ornament && !rows.some(holdsCreatorPictures);
+    !invited &&
+    rows.length > 0 &&
+    !ornament &&
+    !rows.some(holdsCreatorPictures);
   const contentsBlocks = useMemo(
     () =>
       editingVisible ? currentBlocks : publicBlocks.filter(rendersOnThePage),
@@ -385,6 +405,15 @@ export function AssetBlocks({
               {arrangementMessage}
             </p>
           ) : null}
+          {invited ? (
+            <EmptyPageInvitation
+              kind={kind}
+              coreBlocks={coreBlockTitles(currentBlocks)}
+              canAdd={addableSections.length > 0}
+            />
+          ) : fullness === "empty" ? (
+            <EmptyPage kind={kind} />
+          ) : null}
           {rows.length === 0 ? null : (
             <div
               className={styles.rows}
@@ -534,6 +563,7 @@ export function AssetBlocks({
                               images={images}
                               blockTitle={block.title}
                               blockElements={block.elements.length}
+                              markEmpty={!invited}
                               onExpand={() =>
                                 setExpanding({
                                   blockId: block.id,
@@ -561,10 +591,10 @@ export function AssetBlocks({
                     </article>
                   ))}
                   {ornament?.row === rowIndex ? (
-                    <div
-                      aria-hidden="true"
-                      data-measurement-ignore
-                      className={`${styles.ornament} ${styles.inRow}`}
+                    <Ornament
+                      kind={kind}
+                      barren={fullness === "barren"}
+                      placement="inRow"
                       style={
                         {
                           "--block-columns": ornament.columns,
@@ -576,10 +606,10 @@ export function AssetBlocks({
                 </div>
               ))}
               {ornamentAtFoot ? (
-                <div
-                  aria-hidden="true"
-                  data-measurement-ignore
-                  className={`${styles.ornament} ${styles.atFoot}`}
+                <Ornament
+                  kind={kind}
+                  barren={fullness === "barren"}
+                  placement="atFoot"
                 />
               ) : null}
             </div>
@@ -721,6 +751,35 @@ export function AssetBlocks({
         />
       ) : null}
     </>
+  );
+}
+
+/**
+ * The artwork that takes what a row leaves. A page with plenty on it gets the
+ * shared wash. A page with one row gets the kind's own piece, because there
+ * the artwork is the composition rather than a hint of one.
+ */
+function Ornament({
+  kind,
+  barren,
+  placement,
+  style,
+}: {
+  kind: BrowseKind;
+  barren: boolean;
+  placement: Extract<ArtPlacement, "inRow" | "atFoot">;
+  style?: CSSProperties;
+}) {
+  if (barren) {
+    return <QuietPageArt kind={kind} placement={placement} style={style} />;
+  }
+  return (
+    <div
+      aria-hidden="true"
+      data-measurement-ignore
+      className={`${styles.ornament} ${styles[placement]}`}
+      style={style}
+    />
   );
 }
 

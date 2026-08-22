@@ -115,6 +115,10 @@ generate: ## Regenerate database code, server stubs, and the site's API types
 refractive-assets: ## Generate the deterministic refractive art assets
 	cd web && bun scripts/generate-refractive-assets.mjs
 
+.PHONY: quiet-page-art
+quiet-page-art: ## Generate the empty and barren page artwork, one piece per kind
+	cd web && bun scripts/generate-quiet-page-art.mjs
+
 .PHONY: archive-cutouts
 archive-cutouts: ## Neutralize the archive mascot glass cutouts
 	cd web && bun scripts/neutralize-archive-cutouts.mjs

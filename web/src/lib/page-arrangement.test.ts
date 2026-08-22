@@ -11,6 +11,7 @@ import {
   opensFullScreen,
   ornamentPlacement,
   packBlockRows,
+  pageFullness,
   rowRemainder,
   suggestedBlockWidth,
   suggestionCandidateWidths,
@@ -482,5 +483,39 @@ describe("the columns a block's elements arrange into", () => {
 
   test("more elements than slots take the slots the layout has", () => {
     expect(elementTracks("duo", 5)).toBe("repeat(2, minmax(0, 1fr))");
+  });
+});
+
+describe("how much a page has to show", () => {
+  test("a page whose blocks all render nothing is empty", () => {
+    expect(pageFullness([])).toBe("empty");
+  });
+
+  test("a page that fills one row is barren", () => {
+    const rows = packBlockRows([block("a", "two_thirds")], {
+      availableWidth: 1200,
+    });
+    expect(pageFullness(rows)).toBe("barren");
+  });
+
+  test("one block filling the width is still barren", () => {
+    const rows = packBlockRows([block("a", "full")], { availableWidth: 1200 });
+    expect(pageFullness(rows)).toBe("barren");
+  });
+
+  test("three thirds side by side are one row, so still barren", () => {
+    const rows = packBlockRows(
+      [block("a", "third"), block("b", "third"), block("c", "third")],
+      { availableWidth: 1200 },
+    );
+    expect(rows).toHaveLength(1);
+    expect(pageFullness(rows)).toBe("barren");
+  });
+
+  test("a second row of content makes the page full", () => {
+    const rows = packBlockRows([block("a", "full"), block("b", "full")], {
+      availableWidth: 1200,
+    });
+    expect(pageFullness(rows)).toBe("full");
   });
 });

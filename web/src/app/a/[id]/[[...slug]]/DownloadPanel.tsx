@@ -12,8 +12,9 @@ function costs(role: RoleVerdict): boolean {
   return role.verdict !== "carried";
 }
 
-function costLine(target: DownloadTarget): string {
+function costLine(target: DownloadTarget, holdsNothing: boolean): string {
   const lost = target.roles.filter(costs).length;
+  if (holdsNothing && lost === 0) return "There is nothing in it yet";
   if (lost === 0) return "Everything travels";
   return lost === 1
     ? "1 thing does not travel"
@@ -54,11 +55,14 @@ export function DownloadPanel({
   downloads,
   original,
   images,
+  holdsNothing,
 }: {
   assetId: string;
   downloads: DownloadTarget[];
   original: OriginalUpload | null;
   images: AssetImage[];
+  /** Whether the asset holds no content, so a format carries a shell of one. */
+  holdsNothing: boolean;
 }) {
   if (downloads.length === 0 && !original) return null;
   const imagesById = new Map(images.map((image) => [image.id, image]));
@@ -76,6 +80,7 @@ export function DownloadPanel({
             assetId={assetId}
             target={recommended}
             imagesById={imagesById}
+            holdsNothing={holdsNothing}
             primary
           />
           {alternatives.length > 0 ? (
@@ -92,6 +97,7 @@ export function DownloadPanel({
                       assetId={assetId}
                       target={target}
                       imagesById={imagesById}
+                      holdsNothing={holdsNothing}
                     />
                   </li>
                 ))}
@@ -114,6 +120,7 @@ export function DownloadPanel({
                     assetId={assetId}
                     target={target}
                     imagesById={imagesById}
+                    holdsNothing={holdsNothing}
                   />
                 </li>
               ))}
@@ -130,11 +137,13 @@ function FormatLine({
   assetId,
   target,
   imagesById,
+  holdsNothing,
   primary = false,
 }: {
   assetId: string;
   target: DownloadTarget;
   imagesById: ReadonlyMap<string, AssetImage>;
+  holdsNothing: boolean;
   primary?: boolean;
 }) {
   const lost = target.roles.filter(costs);
@@ -158,10 +167,10 @@ function FormatLine({
         <p className={styles.label}>{target.label}</p>
       )}
       {detail.length === 0 ? (
-        <p className={styles.cost}>{costLine(target)}</p>
+        <p className={styles.cost}>{costLine(target, holdsNothing)}</p>
       ) : (
         <details className={styles.detail}>
-          <summary>{costLine(target)}</summary>
+          <summary>{costLine(target, holdsNothing)}</summary>
           <ul className={styles.losses}>
             {detail.map((role) => (
               <li key={role.role}>

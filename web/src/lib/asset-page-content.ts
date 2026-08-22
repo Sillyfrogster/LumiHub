@@ -44,3 +44,35 @@ export function rendersOnThePage(block: {
 }): boolean {
   return !block.hidden && !block.empty;
 }
+
+/** How many blocks an invitation can name before it stops being a sentence. */
+const INVITATION_BLOCK_LIMIT = 3;
+
+type FillableBlock = {
+  title: string;
+  required: boolean;
+  isEmpty: boolean;
+};
+
+/**
+ * Whether no block on the asset has anything in it. A page that displays
+ * nothing is a different question, because hidden content is still held and
+ * still travels.
+ */
+export function assetHoldsNothing(
+  blocks: readonly Pick<FillableBlock, "isEmpty">[],
+): boolean {
+  return blocks.every((block) => block.isEmpty);
+}
+
+/**
+ * The blocks an invitation names. A kind's required blocks are its core. A
+ * kind that requires none is invited to fill in whatever it was given.
+ */
+export function coreBlockTitles(
+  blocks: readonly Pick<FillableBlock, "title" | "required">[],
+): string[] {
+  const required = blocks.filter((block) => block.required);
+  const named = required.length > 0 ? required : blocks;
+  return named.slice(0, INVITATION_BLOCK_LIMIT).map((block) => block.title);
+}

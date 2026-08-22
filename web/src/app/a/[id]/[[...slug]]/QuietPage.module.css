@@ -1,0 +1,172 @@
+/*
+ * A page with nothing on it, or close to nothing. The words take a narrow
+ * column and the artwork takes the rest, running off the right edge, so the
+ * space the blocks would have held is composed rather than blank.
+ */
+
+.quiet {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  column-gap: clamp(28px, 4vw, 64px);
+  align-items: center;
+  min-height: clamp(300px, 32vw, 420px);
+}
+
+.words {
+  max-width: 42ch;
+}
+
+.words h2 {
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: var(--type-block-title-size);
+  font-weight: 520;
+  line-height: var(--type-block-title-leading);
+  letter-spacing: -0.02em;
+}
+
+.words p {
+  margin-top: 14px;
+  color: var(--color-text-secondary);
+  font-size: var(--type-secondary-size);
+  line-height: 1.65;
+}
+
+/*
+ * The artwork itself. It carries its own ground, so it is masked into the
+ * page rather than tinted, blended or framed. Light and dark are two pieces,
+ * each drawn for the ground it sits on, and each kept clear of white and
+ * black so neither washes out nor glares.
+ */
+.art {
+  position: relative;
+  --art-bleed: max(72px, (100vw - var(--shell)) / 2 + var(--gutter));
+}
+
+.art::before {
+  position: absolute;
+  z-index: -1;
+  background-image: var(--quiet-art-light);
+  background-repeat: no-repeat;
+  background-position: center 42%;
+  background-size: cover;
+  opacity: 0.92;
+  mask-image:
+    linear-gradient(to right, transparent, var(--mask-opaque) 34%),
+    linear-gradient(
+      to bottom,
+      transparent,
+      var(--mask-opaque) 22%,
+      var(--mask-opaque) 74%,
+      transparent
+    );
+  mask-composite: intersect;
+  animation: quietArtArrive 1.1s var(--ease) 80ms both;
+  content: "";
+}
+
+:global(:root[data-theme="dark"]) .art::before {
+  background-image: var(--quiet-art-dark);
+  opacity: 0.86;
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme])) .art::before {
+    background-image: var(--quiet-art-dark);
+    opacity: 0.86;
+  }
+}
+
+@keyframes quietArtArrive {
+  from {
+    opacity: 0;
+    transform: translate3d(16px, 8px, 0);
+  }
+}
+
+/* Beside the words, on a page with nothing else to arrange. */
+.beside {
+  align-self: stretch;
+  min-height: clamp(260px, 28vw, 380px);
+}
+
+.beside::before {
+  inset-block: 0;
+  left: 0;
+  width: calc(100% + var(--art-bleed));
+}
+
+/*
+ * An owner is at work on the blocks below, so their band keeps the artwork
+ * short enough to stay a note rather than a picture in the way. A short band
+ * still has to show the kind's own form, so it crops around it.
+ */
+.compact {
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  min-height: 0;
+  margin-bottom: 64px;
+}
+
+.compact .beside {
+  min-height: clamp(190px, 18vw, 240px);
+}
+
+.compact .beside::before {
+  background-position: center 46%;
+  mask-image:
+    linear-gradient(to right, transparent, var(--mask-opaque) 30%),
+    linear-gradient(
+      to bottom,
+      transparent,
+      var(--mask-opaque) 18%,
+      var(--mask-opaque) 84%,
+      transparent
+    );
+  mask-composite: intersect;
+}
+
+/*
+ * A barren page has one row of blocks, and the artwork takes what that row
+ * leaves. The piece is the kind's own, because here it is the composition
+ * rather than a wash under a page that already has plenty on it.
+ */
+.inRow {
+  grid-column: var(--block-start) / span var(--block-columns);
+  min-height: 260px;
+}
+
+.inRow::before {
+  inset-block: -52px;
+  left: 0;
+  width: calc(100% + var(--art-bleed));
+}
+
+/* Nothing was left in the row, so the piece takes the foot of the page. */
+.atFoot {
+  height: 300px;
+  margin-top: 48px;
+}
+
+.atFoot::before {
+  inset-block: 0;
+  left: 42%;
+  width: calc(58% + var(--art-bleed));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .art::before {
+    animation: none;
+  }
+}
+
+@media (max-width: 860px) {
+  .quiet {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 30px;
+    min-height: 0;
+  }
+
+  .beside {
+    min-height: clamp(200px, 46vw, 300px);
+  }
+}

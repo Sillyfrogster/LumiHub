@@ -41,6 +41,7 @@ export function ElementBody({
   images = [],
   blockTitle,
   blockElements = 2,
+  markEmpty = true,
   onExpand,
   onReadMore,
 }: {
@@ -50,6 +51,11 @@ export function ElementBody({
   blockTitle?: string;
   /** How many elements the block renders, this one included. */
   blockElements?: number;
+  /**
+   * Whether an empty element says so. A page where nothing is filled in says
+   * it once at the top instead, so the marker does not run down every label.
+   */
+  markEmpty?: boolean;
   onExpand?: () => void;
   onReadMore?: () => void;
 }) {
@@ -80,9 +86,10 @@ export function ElementBody({
           ) : null}
         </div>
       ) : null}
-      {element.isEmpty ? (
+      {element.isEmpty && markEmpty ? (
         <p className={styles.blank}>Empty</p>
-      ) : (
+      ) : null}
+      {element.isEmpty ? null : (
         <>
           <ExcerptedElementContent
             element={element}

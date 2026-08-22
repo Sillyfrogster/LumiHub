@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { rendersOnThePage, splitAssetPageContent } from "./asset-page-content";
+import {
+  assetHoldsNothing,
+  coreBlockTitles,
+  rendersOnThePage,
+  splitAssetPageContent,
+} from "./asset-page-content";
 
 type TestElement = {
   id: string;
@@ -119,5 +124,61 @@ describe("the blocks a reader's page arranges", () => {
     ]);
 
     expect(publicBlocks.filter(rendersOnThePage)).toEqual([]);
+  });
+});
+
+describe("an asset that holds nothing", () => {
+  type Fillable = { title: string; required: boolean; isEmpty: boolean };
+  const core = (title: string): Fillable => ({
+    title,
+    required: true,
+    isEmpty: true,
+  });
+  const extra = (title: string): Fillable => ({
+    title,
+    required: false,
+    isEmpty: true,
+  });
+
+  test("every block empty means the asset holds nothing", () => {
+    expect(assetHoldsNothing([core("The character"), core("Messages")])).toBe(
+      true,
+    );
+  });
+
+  test("one written block is enough to stop that", () => {
+    expect(
+      assetHoldsNothing([
+        { title: "The character", required: true, isEmpty: false },
+        core("Messages"),
+      ]),
+    ).toBe(false);
+  });
+
+  test("an asset with no blocks at all holds nothing", () => {
+    expect(assetHoldsNothing([])).toBe(true);
+  });
+
+  test("the invitation names the required blocks in page order", () => {
+    expect(
+      coreBlockTitles([
+        core("The character"),
+        extra("Changelog"),
+        core("Messages"),
+      ]),
+    ).toEqual(["The character", "Messages"]);
+  });
+
+  test("with nothing required it names the blocks that are there", () => {
+    expect(coreBlockTitles([extra("Entries"), extra("Changelog")])).toEqual([
+      "Entries",
+      "Changelog",
+    ]);
+  });
+
+  test("it names at most three so the invitation stays one sentence", () => {
+    expect(
+      coreBlockTitles([core("One"), core("Two"), core("Three"), core("Four")]),
+    ).toEqual(["One", "Two", "Three"]);
   });
 });

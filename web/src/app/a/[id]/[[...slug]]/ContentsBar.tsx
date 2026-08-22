@@ -113,9 +113,9 @@ export function ContentsBar({
             ))}
           </ol>
         </nav>
-      ) : (
+      ) : isOwner ? (
         <p className={styles.mode}>Start this page</p>
-      )}
+      ) : null}
 
       {hasPageTools ? (
         <div className={styles.tools} role="toolbar" aria-label="Page tools">

@@ -354,6 +354,19 @@ function nestedCollectionSize(content: unknown, key: string): number {
   }, 0);
 }
 
+/**
+ * How much a page has to show, which decides the composition it gets. A page
+ * with nothing on it and a page with one row of blocks are both short, and
+ * both need artwork rather than a run of blank ground.
+ */
+export type PageFullness = "empty" | "barren" | "full";
+
+export function pageFullness(rows: readonly unknown[]): PageFullness {
+  if (rows.length === 0) return "empty";
+  if (rows.length === 1) return "barren";
+  return "full";
+}
+
 export const ORNAMENT_MINIMUM_COLUMNS = WIDTH_COLUMNS.third;
 
 export function rowRemainder<T>(row: readonly PackedBlock<T>[]): number {
