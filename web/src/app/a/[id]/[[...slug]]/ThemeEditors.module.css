@@ -1,0 +1,312 @@
+.paletteEditor,
+.stylesEditor,
+.componentSheets,
+.colorRows {
+  display: flex;
+  flex-direction: column;
+}
+
+.paletteEditor,
+.stylesEditor {
+  gap: 26px;
+}
+
+.colorRows,
+.componentSheets {
+  gap: 12px;
+}
+
+.mode {
+  padding: 20px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-muted) 68%, var(--color-surface));
+}
+
+.modeHeading,
+.sheetHeading,
+.filesHeading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.modeHeading {
+  margin-bottom: 16px;
+}
+
+.modeHeading > label,
+.sheetHeading > label:first-child {
+  min-width: 0;
+  flex: 1;
+}
+
+.mode label > span,
+.colorRow label > span,
+.codeField > span,
+.sheetHeading label > span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--color-text-secondary);
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.mode input:not([type="color"]),
+.componentSheet input:not([type="checkbox"]),
+.codeField textarea {
+  width: 100%;
+  border: 1px solid var(--color-accent-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+}
+
+.mode input:not([type="color"]),
+.componentSheet input:not([type="checkbox"]) {
+  min-height: 44px;
+  padding: 9px 12px;
+}
+
+.mode input:focus,
+.componentSheet input:focus,
+.codeField textarea:focus {
+  border-color: var(--color-accent);
+  outline: 3px solid color-mix(in srgb, var(--color-accent) 22%, transparent);
+  outline-offset: 1px;
+}
+
+.colorRow {
+  display: grid;
+  align-items: end;
+  grid-template-columns: 46px minmax(90px, 0.8fr) minmax(150px, 1.4fr) 40px;
+  gap: 10px;
+}
+
+.colorPicker {
+  width: 46px;
+  height: 44px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--color-accent-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: inset 0 0 0 3px var(--color-surface);
+  cursor: pointer;
+}
+
+.colorPicker input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.add,
+.remove,
+.iconRemove,
+.addFile,
+.files li button {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: var(--color-text-secondary);
+  font-size: 0.74rem;
+  font-weight: 750;
+}
+
+.add {
+  align-self: flex-start;
+}
+
+.add:hover:not(:disabled),
+.remove:hover:not(:disabled),
+.iconRemove:hover:not(:disabled),
+.files li button:hover:not(:disabled) {
+  color: var(--color-text-primary);
+}
+
+.remove {
+  flex: 0 0 auto;
+}
+
+.iconRemove {
+  width: 40px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.codeField {
+  display: block;
+}
+
+.codeField textarea {
+  min-height: 180px;
+  padding: 14px 15px;
+  resize: vertical;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  line-height: 1.6;
+  tab-size: 2;
+}
+
+.componentSheet {
+  padding: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-muted);
+  transition: opacity 160ms var(--ease);
+}
+
+.componentSheet[data-off] {
+  opacity: 0.66;
+}
+
+.sheetHeading {
+  margin-bottom: 15px;
+}
+
+.enabled {
+  display: inline-flex;
+  min-height: 44px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  color: var(--color-text-primary);
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.enabled input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-accent);
+}
+
+.files {
+  padding-top: 23px;
+  border-top: 1px solid var(--color-border);
+}
+
+.filesHeading {
+  align-items: flex-start;
+}
+
+.filesHeading h4 {
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 500;
+}
+
+.filesHeading p,
+.noFiles,
+.error {
+  max-width: 48ch;
+  margin-top: 4px;
+  color: var(--color-text-secondary);
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.addFile {
+  position: relative;
+  min-height: 42px;
+  flex: 0 0 auto;
+  padding-inline: 13px;
+  border: 1px solid var(--color-accent-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.addFile:hover {
+  border-color: var(--color-text-secondary);
+  color: var(--color-text-primary);
+}
+
+.addFile input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.files ul {
+  display: flex;
+  flex-direction: column;
+  margin-top: 15px;
+  border-top: 1px solid var(--color-border);
+  list-style: none;
+}
+
+.files li {
+  display: grid;
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px 16px;
+  padding-block: 11px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.files li > span {
+  min-width: 0;
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  overflow-wrap: anywhere;
+}
+
+.files li small {
+  color: var(--color-text-secondary);
+  font-size: 0.7rem;
+}
+
+.error {
+  color: var(--color-text-primary);
+}
+
+@media (max-width: 580px) {
+  .modeHeading,
+  .sheetHeading,
+  .filesHeading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .colorRow {
+    grid-template-columns: 46px minmax(0, 1fr) 40px;
+  }
+
+  .colorRow > label:nth-of-type(3) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .files li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .files li small {
+    grid-column: 1;
+  }
+}

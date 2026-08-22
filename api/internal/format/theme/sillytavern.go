@@ -57,7 +57,9 @@ func readSillyTavern(payload probe.Payload) (format.Parsed, error) {
 	if keys.Take(source, "custom_css", &css) {
 		elements = append(elements, block.Element{
 			ID: uuid.New(), Type: block.TypeStylesheetSet, Role: block.RoleStylesheets,
-			Content: block.StylesheetSet{Global: css},
+			Content: block.StylesheetSet{
+				Global: css, Stylesheets: []block.Stylesheet{}, Assets: []block.StylesheetAsset{},
+			},
 		})
 	}
 

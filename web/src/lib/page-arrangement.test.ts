@@ -383,7 +383,12 @@ describe("remove confirmation counts", () => {
       ["script_list", { scripts: [{}, {}] }, 2],
       [
         "color_set",
-        { colors: { light: { ink: "#000" }, dark: { ink: "#fff" } } },
+        {
+          modes: [
+            { name: "light", colors: [{ name: "ink", value: "#000" }] },
+            { name: "dark", colors: [{ name: "ink", value: "#fff" }] },
+          ],
+        },
         2,
       ],
       [

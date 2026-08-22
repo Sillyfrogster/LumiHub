@@ -17,6 +17,13 @@ export type PromptGroup = PromptListContent["groups"][number];
 export type PromptFragment = PromptListContent["fragments"][number];
 export type SettingGroupContent = components["schemas"]["SettingGroupContent"];
 export type PresetSetting = SettingGroupContent["settings"][number];
+export type ColorSetContent = components["schemas"]["ColorSetContent"];
+export type ThemeColorMode = ColorSetContent["modes"][number];
+export type ThemeColor = ThemeColorMode["colors"][number];
+export type StylesheetSetContent =
+  components["schemas"]["StylesheetSetContent"];
+export type ThemeStylesheet = StylesheetSetContent["stylesheets"][number];
+export type ThemeFile = StylesheetSetContent["assets"][number];
 export type VariableSchemaContent =
   components["schemas"]["VariableSchemaContent"];
 export type PresetVariable = VariableSchemaContent["variables"][number];

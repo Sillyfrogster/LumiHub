@@ -225,6 +225,8 @@ export const FULL_SCREEN_TYPES = [
   "variable_schema",
   "setting_group",
   "script_list",
+  "color_set",
+  "stylesheet_set",
 ] as const;
 
 /** How much of an element the page shows. `self` bounds its own height. */
@@ -233,7 +235,7 @@ export type ExcerptDefinition =
   | { unit: "items"; limit: number }
   | { unit: "self" };
 
-type FutureElementType = "color_set" | "stylesheet_set" | "record_list";
+type FutureElementType = "record_list";
 
 type ExcerptElementType = ElementType | FutureElementType;
 
@@ -311,7 +313,7 @@ export function contentItemCount(element: {
     case "script_list":
       return collectionSize(element.content, "scripts");
     case "color_set":
-      return nestedCollectionSize(element.content, "colors");
+      return colorCount(element.content);
     case "stylesheet_set": {
       const content = element.content as {
         global?: unknown;
@@ -340,17 +342,14 @@ function collectionSize(content: unknown, key: string): number {
   return 0;
 }
 
-function nestedCollectionSize(content: unknown, key: string): number {
+function colorCount(content: unknown): number {
   if (!content || typeof content !== "object") return 0;
-  const collection = (content as Record<string, unknown>)[key];
-  if (Array.isArray(collection)) return collection.length;
-  if (!collection || typeof collection !== "object") return 0;
-  return Object.values(collection).reduce<number>((total, group) => {
-    if (Array.isArray(group)) return total + group.length;
-    if (group && typeof group === "object") {
-      return total + Object.keys(group).length;
-    }
-    return total;
+  const modes = (content as { modes?: unknown }).modes;
+  if (!Array.isArray(modes)) return 0;
+  return modes.reduce<number>((total, mode) => {
+    if (!mode || typeof mode !== "object") return total;
+    const colors = (mode as { colors?: unknown }).colors;
+    return total + (Array.isArray(colors) ? colors.length : 0);
   }, 0);
 }
 

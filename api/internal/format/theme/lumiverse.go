@@ -164,7 +164,9 @@ func readLumiverseStyles(
 	file probe.Inspection,
 	source map[string]json.RawMessage,
 ) (block.StylesheetSet, []itemRemainder) {
-	styles := block.StylesheetSet{}
+	styles := block.StylesheetSet{
+		Stylesheets: []block.Stylesheet{}, Assets: []block.StylesheetAsset{},
+	}
 	keys.Take(source, "globalCSS", &styles.Global)
 	rows := make([]itemRemainder, 0)
 

@@ -180,6 +180,10 @@ func TestLumiverseThemeKeepsItsHeaderPaletteComponentsAndFont(t *testing.T) {
 		!bytes.Equal(styles.Assets[0].Data, []byte("font fixture")) {
 		t.Fatalf("stylesheets = %+v, want two components and the font", styles)
 	}
+	encodedStyles, err := json.Marshal(styles)
+	if err != nil || bytes.Contains(encodedStyles, []byte("null")) {
+		t.Errorf("stylesheets JSON = %s, want arrays at the API boundary", encodedStyles)
+	}
 
 	written := write(t, LumiverseModule{}, parsed)
 	entries := archiveEntries(t, written.Body)

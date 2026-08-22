@@ -511,6 +511,7 @@ func (e DownloadRoleVerdictVerdict) Valid() bool {
 
 // Defines values for ElementType.
 const (
+	ColorSet       ElementType = "color_set"
 	DialogueSample ElementType = "dialogue_sample"
 	EntryTable     ElementType = "entry_table"
 	FieldList      ElementType = "field_list"
@@ -520,6 +521,7 @@ const (
 	Prose          ElementType = "prose"
 	ScriptList     ElementType = "script_list"
 	SettingGroup   ElementType = "setting_group"
+	StylesheetSet  ElementType = "stylesheet_set"
 	TextSet        ElementType = "text_set"
 	VariableSchema ElementType = "variable_schema"
 )
@@ -527,6 +529,8 @@ const (
 // Valid indicates whether the value is a known member of the ElementType enum.
 func (e ElementType) Valid() bool {
 	switch e {
+	case ColorSet:
+		return true
 	case DialogueSample:
 		return true
 	case EntryTable:
@@ -544,6 +548,8 @@ func (e ElementType) Valid() bool {
 	case ScriptList:
 		return true
 	case SettingGroup:
+		return true
+	case StylesheetSet:
 		return true
 	case TextSet:
 		return true
@@ -1404,6 +1410,18 @@ type ChangeEmailRequest struct {
 	Email openapi_types.Email `json:"email"`
 }
 
+// ColorSetContent A theme's named colours, grouped by the modes its source carries.
+type ColorSetContent struct {
+	Modes []struct {
+		Colors []struct {
+			Id    *openapi_types.UUID `json:"id,omitempty"`
+			Name  string              `json:"name"`
+			Value string              `json:"value"`
+		} `json:"colors"`
+		Name *string `json:"name,omitempty"`
+	} `json:"modes"`
+}
+
 // CompletePasswordResetRequest defines model for CompletePasswordResetRequest.
 type CompletePasswordResetRequest struct {
 	Password string `json:"password"`
@@ -1894,6 +1912,23 @@ type StartLinkRequest struct {
 	// Name What the creator sees on the approval screen. Name the installation, not the product, so somebody with two of them can tell which is which.
 	Name   string  `json:"name"`
 	Scopes []Scope `json:"scopes"`
+}
+
+// StylesheetSetContent A theme's main CSS, component sheets, and the files those sheets use.
+type StylesheetSetContent struct {
+	Assets []struct {
+		Data      []byte              `json:"data"`
+		Id        *openapi_types.UUID `json:"id,omitempty"`
+		MediaType *string             `json:"mediaType,omitempty"`
+		Path      string              `json:"path"`
+	} `json:"assets"`
+	Global      string `json:"global"`
+	Stylesheets []struct {
+		Css     string              `json:"css"`
+		Enabled bool                `json:"enabled"`
+		Id      *openapi_types.UUID `json:"id,omitempty"`
+		Name    string              `json:"name"`
+	} `json:"stylesheets"`
 }
 
 // TextSetContent defines model for TextSetContent.

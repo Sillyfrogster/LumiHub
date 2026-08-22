@@ -1222,6 +1222,8 @@ components:
             - $ref: "#/components/schemas/VariableSchemaContent"
             - $ref: "#/components/schemas/SettingGroupContent"
             - $ref: "#/components/schemas/ScriptListContent"
+            - $ref: "#/components/schemas/ColorSetContent"
+            - $ref: "#/components/schemas/StylesheetSetContent"
     AssetElement:
       type: object
       description: >-
@@ -1264,6 +1266,8 @@ components:
             - $ref: "#/components/schemas/VariableSchemaContent"
             - $ref: "#/components/schemas/SettingGroupContent"
             - $ref: "#/components/schemas/ScriptListContent"
+            - $ref: "#/components/schemas/ColorSetContent"
+            - $ref: "#/components/schemas/StylesheetSetContent"
     ProseContent:
       type: object
       required: [text]
@@ -1576,6 +1580,53 @@ components:
               value:
                 description: Absent where nobody has supplied one.
                 $ref: "#/components/schemas/TypedValue"
+    ColorSetContent:
+      type: object
+      required: [modes]
+      description: A theme's named colours, grouped by the modes its source carries.
+      properties:
+        modes:
+          type: array
+          items:
+            type: object
+            required: [colors]
+            properties:
+              name: { type: string }
+              colors:
+                type: array
+                items:
+                  type: object
+                  required: [name, value]
+                  properties:
+                    id: { type: string, format: uuid }
+                    name: { type: string }
+                    value: { type: string }
+    StylesheetSetContent:
+      type: object
+      required: [global, stylesheets, assets]
+      description: A theme's main CSS, component sheets, and the files those sheets use.
+      properties:
+        global: { type: string }
+        stylesheets:
+          type: array
+          items:
+            type: object
+            required: [name, css, enabled]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+              css: { type: string }
+              enabled: { type: boolean }
+        assets:
+          type: array
+          items:
+            type: object
+            required: [path, data]
+            properties:
+              id: { type: string, format: uuid }
+              path: { type: string }
+              mediaType: { type: string }
+              data: { type: string, format: byte }
     ScriptListContent:
       type: object
       required: [scripts]
@@ -1635,6 +1686,8 @@ components:
           variable_schema,
           setting_group,
           script_list,
+          color_set,
+          stylesheet_set,
         ]
     ItemSize:
       type: string

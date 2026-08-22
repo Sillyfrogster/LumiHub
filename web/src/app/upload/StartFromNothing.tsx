@@ -79,7 +79,7 @@ export function StartFromNothing() {
         <div className={styles.apps}>
           <p className={styles.appQuestion}>
             Which app is this {KIND_LABELS[asking].toLowerCase()} for? Its
-            settings get that app's names. Nothing else about the{" "}
+            editable fields get that app's names. Nothing else about the{" "}
             {KIND_LABELS[asking].toLowerCase()} depends on the answer, and you
             are not asked again.
           </p>

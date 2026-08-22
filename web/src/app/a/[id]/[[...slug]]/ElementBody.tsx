@@ -14,10 +14,12 @@ import { FormattingNotice, RichText } from "@/components/ui/RichText";
 import type {
   AssetElement,
   AssetImage,
+  ColorSetContent,
   PresetSetting,
   PresetVariable,
   PromptListContent,
   RegexScript,
+  StylesheetSetContent,
   TypedValue,
 } from "@/lib/api/query";
 import { elementLabel } from "@/lib/element-label";
@@ -28,6 +30,7 @@ import {
 } from "@/lib/page-arrangement";
 import { type NamedSlot, nameSlot, orderSettings } from "@/lib/preset-slots";
 import { formattingWasRemoved, richTextsOf } from "@/lib/rich-text";
+import { themeAccent, themeColorName } from "@/lib/theme-colors";
 import styles from "./ElementBody.module.css";
 import { Lorebook } from "./Lorebook";
 
@@ -216,6 +219,10 @@ function excerptNoun(element: AssetElement): string {
       return "variables";
     case "setting_group":
       return "settings";
+    case "color_set":
+      return "colours";
+    case "stylesheet_set":
+      return "stylesheets";
     case "script_list":
       return "scripts";
     default:
@@ -353,6 +360,14 @@ export function ElementContent({
     return <SettingGroup settings={content.settings} itemLimit={itemLimit} />;
   }
 
+  if (element.type === "color_set" && "modes" in content) {
+    return <ThemePalette content={content} itemLimit={itemLimit} />;
+  }
+
+  if (element.type === "stylesheet_set" && "stylesheets" in content) {
+    return <ThemeStyles content={content} itemLimit={itemLimit} />;
+  }
+
   if (element.type === "variable_schema" && "variables" in content) {
     return (
       <VariableSchema variables={content.variables} itemLimit={itemLimit} />
@@ -364,6 +379,98 @@ export function ElementContent({
   }
 
   return null;
+}
+
+function ThemePalette({
+  content,
+  itemLimit,
+}: {
+  content: ColorSetContent;
+  itemLimit?: number;
+}) {
+  let remaining = itemLimit ?? Number.POSITIVE_INFINITY;
+  const modes = content.modes
+    .map((mode) => {
+      const colors = mode.colors.slice(0, remaining);
+      remaining -= colors.length;
+      return { ...mode, colors };
+    })
+    .filter((mode) => mode.colors.length > 0);
+  return (
+    <div className={styles.themePalette}>
+      {modes.map((mode, modeIndex) => (
+        <section
+          className={styles.paletteMode}
+          key={mode.name || `mode-${modeIndex}`}
+        >
+          <h4>{mode.name || "Palette"}</h4>
+          <ul className={styles.swatches}>
+            {mode.colors.map((color, colorIndex) => (
+              <li
+                key={color.id ?? `${color.name}-${colorIndex}`}
+                data-lead={colorIndex === 0 ? true : undefined}
+              >
+                <span
+                  className={styles.swatch}
+                  style={{ backgroundColor: color.value }}
+                  aria-hidden="true"
+                />
+                <span className={styles.swatchName} title={color.name}>
+                  {themeColorName(color.name)}
+                </span>
+                <code title={color.value}>{color.value}</code>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function ThemeStyles({
+  content,
+  itemLimit,
+}: {
+  content: StylesheetSetContent;
+  itemLimit?: number;
+}) {
+  const sheets = (content.stylesheets ?? []).slice(
+    0,
+    Math.max(
+      0,
+      (itemLimit ?? Number.POSITIVE_INFINITY) - (content.global ? 1 : 0),
+    ),
+  );
+  return (
+    <div className={styles.themeStyles}>
+      {content.global ? (
+        <section>
+          <p className={styles.stylesheetName}>Main stylesheet</p>
+          <pre className={styles.stylesheetCode}>{content.global}</pre>
+        </section>
+      ) : null}
+      {sheets.map((sheet, index) => (
+        <section
+          key={sheet.id ?? `${sheet.name}-${index}`}
+          data-off={!sheet.enabled || undefined}
+        >
+          <p className={styles.stylesheetName}>
+            {sheet.name || `Component ${index + 1}`}
+            {sheet.enabled ? null : <span>Off</span>}
+          </p>
+          <pre className={styles.stylesheetCode}>{sheet.css}</pre>
+        </section>
+      ))}
+      {(content.assets ?? []).length > 0 ? (
+        <p className={styles.themeFiles}>
+          {(content.assets ?? []).length.toLocaleString("en-GB")} attached{" "}
+          {(content.assets ?? []).length === 1 ? "file" : "files"}:{" "}
+          {(content.assets ?? []).map((asset) => asset.path).join(", ")}
+        </p>
+      ) : null}
+    </div>
+  );
 }
 
 const PROMPT_ROLE_LABELS: Record<string, string> = {
@@ -489,7 +596,7 @@ function Settings({
         <div className={styles.setting} key={setting.id ?? setting.name}>
           <dt>{setting.slot.name}</dt>
           <dd>
-            <SettingValue value={setting.value} />
+            <SettingValue name={setting.name} value={setting.value} />
             {setting.slot.note ? (
               <span className={styles.settingNote}>{setting.slot.note}</span>
             ) : null}
@@ -505,7 +612,22 @@ function Settings({
  * written, because saying a setting holds nothing when it holds two blank
  * lines is a lie a reader would act on.
  */
-function SettingValue({ value }: { value: TypedValue | undefined }) {
+function SettingValue({
+  name,
+  value,
+}: {
+  name: string;
+  value: TypedValue | undefined;
+}) {
+  const accent = name === "accent" ? themeAccent(value?.text) : null;
+  if (accent) {
+    return (
+      <span className={styles.accentValue}>
+        <span style={{ backgroundColor: accent.css }} aria-hidden="true" />
+        {accent.label}
+      </span>
+    );
+  }
   if (value?.text != null && value.text !== "" && value.text.trim() === "") {
     return <code className={styles.whitespaceValue}>{value.text}</code>;
   }

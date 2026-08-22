@@ -306,7 +306,7 @@ export function UploadFlow() {
           <h2 id="path-heading">Choose how to begin</h2>
           <p>
             Import an existing source file or start a private draft in the
-            builder. Theme and pack builders are not available yet.
+            builder. The pack builder is not available yet.
           </p>
         </div>
         <button type="button" onClick={() => setEntryMode("import")}>
@@ -322,8 +322,8 @@ export function UploadFlow() {
           <span>
             <strong>Start a new asset</strong>
             <small>
-              Open a private character, lorebook, or preset draft. Theme and
-              pack builders are still to come.
+              Open a private character, lorebook, preset, or theme draft. The
+              pack builder is still to come.
             </small>
           </span>
           <ArrowRight size={18} aria-hidden="true" />

@@ -878,7 +878,9 @@ export interface components {
         | components["schemas"]["PromptListContent"]
         | components["schemas"]["VariableSchemaContent"]
         | components["schemas"]["SettingGroupContent"]
-        | components["schemas"]["ScriptListContent"];
+        | components["schemas"]["ScriptListContent"]
+        | components["schemas"]["ColorSetContent"]
+        | components["schemas"]["StylesheetSetContent"];
     };
     /** @description One piece of content. Its role is what import and export read, and it travels with the element wherever the creator moves it. */
     AssetElement: {
@@ -909,7 +911,9 @@ export interface components {
         | components["schemas"]["PromptListContent"]
         | components["schemas"]["VariableSchemaContent"]
         | components["schemas"]["SettingGroupContent"]
-        | components["schemas"]["ScriptListContent"];
+        | components["schemas"]["ScriptListContent"]
+        | components["schemas"]["ColorSetContent"]
+        | components["schemas"]["StylesheetSetContent"];
     };
     ProseContent: {
       text: string;
@@ -1116,6 +1120,37 @@ export interface components {
         value?: components["schemas"]["TypedValue"];
       }[];
     };
+    /** @description A theme's named colours, grouped by the modes its source carries. */
+    ColorSetContent: {
+      modes: {
+        name?: string;
+        colors: {
+          /** Format: uuid */
+          id?: string;
+          name: string;
+          value: string;
+        }[];
+      }[];
+    };
+    /** @description A theme's main CSS, component sheets, and the files those sheets use. */
+    StylesheetSetContent: {
+      global: string;
+      stylesheets: {
+        /** Format: uuid */
+        id?: string;
+        name: string;
+        css: string;
+        enabled: boolean;
+      }[];
+      assets: {
+        /** Format: uuid */
+        id?: string;
+        path: string;
+        mediaType?: string;
+        /** Format: byte */
+        data: string;
+      }[];
+    };
     /** @description A preset's find and replace scripts, in the order they run. */
     ScriptListContent: {
       scripts: {
@@ -1162,7 +1197,9 @@ export interface components {
       | "prompt_list"
       | "variable_schema"
       | "setting_group"
-      | "script_list";
+      | "script_list"
+      | "color_set"
+      | "stylesheet_set";
     /**
      * @description How large the images inside an element are drawn. It names what it controls, and no element type declares a measurement of its own.
      * @enum {string}

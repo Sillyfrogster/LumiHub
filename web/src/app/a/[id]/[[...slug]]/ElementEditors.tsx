@@ -18,6 +18,7 @@ import {
   SettingGroupEditor,
   VariableSchemaEditor,
 } from "./PresetEditors";
+import { ColorSetEditor, StylesheetSetEditor } from "./ThemeEditors";
 
 type TextItem = { name?: string; text: string };
 type DialogueTurn = { speaker: string; text: string };
@@ -259,6 +260,45 @@ export function ElementFields({
             ...element,
             content: { settings },
             isEmpty: settings.every((setting) => setting.value == null),
+          })
+        }
+      />
+    );
+  }
+
+  if (element.type === "color_set" && "modes" in element.content) {
+    return (
+      <ColorSetEditor
+        content={element.content}
+        pending={pending}
+        onChange={(content) =>
+          onChange({
+            ...element,
+            content,
+            isEmpty: content.modes.every((mode) =>
+              mode.colors.every((color) => color.value.trim() === ""),
+            ),
+          })
+        }
+      />
+    );
+  }
+
+  if (element.type === "stylesheet_set" && "stylesheets" in element.content) {
+    return (
+      <StylesheetSetEditor
+        content={element.content}
+        pending={pending}
+        onChange={(content) =>
+          onChange({
+            ...element,
+            content,
+            isEmpty:
+              content.global.trim() === "" &&
+              (content.stylesheets ?? []).every(
+                (sheet) => sheet.css.trim() === "",
+              ) &&
+              (content.assets ?? []).length === 0,
           })
         }
       />
@@ -741,6 +781,10 @@ function elementHint(type: AssetElement["type"]): string {
       return "Fragments are sent in the order they sit in, under the headings you give them.";
     case "setting_group":
       return "The names are your app's own, and a setting you leave out stays out of the file.";
+    case "color_set":
+      return "These are the colours readers see first. Keep the app's names so the theme still knows where each colour belongs.";
+    case "stylesheet_set":
+      return "The main sheet, component sheets, and their fonts travel together with the theme.";
     case "variable_schema":
       return "Each variable is one thing a reader chooses before the preset runs.";
     case "script_list":
