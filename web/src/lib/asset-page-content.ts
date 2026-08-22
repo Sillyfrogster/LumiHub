@@ -36,3 +36,11 @@ export function splitAssetPageContent<
   }
   return { publicBlocks, modelContent };
 }
+
+/** Whether a reader's page draws this block. One that does not holds no columns. */
+export function rendersOnThePage(block: {
+  hidden: boolean;
+  empty: boolean;
+}): boolean {
+  return !block.hidden && !block.empty;
+}

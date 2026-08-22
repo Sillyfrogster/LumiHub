@@ -62,7 +62,7 @@
   max-width: 70ch;
 }
 
-/* Scoped under .element because .element p is the more specific rule. */
+/* .element p is otherwise the more specific rule. */
 .element .blank {
   color: var(--color-text-secondary);
   font-size: var(--type-label-size);
@@ -154,7 +154,6 @@
 .fieldList {
   display: grid;
   align-items: baseline;
-  /* The names index the values, so they take what they need up to a third. */
   grid-template-columns: fit-content(38%) minmax(0, 1fr);
   gap: 11px 20px;
 }
@@ -245,12 +244,15 @@
 }
 
 @container element (max-width: 330px) {
-  .fieldList {
+  .fieldList,
+  .settings,
+  .settings[data-raw] {
     grid-template-columns: minmax(0, 1fr);
     gap: 3px;
   }
 
-  .fieldList dd + dt {
+  .fieldList dd + dt,
+  .settings dd + dt {
     margin-top: 11px;
   }
 
@@ -376,4 +378,70 @@
 
 .pattern span {
   color: var(--color-text-secondary);
+}
+
+.settings {
+  display: grid;
+  align-items: baseline;
+  grid-template-columns: fit-content(38%) minmax(0, 1fr);
+  gap: 13px 20px;
+}
+
+.setting {
+  display: contents;
+}
+
+.settings dt {
+  color: var(--color-text-secondary);
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-leading);
+  overflow-wrap: anywhere;
+}
+
+.settings dd {
+  color: var(--color-text-primary);
+  font-size: var(--type-secondary-size);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--type-secondary-leading);
+  overflow-wrap: anywhere;
+}
+
+.whitespaceValue {
+  display: block;
+  padding: 2px 7px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+}
+
+.settingNote {
+  display: block;
+  margin-top: 2px;
+  max-width: 46ch;
+  color: var(--color-text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+/* A raw key needs the room its own spelling takes. */
+.settings[data-raw] {
+  grid-template-columns: fit-content(62%) minmax(0, 1fr);
+}
+
+.settings[data-raw] dt {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+
+.rawSettingsCaption {
+  margin: 20px 0 11px;
+  padding-top: 15px;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-leading);
 }

@@ -11,6 +11,7 @@ import type {
   RegexScript,
   TypedValue,
 } from "@/lib/api/query";
+import { nameSlot } from "@/lib/preset-slots";
 import {
   CollectionEditor,
   Field,
@@ -450,11 +451,15 @@ function SettingRow({
   onRemove: () => void;
 }) {
   const supplied = setting.value != null;
+  const slot = nameSlot(setting.name);
   return (
     <div className={styles.setting} data-unset={supplied ? undefined : true}>
       <div className={styles.settingName}>
-        <span>{setting.name}</span>
-        <small>{setting.type.replace("_", " ")}</small>
+        <span>{slot.name}</span>
+        <small>
+          {slot.rank === "unrecognised" ? null : <code>{setting.name}</code>}
+          {setting.type.replace("_", " ")}
+        </small>
       </div>
       <div className={styles.settingValue}>
         <ValueField

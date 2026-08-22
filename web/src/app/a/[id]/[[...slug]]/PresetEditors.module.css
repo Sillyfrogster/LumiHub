@@ -124,18 +124,22 @@
 
 .settingName span {
   color: var(--color-text-primary);
-  font-family: var(--font-mono);
-  font-size: 0.82rem;
+  font-size: 0.9rem;
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
 
 .settingName small {
+  display: flex;
+  flex-wrap: wrap;
   color: var(--color-text-secondary);
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 0.72rem;
+  gap: 8px;
+}
+
+.settingName small code {
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
 }
 
 .settingValue {

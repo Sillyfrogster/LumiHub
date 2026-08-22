@@ -407,3 +407,27 @@ func TestAPresetNeedsOnePromptFragmentBeforeItPublishes(t *testing.T) {
 		t.Error("a preset with a fragment in it still cannot publish")
 	}
 }
+
+// A page shows the settings somebody filled in, so the count beside the block
+// title is that number and not the length of the app's slot list.
+func TestASettingGroupCountsWhatSomebodyFilledIn(t *testing.T) {
+	group := SettingGroup{Settings: []Setting{
+		{ID: NewItemID(), Name: "temperature", Type: SettingNumber,
+			Value: &Value{Number: floatOf(0.9)}},
+		{ID: NewItemID(), Name: "top_p", Type: SettingNumber},
+		{ID: NewItemID(), Name: "top_k", Type: SettingNumber},
+	}}
+	element := Element{Type: TypeSettingGroup, Role: RoleSamplerSettings, Content: group}
+	facts := element.Facts()
+	if len(facts) != 1 || facts[0] != "1 setting" {
+		t.Errorf("facts = %q, want only the count of settings on the page", facts)
+	}
+
+	empty := Element{Type: TypeSettingGroup, Role: RoleAdvancedSettings,
+		Content: SettingGroup{Settings: []Setting{{ID: NewItemID(), Name: "seed", Type: SettingNumber}}}}
+	if facts := empty.Facts(); len(facts) != 0 {
+		t.Errorf("facts = %q, want nothing from a group nobody has filled in", facts)
+	}
+}
+
+func floatOf(value float64) *float64 { return &value }

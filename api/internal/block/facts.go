@@ -74,19 +74,11 @@ func (e Element) fragmentFacts(list PromptList) []string {
 	return append(facts, fmt.Sprintf("%s switched on", number(on)))
 }
 
-// settingFacts says how many slots the app has and how many of them somebody
-// filled in. A group of named slots with nothing in any of them is a form a
-// creator has yet to fill, and saying so is more use than the total alone.
+// settingFacts counts the settings somebody filled in. A slot left empty is
+// not shown on the page, so counting it would promise a reader rows that are
+// not there.
 func (e Element) settingFacts(group SettingGroup) []string {
-	facts := e.itemFacts(len(group.Settings))
-	if len(facts) == 0 {
-		return nil
-	}
-	supplied := group.Supplied()
-	if supplied == len(group.Settings) {
-		return facts
-	}
-	return append(facts, fmt.Sprintf("%s filled in", number(supplied)))
+	return e.itemFacts(group.Supplied())
 }
 
 func (e Element) itemFacts(count int) []string {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { splitAssetPageContent } from "./asset-page-content";
+import { rendersOnThePage, splitAssetPageContent } from "./asset-page-content";
 
 type TestElement = {
   id: string;
@@ -96,5 +96,28 @@ describe("reader page content", () => {
     );
 
     expect(splitAssetPageContent([hidden]).modelContent).toEqual([]);
+  });
+});
+
+describe("the blocks a reader's page arranges", () => {
+  test("a block with nothing to show holds no place in a row", () => {
+    const { publicBlocks } = splitAssetPageContent([
+      block("Prompt fragments", [element("fragments", "prompt_fragments")]),
+      block("Nudges", [element("nudges", "prompt_nudges", true)]),
+      block("Variables", [element("variables", "prompt_variables")]),
+    ]);
+
+    expect(publicBlocks.filter(rendersOnThePage).map(({ id }) => id)).toEqual([
+      "Prompt fragments",
+      "Variables",
+    ]);
+  });
+
+  test("a hidden block holds no place either", () => {
+    const { publicBlocks } = splitAssetPageContent([
+      block("Usage", [element("usage")], true),
+    ]);
+
+    expect(publicBlocks.filter(rendersOnThePage)).toEqual([]);
   });
 });

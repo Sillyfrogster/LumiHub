@@ -26,13 +26,13 @@ import {
   excerptDefinition,
   opensFullScreen,
 } from "@/lib/page-arrangement";
+import { type NamedSlot, nameSlot, orderSettings } from "@/lib/preset-slots";
 import { formattingWasRemoved, richTextsOf } from "@/lib/rich-text";
 import styles from "./ElementBody.module.css";
 import { Lorebook } from "./Lorebook";
 
 const ITEM_WIDTHS = { small: "120px", medium: "180px", large: "260px" };
 
-/** Enough keys to recognise an entry by. The rest are one press away. */
 const KEY_PREVIEW_LIMIT = 6;
 
 export function ElementBody({
@@ -131,7 +131,6 @@ function ExcerptedElementContent({
   const isCut = definition.unit === "lines" ? lineCut : hasItemCut;
   const itemLimit = definition.unit === "items" ? definition.limit : undefined;
 
-  /* An element that bounds its own height is rendered whole. */
   if (definition.unit === "self") {
     return <ElementContent element={element} images={images} />;
   }
@@ -240,11 +239,16 @@ export function ElementContent({
 
   if (element.type === "text_set" && "texts" in content) {
     const verbatim = element.display === "verbatim";
+    const named = element.role === "prompt_nudges";
     return (
       <ol className={styles.textSet}>
         {content.texts.slice(0, itemLimit).map((item, index) => (
           <li key={`${index}-${item.name ?? ""}`}>
-            {item.name ? <p className={styles.itemName}>{item.name}</p> : null}
+            {item.name ? (
+              <p className={styles.itemName}>
+                {named ? nameSlot(item.name).name : item.name}
+              </p>
+            ) : null}
             {verbatim ? (
               <pre className={styles.verbatim}>{item.text}</pre>
             ) : (
@@ -392,7 +396,7 @@ function PromptList({
   return (
     <div className={styles.promptList}>
       {runs.map((run, index) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: Runs follow the fragment order and hold no local state.
+        // biome-ignore lint/suspicious/noArrayIndexKey: Runs hold no local state.
         <section className={styles.promptGroup} key={index}>
           {run.group ? <h4>{run.group}</h4> : null}
           <Fragments fragments={run.fragments} />
@@ -410,7 +414,7 @@ function Fragments({
   return (
     <ol className={styles.fragments}>
       {fragments.map((fragment, index) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: Fragments stay ordered and hold no local state.
+        // biome-ignore lint/suspicious/noArrayIndexKey: Fragments hold no local state.
         <li key={index} data-off={fragment.enabled ? undefined : true}>
           <div className={styles.fragmentHead}>
             <span className={styles.fragmentName}>
@@ -446,30 +450,71 @@ function SettingGroup({
   settings: PresetSetting[];
   itemLimit?: number;
 }) {
-  const supplied = settings
-    .filter((setting) => setting.value != null)
-    .slice(0, itemLimit);
-  if (supplied.length === 0) return null;
+  const shown = orderSettings(
+    settings.filter((setting) => setting.value != null),
+  ).slice(0, itemLimit);
+  if (shown.length === 0) return null;
+  const named = shown.filter((setting) => setting.slot.rank !== "unrecognised");
+  const raw = shown.filter((setting) => setting.slot.rank === "unrecognised");
   return (
-    <dl className={styles.fieldList}>
-      {supplied.map((setting) => (
-        <Fragment key={setting.id ?? setting.name}>
-          <dt>{setting.name}</dt>
-          <dd>{writeValue(setting.value)}</dd>
-        </Fragment>
+    <>
+      {named.length > 0 ? <Settings settings={named} /> : null}
+      {raw.length > 0 ? (
+        <>
+          <p className={styles.rawSettingsCaption}>As the file names them</p>
+          <Settings settings={raw} raw />
+        </>
+      ) : null}
+    </>
+  );
+}
+
+function Settings({
+  settings,
+  raw,
+}: {
+  settings: Array<PresetSetting & { slot: NamedSlot }>;
+  raw?: boolean;
+}) {
+  return (
+    <dl className={styles.settings} data-raw={raw ? true : undefined}>
+      {settings.map((setting) => (
+        <div className={styles.setting} key={setting.id ?? setting.name}>
+          <dt>{setting.slot.name}</dt>
+          <dd>
+            <SettingValue value={setting.value} />
+            {setting.slot.note ? (
+              <span className={styles.settingNote}>{setting.slot.note}</span>
+            ) : null}
+          </dd>
+        </div>
       ))}
     </dl>
   );
 }
 
+/**
+ * A setting's value. Text made only of spaces and newlines is shown as it is
+ * written, because saying a setting holds nothing when it holds two blank
+ * lines is a lie a reader would act on.
+ */
+function SettingValue({ value }: { value: TypedValue | undefined }) {
+  if (value?.text != null && value.text !== "" && value.text.trim() === "") {
+    return <code className={styles.whitespaceValue}>{value.text}</code>;
+  }
+  return <>{writeValue(value)}</>;
+}
+
 function writeValue(value: TypedValue | undefined): string {
   if (!value) return "";
-  if (value.number != null) return String(value.number);
+  if (value.number != null) {
+    return value.number.toLocaleString("en-GB", { maximumFractionDigits: 20 });
+  }
   if (value.boolean != null) return value.boolean ? "Yes" : "No";
   if (value.strings) {
     return value.strings.length === 0 ? "Nothing" : value.strings.join(", ");
   }
-  return value.text ?? "";
+  return value.text === "" ? "Nothing" : (value.text ?? "");
 }
 
 function VariableSchema({
@@ -536,7 +581,6 @@ function ScriptList({
   );
 }
 
-/** Prompt fragments are sent to models verbatim. */
 function Paragraphs({ text }: { text: string }) {
   const paragraphs = text.split(/\n{2,}/).filter((line) => line.trim() !== "");
   return (

@@ -24,7 +24,10 @@ import {
   saveAssetBlock,
 } from "@/lib/api/query";
 import { blockCounts } from "@/lib/asset-block-heading";
-import { splitAssetPageContent } from "@/lib/asset-page-content";
+import {
+  rendersOnThePage,
+  splitAssetPageContent,
+} from "@/lib/asset-page-content";
 import {
   BLOCK_GRID_GAP_PX,
   type BlockWidth,
@@ -115,11 +118,7 @@ function returnToBlock(blockId: string) {
   window.location.hash = anchor;
 }
 
-/**
- * The asset's content, in page order. A reader is shown the blocks that carry
- * something. The owner is shown every block the kind asks for, because an
- * empty required block is what says what is still theirs to write.
- */
+/** The asset's content. An owner also sees the blocks they have yet to fill. */
 export function AssetBlocks({
   assetId,
   blocks,
@@ -194,7 +193,7 @@ export function AssetBlocks({
   );
   const packable: Array<AssetBlock & { empty?: boolean }> = editingVisible
     ? currentBlocks
-    : publicBlocks;
+    : publicBlocks.filter(rendersOnThePage);
   const rows = packBlockRows(packable, {
     availableWidth,
   });
@@ -203,9 +202,7 @@ export function AssetBlocks({
     rows.length > 0 && !ornament && !rows.some(holdsCreatorPictures);
   const contentsBlocks = useMemo(
     () =>
-      editingVisible
-        ? currentBlocks
-        : publicBlocks.filter((block) => !block.hidden && !block.empty),
+      editingVisible ? currentBlocks : publicBlocks.filter(rendersOnThePage),
     [currentBlocks, editingVisible, publicBlocks],
   );
 
@@ -268,11 +265,7 @@ export function AssetBlocks({
     };
   }, [arranging, editingVisible, editing, expanding, measureSuggestedWidths]);
 
-  /**
-   * Leaving the overlay writes the element through and puts the creator back
-   * on the section it came from. A save that fails keeps the overlay open
-   * holding the editing, rather than closing over a loss.
-   */
+  /** A save that fails keeps the overlay open rather than closing over a loss. */
   async function leaveOverlay() {
     if (!expanding || !expandedBlock || expandPending) return;
     setExpandPending(true);
@@ -330,8 +323,6 @@ export function AssetBlocks({
     setArrangementMessage("");
     try {
       await action();
-      // The download panel is rendered from the asset's projection, which the
-      // save just rewrote, so the page is read again.
       router.refresh();
     } catch (error) {
       setArrangementMessage(
@@ -409,171 +400,166 @@ export function AssetBlocks({
                   className={styles.row}
                   key={row.map((item) => item.block.id).join(":")}
                 >
-                  {row
-                    .filter(
-                      ({ block }) =>
-                        editingVisible || (!block.hidden && !block.empty),
-                    )
-                    .map(({ block, columns, startColumn }) => (
-                      <article
-                        id={`block-${block.id}`}
-                        key={block.id}
-                        className={styles.block}
-                        data-block-id={block.id}
-                        data-hidden={
-                          editingVisible && block.hidden ? true : undefined
-                        }
-                        style={
-                          {
-                            "--block-columns": columns,
-                            "--block-start": startColumn,
-                          } as CSSProperties
-                        }
-                      >
-                        <header className={styles.header}>
-                          <div className={styles.heading}>
-                            <h2 className={styles.title}>{block.title}</h2>
-                            {editingVisible && block.required ? (
-                              <span>
-                                {block.hideable ? "Required" : "Always shown"}
-                              </span>
-                            ) : null}
-                            <BlockCounts elements={block.elements} />
-                          </div>
-                          {editingVisible ? (
-                            <div className={styles.controls}>
-                              <WidthPicker
-                                width={block.width}
-                                layout={block.layout}
-                                suggestedWidth={suggestedWidths[block.id]}
-                                pending={savingWidth === block.id}
-                                onIssue={setArrangementMessage}
-                                onSelect={async (width) => {
-                                  if (savingWidth) return;
-                                  setSavingWidth(block.id);
-                                  setArrangementMessage("");
-                                  try {
-                                    const saved = await saveAssetBlock(
-                                      assetId,
-                                      block.id,
-                                      blockSaveRequest(block, { width }),
-                                    );
-                                    setCurrentBlocks((current) =>
-                                      current.map((item) =>
-                                        item.id === saved.id ? saved : item,
-                                      ),
-                                    );
-                                  } catch (error) {
-                                    setArrangementMessage(
-                                      error instanceof Error
-                                        ? error.message
-                                        : "The width could not be saved. Try again.",
-                                    );
-                                  } finally {
-                                    setSavingWidth(null);
-                                  }
-                                }}
-                              />
-                              <button
-                                type="button"
-                                className={styles.edit}
-                                aria-label={`Edit ${block.title}`}
-                                onClick={() => setEditing(block.id)}
-                              >
-                                <PencilLine size={15} aria-hidden="true" />
-                                <span>Edit section</span>
-                              </button>
-                            </div>
-                          ) : null}
-                        </header>
-                        {editingVisible && block.hidden ? (
-                          <div className={styles.hiddenNotice}>
+                  {row.map(({ block, columns, startColumn }) => (
+                    <article
+                      id={`block-${block.id}`}
+                      key={block.id}
+                      className={styles.block}
+                      data-block-id={block.id}
+                      data-hidden={
+                        editingVisible && block.hidden ? true : undefined
+                      }
+                      style={
+                        {
+                          "--block-columns": columns,
+                          "--block-start": startColumn,
+                        } as CSSProperties
+                      }
+                    >
+                      <header className={styles.header}>
+                        <div className={styles.heading}>
+                          <h2 className={styles.title}>{block.title}</h2>
+                          {editingVisible && block.required ? (
                             <span>
-                              Hidden from the public page. Everything in it is
-                              kept, and it still travels in every download.
+                              {block.hideable ? "Required" : "Always shown"}
                             </span>
+                          ) : null}
+                          <BlockCounts elements={block.elements} />
+                        </div>
+                        {editingVisible ? (
+                          <div className={styles.controls}>
+                            <WidthPicker
+                              width={block.width}
+                              layout={block.layout}
+                              suggestedWidth={suggestedWidths[block.id]}
+                              pending={savingWidth === block.id}
+                              onIssue={setArrangementMessage}
+                              onSelect={async (width) => {
+                                if (savingWidth) return;
+                                setSavingWidth(block.id);
+                                setArrangementMessage("");
+                                try {
+                                  const saved = await saveAssetBlock(
+                                    assetId,
+                                    block.id,
+                                    blockSaveRequest(block, { width }),
+                                  );
+                                  setCurrentBlocks((current) =>
+                                    current.map((item) =>
+                                      item.id === saved.id ? saved : item,
+                                    ),
+                                  );
+                                } catch (error) {
+                                  setArrangementMessage(
+                                    error instanceof Error
+                                      ? error.message
+                                      : "The width could not be saved. Try again.",
+                                  );
+                                } finally {
+                                  setSavingWidth(null);
+                                }
+                              }}
+                            />
                             <button
                               type="button"
-                              onClick={() =>
-                                void (async () => {
-                                  try {
-                                    const saved = await arrangeAssetBlocks(
-                                      assetId,
-                                      {
-                                        blocks: currentBlocks.map((item) => ({
-                                          id: item.id,
-                                          hidden:
-                                            item.id === block.id
-                                              ? false
-                                              : item.hidden,
-                                          width: item.width,
-                                        })),
-                                      },
-                                    );
-                                    setCurrentBlocks(saved);
-                                  } catch (error) {
-                                    setArrangementMessage(
-                                      error instanceof Error
-                                        ? error.message
-                                        : "The section could not be shown. Try again.",
-                                    );
-                                  }
-                                })()
-                              }
+                              className={styles.edit}
+                              aria-label={`Edit ${block.title}`}
+                              onClick={() => setEditing(block.id)}
                             >
-                              Show it again
+                              <PencilLine size={15} aria-hidden="true" />
+                              <span>Edit section</span>
                             </button>
                           </div>
                         ) : null}
-                        <div
-                          className={styles.elements}
-                          data-block-content
-                          style={
-                            {
-                              "--element-tracks": elementTracks(
-                                block.layout,
-                                block.elements.length,
-                              ),
-                            } as CSSProperties
-                          }
-                        >
-                          {block.elements.map((element) => (
-                            <div
-                              key={element.id}
-                              data-empty={element.isEmpty ? true : undefined}
-                            >
-                              <ElementBody
-                                element={element}
-                                isOwner={editingVisible}
-                                images={images}
-                                blockTitle={block.title}
-                                blockElements={block.elements.length}
-                                onExpand={() =>
-                                  setExpanding({
-                                    blockId: block.id,
-                                    element: structuredClone(element),
-                                  })
+                      </header>
+                      {editingVisible && block.hidden ? (
+                        <div className={styles.hiddenNotice}>
+                          <span>
+                            Hidden from the public page. Everything in it is
+                            kept, and it still travels in every download.
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void (async () => {
+                                try {
+                                  const saved = await arrangeAssetBlocks(
+                                    assetId,
+                                    {
+                                      blocks: currentBlocks.map((item) => ({
+                                        id: item.id,
+                                        hidden:
+                                          item.id === block.id
+                                            ? false
+                                            : item.hidden,
+                                        width: item.width,
+                                      })),
+                                    },
+                                  );
+                                  setCurrentBlocks(saved);
+                                } catch (error) {
+                                  setArrangementMessage(
+                                    error instanceof Error
+                                      ? error.message
+                                      : "The section could not be shown. Try again.",
+                                  );
                                 }
-                                onReadMore={() =>
-                                  setReading({
-                                    blockId: block.id,
-                                    element,
-                                  })
-                                }
-                              />
-                              {reading?.blockId === block.id &&
-                              reading.element.id === element.id ? (
-                                <ElementReader
-                                  element={reading.element}
-                                  images={images}
-                                  onDismiss={dismissReader}
-                                />
-                              ) : null}
-                            </div>
-                          ))}
+                              })()
+                            }
+                          >
+                            Show it again
+                          </button>
                         </div>
-                      </article>
-                    ))}
+                      ) : null}
+                      <div
+                        className={styles.elements}
+                        data-block-content
+                        style={
+                          {
+                            "--element-tracks": elementTracks(
+                              block.layout,
+                              block.elements.length,
+                            ),
+                          } as CSSProperties
+                        }
+                      >
+                        {block.elements.map((element) => (
+                          <div
+                            key={element.id}
+                            data-empty={element.isEmpty ? true : undefined}
+                          >
+                            <ElementBody
+                              element={element}
+                              isOwner={editingVisible}
+                              images={images}
+                              blockTitle={block.title}
+                              blockElements={block.elements.length}
+                              onExpand={() =>
+                                setExpanding({
+                                  blockId: block.id,
+                                  element: structuredClone(element),
+                                })
+                              }
+                              onReadMore={() =>
+                                setReading({
+                                  blockId: block.id,
+                                  element,
+                                })
+                              }
+                            />
+                            {reading?.blockId === block.id &&
+                            reading.element.id === element.id ? (
+                              <ElementReader
+                                element={reading.element}
+                                images={images}
+                                onDismiss={dismissReader}
+                              />
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    </article>
+                  ))}
                   {ornament?.row === rowIndex ? (
                     <div
                       aria-hidden="true"
