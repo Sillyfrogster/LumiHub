@@ -111,6 +111,14 @@ generate: ## Regenerate database code, server stubs, and the site's API types
 	cd api/openapi && $(OAPI) -config cfg-server.yaml openapi.yaml
 	cd web && bun run gen:api
 
+.PHONY: refractive-assets
+refractive-assets: ## Generate the deterministic refractive art assets
+	cd web && bun scripts/generate-refractive-assets.mjs
+
+.PHONY: archive-cutouts
+archive-cutouts: ## Neutralize the archive mascot glass cutouts
+	cd web && bun scripts/neutralize-archive-cutouts.mjs
+
 # Guards
 
 .PHONY: need-db need-test-db
