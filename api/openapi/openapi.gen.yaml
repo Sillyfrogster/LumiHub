@@ -205,7 +205,7 @@ paths:
             type: string
       responses:
         '303':
-          description: Continue on LumiHub
+          description: Continue on Illarin
   /v1/auth/sign-out:
     post:
       operationId: signOut

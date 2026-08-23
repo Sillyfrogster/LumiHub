@@ -87,7 +87,7 @@ func archivedImages(read card, file probe.Inspection) []format.Media {
 	return found
 }
 
-// assetRole maps a CharX asset type onto LumiHub's role vocabulary. A card
+// assetRole maps a CharX asset type onto Illarin's role vocabulary. A card
 // carries one avatar, so a second icon becomes an alternate.
 func assetRole(asset cardAsset, hasAvatar bool) (media.Role, bool) {
 	switch asset.Type {

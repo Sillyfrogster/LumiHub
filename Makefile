@@ -11,6 +11,7 @@ WEB_PORT ?= 3000
 TEST ?= ./...
 VERSION ?=
 SERVICE ?=
+OUTPUT ?= illarin-release.tar.gz
 PROD_ENV ?= /etc/illarin/production.env
 NGINX_IMAGE ?= nginx:alpine
 NGINX := docker run --rm --network host -v "$(CURDIR):/work:ro" -w /work $(NGINX_IMAGE) \
@@ -35,6 +36,10 @@ setup: ## Get a fresh clone ready to run
 		echo "Wrote api/.env from the example. Check the database URLs in it."; }
 	$(MAKE) web-install
 	$(MAKE) migrate migrate-test
+
+.PHONY: production-setup
+production-setup: ## Walk through Microsoft 365, VPS, GitHub, NPMPlus and Datadog setup
+	@ENV_FILE="$(CURDIR)/ops/.env" ./ops/setup-production.sh
 
 .PHONY: web-install
 web-install: ## Install the site's locked dependencies
@@ -95,6 +100,12 @@ prod-backup-init: ## Create the configured off-box backup repository
 
 prod-backup-check: ## Verify the configured off-box backup repository
 	@ILLARIN_ENV_FILE="$(PROD_ENV)" ./ops/backup.sh check
+
+.PHONY: release-package
+release-package: ## Package the production control files for the VPS
+	@test "$(VERSION)" != "" || { echo "Set VERSION to a full Git commit SHA."; exit 1; }
+	@git archive --format=tar.gz --output="$(OUTPUT)" "$(VERSION)" \
+		Makefile compose.prod.yaml compose.npmplus.yaml nginx/production.conf ops
 
 # Checking
 

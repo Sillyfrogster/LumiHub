@@ -7,4 +7,4 @@ ConditionPathExists=/etc/illarin/backups-enabled
 [Service]
 Type=oneshot
 Environment=ILLARIN_ENV_FILE=/etc/illarin/production.env
-ExecStart=/usr/bin/make -C /opt/illarin prod-backup-check
+ExecStart=/usr/bin/make -C /opt/illarin/current prod-backup-check

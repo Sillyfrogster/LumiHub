@@ -2105,7 +2105,7 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description Continue on LumiHub */
+      /** @description Continue on Illarin */
       303: {
         headers: {
           [name: string]: unknown;

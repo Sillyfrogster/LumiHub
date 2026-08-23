@@ -8,6 +8,7 @@ dist
 .env
 **/.env
 **/.env.local
+ops/.production-secrets/
 
 # Logs
 *.log

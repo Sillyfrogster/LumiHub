@@ -162,7 +162,7 @@ services:
     image: nginx:1.31.2-alpine3.23
     restart: unless-stopped
     ports:
-      - "127.0.0.1:${ILLARIN_GATEWAY_PORT:-8000}:8080"
+      - "${ILLARIN_GATEWAY_BIND:-127.0.0.1}:${ILLARIN_GATEWAY_PORT:-8000}:8080"
     volumes:
       - ./nginx/production.conf:/etc/nginx/nginx.conf:ro
       - "${ILLARIN_DATA_DIR:?Set ILLARIN_DATA_DIR}/uploads:/data/uploads:ro"

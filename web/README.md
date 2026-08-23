@@ -1,21 +1,15 @@
-# LumiHub web
+# Illarin web
 
-The LumiHub frontend. Next.js App Router, React, TypeScript, CSS Modules.
+The Illarin frontend uses the Next.js App Router, React, TypeScript, and CSS
+Modules.
 
 ## Running it
 
-```bash
-bun install
-bun run dev
-```
+Run `make setup` once from the repository root, then run `make web`.
 
 The site runs at http://localhost:3000.
 
 ## Other commands
 
-```bash
-bun run build    # production build
-bun run start    # serve the production build
-bun run lint     # Biome check
-bun run format   # Biome format
-```
+Run `make help` from the repository root for formatting, tests, generated code,
+and production image commands.

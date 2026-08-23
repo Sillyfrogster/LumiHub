@@ -5,6 +5,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 concurrency:
   group: production
@@ -24,7 +25,12 @@ jobs:
       PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
       PRODUCTION_SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
       PRODUCTION_HOST_KEYS: ${{ secrets.PRODUCTION_HOST_KEYS }}
+      PRODUCTION_SSH_PORT: ${{ secrets.PRODUCTION_SSH_PORT }}
+      GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
+      - name: Check out the selected master commit
+        uses: actions/checkout@v4
+
       - name: Prepare the production SSH identity
         run: |
           set -euo pipefail
@@ -33,9 +39,25 @@ jobs:
           printf '%s\n' "$PRODUCTION_HOST_KEYS" >"$HOME/.ssh/known_hosts"
           chmod 600 "$HOME/.ssh/id_ed25519" "$HOME/.ssh/known_hosts"
 
+      - name: Package the production control files
+        run: make release-package VERSION="$GITHUB_SHA" OUTPUT=illarin-release.tar.gz
+
+      - name: Copy the control files to the VPS
+        run: |
+          set -euo pipefail
+          scp -P "$PRODUCTION_SSH_PORT" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            illarin-release.tar.gz \
+            "$PRODUCTION_USER@$PRODUCTION_HOST:/tmp/illarin-${GITHUB_SHA}.tar.gz"
+
       - name: Deploy the selected master commit
         run: |
           set -euo pipefail
-          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes \
+          printf '%s' "$GHCR_TOKEN" | ssh -p "$PRODUCTION_SSH_PORT" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
             "$PRODUCTION_USER@$PRODUCTION_HOST" \
-            "cd /opt/illarin && git fetch --quiet origin '${GITHUB_SHA}' && git switch --detach '${GITHUB_SHA}' && make prod-deploy VERSION='${GITHUB_SHA}'"
+            "docker login ghcr.io --username '${GITHUB_ACTOR}' --password-stdin"
+          ssh -p "$PRODUCTION_SSH_PORT" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "$PRODUCTION_USER@$PRODUCTION_HOST" \
+            "mkdir -p '/opt/illarin/releases/${GITHUB_SHA}' && tar -xzf '/tmp/illarin-${GITHUB_SHA}.tar.gz' -C '/opt/illarin/releases/${GITHUB_SHA}' && ln -sfn '/opt/illarin/releases/${GITHUB_SHA}' /opt/illarin/current && rm '/tmp/illarin-${GITHUB_SHA}.tar.gz' && make -C /opt/illarin/current prod-deploy VERSION='${GITHUB_SHA}'"

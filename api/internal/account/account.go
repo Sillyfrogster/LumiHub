@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// Account is a person's identity on LumiHub.
+// Account is a person's identity on Illarin.
 type Account struct {
 	ID            uuid.UUID
 	Handle        string
