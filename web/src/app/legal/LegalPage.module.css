@@ -97,15 +97,6 @@
   color: var(--color-accent-strong);
 }
 
-.unpublished {
-  padding: 1px 7px;
-  border: 1px solid var(--color-critical-border);
-  border-radius: var(--radius-xs);
-  background: var(--color-critical-soft);
-  color: var(--color-critical-strong);
-  font-size: 0.86em;
-}
-
 .nav {
   display: flex;
   flex-wrap: wrap;

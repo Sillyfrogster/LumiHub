@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { LegalPage, Unpublished } from "../LegalPage";
+import { LegalPage } from "../LegalPage";
 
 export const metadata: Metadata = { title: "Acceptable Use · Illarin" };
 
@@ -11,172 +11,176 @@ export default function AcceptableUse() {
       title="Acceptable Use Policy"
       lede={
         <>
-          Illarin hosts characters, lorebooks, presets, themes, and packs made
-          by the people who use it. To keep the Service usable and lawful for
-          everyone, the following rules apply to all content and behaviour on
-          it. Violations may result in content removal, restricted visibility,
-          account suspension, or account termination at our discretion.
+          Illarin holds characters, lorebooks, presets, themes, and packs made
+          by the people who use it. These rules apply to all of it, and to how
+          you behave here. Breaking them can mean your work is withheld or
+          removed, or your account is suspended or closed.
         </>
       }
     >
-      <h2>1. Hard limits — never allowed</h2>
+      <h2>1. Never allowed</h2>
       <p>
-        The following are <strong>never</strong> permitted on Illarin, in any
-        work, profile, or other content:
+        None of the following belongs on Illarin, in any work, in any image, in
+        a profile, or anywhere else:
       </p>
       <ul>
         <li>
           <strong>Sexual content involving minors</strong>, real or fictional.
-          Any sexual or sexualized depiction of a person presented or implied to
-          be under 18 is prohibited, regardless of whether the character is
-          described as an adult-coded archetype, an &ldquo;ageless&rdquo;
-          entity, or otherwise framed to evade this rule.
+          Any sexual or sexualised depiction of someone presented or implied to
+          be under 18 is banned, however the character is framed. Calling a
+          character ageless, ancient, or an adult-coded archetype does not get
+          around this rule.
         </li>
         <li>
           <strong>
-            Non-consensual sexual content involving real, identifiable people
+            Sexual content about real, identifiable people who have not
+            consented
           </strong>
-          . This includes deepfake-style sexual content and similar depictions.
+          , including deepfake-style material.
         </li>
         <li>
           <strong>
-            Real-world violence targeting identifiable people or groups
+            Real-world violence aimed at identifiable people or groups
           </strong>
-          : incitement, glorification, instructions for attacks, or content that
-          encourages self-harm or suicide.
+          : incitement, glorification, plans for an attack, or anything
+          encouraging self-harm or suicide.
         </li>
         <li>
-          <strong>Doxxing</strong> — posting private personal information (real
-          names, home or work addresses, phone numbers, government IDs,
-          financial details) without the subject&rsquo;s consent.
+          <strong>Private personal information</strong> published without the
+          person&rsquo;s consent, such as real names, home or work addresses,
+          phone numbers, government identifiers, or financial details.
         </li>
         <li>
-          <strong>Content that is illegal</strong> where the Service is hosted
-          or where you are located, including but not limited to child sexual
-          abuse material, terrorism-related material, and certain categories of
+          <strong>Anything illegal</strong> where Illarin is hosted or where you
+          are, including child sexual abuse material, terrorist material, and
           extreme gore.
         </li>
         <li>
           <strong>Instructions for serious real-world harm</strong>, including
-          credible instructions for weapons capable of mass casualties, malware
-          targeting real systems, or attacks on critical infrastructure.
+          workable instructions for weapons capable of mass casualties, malware
+          aimed at real systems, or attacks on infrastructure.
         </li>
       </ul>
 
       <h2>2. Adult content</h2>
       <p>
-        Adult content is permitted on Illarin when it complies with the hard
-        limits above and is correctly marked.
+        Adult work is welcome on Illarin as long as it stays inside the rules
+        above and is marked correctly.
       </p>
       <ul>
         <li>
-          Adult content is <strong>hidden by default</strong>. A reader must opt
-          in, and confirm they are 18 or older, to see it.
+          Adult content is <strong>hidden by default</strong>. A reader has to
+          choose to see it, and confirm they are 18 or older.
         </li>
         <li>
-          Creators are responsible for answering the adult-content question
-          accurately. Publishing unmarked adult content is a violation.
+          Every asset has to answer the adult content question before it can be
+          published, and answering it wrongly is a violation on its own. If you
+          are unsure, mark it as adult.
         </li>
         <li>
-          All sexual characters and personas must be unambiguously 18 or older,
-          both in description and in any image.
+          Every sexual character has to be unmistakably 18 or older, in the
+          writing and in any image.
+        </li>
+        <li>
+          You can keep your adult work off your public profile with a setting,
+          and that setting does not change any of the rules above.
         </li>
       </ul>
 
       <h2>3. Harassment and hate</h2>
       <ul>
         <li>
-          No targeted harassment, threats, or stalking of other people or third
-          parties.
+          No targeted harassment, threats, or stalking, of people here or
+          anywhere else.
         </li>
         <li>
-          No content that dehumanizes or incites hatred against people based on
-          race, ethnicity, national origin, religion, disability, gender, gender
-          identity, sexual orientation, or similar protected categories.
+          Nothing that dehumanises people or incites hatred against them based
+          on race, ethnicity, national origin, religion, disability, gender,
+          gender identity, sexual orientation, or anything else of that kind.
         </li>
         <li>
-          Heated criticism, satire, and disagreement are fine. Personal attacks,
-          slurs used as insults, and pile-ons are not.
+          Hard criticism, satire, and plain disagreement are fine. Personal
+          attacks and slurs used as insults are not.
         </li>
       </ul>
 
-      <h2>4. Intellectual property</h2>
+      <h2>4. Other people&rsquo;s work</h2>
       <ul>
         <li>
-          Don&rsquo;t upload content that infringes someone else&rsquo;s
-          copyright, trademark, or other IP rights.
+          Don&rsquo;t upload work that infringes someone&rsquo;s copyright,
+          trademark, or other rights.
         </li>
         <li>
-          Fanwork is welcome when it complies with the rest of this policy.
-          Don&rsquo;t claim ownership of work that isn&rsquo;t yours.
+          Fanwork is welcome when it follows the rest of this policy.
+          Don&rsquo;t claim work that isn&rsquo;t yours as your own.
         </li>
         <li>
-          See the <Link href="/legal/dmca">DMCA / Copyright Policy</Link> for
-          takedown procedures.
+          If you are the rights holder, the{" "}
+          <Link href="/legal/dmca">DMCA and copyright policy</Link> explains how
+          to get something taken down.
         </li>
       </ul>
 
-      <h2>5. Spam and platform abuse</h2>
+      <h2>5. Spam and abusing the platform</h2>
       <ul>
         <li>
-          No spam, bulk uploads, link-farming, SEO spam, or affiliate-link bait.
+          No spam, bulk uploads of the same thing, link farming, or affiliate
+          bait.
         </li>
         <li>
-          No content designed to manipulate moderation, search results, or
-          download counts.
+          No inflating your own download counts or manipulating search results.
         </li>
         <li>
-          No automated scraping or crawling beyond what our rate limits and
-          robots policy permit.
+          No scraping or crawling beyond what Illarin&rsquo;s rate limits allow.
         </li>
         <li>
-          No attempts to probe, scan, or compromise the Service or other
-          people&rsquo;s accounts.
+          No probing, scanning, or attacking Illarin, and no trying to get into
+          anyone else&rsquo;s account.
         </li>
         <li>
-          No malware, phishing, or deceptive redirects in uploads, links, or
-          profiles.
+          No malware, phishing, or misleading links in uploads or profiles.
+        </li>
+        <li>
+          Don&rsquo;t use a linked application, or a token from one, to reach
+          work you would not be allowed to reach in a browser.
         </li>
       </ul>
 
-      <h2>6. Honesty about identity</h2>
+      <h2>6. Being straight about who you are</h2>
       <ul>
         <li>
-          Don&rsquo;t impersonate other people, including Illarin staff, public
-          figures, or other creators.
+          Don&rsquo;t pretend to be someone else, including other creators here,
+          public figures, or us.
         </li>
-        <li>
-          Ban evasion — creating new accounts to get around a suspension — is a
-          violation.
-        </li>
+        <li>Don&rsquo;t make a new account to get around a suspension.</li>
       </ul>
 
-      <h2>7. Moderation</h2>
+      <h2>7. How this is enforced</h2>
       <p>
-        Content may be hidden, restricted, or removed at our discretion. We may
-        tell an affected creator why their work was removed, but we are not
-        obliged to provide a formal appeals process for every decision.
+        Moderation on Illarin is a person reading a report. There are no
+        automated classifiers, and nothing you upload is scored by a machine.
+      </p>
+      <p>
+        We may withhold an asset, which takes it out of the catalog and makes it
+        answer as missing to everyone but its creator, who can still read it,
+        download it, and see why. We may also remove work outright, suspend an
+        account, or close one. What happens depends on how serious it is and
+        what came before. Anything in section 1 usually means immediate removal
+        and can mean an immediate permanent ban.
       </p>
 
-      <h2>8. Reporting</h2>
+      <h2>8. Reporting something</h2>
       <p>
-        Contact <Unpublished label="an address" /> for anything that needs
-        direct attention, such as doxxing, credible threats, or off-platform
-        abuse coordinated through Illarin.
+        Write to <a href="mailto:team@illarin.xyz">team@illarin.xyz</a>. Include
+        the address of the work and what is wrong with it. For anything urgent —
+        a credible threat, private information published about someone, or
+        content covered by section 1 — say so in the subject line.
       </p>
 
-      <h2>9. Enforcement</h2>
+      <h2>9. Changes</h2>
       <p>
-        Consequences scale with severity and history, and may include a warning,
-        a required edit, content removal, reduced visibility, temporary
-        suspension, or a permanent ban. Hard-limit violations typically result
-        in immediate removal and may result in an immediate permanent ban.
-      </p>
-
-      <h2>10. Changes</h2>
-      <p>
-        We update this policy as the Service evolves. The effective date above
-        reflects the current version.
+        This policy changes as Illarin does. The effective date at the top says
+        when the current wording took effect.
       </p>
     </LegalPage>
   );

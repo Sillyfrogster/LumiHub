@@ -15,11 +15,6 @@ type LegalPageProps = {
   children: ReactNode;
 };
 
-/** A detail Illarin has not published yet. Naming the gap beats inventing an address. */
-export function Unpublished({ label }: { label: string }) {
-  return <span className={styles.unpublished}>{label} not published yet</span>;
-}
-
 export function LegalPage({ href, title, lede, children }: LegalPageProps) {
   return (
     <div className={styles.page}>
