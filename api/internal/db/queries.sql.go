@@ -1268,6 +1268,44 @@ func (q *Queries) InsertInstanceAccessToken(ctx context.Context, arg InsertInsta
 	return i, err
 }
 
+const insertLegacyCounters = `-- name: InsertLegacyCounters :exec
+insert into migration_legacy_counters (asset_id, downloads, views, favorites, updated_at)
+values ($1, $2, $3, $4, $5)
+`
+
+type InsertLegacyCountersParams struct {
+	AssetID   pgtype.UUID
+	Downloads int32
+	Views     int32
+	Favorites int32
+	UpdatedAt pgtype.Timestamptz
+}
+
+func (q *Queries) InsertLegacyCounters(ctx context.Context, arg InsertLegacyCountersParams) error {
+	_, err := q.db.Exec(ctx, insertLegacyCounters,
+		arg.AssetID,
+		arg.Downloads,
+		arg.Views,
+		arg.Favorites,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
+const insertLegacyPath = `-- name: InsertLegacyPath :exec
+insert into asset_legacy_paths (path, asset_id) values ($1, $2)
+`
+
+type InsertLegacyPathParams struct {
+	Path    string
+	AssetID pgtype.UUID
+}
+
+func (q *Queries) InsertLegacyPath(ctx context.Context, arg InsertLegacyPathParams) error {
+	_, err := q.db.Exec(ctx, insertLegacyPath, arg.Path, arg.AssetID)
+	return err
+}
+
 const insertLinkAuthorization = `-- name: InsertLinkAuthorization :exec
 insert into link_authorizations (
     request_hash, redirect_uri, state, code_challenge,
@@ -1534,6 +1572,33 @@ func (q *Queries) InsertPasswordReset(ctx context.Context, arg InsertPasswordRes
 	return err
 }
 
+const insertPreservedRecord = `-- name: InsertPreservedRecord :exec
+insert into migration_preserved_records
+  (id, source_table, source_id, asset_id, owner_id, payload)
+values ($1, $2, $3, $5::uuid, $6::uuid, $4)
+`
+
+type InsertPreservedRecordParams struct {
+	ID          pgtype.UUID
+	SourceTable string
+	SourceID    string
+	Payload     []byte
+	AssetID     pgtype.UUID
+	OwnerID     pgtype.UUID
+}
+
+func (q *Queries) InsertPreservedRecord(ctx context.Context, arg InsertPreservedRecordParams) error {
+	_, err := q.db.Exec(ctx, insertPreservedRecord,
+		arg.ID,
+		arg.SourceTable,
+		arg.SourceID,
+		arg.Payload,
+		arg.AssetID,
+		arg.OwnerID,
+	)
+	return err
+}
+
 const insertRetiredHandle = `-- name: InsertRetiredHandle :exec
 insert into retired_handles (handle) values ($1)
 `
@@ -1640,6 +1705,28 @@ func (q *Queries) InstanceForUsedRefreshToken(ctx context.Context, refreshTokenH
 	row := q.db.QueryRow(ctx, instanceForUsedRefreshToken, refreshTokenHash)
 	var i InstanceForUsedRefreshTokenRow
 	err := row.Scan(&i.InstanceID, &i.UserID)
+	return i, err
+}
+
+const legacyPathTarget = `-- name: LegacyPathTarget :one
+select asset.id, asset.name
+  from asset_legacy_paths legacy
+  join assets asset on asset.id = legacy.asset_id
+ where legacy.path = $1
+   and asset.deleted_at is null
+   and asset.withheld_at is null
+   and asset.lifecycle = 'published'
+`
+
+type LegacyPathTargetRow struct {
+	ID   pgtype.UUID
+	Name string
+}
+
+func (q *Queries) LegacyPathTarget(ctx context.Context, path string) (LegacyPathTargetRow, error) {
+	row := q.db.QueryRow(ctx, legacyPathTarget, path)
+	var i LegacyPathTargetRow
+	err := row.Scan(&i.ID, &i.Name)
 	return i, err
 }
 
@@ -2111,6 +2198,21 @@ func (q *Queries) MigratedAccounts(ctx context.Context) ([]MigratedAccountsRow, 
 	return items, nil
 }
 
+const migrationAssetTargetIsEmpty = `-- name: MigrationAssetTargetIsEmpty :one
+select (not exists (select 1 from assets)
+    and not exists (select 1 from asset_legacy_paths)
+    and not exists (select 1 from migration_preserved_records)
+    and not exists (select 1 from migration_legacy_counters)
+    and not exists (select 1 from migration_exceptions where asset_id is not null))::boolean as empty
+`
+
+func (q *Queries) MigrationAssetTargetIsEmpty(ctx context.Context) (bool, error) {
+	row := q.db.QueryRow(ctx, migrationAssetTargetIsEmpty)
+	var empty bool
+	err := row.Scan(&empty)
+	return empty, err
+}
+
 const migrationTargetIsEmpty = `-- name: MigrationTargetIsEmpty :one
 select (not exists (select 1 from users)
     and not exists (select 1 from retired_handles)
@@ -2181,6 +2283,31 @@ func (q *Queries) RecordDeviceLinkPoll(ctx context.Context, arg RecordDeviceLink
 	var poll_interval_seconds int32
 	err := row.Scan(&poll_interval_seconds)
 	return poll_interval_seconds, err
+}
+
+const recordStagedMedia = `-- name: RecordStagedMedia :exec
+insert into migration_staged_media (source, blob_id, width, height)
+values ($1, $2, $3, $4)
+on conflict (source) do update
+   set blob_id = excluded.blob_id, width = excluded.width,
+       height = excluded.height, staged_at = now()
+`
+
+type RecordStagedMediaParams struct {
+	Source string
+	BlobID pgtype.UUID
+	Width  int32
+	Height int32
+}
+
+func (q *Queries) RecordStagedMedia(ctx context.Context, arg RecordStagedMediaParams) error {
+	_, err := q.db.Exec(ctx, recordStagedMedia,
+		arg.Source,
+		arg.BlobID,
+		arg.Width,
+		arg.Height,
+	)
+	return err
 }
 
 const redeemDeviceLinkRequest = `-- name: RedeemDeviceLinkRequest :execrows
@@ -2558,6 +2685,42 @@ func (q *Queries) SoftDeleteAsset(ctx context.Context, arg SoftDeleteAssetParams
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const stagedMedia = `-- name: StagedMedia :many
+select source, blob_id, width, height from migration_staged_media
+`
+
+type StagedMediaRow struct {
+	Source string
+	BlobID pgtype.UUID
+	Width  int32
+	Height int32
+}
+
+func (q *Queries) StagedMedia(ctx context.Context) ([]StagedMediaRow, error) {
+	rows, err := q.db.Query(ctx, stagedMedia)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []StagedMediaRow
+	for rows.Next() {
+		var i StagedMediaRow
+		if err := rows.Scan(
+			&i.Source,
+			&i.BlobID,
+			&i.Width,
+			&i.Height,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const takeLinkRateLimit = `-- name: TakeLinkRateLimit :one

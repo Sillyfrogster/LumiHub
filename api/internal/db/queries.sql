@@ -973,3 +973,41 @@ select u.id, u.username, u.role, u.created_at, u.display_name, u.custom_display_
 update users
    set display_name = $2, avatar_url = $3, banner_url = $4, updated_at = now()
  where id = $1;
+
+-- name: MigrationAssetTargetIsEmpty :one
+select (not exists (select 1 from assets)
+    and not exists (select 1 from asset_legacy_paths)
+    and not exists (select 1 from migration_preserved_records)
+    and not exists (select 1 from migration_legacy_counters)
+    and not exists (select 1 from migration_exceptions where asset_id is not null))::boolean as empty;
+
+-- name: InsertLegacyPath :exec
+insert into asset_legacy_paths (path, asset_id) values ($1, $2);
+
+-- name: LegacyPathTarget :one
+select asset.id, asset.name
+  from asset_legacy_paths legacy
+  join assets asset on asset.id = legacy.asset_id
+ where legacy.path = $1
+   and asset.deleted_at is null
+   and asset.withheld_at is null
+   and asset.lifecycle = 'published';
+
+-- name: InsertPreservedRecord :exec
+insert into migration_preserved_records
+  (id, source_table, source_id, asset_id, owner_id, payload)
+values ($1, $2, $3, sqlc.narg('asset_id')::uuid, sqlc.narg('owner_id')::uuid, $4);
+
+-- name: InsertLegacyCounters :exec
+insert into migration_legacy_counters (asset_id, downloads, views, favorites, updated_at)
+values ($1, $2, $3, $4, $5);
+
+-- name: StagedMedia :many
+select source, blob_id, width, height from migration_staged_media;
+
+-- name: RecordStagedMedia :exec
+insert into migration_staged_media (source, blob_id, width, height)
+values ($1, $2, $3, $4)
+on conflict (source) do update
+   set blob_id = excluded.blob_id, width = excluded.width,
+       height = excluded.height, staged_at = now();

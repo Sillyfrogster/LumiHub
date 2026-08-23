@@ -47,6 +47,12 @@ type AssetBlock struct {
 	Elements   []byte
 }
 
+type AssetLegacyPath struct {
+	Path      string
+	AssetID   pgtype.UUID
+	CreatedAt pgtype.Timestamptz
+}
+
 type AssetMedium struct {
 	ID          pgtype.UUID
 	AssetID     pgtype.UUID
@@ -239,6 +245,31 @@ type MigrationException struct {
 	Detail     string
 	AssetID    pgtype.UUID
 	RecordedAt pgtype.Timestamptz
+}
+
+type MigrationLegacyCounter struct {
+	AssetID   pgtype.UUID
+	Downloads int32
+	Views     int32
+	Favorites int32
+	UpdatedAt pgtype.Timestamptz
+}
+
+type MigrationPreservedRecord struct {
+	ID          pgtype.UUID
+	SourceTable string
+	SourceID    string
+	AssetID     pgtype.UUID
+	OwnerID     pgtype.UUID
+	Payload     []byte
+}
+
+type MigrationStagedMedium struct {
+	Source   string
+	BlobID   pgtype.UUID
+	Width    int32
+	Height   int32
+	StagedAt pgtype.Timestamptz
 }
 
 type OauthIdentity struct {
