@@ -39,7 +39,7 @@ export function ScrollReveal() {
       { threshold: 0.12, rootMargin: "0px 0px -8% 0px" },
     );
 
-    targets.forEach((element) => observer.observe(element));
+    for (const element of targets) observer.observe(element);
     return () => observer.disconnect();
   }, []);
 

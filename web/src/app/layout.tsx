@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { Bodoni_Moda, Manrope } from "next/font/google";
 import { ArtFilters } from "@/components/art/ArtFilters";
-import { ScrollReveal } from "@/components/motion/ScrollReveal";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader } from "@/components/layout/SiteHeader";
+import { ScrollReveal } from "@/components/motion/ScrollReveal";
 import { THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme";
 import { Providers } from "./providers";
 import "./globals.css";
