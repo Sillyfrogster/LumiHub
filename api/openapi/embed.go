@@ -4,7 +4,7 @@ package openapi
 
 import _ "embed"
 
-//go:embed openapi.yaml
+//go:embed openapi.gen.yaml
 var Contract []byte
 
 //go:embed protocol.md

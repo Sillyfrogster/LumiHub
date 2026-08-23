@@ -1,0 +1,3935 @@
+# Generated from the OpenAPI modules. Run make generate after editing them.
+openapi: 3.1.0
+info:
+  title: Illarin API
+  version: 0.1.0
+servers:
+  - url: /api
+paths:
+  /v1/account/discord:
+    delete:
+      operationId: detachDiscord
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: The account with Discord detached
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '401':
+          description: No account is signed in
+        '409':
+          description: Discord is absent or is the last usable sign-in method
+  /v1/account/email:
+    patch:
+      operationId: changeUnverifiedEmail
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeEmailRequest'
+      responses:
+        '200':
+          description: The account with a fresh verification link sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '400':
+          description: The address is not valid
+        '401':
+          description: No account is signed in
+        '409':
+          description: The address is verified here or elsewhere
+  /v1/account/handle:
+    patch:
+      operationId: renameHandle
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RenameHandleRequest'
+      responses:
+        '200':
+          description: The account under its new handle
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '400':
+          description: The handle is not valid
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '409':
+          description: The handle is active or retired
+  /v1/account/password:
+    put:
+      operationId: setPassword
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordRequest'
+      responses:
+        '200':
+          description: The account with a password set
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '400':
+          description: The password is empty
+        '401':
+          description: No account is signed in
+        '409':
+          description: The account already has a password
+  /v1/account/nsfw-visibility:
+    put:
+      operationId: setNsfwVisibility
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NsfwVisibilityRequest'
+      responses:
+        '204':
+          description: The reader's content preference is saved
+        '400':
+          description: The visibility value is invalid
+        '401':
+          description: No account is signed in
+  /v1/auth/sign-up:
+    post:
+      operationId: signUp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignUpRequest'
+      responses:
+        '201':
+          description: The new signed-in account
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '400':
+          description: The account details are not valid
+        '409':
+          description: The handle or verified address is already claimed
+  /v1/auth/sign-in:
+    post:
+      operationId: signIn
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignInRequest'
+      responses:
+        '200':
+          description: The signed-in account
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '401':
+          description: The credentials do not identify one account
+  /v1/auth/discord:
+    get:
+      operationId: beginDiscord
+      parameters:
+        - name: intent
+          in: query
+          schema:
+            type: string
+            enum:
+              - sign-in
+              - attach
+            default: sign-in
+        - name: returnTo
+          in: query
+          description: Internal page to resume after sign-in
+          schema:
+            type: string
+      responses:
+        '303':
+          description: Continue on Discord
+        '401':
+          description: Attaching Discord requires a signed-in account
+        '403':
+          description: Attaching Discord requires a verified account
+        '503':
+          description: Discord sign-in is not configured
+  /v1/auth/discord/callback:
+    get:
+      operationId: completeDiscord
+      parameters:
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: code
+          in: query
+          schema:
+            type: string
+        - name: error
+          in: query
+          schema:
+            type: string
+      responses:
+        '303':
+          description: Continue on LumiHub
+  /v1/auth/sign-out:
+    post:
+      operationId: signOut
+      responses:
+        '204':
+          description: The session no longer exists
+  /v1/auth/session:
+    get:
+      operationId: getSession
+      responses:
+        '200':
+          description: The account at this origin, when one is signed in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionState'
+  /v1/auth/verify-email:
+    post:
+      operationId: verifyEmail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyEmailRequest'
+      responses:
+        '200':
+          description: The account with its address verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '400':
+          description: The link is invalid
+          expired or has already lost the address: null
+        '409':
+          description: Another account verified the address first
+  /v1/auth/password-reset:
+    post:
+      operationId: requestPasswordReset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+      responses:
+        '204':
+          description: A reset is sent when the verified account exists
+        '400':
+          description: The request is not valid JSON
+  /v1/auth/password-reset/complete:
+    post:
+      operationId: completePasswordReset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompletePasswordResetRequest'
+      responses:
+        '204':
+          description: The password is set
+        '400':
+          description: The link or password is invalid
+  /v1/link/requests:
+    post:
+      operationId: startLinkRequest
+      description: >-
+        Start Illarin's registration-free device fallback for an installation
+        that cannot receive a loopback callback. It follows RFC 8628 security
+        and polling semantics but is not an OAuth token endpoint.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartLinkRequest'
+      responses:
+        '201':
+          description: The code the installation keeps and the code it shows
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkRequest'
+        '400':
+          description: The declaration or requested scopes are not valid
+        '413':
+          description: The request body is too large
+        '429':
+          description: Too many link requests came from this source
+  /v1/link/poll:
+    post:
+      operationId: pollLinkRequest
+      description: >-
+        Ask whether the creator has approved yet. Wait at least the interval the
+        link request came with between calls.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PollLinkRequest'
+      responses:
+        '200':
+          description: Still waiting, or linked with a new token pair
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkPollResult'
+        '400':
+          description: The request was denied or expired
+        '404':
+          description: The request was redeemed or never existed
+        '413':
+          description: The request body is too large
+        '429':
+          description: Slow down before polling again
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+  /v1/link/requests/{userCode}:
+    get:
+      operationId: getLinkRequest
+      description: What the installation behind a user code is asking for.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: userCode
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/UserCode'
+      responses:
+        '200':
+          description: The unverified names, declaration and scopes to review
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PendingDeviceLink'
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: No unapproved link request has that code
+        '429':
+          description: Too many codes were entered
+  /v1/link/requests/{userCode}/approve:
+    post:
+      operationId: approveLinkRequest
+      description: >-
+        Approve a link request. A link request may be approved once and redeemed
+        once. This browser-only operation requires Illarin's request header.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: userCode
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/UserCode'
+        - $ref: '#/components/parameters/IllarinRequest'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceLinkDecision'
+      responses:
+        '200':
+          description: What was approved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PendingLink'
+        '400':
+          description: A path or browser-proof header parameter is malformed
+        '401':
+          description: No account is signed in
+        '403':
+          description: Email is unverified or the browser origin/request proof is invalid
+        '404':
+          description: No unapproved link request has that code
+  /v1/link/requests/{userCode}/deny:
+    post:
+      operationId: denyLinkRequest
+      description: Deny the reviewed device request and stop its polling installation.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: userCode
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/UserCode'
+        - $ref: '#/components/parameters/IllarinRequest'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceLinkDecision'
+      responses:
+        '204':
+          description: The request is denied
+        '400':
+          description: A path or browser-proof header parameter is malformed
+        '401':
+          description: No account is signed in
+        '403':
+          description: Email is unverified or the browser origin/request proof is invalid
+        '404':
+          description: No pending reviewed request has that code
+  /v1/link/authorizations:
+    post:
+      operationId: startLinkAuthorization
+      description: >-
+        Start same-device browser authorization with S256 PKCE. Only an exact
+        IPv4 or IPv6 loopback callback is accepted; its port may vary.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartLinkAuthorization'
+      responses:
+        '201':
+          description: The short-lived Illarin URL to open in the system browser
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkAuthorization'
+        '400':
+          description: The callback
+          PKCE data or declaration is not valid: null
+        '413':
+          description: The request body is too large
+        '429':
+          description: Too many link requests came from this source
+  /v1/link/authorizations/{requestCode}:
+    get:
+      operationId: getLinkAuthorization
+      description: What the installation behind a browser authorization is asking for.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: requestCode
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/RequestCode'
+      responses:
+        '200':
+          description: The unverified names, declaration and scopes to review
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PendingLink'
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: No pending authorization has that request code
+  /v1/link/authorizations/{requestCode}/approve:
+    post:
+      operationId: approveLinkAuthorization
+      description: Approve once and return the validated loopback redirect.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: requestCode
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/RequestCode'
+        - $ref: '#/components/parameters/IllarinRequest'
+      responses:
+        '200':
+          description: The exact loopback URL carrying the one-use code and state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkRedirect'
+        '400':
+          description: A path or browser-proof header parameter is malformed
+        '401':
+          description: No account is signed in
+        '403':
+          description: Email is unverified or the browser origin/request proof is invalid
+        '404':
+          description: No pending authorization has that request code
+  /v1/link/authorizations/{requestCode}/deny:
+    post:
+      operationId: denyLinkAuthorization
+      description: Deny once and return the validated loopback error redirect.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: requestCode
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/RequestCode'
+        - $ref: '#/components/parameters/IllarinRequest'
+      responses:
+        '200':
+          description: The exact loopback URL carrying access_denied and state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkRedirect'
+        '400':
+          description: A path or browser-proof header parameter is malformed
+        '401':
+          description: No account is signed in
+        '403':
+          description: Email is unverified or the browser origin/request proof is invalid
+        '404':
+          description: No pending authorization has that request code
+  /v1/link/token:
+    post:
+      operationId: exchangeLinkAuthorization
+      description: Exchange one approved authorization code using its PKCE verifier.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExchangeLinkAuthorization'
+      responses:
+        '200':
+          description: A short-lived access token and rotating refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstanceTokenGrant'
+        '400':
+          description: The code
+          verifier or callback is not valid: null
+        '413':
+          description: The request body is too large
+        '429':
+          description: Too many exchanges came from this source
+  /v1/link/refresh:
+    post:
+      operationId: refreshInstanceToken
+      description: >-
+        Rotate one live refresh token. Replaying a replacement retained in the
+        90-day detection window revokes that instance and every access token it
+        holds. A family also expires after 90 days without authenticated use.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshInstanceToken'
+      responses:
+        '200':
+          description: A replacement access and refresh token pair
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstanceTokenGrant'
+        '401':
+          description: The refresh token is not live
+        '413':
+          description: The request body is too large
+        '429':
+          description: Too many refresh attempts came from this source
+  /v1/instances:
+    get:
+      operationId: listInstances
+      description: >-
+        Every instance linked to the signed-in account, live ones first, then
+        the record of the ones they revoked.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: The creator's linked instances
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkedInstanceList'
+        '401':
+          description: No account is signed in
+  /v1/instances/me:
+    get:
+      operationId: getInstance
+      description: >-
+        The instance the access token belongs to. Every authenticated request
+        updates lastSeenAt, and this one exists so an installation can check its
+        token without sending anything.
+      security:
+        - instanceToken: []
+      responses:
+        '200':
+          description: The instance holding the credential
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkedInstance'
+        '401':
+          description: The access token does not identify a live instance
+    put:
+      operationId: updateInstance
+      description: >-
+        Replace the live instance's non-authoritative interoperability
+        declaration. This cannot change its granted scopes.
+      security:
+        - instanceToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateInstance'
+      responses:
+        '200':
+          description: The updated instance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkedInstance'
+        '400':
+          description: The declaration is not valid
+        '401':
+          description: The access token does not identify a live instance
+        '413':
+          description: The request body is too large
+  /v1/instances/{id}:
+    delete:
+      operationId: revokeInstance
+      description: >-
+        Cut an instance off. Its tokens stop working immediately and the state
+        it held here is discarded. A record that it was linked and revoked
+        stays.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/IllarinRequest'
+      responses:
+        '204':
+          description: The instance is revoked
+        '400':
+          description: The id or browser-proof header parameter is malformed
+        '401':
+          description: No account is signed in
+        '403':
+          description: The browser origin or request proof is invalid
+        '404':
+          description: The account has no live instance with that id
+  /v1/profiles/{handle}:
+    get:
+      operationId: getProfile
+      parameters:
+        - name: handle
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The active public profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '404':
+          description: No active profile uses the handle
+  /v1/assets:
+    get:
+      operationId: listAssets
+      parameters:
+        - name: kind
+          in: query
+          schema:
+            type: string
+            enum:
+              - character
+              - lorebook
+              - preset
+              - theme
+              - pack
+        - name: platform
+          in: query
+          description: >-
+            An app, from the platforms list. An app matches an asset when any of
+            the asset's offered download formats is one that app reads.
+          schema:
+            type: string
+        - name: creator
+          in: query
+          description: Scope the listing to one creator's public profile.
+          schema:
+            type: string
+        - name: q
+          in: query
+          description: >-
+            One search expression. Bare text matches names, creator handles and
+            blurbs. Repeat tag: to require every tag; one author: qualifier may
+            narrow the creator. Quote qualifier values that contain spaces.
+          schema:
+            type: string
+        - name: facet
+          in: query
+          description: >-
+            Repeat key=value, taking the keys and values from the facets list.
+            Two values of one key widen the result; two keys narrow it. A key or
+            value the kind does not declare is ignored.
+          schema:
+            type: array
+            items:
+              type: string
+        - name: nsfw
+          in: query
+          description: >-
+            The reader's presentation preference. Browse page URLs keep this
+            preference out of their own query string.
+          schema:
+            type: string
+            enum:
+              - hidden
+              - blurred
+              - shown
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 24
+        - name: before
+          in: query
+          description: >-
+            The made date of the last asset on the previous page. Send it with
+            beforeId or not at all.
+          schema:
+            type: string
+            format: date-time
+        - name: beforeId
+          in: query
+          description: The id of that same asset
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Assets a visitor may see
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetList'
+    post:
+      operationId: createAsset
+      security:
+        - sessionCookie: []
+      description: >-
+        Two ways to make an asset. Send form data to bring a file in, or send
+        JSON naming a kind to start from nothing. The kind is asked for once,
+        before any blocks exist, and never changes afterwards.
+      requestBody:
+        required: true
+        description: >-
+          Send the metadata part before the file part. The file is read as it
+          arrives, so the catalog fields have to be known by then.
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - metadata
+                - file
+              properties:
+                metadata:
+                  $ref: '#/components/schemas/CreateAssetRequest'
+                file:
+                  type: string
+                  format: binary
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartAssetRequest'
+      responses:
+        '201':
+          description: The draft that was started, with the blocks its kind requires
+          headers:
+            Location:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetDetail'
+        '202':
+          description: The durable ingest operation for the accepted upload
+          headers:
+            Location:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestOperation'
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '422':
+          description: The uploaded bytes have been purged and cannot return
+  /v1/assets/{id}:
+    get:
+      operationId: getAsset
+      description: >-
+        One asset by id. Unlisted assets answer normally, because unlisted is
+        discovery rather than authorization. Withheld, deleted and never-existed
+        all answer 404.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: nsfw
+          in: query
+          description: >-
+            The reader's presentation preference. Asset page URLs keep this
+            preference out of their own query string.
+          schema:
+            type: string
+            enum:
+              - hidden
+              - blurred
+              - shown
+      responses:
+        '200':
+          description: The asset as a visitor may see it
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetDetail'
+        '404':
+          description: No asset a visitor may see
+    delete:
+      operationId: deleteAsset
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: The asset is recoverable from the creator's Deleted section
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: The asset does not belong to the creator
+        '409':
+          description: The asset is withheld and cannot be deleted
+  /v1/assets/{id}/revisions:
+    post:
+      operationId: addAssetRevision
+      description: >-
+        Replace an asset's source bytes. A revision is the file only: name,
+        blurb, tags and the NSFW flag stay as the creator left them. A file that
+        reads as a different kind is refused and the asset is left untouched.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '202':
+          description: The durable ingest operation for the accepted revision
+          headers:
+            Location:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestOperation'
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: The asset does not belong to the creator
+        '409':
+          description: The asset is withheld and cannot be changed
+  /v1/assets/{id}/blocks/{blockId}:
+    put:
+      operationId: saveAssetBlock
+      description: >-
+        Save one block without rewriting any other block on the asset. Draft
+        content may be empty, but it must still be structurally valid and obey
+        the kind catalog's builder constraints.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: blockId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveAssetBlockRequest'
+      responses:
+        '200':
+          description: The saved block as it now appears on the page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetBlock'
+        '400':
+          description: The block is malformed or breaks a builder constraint
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: The asset or block does not belong to the creator
+        '409':
+          description: The asset is withheld and cannot be changed
+        '422':
+          description: The uploaded bytes have been purged and cannot return
+    delete:
+      operationId: removeAssetBlock
+      description: >-
+        Remove one optional block and its elements. Required blocks are refused.
+        Remaining positions are rewritten into one gapless page order.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: blockId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: The block and everything in it were removed
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: The asset or block does not belong to the creator
+        '409':
+          description: The asset is withheld and cannot be changed
+  /v1/assets/{id}/blocks:
+    post:
+      operationId: addAssetBlock
+      description: >-
+        Add one optional section to the foot of the page, holding the element
+        the creator chose. A required section, and a section already present
+        that cannot repeat, are both refused.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddAssetBlockRequest'
+      responses:
+        '201':
+          description: The new section as it now appears at the foot of the page
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetBlock'
+        '400':
+          description: The section cannot be added to this asset
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: The asset does not belong to the creator
+        '409':
+          description: The asset is withheld and cannot be changed
+    put:
+      operationId: arrangeAssetBlocks
+      description: >-
+        Rewrite the whole page order and save visibility and width choices in
+        the same transaction. Every current block must appear exactly once.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArrangeAssetBlocksRequest'
+      responses:
+        '200':
+          description: Every block in its saved page order
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AssetBlock'
+        '400':
+          description: The arrangement is incomplete
+          duplicated or not allowed: null
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: The asset does not belong to the creator
+        '409':
+          description: The asset is withheld and cannot be changed
+  /v1/assets/{id}/blocks/{blockId}/move-and-remove:
+    post:
+      operationId: moveAssetBlockContent
+      description: >-
+        Move every unpinned element into a section with enough free slots, then
+        remove the emptied optional section. Both changes commit together.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: blockId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MoveAssetBlockContentRequest'
+      responses:
+        '200':
+          description: Every remaining block in its saved page order
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AssetBlock'
+        '400':
+          description: The source cannot be removed or the destination has no room
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: The asset or either block does not belong to the creator
+        '409':
+          description: The asset is withheld and cannot be changed
+  /v1/assets/{id}/preserved:
+    get:
+      operationId: listPreservedNamespaces
+      description: >-
+        Name the platform-specific namespaces this asset carries. The panel is
+        read-only apart from deleting, so nothing here returns a payload.
+        Namespaces the asset's own format calls boilerplate are left out, which
+        is display and not storage.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Every namespace the asset carries, in name order
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PreservedNamespace'
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: The asset does not belong to the creator
+  /v1/assets/{id}/preserved/{namespace}:
+    delete:
+      operationId: deletePreservedNamespace
+      description: >-
+        Delete one namespace and everything stored under it. Deletion is
+        permanent: the lossless rule binds Illarin, not the creator.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: The namespace is gone
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: The asset or the namespace does not belong to the creator
+        '409':
+          description: The asset is withheld and cannot be changed
+  /v1/assets/{id}/restore:
+    post:
+      operationId: restoreAsset
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: The existing asset and retained bytes are live again
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: No recoverable asset belongs to the creator
+  /v1/assets/{id}/identity:
+    put:
+      operationId: setAssetIdentity
+      description: >-
+        Save the header fields that sit above an asset's blocks. The adult
+        content answer may be null only while the asset is a draft, so nothing
+        answers it on the creator's behalf. An edit is live when it saves.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetIdentityRequest'
+      responses:
+        '204':
+          description: The header is saved
+        '400':
+          description: The name is too long
+          or a published asset was sent no adult content answer: null
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: The asset does not belong to the creator
+        '409':
+          description: The asset is withheld and cannot be changed
+  /v1/assets/{id}/publish:
+    post:
+      operationId: publishAsset
+      description: >-
+        Publish a draft. Publishing is one-way: unlisted is the reversible
+        retreat and deletion is the exit. A draft that does not meet the floor
+        is refused with the whole readiness list rather than the first thing
+        missing.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The asset as its page now reads, published
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetDetail'
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: The draft does not belong to the creator
+        '409':
+          description: >-
+            The draft is not ready, the asset is already published, or it is
+            withheld
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishRefusal'
+  /v1/assets/{id}/discovery:
+    put:
+      operationId: setAssetDiscovery
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetDiscoveryRequest'
+      responses:
+        '204':
+          description: The asset discovery state is saved
+        '400':
+          description: The discovery value is invalid
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: The asset does not belong to the creator
+        '409':
+          description: The asset is withheld and cannot be changed
+  /v1/profiles/{handle}/deleted:
+    get:
+      operationId: listDeletedAssets
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: handle
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The signed-in creator's assets still inside the recovery window
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeletedAssetList'
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+  /v1/assets/{id}/withhold:
+    put:
+      operationId: withholdAsset
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WithholdAssetRequest'
+      responses:
+        '204':
+          description: The asset is withheld
+        '400':
+          description: The reason is empty or invalid
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account is not an admin
+        '404':
+          description: No live asset has that id
+    delete:
+      operationId: clearAssetWithhold
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: The asset is no longer withheld
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account is not an admin
+        '404':
+          description: No withheld asset has that id
+  /download/{id}:
+    get:
+      operationId: downloadSource
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The current uploaded source file, byte for byte
+          headers:
+            Content-Disposition:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - attachment
+                  - inline
+            X-Content-Type-Options:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - nosniff
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+            image/gif:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: No such asset
+  /download/{id}/{target}:
+    get:
+      operationId: downloadExport
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: target
+          in: path
+          required: true
+          description: >-
+            One of the formats the asset is offered in. A format outside that
+            list was never a choice and is refused.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: >-
+            The asset written in the requested format. It is produced on request
+            and never cached.
+          headers:
+            Content-Disposition:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - attachment
+            X-Content-Type-Options:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - nosniff
+            X-LumiHub-Export-Target:
+              required: true
+              schema:
+                type: string
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                type: string
+                format: binary
+            application/zip:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: No such asset
+  /v1/assets/{id}/media:
+    get:
+      operationId: listMedia
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Media belonging to the asset
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaList'
+        '404':
+          description: No such asset
+    post:
+      operationId: addMedia
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        description: Send the metadata part before the image file part.
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - metadata
+                - file
+              properties:
+                metadata:
+                  $ref: '#/components/schemas/AddMediaRequest'
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: A new immutable media record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Media'
+        '400':
+          description: The role or image is not valid
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: The asset does not belong to the creator
+        '409':
+          description: The asset is withheld and cannot be changed
+  /media/{media_id}/{variant}/{derivative_version}:
+    get:
+      operationId: getMediaVariant
+      parameters:
+        - name: media_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: variant
+          in: path
+          required: true
+          schema:
+            type: string
+            enum:
+              - grid
+              - grid_blurred
+              - detail
+              - detail_blurred
+              - thumb
+              - thumb_blurred
+              - og
+              - og_blurred
+        - name: derivative_version
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - name: expires
+          in: query
+          description: >-
+            When the signature runs out. A draft's images are served against a
+            short-lived signature at the same address they keep once published.
+          schema:
+            type: string
+        - name: signature
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A named media variant
+          headers:
+            Cache-Control:
+              required: true
+              schema:
+                type: string
+            Content-Disposition:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - inline
+            X-Content-Type-Options:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - nosniff
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: No such media variant
+  /v1/ingests/{id}:
+    get:
+      operationId: getIngest
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The creator's ingest operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestOperation'
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: No such ingest operation for this creator
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: lumihub_session
+    instanceToken:
+      type: http
+      scheme: bearer
+      description: A short-lived access token issued to one linked instance.
+  parameters:
+    IllarinRequest:
+      name: X-Illarin-Request
+      in: header
+      required: true
+      description: Illarin's browser request proof. The value must be 1.
+      schema:
+        type: string
+        enum:
+          - '1'
+  schemas:
+    Scope:
+      type: string
+      enum:
+        - asset:receive
+        - library:sync
+      description: >-
+        asset:receive lets an instance receive assets sent to it. library:sync
+        lets it report what it has installed.
+    StartLinkRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - applicationName
+        - instanceName
+        - protocolVersion
+        - capabilities
+        - acceptedTargets
+        - scopes
+      properties:
+        applicationName:
+          $ref: '#/components/schemas/ApplicationName'
+        instanceName:
+          $ref: '#/components/schemas/InstanceName'
+        applicationVersion:
+          $ref: '#/components/schemas/ApplicationVersion'
+        protocolVersion:
+          $ref: '#/components/schemas/LinkProtocolVersion'
+        capabilities:
+          $ref: '#/components/schemas/InstanceCapabilities'
+        acceptedTargets:
+          $ref: '#/components/schemas/AcceptedTargets'
+        scopes:
+          $ref: '#/components/schemas/Scopes'
+    StartLinkAuthorization:
+      type: object
+      additionalProperties: false
+      required:
+        - applicationName
+        - instanceName
+        - protocolVersion
+        - capabilities
+        - acceptedTargets
+        - scopes
+        - redirectUri
+        - state
+        - codeChallenge
+        - codeChallengeMethod
+      properties:
+        applicationName:
+          $ref: '#/components/schemas/ApplicationName'
+        instanceName:
+          $ref: '#/components/schemas/InstanceName'
+        applicationVersion:
+          $ref: '#/components/schemas/ApplicationVersion'
+        protocolVersion:
+          $ref: '#/components/schemas/LinkProtocolVersion'
+        capabilities:
+          $ref: '#/components/schemas/InstanceCapabilities'
+        acceptedTargets:
+          $ref: '#/components/schemas/AcceptedTargets'
+        scopes:
+          $ref: '#/components/schemas/Scopes'
+        redirectUri:
+          type: string
+          maxLength: 512
+          description: >-
+            An exact http callback using 127.0.0.1 or [::1], with an explicit
+            port, a path, no user information, no query and no fragment.
+        state:
+          type: string
+          minLength: 32
+          maxLength: 128
+        codeChallenge:
+          type: string
+          minLength: 43
+          maxLength: 43
+        codeChallengeMethod:
+          type: string
+          enum:
+            - S256
+    ApplicationName:
+      type: string
+      minLength: 1
+      maxLength: 64
+      description: A self-asserted, unverified application name.
+    InstanceName:
+      type: string
+      minLength: 1
+      maxLength: 64
+      description: A self-asserted name for this installation.
+    ApplicationVersion:
+      type:
+        - string
+        - 'null'
+      minLength: 1
+      maxLength: 64
+    LinkProtocolVersion:
+      type: integer
+      enum:
+        - 1
+    CapabilityId:
+      type: string
+      minLength: 3
+      maxLength: 64
+      pattern: ^[a-z][a-z0-9.-]*:[a-z][a-z0-9._-]*$
+      description: >-
+        A namespaced interoperability claim. It never grants permission and
+        unknown values have no effect.
+    InstanceCapabilities:
+      type: array
+      maxItems: 32
+      uniqueItems: true
+      items:
+        $ref: '#/components/schemas/CapabilityId'
+    ExportTargetId:
+      type: string
+      minLength: 1
+      maxLength: 64
+      pattern: ^[a-z0-9][a-z0-9._-]*$
+      description: >-
+        A format-module identifier accepted by the instance. Unknown values do
+        not make a target available.
+    AcceptedTargets:
+      type: array
+      maxItems: 32
+      uniqueItems: true
+      items:
+        $ref: '#/components/schemas/ExportTargetId'
+    Scopes:
+      type: array
+      minItems: 1
+      maxItems: 2
+      uniqueItems: true
+      items:
+        $ref: '#/components/schemas/Scope'
+    UserCode:
+      type: string
+      minLength: 8
+      maxLength: 16
+      pattern: ^[BCDFGHJKLMNPQRSTVWXZ23456789bcdfghjklmnpqrstvwxz -]{8,16}$
+    RequestCode:
+      type: string
+      minLength: 43
+      maxLength: 43
+      pattern: ^[A-Za-z0-9_-]{43}$
+    DeviceCode:
+      type: string
+      minLength: 43
+      maxLength: 43
+      pattern: ^[A-Za-z0-9_-]{43}$
+    ApprovalToken:
+      type: string
+      minLength: 43
+      maxLength: 43
+      pattern: ^[A-Za-z0-9_-]{43}$
+    AuthorizationCode:
+      type: string
+      minLength: 43
+      maxLength: 43
+      pattern: ^[A-Za-z0-9_-]{43}$
+    AccessToken:
+      type: string
+      minLength: 56
+      maxLength: 56
+      pattern: ^ia1\.[BCDFGHJKLMNPQRSTVWXZ23456789]{8}\.[A-Za-z0-9_-]{43}$
+    RefreshToken:
+      type: string
+      minLength: 56
+      maxLength: 56
+      pattern: ^ir1\.[BCDFGHJKLMNPQRSTVWXZ23456789]{8}\.[A-Za-z0-9_-]{43}$
+    LinkRequest:
+      type: object
+      required:
+        - deviceCode
+        - userCode
+        - verificationUrl
+        - expiresAt
+        - interval
+      properties:
+        deviceCode:
+          $ref: '#/components/schemas/DeviceCode'
+          description: Kept private by the installation and sent when polling.
+        userCode:
+          $ref: '#/components/schemas/UserCode'
+          description: Shown to the creator, who enters it on Illarin.
+        verificationUrl:
+          type: string
+          description: Where the creator enters the user code.
+        expiresAt:
+          type: string
+          format: date-time
+        interval:
+          type: integer
+          description: Seconds to wait between polls.
+    PollLinkRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - deviceCode
+      properties:
+        deviceCode:
+          $ref: '#/components/schemas/DeviceCode'
+    PendingLinkPollResult:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - pending
+    LinkedLinkPollResult:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+        - accessToken
+        - accessTokenExpiresAt
+        - refreshToken
+        - instance
+      properties:
+        status:
+          type: string
+          enum:
+            - linked
+        accessToken:
+          $ref: '#/components/schemas/AccessToken'
+        accessTokenExpiresAt:
+          type: string
+          format: date-time
+          description: The 15-minute access-token deadline.
+        refreshToken:
+          $ref: '#/components/schemas/RefreshToken'
+        instance:
+          $ref: '#/components/schemas/LinkedInstance'
+    LinkPollResult:
+      oneOf:
+        - $ref: '#/components/schemas/PendingLinkPollResult'
+        - $ref: '#/components/schemas/LinkedLinkPollResult'
+      discriminator:
+        propertyName: status
+        mapping:
+          pending: '#/components/schemas/PendingLinkPollResult'
+          linked: '#/components/schemas/LinkedLinkPollResult'
+    PendingLink:
+      type: object
+      required:
+        - applicationName
+        - instanceName
+        - protocolVersion
+        - capabilities
+        - acceptedTargets
+        - scopes
+        - expiresAt
+      properties:
+        applicationName:
+          $ref: '#/components/schemas/ApplicationName'
+        instanceName:
+          $ref: '#/components/schemas/InstanceName'
+        applicationVersion:
+          $ref: '#/components/schemas/ApplicationVersion'
+        protocolVersion:
+          $ref: '#/components/schemas/LinkProtocolVersion'
+        capabilities:
+          $ref: '#/components/schemas/InstanceCapabilities'
+        acceptedTargets:
+          $ref: '#/components/schemas/AcceptedTargets'
+        scopes:
+          $ref: '#/components/schemas/Scopes'
+        expiresAt:
+          type: string
+          format: date-time
+    PendingDeviceLink:
+      allOf:
+        - $ref: '#/components/schemas/PendingLink'
+        - type: object
+          required:
+            - approvalToken
+          properties:
+            approvalToken:
+              $ref: '#/components/schemas/ApprovalToken'
+              description: A private one-use proof that this code was reviewed.
+    DeviceLinkDecision:
+      type: object
+      additionalProperties: false
+      required:
+        - approvalToken
+      properties:
+        approvalToken:
+          $ref: '#/components/schemas/ApprovalToken'
+    LinkAuthorization:
+      type: object
+      additionalProperties: false
+      required:
+        - authorizationUrl
+        - expiresAt
+      properties:
+        authorizationUrl:
+          type: string
+          description: The Illarin page to open in the system browser.
+        expiresAt:
+          type: string
+          format: date-time
+    LinkRedirect:
+      type: object
+      additionalProperties: false
+      required:
+        - redirectUrl
+      properties:
+        redirectUrl:
+          type: string
+          description: A server-validated exact loopback redirect.
+    ExchangeLinkAuthorization:
+      type: object
+      additionalProperties: false
+      required:
+        - authorizationCode
+        - codeVerifier
+        - redirectUri
+      properties:
+        authorizationCode:
+          $ref: '#/components/schemas/AuthorizationCode'
+        codeVerifier:
+          type: string
+          minLength: 43
+          maxLength: 128
+        redirectUri:
+          type: string
+          maxLength: 512
+    RefreshInstanceToken:
+      type: object
+      additionalProperties: false
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          $ref: '#/components/schemas/RefreshToken'
+    InstanceTokenGrant:
+      type: object
+      additionalProperties: false
+      required:
+        - accessToken
+        - accessTokenExpiresAt
+        - refreshToken
+        - instance
+      properties:
+        accessToken:
+          $ref: '#/components/schemas/AccessToken'
+        accessTokenExpiresAt:
+          type: string
+          format: date-time
+          description: The 15-minute access-token deadline.
+        refreshToken:
+          $ref: '#/components/schemas/RefreshToken'
+        instance:
+          $ref: '#/components/schemas/LinkedInstance'
+    UpdateInstance:
+      type: object
+      additionalProperties: false
+      required:
+        - protocolVersion
+        - capabilities
+        - acceptedTargets
+      properties:
+        applicationVersion:
+          $ref: '#/components/schemas/ApplicationVersion'
+        protocolVersion:
+          $ref: '#/components/schemas/LinkProtocolVersion'
+        capabilities:
+          $ref: '#/components/schemas/InstanceCapabilities'
+        acceptedTargets:
+          $ref: '#/components/schemas/AcceptedTargets'
+    LinkedInstance:
+      type: object
+      required:
+        - id
+        - applicationName
+        - instanceName
+        - protocolVersion
+        - capabilities
+        - acceptedTargets
+        - prefix
+        - scopes
+        - linkedAt
+        - lastSeenAt
+        - revokedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        applicationName:
+          type: string
+        instanceName:
+          type: string
+        applicationVersion:
+          type:
+            - string
+            - 'null'
+        protocolVersion:
+          type:
+            - integer
+            - 'null'
+        capabilities:
+          type: array
+          items:
+            type: string
+        acceptedTargets:
+          type: array
+          items:
+            type: string
+        prefix:
+          type: string
+          description: The readable prefix of the current refresh token.
+        scopes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Scope'
+        linkedAt:
+          type: string
+          format: date-time
+        lastSeenAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        revokedAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+    LinkedInstanceList:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LinkedInstance'
+    Account:
+      type: object
+      required:
+        - id
+        - handle
+        - email
+        - emailVerified
+        - discordLinked
+        - hasPassword
+        - role
+      properties:
+        id:
+          type: string
+          format: uuid
+        handle:
+          type: string
+        email:
+          type:
+            - string
+            - 'null'
+          format: email
+        emailVerified:
+          type: boolean
+        discordLinked:
+          type: boolean
+        hasPassword:
+          type: boolean
+        role:
+          type: string
+          enum:
+            - user
+            - moderator
+            - admin
+    ChangeEmailRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+    SessionState:
+      type: object
+      required:
+        - user
+      properties:
+        user:
+          anyOf:
+            - $ref: '#/components/schemas/Account'
+            - type: 'null'
+    Profile:
+      type: object
+      required:
+        - id
+        - handle
+      properties:
+        id:
+          type: string
+          format: uuid
+        handle:
+          type: string
+    RenameHandleRequest:
+      type: object
+      required:
+        - handle
+      properties:
+        handle:
+          type: string
+          minLength: 3
+          maxLength: 32
+    SignUpRequest:
+      type: object
+      required:
+        - email
+        - password
+        - handle
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 1
+        handle:
+          type: string
+          minLength: 3
+          maxLength: 32
+    SignInRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+    PasswordRequest:
+      type: object
+      required:
+        - password
+      properties:
+        password:
+          type: string
+          minLength: 1
+    NsfwVisibilityRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - visibility
+      properties:
+        visibility:
+          type: string
+          enum:
+            - hidden
+            - blurred
+            - shown
+    PasswordResetRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+    CompletePasswordResetRequest:
+      type: object
+      required:
+        - token
+        - password
+      properties:
+        token:
+          type: string
+        password:
+          type: string
+          minLength: 1
+    VerifyEmailRequest:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+    StartAssetRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - kind
+      description: >-
+        The kind an asset is built as. Only kinds Illarin can build are
+        accepted, so a creator is never handed an empty page.
+      properties:
+        kind:
+          type: string
+        app:
+          type: string
+          description: >-
+            Which app the asset is built for, asked once for the kinds whose
+            settings have names only an app can give them. It seeds those names
+            and is stored nowhere. Absent, and refused, for every other kind.
+          enum:
+            - sillytavern
+            - lumiverse
+    AssetBlock:
+      type: object
+      description: >-
+        A titled container. Required, hideable, the layouts it allows and its
+        default width are read from the kind catalog at render time, so this is
+        what the catalog says today rather than what was true when the block was
+        made.
+      required:
+        - id
+        - definition
+        - title
+        - titleIsDefault
+        - position
+        - hidden
+        - layout
+        - width
+        - allowedLayouts
+        - required
+        - hideable
+        - isEmpty
+        - elements
+      properties:
+        id:
+          type: string
+          format: uuid
+        definition:
+          type: string
+        title:
+          type: string
+          description: >-
+            The creator's wording, or the definition's default where they wrote
+            none.
+        titleIsDefault:
+          type: boolean
+        position:
+          type: integer
+        hidden:
+          type: boolean
+        layout:
+          type: string
+          enum:
+            - single
+            - duo
+            - main-aside
+            - trio
+            - stack-2
+            - stack-3
+        width:
+          type: string
+          enum:
+            - full
+            - two_thirds
+            - half
+            - third
+        allowedLayouts:
+          type: array
+          description: The layouts this block's current definition offers.
+          items:
+            type: string
+            enum:
+              - single
+              - duo
+              - main-aside
+              - trio
+              - stack-2
+              - stack-3
+        required:
+          type: boolean
+        hideable:
+          type: boolean
+        isEmpty:
+          type: boolean
+          description: >-
+            Whether every element in the block carries nothing. Computed for
+            display and never stored.
+        elements:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssetElement'
+    SaveAssetBlockRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - title
+        - layout
+        - width
+        - elements
+      properties:
+        title:
+          type:
+            - string
+            - 'null'
+          description: Null keeps the definition's current default wording.
+        layout:
+          type: string
+          enum:
+            - single
+            - duo
+            - main-aside
+            - trio
+            - stack-2
+            - stack-3
+        width:
+          type: string
+          enum:
+            - full
+            - two_thirds
+            - half
+            - third
+        elements:
+          type: array
+          items:
+            $ref: '#/components/schemas/SaveAssetElement'
+    ArrangeAssetBlocksRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - blocks
+      properties:
+        blocks:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - id
+              - hidden
+              - width
+            properties:
+              id:
+                type: string
+                format: uuid
+              hidden:
+                type: boolean
+              width:
+                type: string
+                enum:
+                  - full
+                  - two_thirds
+                  - half
+                  - third
+    MoveAssetBlockContentRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - destinationBlockId
+      properties:
+        destinationBlockId:
+          type: string
+          format: uuid
+    SaveAssetElement:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - type
+        - slot
+        - content
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          $ref: '#/components/schemas/ElementType'
+        role:
+          type: string
+          description: Absent where the element has no import or export meaning.
+        slot:
+          type: string
+        display:
+          type: string
+          enum:
+            - rich
+            - verbatim
+        itemSize:
+          $ref: '#/components/schemas/ItemSize'
+        content:
+          description: The element type's own body.
+          x-go-type: json.RawMessage
+          oneOf:
+            - $ref: '#/components/schemas/ProseContent'
+            - $ref: '#/components/schemas/TextSetContent'
+            - $ref: '#/components/schemas/FieldListContent'
+            - $ref: '#/components/schemas/DialogueSampleContent'
+            - $ref: '#/components/schemas/ImageSetContent'
+            - $ref: '#/components/schemas/LinkListContent'
+            - $ref: '#/components/schemas/EntryTableContent'
+            - $ref: '#/components/schemas/PromptListContent'
+            - $ref: '#/components/schemas/VariableSchemaContent'
+            - $ref: '#/components/schemas/SettingGroupContent'
+            - $ref: '#/components/schemas/ScriptListContent'
+            - $ref: '#/components/schemas/ColorSetContent'
+            - $ref: '#/components/schemas/StylesheetSetContent'
+            - $ref: '#/components/schemas/RecordListContent'
+    AssetElement:
+      type: object
+      description: >-
+        One piece of content. Its role is what import and export read, and it
+        travels with the element wherever the creator moves it.
+      required:
+        - id
+        - type
+        - slot
+        - label
+        - pinned
+        - isEmpty
+        - facts
+        - content
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          $ref: '#/components/schemas/ElementType'
+        role:
+          type: string
+          description: Absent where the element has no import or export meaning.
+        slot:
+          type: string
+        label:
+          type: string
+        pinned:
+          type: boolean
+          description: A pinned element can be neither removed nor moved out of its block.
+        display:
+          type: string
+          enum:
+            - rich
+            - verbatim
+        itemSize:
+          $ref: '#/components/schemas/ItemSize'
+        isEmpty:
+          type: boolean
+        facts:
+          type: array
+          description: >-
+            What the element says about its own data, such as how many entries a
+            book holds and how many are switched on. Worked out on the way out
+            and never stored, and never a token count.
+          items:
+            type: string
+        content:
+          description: The element type's own body. A reader switches on type to read it.
+          x-go-type: json.RawMessage
+          oneOf:
+            - $ref: '#/components/schemas/ProseContent'
+            - $ref: '#/components/schemas/TextSetContent'
+            - $ref: '#/components/schemas/FieldListContent'
+            - $ref: '#/components/schemas/DialogueSampleContent'
+            - $ref: '#/components/schemas/ImageSetContent'
+            - $ref: '#/components/schemas/LinkListContent'
+            - $ref: '#/components/schemas/EntryTableContent'
+            - $ref: '#/components/schemas/PromptListContent'
+            - $ref: '#/components/schemas/VariableSchemaContent'
+            - $ref: '#/components/schemas/SettingGroupContent'
+            - $ref: '#/components/schemas/ScriptListContent'
+            - $ref: '#/components/schemas/ColorSetContent'
+            - $ref: '#/components/schemas/StylesheetSetContent'
+            - $ref: '#/components/schemas/RecordListContent'
+    ProseContent:
+      type: object
+      required:
+        - text
+      properties:
+        text:
+          type: string
+    TextSetContent:
+      type: object
+      required:
+        - texts
+      properties:
+        texts:
+          type: array
+          items:
+            type: object
+            required:
+              - text
+            properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
+              name:
+                type: string
+              text:
+                type: string
+    DialogueSampleContent:
+      type: object
+      required:
+        - turns
+      properties:
+        turns:
+          type: array
+          items:
+            type: object
+            required:
+              - speaker
+              - text
+            properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
+              speaker:
+                type: string
+              text:
+                type: string
+    ImageSetContent:
+      type: object
+      required:
+        - images
+      description: >-
+        An ordered list of images. An item carries its image and one optional
+        free-text name, and its position is where it sits in the list.
+      properties:
+        images:
+          type: array
+          items:
+            type: object
+            required:
+              - mediaId
+            properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
+              mediaId:
+                type: string
+                format: uuid
+              name:
+                type: string
+    FieldListContent:
+      type: object
+      required:
+        - fields
+      properties:
+        fields:
+          type: array
+          items:
+            type: object
+            required:
+              - value
+            properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
+              name:
+                type: string
+              value:
+                type: string
+    LinkListContent:
+      type: object
+      required:
+        - links
+      properties:
+        links:
+          type: array
+          items:
+            type: object
+            required:
+              - url
+            properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
+              label:
+                type: string
+              url:
+                type: string
+              note:
+                type: string
+    EntryTableContent:
+      type: object
+      required:
+        - entries
+      description: >-
+        A lorebook. An entry is switched on by its keys, and how it behaves on
+        the passes after the first is its own setting.
+      properties:
+        entries:
+          type: array
+          items:
+            type: object
+            required:
+              - keys
+              - text
+              - enabled
+            properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
+              name:
+                type: string
+              keys:
+                type: array
+                items:
+                  type: string
+              secondaryKeys:
+                type: array
+                items:
+                  type: string
+              selective:
+                type: boolean
+              caseSensitive:
+                type: boolean
+              constant:
+                type: boolean
+              enabled:
+                type: boolean
+              order:
+                type: integer
+              position:
+                type: string
+                description: Unset where the book leaves the choice to whatever reads it.
+                enum:
+                  - before_character
+                  - after_character
+              recursion:
+                type: object
+                properties:
+                  exclude:
+                    type: boolean
+                  prevent:
+                    type: boolean
+                  delayUntil:
+                    type: boolean
+              text:
+                type: string
+    TypedValue:
+      type: object
+      description: >-
+        One typed value: what a setting holds, or what a variable defaults to
+        and what was saved for it. The whole value being absent is nobody having
+        supplied one, which a format writes as an absent key rather than as a
+        zero.
+      properties:
+        number:
+          type: number
+        boolean:
+          type: boolean
+        text:
+          type: string
+        strings:
+          description: >-
+            Kept as it was written and in the order it was written, duplicates
+            included. An empty list here is a list somebody emptied on purpose.
+          type: array
+          items:
+            type: string
+    PromptListContent:
+      type: object
+      required:
+        - groups
+        - fragments
+      description: >-
+        A preset's prompt, in the order it is sent. One level of grouping is the
+        list's own nesting rather than a second element.
+      properties:
+        groups:
+          type: array
+          items:
+            type: object
+            required:
+              - name
+            properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
+              name:
+                type: string
+        fragments:
+          type: array
+          items:
+            type: object
+            required:
+              - text
+              - enabled
+            properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
+              name:
+                type: string
+              groupId:
+                description: The group the fragment sits under, of the groups above.
+                type: string
+                format: uuid
+              role:
+                description: >-
+                  Who the fragment speaks as. The two appending roles add to the
+                  message before them rather than starting one.
+                type: string
+                enum:
+                  - system
+                  - user
+                  - assistant
+                  - user_append
+                  - assistant_append
+              text:
+                type: string
+              marker:
+                description: >-
+                  What an app splices in where this fragment sits. A marker
+                  carries no text of its own and the name is taken at face
+                  value.
+                type: string
+              enabled:
+                type: boolean
+              placement:
+                description: Unset where the preset leaves the choice to whatever reads it.
+                type: string
+                enum:
+                  - pre_history
+                  - post_history
+                  - in_history
+              depth:
+                description: Messages back from the most recent.
+                type: integer
+    VariableSchemaContent:
+      type: object
+      required:
+        - variables
+      description: The form a preset asks a reader to fill in before they use it.
+      properties:
+        variables:
+          type: array
+          items:
+            type: object
+            required:
+              - name
+              - widget
+            properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
+              name:
+                type: string
+              widget:
+                type: string
+                enum:
+                  - switch
+                  - select
+                  - multiselect
+                  - number
+                  - slider
+                  - text
+                  - textarea
+              label:
+                type: string
+              description:
+                type: string
+              fragmentId:
+                description: The prompt fragment the variable belongs to.
+                type: string
+                format: uuid
+              default:
+                $ref: '#/components/schemas/TypedValue'
+              value:
+                $ref: '#/components/schemas/TypedValue'
+              options:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - label
+                    - value
+                  properties:
+                    key:
+                      description: >-
+                        What a saved choice calls this option, where the
+                        preset's format names its choices separately from the
+                        text they stand for.
+                      type: string
+                    label:
+                      type: string
+                    value:
+                      type: string
+              range:
+                type: object
+                properties:
+                  min:
+                    type: number
+                  max:
+                    type: number
+                  step:
+                    type: number
+              separator:
+                description: Joins a multiselect's chosen values on the way into a prompt.
+                type: string
+              rows:
+                description: How tall a text area is drawn.
+                type: integer
+    SettingGroupContent:
+      type: object
+      required:
+        - settings
+      description: >-
+        A set of named settings an app understands. The names are taken at face
+        value and Illarin models nothing about what any of them controls.
+      properties:
+        settings:
+          type: array
+          items:
+            type: object
+            required:
+              - name
+              - type
+            properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
+              name:
+                type: string
+              label:
+                type: string
+              type:
+                type: string
+                enum:
+                  - number
+                  - boolean
+                  - text
+                  - string_list
+              choices:
+                description: What a text setting is limited to. None leaves it free text.
+                type: array
+                items:
+                  type: string
+              value:
+                description: Absent where nobody has supplied one.
+                $ref: '#/components/schemas/TypedValue'
+    ColorSetContent:
+      type: object
+      required:
+        - modes
+      description: A theme's named colours, grouped by the modes its source carries.
+      properties:
+        modes:
+          type: array
+          items:
+            type: object
+            required:
+              - colors
+            properties:
+              name:
+                type: string
+              colors:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - value
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                    name:
+                      type: string
+                    value:
+                      type: string
+    StylesheetSetContent:
+      type: object
+      required:
+        - global
+        - stylesheets
+        - assets
+      description: A theme's main CSS, component sheets, and the files those sheets use.
+      properties:
+        global:
+          type: string
+        stylesheets:
+          type: array
+          items:
+            type: object
+            required:
+              - name
+              - css
+              - enabled
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+              css:
+                type: string
+              enabled:
+                type: boolean
+        assets:
+          type: array
+          items:
+            type: object
+            required:
+              - path
+              - data
+            properties:
+              id:
+                type: string
+                format: uuid
+              path:
+                type: string
+              mediaType:
+                type: string
+              data:
+                type: string
+                format: byte
+    RecordListContent:
+      type: object
+      required:
+        - schema
+        - records
+      description: >-
+        Ordered records whose field schema is one of the closed schemas Illarin
+        names in code. A creator chooses no columns of their own.
+      properties:
+        schema:
+          type: string
+          enum:
+            - lumia
+        records:
+          type: array
+          items:
+            type: object
+            required:
+              - lumiaName
+              - lumiaDefinition
+              - lumiaPersonality
+              - lumiaBehavior
+              - genderIdentity
+              - authorName
+              - version
+            properties:
+              id:
+                type: string
+                format: uuid
+              lumiaName:
+                type: string
+              lumiaDefinition:
+                type: string
+              lumiaPersonality:
+                type: string
+              lumiaBehavior:
+                type: string
+              avatarUrl:
+                description: The asset-scoped media id for this item's avatar.
+                type: string
+                format: uuid
+              genderIdentity:
+                type: integer
+                enum:
+                  - 0
+                  - 1
+                  - 2
+              authorName:
+                type: string
+              version:
+                type: integer
+                minimum: 1
+    ScriptListContent:
+      type: object
+      required:
+        - scripts
+      description: A preset's find and replace scripts, in the order they run.
+      properties:
+        scripts:
+          type: array
+          items:
+            type: object
+            required:
+              - find
+              - replace
+              - enabled
+            properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
+              name:
+                type: string
+              description:
+                type: string
+              find:
+                type: string
+              flags:
+                description: The expression's own, such as g for every match.
+                type: string
+              replace:
+                type: string
+              trim:
+                description: Text cut out of the match before the replacement is written.
+                type: array
+                items:
+                  type: string
+              targets:
+                description: The text the script runs over.
+                type: array
+                items:
+                  type: string
+                  enum:
+                    - user_input
+                    - model_output
+                    - slash_command
+                    - lorebook
+              affects:
+                description: What the replacement changes.
+                type: array
+                items:
+                  type: string
+                  enum:
+                    - display
+                    - prompt
+              enabled:
+                type: boolean
+              minDepth:
+                type: integer
+              maxDepth:
+                type: integer
+              runOnEdit:
+                type: boolean
+    ElementType:
+      type: string
+      description: What an element's data structure is, from the global vocabulary.
+      enum:
+        - prose
+        - text_set
+        - field_list
+        - dialogue_sample
+        - image_set
+        - link_list
+        - entry_table
+        - prompt_list
+        - variable_schema
+        - setting_group
+        - script_list
+        - color_set
+        - stylesheet_set
+        - record_list
+    ItemSize:
+      type: string
+      description: >-
+        How large the images inside an element are drawn. It names what it
+        controls, and no element type declares a measurement of its own.
+      enum:
+        - small
+        - medium
+        - large
+    AddAssetBlockRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - definition
+        - elementType
+      properties:
+        definition:
+          type: string
+        elementType:
+          $ref: '#/components/schemas/ElementType'
+    AddableSection:
+      type: object
+      description: >-
+        One section the add tray offers. Where the content ends up is what the
+        tray groups by, so a creator arrives at it by destination.
+      required:
+        - definition
+        - title
+        - summary
+        - group
+        - groupTitle
+        - repeatable
+        - choices
+      properties:
+        definition:
+          type: string
+        title:
+          type: string
+        summary:
+          type: string
+        group:
+          type: string
+          enum:
+            - file
+            - reader
+            - work
+            - other
+        groupTitle:
+          type: string
+        repeatable:
+          type: boolean
+        choices:
+          type: array
+          description: >-
+            The elements a creator may start the section with. One choice needs
+            no question asking.
+          items:
+            $ref: '#/components/schemas/AddableSectionChoice'
+    AddableSectionChoice:
+      type: object
+      required:
+        - type
+        - label
+      properties:
+        type:
+          $ref: '#/components/schemas/ElementType'
+        label:
+          type: string
+    Asset:
+      type: object
+      required:
+        - id
+        - kind
+        - format
+        - name
+        - blurb
+        - tags
+        - isNsfw
+        - discovery
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        format:
+          type: string
+        name:
+          type: string
+        blurb:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        isNsfw:
+          type:
+            - boolean
+            - 'null'
+        discovery:
+          type: string
+          enum:
+            - listed
+            - unlisted
+        createdAt:
+          type: string
+          format: date-time
+    AssetDetail:
+      type: object
+      required:
+        - id
+        - kind
+        - name
+        - blurb
+        - tags
+        - creator
+        - isNsfw
+        - discovery
+        - lifecycle
+        - isOwner
+        - downloads
+        - original
+        - createdAt
+        - blocks
+        - media
+        - preview
+        - visibility
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+            - character
+            - lorebook
+            - preset
+            - theme
+            - pack
+        name:
+          type: string
+        blurb:
+          type: string
+          description: >-
+            The catalog blurb the creator wrote for a person. Never the file's
+            own description, which is a prompt written for a model.
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssetTag'
+        creator:
+          type: string
+        isNsfw:
+          description: >-
+            Null while a draft has not been asked the adult content question.
+            Nothing answers it on the creator's behalf.
+          type:
+            - boolean
+            - 'null'
+        discovery:
+          type: string
+          enum:
+            - listed
+            - unlisted
+        lifecycle:
+          type: string
+          enum:
+            - draft
+            - published
+          description: >-
+            A draft resolves for its owner alone. Discovery applies to a
+            published asset only.
+        isOwner:
+          type: boolean
+          description: >-
+            Whether the reader owns the asset. The owner's page is the reader's
+            page with its editing affordances, not a second visual state.
+        downloads:
+          type: array
+          description: >-
+            The formats this asset is offered in, read from its projection. A
+            format Illarin cannot produce for the asset is absent rather than
+            listed as unavailable, so this is a list of choices and not a
+            capability report.
+          items:
+            $ref: '#/components/schemas/DownloadTarget'
+        original:
+          description: >-
+            The creator's own upload. Null for an asset built from nothing,
+            which gets no group saying so.
+          oneOf:
+            - $ref: '#/components/schemas/OriginalUpload'
+            - type: 'null'
+        createdAt:
+          type: string
+          format: date-time
+        blocks:
+          type: array
+          description: The asset's blocks in page order.
+          items:
+            $ref: '#/components/schemas/AssetBlock'
+        media:
+          type: array
+          description: >-
+            The asset's images, cover first. Variant URLs already reflect the
+            reader's preference, so a blurred reader is never handed a clear
+            one.
+          items:
+            $ref: '#/components/schemas/AssetImage'
+        preview:
+          description: >-
+            The composed social preview for link unfurling. Null on a draft,
+            which nothing unfurls.
+          anyOf:
+            - type: string
+            - type: 'null'
+        readiness:
+          description: >-
+            What publication is waiting on. Present only while the owner is
+            reading their own draft.
+          type: array
+          items:
+            $ref: '#/components/schemas/ReadinessItem'
+        addableSections:
+          description: >-
+            The sections this kind can still be given, in catalog order. Present
+            only while the owner is reading their own asset.
+          type: array
+          items:
+            $ref: '#/components/schemas/AddableSection'
+        visibility:
+          type: string
+          enum:
+            - hidden
+            - blurred
+            - shown
+        withhold:
+          $ref: '#/components/schemas/AssetWithhold'
+    DownloadTarget:
+      type: object
+      required:
+        - format
+        - label
+        - recommended
+        - roles
+      properties:
+        format:
+          type: string
+          description: The format id, which is also the download's target.
+        label:
+          type: string
+        recommended:
+          type: boolean
+          description: >-
+            Computed by the widest-compatibility rule and never chosen by a
+            creator: the format that loses the least among the formats most apps
+            can open.
+        roles:
+          type: array
+          description: One verdict per role this asset has content for.
+          items:
+            $ref: '#/components/schemas/DownloadRoleVerdict'
+    DownloadRoleVerdict:
+      type: object
+      required:
+        - role
+        - label
+        - verdict
+        - sample
+      properties:
+        role:
+          type: string
+        label:
+          type: string
+        verdict:
+          type: string
+          enum:
+            - carried
+            - reduced
+            - dropped
+        reason:
+          type: string
+          description: What went, on a reduced verdict.
+        destination:
+          type: string
+          description: >-
+            Where the content lands when that is not the format's standard home
+            for it. Independent of how much survives, so it rides on a carried
+            verdict too.
+        sample:
+          $ref: '#/components/schemas/DownloadSample'
+    DownloadSample:
+      type: object
+      required:
+        - count
+      properties:
+        count:
+          type: integer
+          description: How many things the role holds in all.
+        texts:
+          type: array
+          description: Entry names and greeting openings, a few of them.
+          items:
+            type: string
+        images:
+          type: array
+          description: The media ids of a few of the pictures at stake.
+          items:
+            type: string
+            format: uuid
+    OriginalUpload:
+      type: object
+      required:
+        - label
+        - mediaType
+        - arrivedAt
+      properties:
+        label:
+          type: string
+        mediaType:
+          type: string
+        arrivedAt:
+          type: string
+          format: date-time
+    PreservedNamespace:
+      type: object
+      required:
+        - name
+        - bytes
+      properties:
+        name:
+          type: string
+          description: The namespace as the file that carried it named it.
+        bytes:
+          type: integer
+          description: How much the asset is holding under this namespace.
+    AssetDiscoveryRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - discovery
+      properties:
+        discovery:
+          type: string
+          enum:
+            - listed
+            - unlisted
+    AssetIdentityRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - isNsfw
+      properties:
+        name:
+          type: string
+        isNsfw:
+          description: Null is the unanswered state, which only a draft may be in.
+          type:
+            - boolean
+            - 'null'
+    ReadinessItem:
+      type: object
+      required:
+        - id
+        - label
+        - detail
+        - met
+      description: One thing publication waits on, and whether the asset carries it.
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        detail:
+          type: string
+        met:
+          type: boolean
+        blockId:
+          description: The block a creator fills this in. Absent for a header field.
+          type: string
+          format: uuid
+    PublishRefusal:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+        readiness:
+          description: The whole floor, so a refusal names every missing item at once.
+          type: array
+          items:
+            $ref: '#/components/schemas/ReadinessItem'
+    DeletedAssetList:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeletedAsset'
+    DeletedAsset:
+      type: object
+      required:
+        - id
+        - name
+        - kind
+        - deletedAt
+        - recoverableUntil
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        kind:
+          type: string
+          enum:
+            - character
+            - lorebook
+            - preset
+            - theme
+            - pack
+        deletedAt:
+          type: string
+          format: date-time
+        recoverableUntil:
+          type: string
+          format: date-time
+    WithholdAssetRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+          minLength: 1
+    AssetWithhold:
+      type: object
+      additionalProperties: false
+      required:
+        - reason
+        - actor
+        - at
+      properties:
+        reason:
+          type: string
+        actor:
+          type: string
+        at:
+          type: string
+          format: date-time
+    AssetTag:
+      type: object
+      required:
+        - label
+        - value
+      properties:
+        label:
+          type: string
+          description: The creator's own text, shown as written.
+        value:
+          type: string
+          description: The normalized form browse matches on.
+    AssetImage:
+      type: object
+      required:
+        - id
+        - role
+        - isCover
+        - detailUrl
+        - thumbUrl
+        - width
+        - height
+      properties:
+        id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum:
+            - avatar
+            - expression
+            - gallery
+            - avatar_alt
+            - perspective_layer
+            - pack_item
+        isCover:
+          type: boolean
+        detailUrl:
+          type: string
+        thumbUrl:
+          type: string
+        width:
+          type: integer
+          minimum: 1
+        height:
+          type: integer
+          minimum: 1
+    AssetList:
+      type: object
+      required:
+        - items
+        - total
+        - suppressed
+        - visibility
+        - platforms
+        - facets
+        - emptyState
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BrowseAsset'
+        total:
+          type: integer
+          minimum: 0
+        suppressed:
+          type: integer
+          minimum: 0
+        visibility:
+          type: string
+          enum:
+            - hidden
+            - blurred
+            - shown
+        nextCursor:
+          anyOf:
+            - $ref: '#/components/schemas/BrowseCursor'
+            - type: 'null'
+        platforms:
+          type: array
+          items:
+            $ref: '#/components/schemas/BrowseOption'
+        facets:
+          type: array
+          items:
+            $ref: '#/components/schemas/BrowseFacet'
+        emptyState:
+          type:
+            - string
+            - 'null'
+          enum:
+            - catalog
+            - no_matches
+            - suppressed
+            - null
+    BrowseAsset:
+      type: object
+      required:
+        - id
+        - name
+        - creator
+        - kind
+        - isNsfw
+        - cover
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        creator:
+          type: string
+        kind:
+          type: string
+          enum:
+            - character
+            - lorebook
+            - preset
+            - theme
+            - pack
+        isNsfw:
+          description: >-
+            Null on a draft whose creator has not answered the adult content
+            question.
+          type:
+            - boolean
+            - 'null'
+        ownerState:
+          type: string
+          enum:
+            - draft
+            - unlisted
+            - withheld
+          description: Present only on the owner's own listing.
+        withhold:
+          $ref: '#/components/schemas/AssetWithhold'
+        cover:
+          anyOf:
+            - $ref: '#/components/schemas/BrowseCover'
+            - type: 'null'
+    BrowseCover:
+      type: object
+      required:
+        - url
+        - width
+        - height
+      properties:
+        url:
+          type: string
+        width:
+          type: integer
+          minimum: 1
+        height:
+          type: integer
+          minimum: 1
+    BrowseCursor:
+      type: object
+      required:
+        - before
+        - beforeId
+      properties:
+        before:
+          type: string
+          format: date-time
+        beforeId:
+          type: string
+          format: uuid
+    BrowseOption:
+      type: object
+      required:
+        - value
+        - label
+        - count
+        - selected
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+        count:
+          type: integer
+          minimum: 0
+        selected:
+          type: boolean
+    BrowseFacet:
+      type: object
+      required:
+        - key
+        - label
+        - options
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/BrowseOption'
+    CreateAssetRequest:
+      type: object
+      required:
+        - confirmed
+      properties:
+        confirmed:
+          type: boolean
+        name:
+          type: string
+        blurb:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        isNsfw:
+          type: boolean
+        discovery:
+          type: string
+          enum:
+            - listed
+            - unlisted
+    AddMediaRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - role
+      properties:
+        role:
+          type: string
+          enum:
+            - avatar
+            - expression
+            - gallery
+            - avatar_alt
+            - perspective_layer
+            - pack_item
+    Media:
+      type: object
+      required:
+        - id
+        - assetId
+        - role
+        - width
+        - height
+        - derivativeVersion
+      properties:
+        id:
+          type: string
+          format: uuid
+        assetId:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum:
+            - avatar
+            - expression
+            - gallery
+            - avatar_alt
+            - perspective_layer
+            - pack_item
+        width:
+          type: integer
+          minimum: 1
+        height:
+          type: integer
+          minimum: 1
+        derivativeVersion:
+          type: integer
+          minimum: 1
+    MediaList:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Media'
+    IngestOperation:
+      type: object
+      required:
+        - id
+        - status
+        - url
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - pending
+            - processing
+            - failed
+            - success
+        url:
+          type: string
+        asset:
+          anyOf:
+            - $ref: '#/components/schemas/Asset'
+            - type: 'null'
+        failure:
+          $ref: '#/components/schemas/IngestFailure'
+    IngestFailure:
+      type: object
+      required:
+        - reason
+        - message
+      properties:
+        reason:
+          type: string
+          enum:
+            - malformed_input
+            - unsupported_format
+            - unsupported_version
+            - safety_violation
+            - wrong_kind
+            - internal_failure
+        message:
+          type: string

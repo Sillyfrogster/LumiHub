@@ -1,0 +1,1681 @@
+paths:
+  /v1/assets:
+    get:
+      operationId: listAssets
+      parameters:
+        - name: kind
+          in: query
+          schema:
+            type: string
+            enum:
+              - character
+              - lorebook
+              - preset
+              - theme
+              - pack
+        - name: platform
+          in: query
+          description: >-
+            An app, from the platforms list. An app matches an asset when any of
+            the asset's offered download formats is one that app reads.
+          schema:
+            type: string
+        - name: creator
+          in: query
+          description: Scope the listing to one creator's public profile.
+          schema:
+            type: string
+        - name: q
+          in: query
+          description: >-
+            One search expression. Bare text matches names, creator handles and
+            blurbs. Repeat tag: to require every tag; one author: qualifier may
+            narrow the creator. Quote qualifier values that contain spaces.
+          schema:
+            type: string
+        - name: facet
+          in: query
+          description: >-
+            Repeat key=value, taking the keys and values from the facets list.
+            Two values of one key widen the result; two keys narrow it. A key or
+            value the kind does not declare is ignored.
+          schema:
+            type: array
+            items:
+              type: string
+        - name: nsfw
+          in: query
+          description: >-
+            The reader's presentation preference. Browse page URLs keep this
+            preference out of their own query string.
+          schema:
+            type: string
+            enum:
+              - hidden
+              - blurred
+              - shown
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 24
+        - name: before
+          in: query
+          description: >-
+            The made date of the last asset on the previous page. Send it with
+            beforeId or not at all.
+          schema:
+            type: string
+            format: date-time
+        - name: beforeId
+          in: query
+          description: The id of that same asset
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Assets a visitor may see
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetList'
+    post:
+      operationId: createAsset
+      security:
+        - sessionCookie: []
+      description: >-
+        Two ways to make an asset. Send form data to bring a file in, or send
+        JSON naming a kind to start from nothing. The kind is asked for once,
+        before any blocks exist, and never changes afterwards.
+      requestBody:
+        required: true
+        description: >-
+          Send the metadata part before the file part. The file is read as it
+          arrives, so the catalog fields have to be known by then.
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - metadata
+                - file
+              properties:
+                metadata:
+                  $ref: '#/components/schemas/CreateAssetRequest'
+                file:
+                  type: string
+                  format: binary
+          application/json:
+            schema:
+              $ref: ./blocks.yaml#/components/schemas/StartAssetRequest
+      responses:
+        '201':
+          description: The draft that was started, with the blocks its kind requires
+          headers:
+            Location:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetDetail'
+        '202':
+          description: The durable ingest operation for the accepted upload
+          headers:
+            Location:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestOperation'
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '422':
+          description: The uploaded bytes have been purged and cannot return
+  /v1/assets/{id}:
+    get:
+      operationId: getAsset
+      description: >-
+        One asset by id. Unlisted assets answer normally, because unlisted is
+        discovery rather than authorization. Withheld, deleted and never-existed
+        all answer 404.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: nsfw
+          in: query
+          description: >-
+            The reader's presentation preference. Asset page URLs keep this
+            preference out of their own query string.
+          schema:
+            type: string
+            enum:
+              - hidden
+              - blurred
+              - shown
+      responses:
+        '200':
+          description: The asset as a visitor may see it
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetDetail'
+        '404':
+          description: No asset a visitor may see
+    delete:
+      operationId: deleteAsset
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: The asset is recoverable from the creator's Deleted section
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: The asset does not belong to the creator
+        '409':
+          description: The asset is withheld and cannot be deleted
+  /v1/assets/{id}/revisions:
+    post:
+      operationId: addAssetRevision
+      description: >-
+        Replace an asset's source bytes. A revision is the file only: name,
+        blurb, tags and the NSFW flag stay as the creator left them. A file that
+        reads as a different kind is refused and the asset is left untouched.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '202':
+          description: The durable ingest operation for the accepted revision
+          headers:
+            Location:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestOperation'
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: The asset does not belong to the creator
+        '409':
+          description: The asset is withheld and cannot be changed
+  /v1/assets/{id}/blocks/{blockId}:
+    put:
+      operationId: saveAssetBlock
+      description: >-
+        Save one block without rewriting any other block on the asset. Draft
+        content may be empty, but it must still be structurally valid and obey
+        the kind catalog's builder constraints.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: blockId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./blocks.yaml#/components/schemas/SaveAssetBlockRequest
+      responses:
+        '200':
+          description: The saved block as it now appears on the page
+          content:
+            application/json:
+              schema:
+                $ref: ./blocks.yaml#/components/schemas/AssetBlock
+        '400':
+          description: The block is malformed or breaks a builder constraint
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: The asset or block does not belong to the creator
+        '409':
+          description: The asset is withheld and cannot be changed
+        '422':
+          description: The uploaded bytes have been purged and cannot return
+    delete:
+      operationId: removeAssetBlock
+      description: >-
+        Remove one optional block and its elements. Required blocks are refused.
+        Remaining positions are rewritten into one gapless page order.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: blockId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: The block and everything in it were removed
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: The asset or block does not belong to the creator
+        '409':
+          description: The asset is withheld and cannot be changed
+  /v1/assets/{id}/blocks:
+    post:
+      operationId: addAssetBlock
+      description: >-
+        Add one optional section to the foot of the page, holding the element
+        the creator chose. A required section, and a section already present
+        that cannot repeat, are both refused.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./blocks.yaml#/components/schemas/AddAssetBlockRequest
+      responses:
+        '201':
+          description: The new section as it now appears at the foot of the page
+          content:
+            application/json:
+              schema:
+                $ref: ./blocks.yaml#/components/schemas/AssetBlock
+        '400':
+          description: The section cannot be added to this asset
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: The asset does not belong to the creator
+        '409':
+          description: The asset is withheld and cannot be changed
+    put:
+      operationId: arrangeAssetBlocks
+      description: >-
+        Rewrite the whole page order and save visibility and width choices in
+        the same transaction. Every current block must appear exactly once.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./blocks.yaml#/components/schemas/ArrangeAssetBlocksRequest
+      responses:
+        '200':
+          description: Every block in its saved page order
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: ./blocks.yaml#/components/schemas/AssetBlock
+        '400':
+          description: The arrangement is incomplete
+          duplicated or not allowed: null
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: The asset does not belong to the creator
+        '409':
+          description: The asset is withheld and cannot be changed
+  /v1/assets/{id}/blocks/{blockId}/move-and-remove:
+    post:
+      operationId: moveAssetBlockContent
+      description: >-
+        Move every unpinned element into a section with enough free slots, then
+        remove the emptied optional section. Both changes commit together.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: blockId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./blocks.yaml#/components/schemas/MoveAssetBlockContentRequest
+      responses:
+        '200':
+          description: Every remaining block in its saved page order
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: ./blocks.yaml#/components/schemas/AssetBlock
+        '400':
+          description: The source cannot be removed or the destination has no room
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: The asset or either block does not belong to the creator
+        '409':
+          description: The asset is withheld and cannot be changed
+  /v1/assets/{id}/preserved:
+    get:
+      operationId: listPreservedNamespaces
+      description: >-
+        Name the platform-specific namespaces this asset carries. The panel is
+        read-only apart from deleting, so nothing here returns a payload.
+        Namespaces the asset's own format calls boilerplate are left out, which
+        is display and not storage.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Every namespace the asset carries, in name order
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PreservedNamespace'
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: The asset does not belong to the creator
+  /v1/assets/{id}/preserved/{namespace}:
+    delete:
+      operationId: deletePreservedNamespace
+      description: >-
+        Delete one namespace and everything stored under it. Deletion is
+        permanent: the lossless rule binds Illarin, not the creator.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: The namespace is gone
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: The asset or the namespace does not belong to the creator
+        '409':
+          description: The asset is withheld and cannot be changed
+  /v1/assets/{id}/restore:
+    post:
+      operationId: restoreAsset
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: The existing asset and retained bytes are live again
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: No recoverable asset belongs to the creator
+  /v1/assets/{id}/identity:
+    put:
+      operationId: setAssetIdentity
+      description: >-
+        Save the header fields that sit above an asset's blocks. The adult
+        content answer may be null only while the asset is a draft, so nothing
+        answers it on the creator's behalf. An edit is live when it saves.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetIdentityRequest'
+      responses:
+        '204':
+          description: The header is saved
+        '400':
+          description: The name is too long
+          or a published asset was sent no adult content answer: null
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: The asset does not belong to the creator
+        '409':
+          description: The asset is withheld and cannot be changed
+  /v1/assets/{id}/publish:
+    post:
+      operationId: publishAsset
+      description: >-
+        Publish a draft. Publishing is one-way: unlisted is the reversible
+        retreat and deletion is the exit. A draft that does not meet the floor
+        is refused with the whole readiness list rather than the first thing
+        missing.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The asset as its page now reads, published
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetDetail'
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: The draft does not belong to the creator
+        '409':
+          description: >-
+            The draft is not ready, the asset is already published, or it is
+            withheld
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishRefusal'
+  /v1/assets/{id}/discovery:
+    put:
+      operationId: setAssetDiscovery
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssetDiscoveryRequest'
+      responses:
+        '204':
+          description: The asset discovery state is saved
+        '400':
+          description: The discovery value is invalid
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: The asset does not belong to the creator
+        '409':
+          description: The asset is withheld and cannot be changed
+  /v1/profiles/{handle}/deleted:
+    get:
+      operationId: listDeletedAssets
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: handle
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The signed-in creator's assets still inside the recovery window
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeletedAssetList'
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+  /v1/assets/{id}/withhold:
+    put:
+      operationId: withholdAsset
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WithholdAssetRequest'
+      responses:
+        '204':
+          description: The asset is withheld
+        '400':
+          description: The reason is empty or invalid
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account is not an admin
+        '404':
+          description: No live asset has that id
+    delete:
+      operationId: clearAssetWithhold
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: The asset is no longer withheld
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account is not an admin
+        '404':
+          description: No withheld asset has that id
+  /download/{id}:
+    get:
+      operationId: downloadSource
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The current uploaded source file, byte for byte
+          headers:
+            Content-Disposition:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - attachment
+                  - inline
+            X-Content-Type-Options:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - nosniff
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+            image/gif:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: No such asset
+  /download/{id}/{target}:
+    get:
+      operationId: downloadExport
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: target
+          in: path
+          required: true
+          description: >-
+            One of the formats the asset is offered in. A format outside that
+            list was never a choice and is refused.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: >-
+            The asset written in the requested format. It is produced on request
+            and never cached.
+          headers:
+            Content-Disposition:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - attachment
+            X-Content-Type-Options:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - nosniff
+            X-LumiHub-Export-Target:
+              required: true
+              schema:
+                type: string
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                type: string
+                format: binary
+            application/zip:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: No such asset
+  /v1/assets/{id}/media:
+    get:
+      operationId: listMedia
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Media belonging to the asset
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaList'
+        '404':
+          description: No such asset
+    post:
+      operationId: addMedia
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        description: Send the metadata part before the image file part.
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - metadata
+                - file
+              properties:
+                metadata:
+                  $ref: '#/components/schemas/AddMediaRequest'
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: A new immutable media record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Media'
+        '400':
+          description: The role or image is not valid
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: The asset does not belong to the creator
+        '409':
+          description: The asset is withheld and cannot be changed
+  /media/{media_id}/{variant}/{derivative_version}:
+    get:
+      operationId: getMediaVariant
+      parameters:
+        - name: media_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: variant
+          in: path
+          required: true
+          schema:
+            type: string
+            enum:
+              - grid
+              - grid_blurred
+              - detail
+              - detail_blurred
+              - thumb
+              - thumb_blurred
+              - og
+              - og_blurred
+        - name: derivative_version
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+        - name: expires
+          in: query
+          description: >-
+            When the signature runs out. A draft's images are served against a
+            short-lived signature at the same address they keep once published.
+          schema:
+            type: string
+        - name: signature
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A named media variant
+          headers:
+            Cache-Control:
+              required: true
+              schema:
+                type: string
+            Content-Disposition:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - inline
+            X-Content-Type-Options:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - nosniff
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: No such media variant
+  /v1/ingests/{id}:
+    get:
+      operationId: getIngest
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The creator's ingest operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestOperation'
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: No such ingest operation for this creator
+components:
+  schemas:
+    Asset:
+      type: object
+      required:
+        - id
+        - kind
+        - format
+        - name
+        - blurb
+        - tags
+        - isNsfw
+        - discovery
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        format:
+          type: string
+        name:
+          type: string
+        blurb:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        isNsfw:
+          type:
+            - boolean
+            - 'null'
+        discovery:
+          type: string
+          enum:
+            - listed
+            - unlisted
+        createdAt:
+          type: string
+          format: date-time
+    AssetDetail:
+      type: object
+      required:
+        - id
+        - kind
+        - name
+        - blurb
+        - tags
+        - creator
+        - isNsfw
+        - discovery
+        - lifecycle
+        - isOwner
+        - downloads
+        - original
+        - createdAt
+        - blocks
+        - media
+        - preview
+        - visibility
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+            - character
+            - lorebook
+            - preset
+            - theme
+            - pack
+        name:
+          type: string
+        blurb:
+          type: string
+          description: >-
+            The catalog blurb the creator wrote for a person. Never the file's
+            own description, which is a prompt written for a model.
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssetTag'
+        creator:
+          type: string
+        isNsfw:
+          description: >-
+            Null while a draft has not been asked the adult content question.
+            Nothing answers it on the creator's behalf.
+          type:
+            - boolean
+            - 'null'
+        discovery:
+          type: string
+          enum:
+            - listed
+            - unlisted
+        lifecycle:
+          type: string
+          enum:
+            - draft
+            - published
+          description: >-
+            A draft resolves for its owner alone. Discovery applies to a
+            published asset only.
+        isOwner:
+          type: boolean
+          description: >-
+            Whether the reader owns the asset. The owner's page is the reader's
+            page with its editing affordances, not a second visual state.
+        downloads:
+          type: array
+          description: >-
+            The formats this asset is offered in, read from its projection. A
+            format Illarin cannot produce for the asset is absent rather than
+            listed as unavailable, so this is a list of choices and not a
+            capability report.
+          items:
+            $ref: '#/components/schemas/DownloadTarget'
+        original:
+          description: >-
+            The creator's own upload. Null for an asset built from nothing,
+            which gets no group saying so.
+          oneOf:
+            - $ref: '#/components/schemas/OriginalUpload'
+            - type: 'null'
+        createdAt:
+          type: string
+          format: date-time
+        blocks:
+          type: array
+          description: The asset's blocks in page order.
+          items:
+            $ref: ./blocks.yaml#/components/schemas/AssetBlock
+        media:
+          type: array
+          description: >-
+            The asset's images, cover first. Variant URLs already reflect the
+            reader's preference, so a blurred reader is never handed a clear
+            one.
+          items:
+            $ref: '#/components/schemas/AssetImage'
+        preview:
+          description: >-
+            The composed social preview for link unfurling. Null on a draft,
+            which nothing unfurls.
+          anyOf:
+            - type: string
+            - type: 'null'
+        readiness:
+          description: >-
+            What publication is waiting on. Present only while the owner is
+            reading their own draft.
+          type: array
+          items:
+            $ref: '#/components/schemas/ReadinessItem'
+        addableSections:
+          description: >-
+            The sections this kind can still be given, in catalog order. Present
+            only while the owner is reading their own asset.
+          type: array
+          items:
+            $ref: ./blocks.yaml#/components/schemas/AddableSection
+        visibility:
+          type: string
+          enum:
+            - hidden
+            - blurred
+            - shown
+        withhold:
+          $ref: '#/components/schemas/AssetWithhold'
+    DownloadTarget:
+      type: object
+      required:
+        - format
+        - label
+        - recommended
+        - roles
+      properties:
+        format:
+          type: string
+          description: The format id, which is also the download's target.
+        label:
+          type: string
+        recommended:
+          type: boolean
+          description: >-
+            Computed by the widest-compatibility rule and never chosen by a
+            creator: the format that loses the least among the formats most apps
+            can open.
+        roles:
+          type: array
+          description: One verdict per role this asset has content for.
+          items:
+            $ref: '#/components/schemas/DownloadRoleVerdict'
+    DownloadRoleVerdict:
+      type: object
+      required:
+        - role
+        - label
+        - verdict
+        - sample
+      properties:
+        role:
+          type: string
+        label:
+          type: string
+        verdict:
+          type: string
+          enum:
+            - carried
+            - reduced
+            - dropped
+        reason:
+          type: string
+          description: What went, on a reduced verdict.
+        destination:
+          type: string
+          description: >-
+            Where the content lands when that is not the format's standard home
+            for it. Independent of how much survives, so it rides on a carried
+            verdict too.
+        sample:
+          $ref: '#/components/schemas/DownloadSample'
+    DownloadSample:
+      type: object
+      required:
+        - count
+      properties:
+        count:
+          type: integer
+          description: How many things the role holds in all.
+        texts:
+          type: array
+          description: Entry names and greeting openings, a few of them.
+          items:
+            type: string
+        images:
+          type: array
+          description: The media ids of a few of the pictures at stake.
+          items:
+            type: string
+            format: uuid
+    OriginalUpload:
+      type: object
+      required:
+        - label
+        - mediaType
+        - arrivedAt
+      properties:
+        label:
+          type: string
+        mediaType:
+          type: string
+        arrivedAt:
+          type: string
+          format: date-time
+    PreservedNamespace:
+      type: object
+      required:
+        - name
+        - bytes
+      properties:
+        name:
+          type: string
+          description: The namespace as the file that carried it named it.
+        bytes:
+          type: integer
+          description: How much the asset is holding under this namespace.
+    AssetDiscoveryRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - discovery
+      properties:
+        discovery:
+          type: string
+          enum:
+            - listed
+            - unlisted
+    AssetIdentityRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - isNsfw
+      properties:
+        name:
+          type: string
+        isNsfw:
+          description: Null is the unanswered state, which only a draft may be in.
+          type:
+            - boolean
+            - 'null'
+    ReadinessItem:
+      type: object
+      required:
+        - id
+        - label
+        - detail
+        - met
+      description: One thing publication waits on, and whether the asset carries it.
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        detail:
+          type: string
+        met:
+          type: boolean
+        blockId:
+          description: The block a creator fills this in. Absent for a header field.
+          type: string
+          format: uuid
+    PublishRefusal:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+        readiness:
+          description: The whole floor, so a refusal names every missing item at once.
+          type: array
+          items:
+            $ref: '#/components/schemas/ReadinessItem'
+    DeletedAssetList:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeletedAsset'
+    DeletedAsset:
+      type: object
+      required:
+        - id
+        - name
+        - kind
+        - deletedAt
+        - recoverableUntil
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        kind:
+          type: string
+          enum:
+            - character
+            - lorebook
+            - preset
+            - theme
+            - pack
+        deletedAt:
+          type: string
+          format: date-time
+        recoverableUntil:
+          type: string
+          format: date-time
+    WithholdAssetRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+          minLength: 1
+    AssetWithhold:
+      type: object
+      additionalProperties: false
+      required:
+        - reason
+        - actor
+        - at
+      properties:
+        reason:
+          type: string
+        actor:
+          type: string
+        at:
+          type: string
+          format: date-time
+    AssetTag:
+      type: object
+      required:
+        - label
+        - value
+      properties:
+        label:
+          type: string
+          description: The creator's own text, shown as written.
+        value:
+          type: string
+          description: The normalized form browse matches on.
+    AssetImage:
+      type: object
+      required:
+        - id
+        - role
+        - isCover
+        - detailUrl
+        - thumbUrl
+        - width
+        - height
+      properties:
+        id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum:
+            - avatar
+            - expression
+            - gallery
+            - avatar_alt
+            - perspective_layer
+            - pack_item
+        isCover:
+          type: boolean
+        detailUrl:
+          type: string
+        thumbUrl:
+          type: string
+        width:
+          type: integer
+          minimum: 1
+        height:
+          type: integer
+          minimum: 1
+    AssetList:
+      type: object
+      required:
+        - items
+        - total
+        - suppressed
+        - visibility
+        - platforms
+        - facets
+        - emptyState
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BrowseAsset'
+        total:
+          type: integer
+          minimum: 0
+        suppressed:
+          type: integer
+          minimum: 0
+        visibility:
+          type: string
+          enum:
+            - hidden
+            - blurred
+            - shown
+        nextCursor:
+          anyOf:
+            - $ref: '#/components/schemas/BrowseCursor'
+            - type: 'null'
+        platforms:
+          type: array
+          items:
+            $ref: '#/components/schemas/BrowseOption'
+        facets:
+          type: array
+          items:
+            $ref: '#/components/schemas/BrowseFacet'
+        emptyState:
+          type:
+            - string
+            - 'null'
+          enum:
+            - catalog
+            - no_matches
+            - suppressed
+            - null
+    BrowseAsset:
+      type: object
+      required:
+        - id
+        - name
+        - creator
+        - kind
+        - isNsfw
+        - cover
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        creator:
+          type: string
+        kind:
+          type: string
+          enum:
+            - character
+            - lorebook
+            - preset
+            - theme
+            - pack
+        isNsfw:
+          description: >-
+            Null on a draft whose creator has not answered the adult content
+            question.
+          type:
+            - boolean
+            - 'null'
+        ownerState:
+          type: string
+          enum:
+            - draft
+            - unlisted
+            - withheld
+          description: Present only on the owner's own listing.
+        withhold:
+          $ref: '#/components/schemas/AssetWithhold'
+        cover:
+          anyOf:
+            - $ref: '#/components/schemas/BrowseCover'
+            - type: 'null'
+    BrowseCover:
+      type: object
+      required:
+        - url
+        - width
+        - height
+      properties:
+        url:
+          type: string
+        width:
+          type: integer
+          minimum: 1
+        height:
+          type: integer
+          minimum: 1
+    BrowseCursor:
+      type: object
+      required:
+        - before
+        - beforeId
+      properties:
+        before:
+          type: string
+          format: date-time
+        beforeId:
+          type: string
+          format: uuid
+    BrowseOption:
+      type: object
+      required:
+        - value
+        - label
+        - count
+        - selected
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+        count:
+          type: integer
+          minimum: 0
+        selected:
+          type: boolean
+    BrowseFacet:
+      type: object
+      required:
+        - key
+        - label
+        - options
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/BrowseOption'
+    CreateAssetRequest:
+      type: object
+      required:
+        - confirmed
+      properties:
+        confirmed:
+          type: boolean
+        name:
+          type: string
+        blurb:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        isNsfw:
+          type: boolean
+        discovery:
+          type: string
+          enum:
+            - listed
+            - unlisted
+    AddMediaRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - role
+      properties:
+        role:
+          type: string
+          enum:
+            - avatar
+            - expression
+            - gallery
+            - avatar_alt
+            - perspective_layer
+            - pack_item
+    Media:
+      type: object
+      required:
+        - id
+        - assetId
+        - role
+        - width
+        - height
+        - derivativeVersion
+      properties:
+        id:
+          type: string
+          format: uuid
+        assetId:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum:
+            - avatar
+            - expression
+            - gallery
+            - avatar_alt
+            - perspective_layer
+            - pack_item
+        width:
+          type: integer
+          minimum: 1
+        height:
+          type: integer
+          minimum: 1
+        derivativeVersion:
+          type: integer
+          minimum: 1
+    MediaList:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Media'
+    IngestOperation:
+      type: object
+      required:
+        - id
+        - status
+        - url
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - pending
+            - processing
+            - failed
+            - success
+        url:
+          type: string
+        asset:
+          anyOf:
+            - $ref: '#/components/schemas/Asset'
+            - type: 'null'
+        failure:
+          $ref: '#/components/schemas/IngestFailure'
+    IngestFailure:
+      type: object
+      required:
+        - reason
+        - message
+      properties:
+        reason:
+          type: string
+          enum:
+            - malformed_input
+            - unsupported_format
+            - unsupported_version
+            - safety_violation
+            - wrong_kind
+            - internal_failure
+        message:
+          type: string

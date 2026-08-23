@@ -29,8 +29,12 @@ setup: ## Get a fresh clone ready to run
 		linking_key=$$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n'); \
 		sed -i "s/^LINKING_HMAC_KEY=$$/LINKING_HMAC_KEY=$$linking_key/" api/.env; \
 		echo "Wrote api/.env from the example. Check the database URLs in it."; }
-	cd web && bun install
+	$(MAKE) web-install
 	$(MAKE) migrate migrate-test
+
+.PHONY: web-install
+web-install: ## Install the site's locked dependencies
+	cd web && bun install
 
 # Running
 
@@ -49,7 +53,7 @@ proxy: ## Run the local nginx proxy on port 8000
 # Checking
 
 .PHONY: check
-check: fmt-check vet test test-web lint ## Everything CI would run
+check: fmt-check vet test test-web lint openapi-check ## Everything CI would run
 
 .PHONY: test
 test: need-test-db ## Run the Go tests
@@ -107,11 +111,18 @@ migrate-status: need-db ## Show which migrations have run
 
 # Generated code, never hand edited
 
-.PHONY: generate
-generate: ## Regenerate database code, server stubs, and the site's API types
+.PHONY: generate openapi-bundle
+generate: openapi-bundle ## Regenerate database code, server stubs, and the site's API types
 	cd api && $(SQLC) generate
-	cd api/openapi && $(OAPI) -config cfg-server.yaml openapi.yaml
+	cd api/openapi && $(OAPI) -config cfg-server.yaml openapi.gen.yaml
 	cd web && bun run gen:api
+
+openapi-bundle: ## Bundle the OpenAPI modules for publication and generation
+	cd web && bun run bundle:api
+
+.PHONY: openapi-check
+openapi-check: ## Check that the published OpenAPI bundle is current
+	cd web && bun run check:api
 
 .PHONY: refractive-assets
 refractive-assets: ## Generate the deterministic refractive art assets

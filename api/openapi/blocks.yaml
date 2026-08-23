@@ -1,0 +1,967 @@
+components:
+  schemas:
+    StartAssetRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - kind
+      description: >-
+        The kind an asset is built as. Only kinds Illarin can build are
+        accepted, so a creator is never handed an empty page.
+      properties:
+        kind:
+          type: string
+        app:
+          type: string
+          description: >-
+            Which app the asset is built for, asked once for the kinds whose
+            settings have names only an app can give them. It seeds those names
+            and is stored nowhere. Absent, and refused, for every other kind.
+          enum:
+            - sillytavern
+            - lumiverse
+    AssetBlock:
+      type: object
+      description: >-
+        A titled container. Required, hideable, the layouts it allows and its
+        default width are read from the kind catalog at render time, so this is
+        what the catalog says today rather than what was true when the block was
+        made.
+      required:
+        - id
+        - definition
+        - title
+        - titleIsDefault
+        - position
+        - hidden
+        - layout
+        - width
+        - allowedLayouts
+        - required
+        - hideable
+        - isEmpty
+        - elements
+      properties:
+        id:
+          type: string
+          format: uuid
+        definition:
+          type: string
+        title:
+          type: string
+          description: >-
+            The creator's wording, or the definition's default where they wrote
+            none.
+        titleIsDefault:
+          type: boolean
+        position:
+          type: integer
+        hidden:
+          type: boolean
+        layout:
+          type: string
+          enum:
+            - single
+            - duo
+            - main-aside
+            - trio
+            - stack-2
+            - stack-3
+        width:
+          type: string
+          enum:
+            - full
+            - two_thirds
+            - half
+            - third
+        allowedLayouts:
+          type: array
+          description: The layouts this block's current definition offers.
+          items:
+            type: string
+            enum:
+              - single
+              - duo
+              - main-aside
+              - trio
+              - stack-2
+              - stack-3
+        required:
+          type: boolean
+        hideable:
+          type: boolean
+        isEmpty:
+          type: boolean
+          description: >-
+            Whether every element in the block carries nothing. Computed for
+            display and never stored.
+        elements:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssetElement'
+    SaveAssetBlockRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - title
+        - layout
+        - width
+        - elements
+      properties:
+        title:
+          type:
+            - string
+            - 'null'
+          description: Null keeps the definition's current default wording.
+        layout:
+          type: string
+          enum:
+            - single
+            - duo
+            - main-aside
+            - trio
+            - stack-2
+            - stack-3
+        width:
+          type: string
+          enum:
+            - full
+            - two_thirds
+            - half
+            - third
+        elements:
+          type: array
+          items:
+            $ref: '#/components/schemas/SaveAssetElement'
+    ArrangeAssetBlocksRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - blocks
+      properties:
+        blocks:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - id
+              - hidden
+              - width
+            properties:
+              id:
+                type: string
+                format: uuid
+              hidden:
+                type: boolean
+              width:
+                type: string
+                enum:
+                  - full
+                  - two_thirds
+                  - half
+                  - third
+    MoveAssetBlockContentRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - destinationBlockId
+      properties:
+        destinationBlockId:
+          type: string
+          format: uuid
+    SaveAssetElement:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - type
+        - slot
+        - content
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          $ref: '#/components/schemas/ElementType'
+        role:
+          type: string
+          description: Absent where the element has no import or export meaning.
+        slot:
+          type: string
+        display:
+          type: string
+          enum:
+            - rich
+            - verbatim
+        itemSize:
+          $ref: '#/components/schemas/ItemSize'
+        content:
+          description: The element type's own body.
+          x-go-type: json.RawMessage
+          oneOf:
+            - $ref: '#/components/schemas/ProseContent'
+            - $ref: '#/components/schemas/TextSetContent'
+            - $ref: '#/components/schemas/FieldListContent'
+            - $ref: '#/components/schemas/DialogueSampleContent'
+            - $ref: '#/components/schemas/ImageSetContent'
+            - $ref: '#/components/schemas/LinkListContent'
+            - $ref: '#/components/schemas/EntryTableContent'
+            - $ref: '#/components/schemas/PromptListContent'
+            - $ref: '#/components/schemas/VariableSchemaContent'
+            - $ref: '#/components/schemas/SettingGroupContent'
+            - $ref: '#/components/schemas/ScriptListContent'
+            - $ref: '#/components/schemas/ColorSetContent'
+            - $ref: '#/components/schemas/StylesheetSetContent'
+            - $ref: '#/components/schemas/RecordListContent'
+    AssetElement:
+      type: object
+      description: >-
+        One piece of content. Its role is what import and export read, and it
+        travels with the element wherever the creator moves it.
+      required:
+        - id
+        - type
+        - slot
+        - label
+        - pinned
+        - isEmpty
+        - facts
+        - content
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          $ref: '#/components/schemas/ElementType'
+        role:
+          type: string
+          description: Absent where the element has no import or export meaning.
+        slot:
+          type: string
+        label:
+          type: string
+        pinned:
+          type: boolean
+          description: A pinned element can be neither removed nor moved out of its block.
+        display:
+          type: string
+          enum:
+            - rich
+            - verbatim
+        itemSize:
+          $ref: '#/components/schemas/ItemSize'
+        isEmpty:
+          type: boolean
+        facts:
+          type: array
+          description: >-
+            What the element says about its own data, such as how many entries a
+            book holds and how many are switched on. Worked out on the way out
+            and never stored, and never a token count.
+          items:
+            type: string
+        content:
+          description: The element type's own body. A reader switches on type to read it.
+          x-go-type: json.RawMessage
+          oneOf:
+            - $ref: '#/components/schemas/ProseContent'
+            - $ref: '#/components/schemas/TextSetContent'
+            - $ref: '#/components/schemas/FieldListContent'
+            - $ref: '#/components/schemas/DialogueSampleContent'
+            - $ref: '#/components/schemas/ImageSetContent'
+            - $ref: '#/components/schemas/LinkListContent'
+            - $ref: '#/components/schemas/EntryTableContent'
+            - $ref: '#/components/schemas/PromptListContent'
+            - $ref: '#/components/schemas/VariableSchemaContent'
+            - $ref: '#/components/schemas/SettingGroupContent'
+            - $ref: '#/components/schemas/ScriptListContent'
+            - $ref: '#/components/schemas/ColorSetContent'
+            - $ref: '#/components/schemas/StylesheetSetContent'
+            - $ref: '#/components/schemas/RecordListContent'
+    ProseContent:
+      type: object
+      required:
+        - text
+      properties:
+        text:
+          type: string
+    TextSetContent:
+      type: object
+      required:
+        - texts
+      properties:
+        texts:
+          type: array
+          items:
+            type: object
+            required:
+              - text
+            properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
+              name:
+                type: string
+              text:
+                type: string
+    DialogueSampleContent:
+      type: object
+      required:
+        - turns
+      properties:
+        turns:
+          type: array
+          items:
+            type: object
+            required:
+              - speaker
+              - text
+            properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
+              speaker:
+                type: string
+              text:
+                type: string
+    ImageSetContent:
+      type: object
+      required:
+        - images
+      description: >-
+        An ordered list of images. An item carries its image and one optional
+        free-text name, and its position is where it sits in the list.
+      properties:
+        images:
+          type: array
+          items:
+            type: object
+            required:
+              - mediaId
+            properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
+              mediaId:
+                type: string
+                format: uuid
+              name:
+                type: string
+    FieldListContent:
+      type: object
+      required:
+        - fields
+      properties:
+        fields:
+          type: array
+          items:
+            type: object
+            required:
+              - value
+            properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
+              name:
+                type: string
+              value:
+                type: string
+    LinkListContent:
+      type: object
+      required:
+        - links
+      properties:
+        links:
+          type: array
+          items:
+            type: object
+            required:
+              - url
+            properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
+              label:
+                type: string
+              url:
+                type: string
+              note:
+                type: string
+    EntryTableContent:
+      type: object
+      required:
+        - entries
+      description: >-
+        A lorebook. An entry is switched on by its keys, and how it behaves on
+        the passes after the first is its own setting.
+      properties:
+        entries:
+          type: array
+          items:
+            type: object
+            required:
+              - keys
+              - text
+              - enabled
+            properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
+              name:
+                type: string
+              keys:
+                type: array
+                items:
+                  type: string
+              secondaryKeys:
+                type: array
+                items:
+                  type: string
+              selective:
+                type: boolean
+              caseSensitive:
+                type: boolean
+              constant:
+                type: boolean
+              enabled:
+                type: boolean
+              order:
+                type: integer
+              position:
+                type: string
+                description: Unset where the book leaves the choice to whatever reads it.
+                enum:
+                  - before_character
+                  - after_character
+              recursion:
+                type: object
+                properties:
+                  exclude:
+                    type: boolean
+                  prevent:
+                    type: boolean
+                  delayUntil:
+                    type: boolean
+              text:
+                type: string
+    TypedValue:
+      type: object
+      description: >-
+        One typed value: what a setting holds, or what a variable defaults to
+        and what was saved for it. The whole value being absent is nobody having
+        supplied one, which a format writes as an absent key rather than as a
+        zero.
+      properties:
+        number:
+          type: number
+        boolean:
+          type: boolean
+        text:
+          type: string
+        strings:
+          description: >-
+            Kept as it was written and in the order it was written, duplicates
+            included. An empty list here is a list somebody emptied on purpose.
+          type: array
+          items:
+            type: string
+    PromptListContent:
+      type: object
+      required:
+        - groups
+        - fragments
+      description: >-
+        A preset's prompt, in the order it is sent. One level of grouping is the
+        list's own nesting rather than a second element.
+      properties:
+        groups:
+          type: array
+          items:
+            type: object
+            required:
+              - name
+            properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
+              name:
+                type: string
+        fragments:
+          type: array
+          items:
+            type: object
+            required:
+              - text
+              - enabled
+            properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
+              name:
+                type: string
+              groupId:
+                description: The group the fragment sits under, of the groups above.
+                type: string
+                format: uuid
+              role:
+                description: >-
+                  Who the fragment speaks as. The two appending roles add to the
+                  message before them rather than starting one.
+                type: string
+                enum:
+                  - system
+                  - user
+                  - assistant
+                  - user_append
+                  - assistant_append
+              text:
+                type: string
+              marker:
+                description: >-
+                  What an app splices in where this fragment sits. A marker
+                  carries no text of its own and the name is taken at face
+                  value.
+                type: string
+              enabled:
+                type: boolean
+              placement:
+                description: Unset where the preset leaves the choice to whatever reads it.
+                type: string
+                enum:
+                  - pre_history
+                  - post_history
+                  - in_history
+              depth:
+                description: Messages back from the most recent.
+                type: integer
+    VariableSchemaContent:
+      type: object
+      required:
+        - variables
+      description: The form a preset asks a reader to fill in before they use it.
+      properties:
+        variables:
+          type: array
+          items:
+            type: object
+            required:
+              - name
+              - widget
+            properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
+              name:
+                type: string
+              widget:
+                type: string
+                enum:
+                  - switch
+                  - select
+                  - multiselect
+                  - number
+                  - slider
+                  - text
+                  - textarea
+              label:
+                type: string
+              description:
+                type: string
+              fragmentId:
+                description: The prompt fragment the variable belongs to.
+                type: string
+                format: uuid
+              default:
+                $ref: '#/components/schemas/TypedValue'
+              value:
+                $ref: '#/components/schemas/TypedValue'
+              options:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - label
+                    - value
+                  properties:
+                    key:
+                      description: >-
+                        What a saved choice calls this option, where the
+                        preset's format names its choices separately from the
+                        text they stand for.
+                      type: string
+                    label:
+                      type: string
+                    value:
+                      type: string
+              range:
+                type: object
+                properties:
+                  min:
+                    type: number
+                  max:
+                    type: number
+                  step:
+                    type: number
+              separator:
+                description: Joins a multiselect's chosen values on the way into a prompt.
+                type: string
+              rows:
+                description: How tall a text area is drawn.
+                type: integer
+    SettingGroupContent:
+      type: object
+      required:
+        - settings
+      description: >-
+        A set of named settings an app understands. The names are taken at face
+        value and Illarin models nothing about what any of them controls.
+      properties:
+        settings:
+          type: array
+          items:
+            type: object
+            required:
+              - name
+              - type
+            properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
+              name:
+                type: string
+              label:
+                type: string
+              type:
+                type: string
+                enum:
+                  - number
+                  - boolean
+                  - text
+                  - string_list
+              choices:
+                description: What a text setting is limited to. None leaves it free text.
+                type: array
+                items:
+                  type: string
+              value:
+                description: Absent where nobody has supplied one.
+                $ref: '#/components/schemas/TypedValue'
+    ColorSetContent:
+      type: object
+      required:
+        - modes
+      description: A theme's named colours, grouped by the modes its source carries.
+      properties:
+        modes:
+          type: array
+          items:
+            type: object
+            required:
+              - colors
+            properties:
+              name:
+                type: string
+              colors:
+                type: array
+                items:
+                  type: object
+                  required:
+                    - name
+                    - value
+                  properties:
+                    id:
+                      type: string
+                      format: uuid
+                    name:
+                      type: string
+                    value:
+                      type: string
+    StylesheetSetContent:
+      type: object
+      required:
+        - global
+        - stylesheets
+        - assets
+      description: A theme's main CSS, component sheets, and the files those sheets use.
+      properties:
+        global:
+          type: string
+        stylesheets:
+          type: array
+          items:
+            type: object
+            required:
+              - name
+              - css
+              - enabled
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+              css:
+                type: string
+              enabled:
+                type: boolean
+        assets:
+          type: array
+          items:
+            type: object
+            required:
+              - path
+              - data
+            properties:
+              id:
+                type: string
+                format: uuid
+              path:
+                type: string
+              mediaType:
+                type: string
+              data:
+                type: string
+                format: byte
+    RecordListContent:
+      type: object
+      required:
+        - schema
+        - records
+      description: >-
+        Ordered records whose field schema is one of the closed schemas Illarin
+        names in code. A creator chooses no columns of their own.
+      properties:
+        schema:
+          type: string
+          enum:
+            - lumia
+        records:
+          type: array
+          items:
+            type: object
+            required:
+              - lumiaName
+              - lumiaDefinition
+              - lumiaPersonality
+              - lumiaBehavior
+              - genderIdentity
+              - authorName
+              - version
+            properties:
+              id:
+                type: string
+                format: uuid
+              lumiaName:
+                type: string
+              lumiaDefinition:
+                type: string
+              lumiaPersonality:
+                type: string
+              lumiaBehavior:
+                type: string
+              avatarUrl:
+                description: The asset-scoped media id for this item's avatar.
+                type: string
+                format: uuid
+              genderIdentity:
+                type: integer
+                enum:
+                  - 0
+                  - 1
+                  - 2
+              authorName:
+                type: string
+              version:
+                type: integer
+                minimum: 1
+    ScriptListContent:
+      type: object
+      required:
+        - scripts
+      description: A preset's find and replace scripts, in the order they run.
+      properties:
+        scripts:
+          type: array
+          items:
+            type: object
+            required:
+              - find
+              - replace
+              - enabled
+            properties:
+              id:
+                description: >-
+                  Illarin's own id for this item, minted when the item is
+                  created. Preserved data keys against it, so send it back
+                  unchanged; an item with no id is a new one.
+                type: string
+                format: uuid
+              name:
+                type: string
+              description:
+                type: string
+              find:
+                type: string
+              flags:
+                description: The expression's own, such as g for every match.
+                type: string
+              replace:
+                type: string
+              trim:
+                description: Text cut out of the match before the replacement is written.
+                type: array
+                items:
+                  type: string
+              targets:
+                description: The text the script runs over.
+                type: array
+                items:
+                  type: string
+                  enum:
+                    - user_input
+                    - model_output
+                    - slash_command
+                    - lorebook
+              affects:
+                description: What the replacement changes.
+                type: array
+                items:
+                  type: string
+                  enum:
+                    - display
+                    - prompt
+              enabled:
+                type: boolean
+              minDepth:
+                type: integer
+              maxDepth:
+                type: integer
+              runOnEdit:
+                type: boolean
+    ElementType:
+      type: string
+      description: What an element's data structure is, from the global vocabulary.
+      enum:
+        - prose
+        - text_set
+        - field_list
+        - dialogue_sample
+        - image_set
+        - link_list
+        - entry_table
+        - prompt_list
+        - variable_schema
+        - setting_group
+        - script_list
+        - color_set
+        - stylesheet_set
+        - record_list
+    ItemSize:
+      type: string
+      description: >-
+        How large the images inside an element are drawn. It names what it
+        controls, and no element type declares a measurement of its own.
+      enum:
+        - small
+        - medium
+        - large
+    AddAssetBlockRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - definition
+        - elementType
+      properties:
+        definition:
+          type: string
+        elementType:
+          $ref: '#/components/schemas/ElementType'
+    AddableSection:
+      type: object
+      description: >-
+        One section the add tray offers. Where the content ends up is what the
+        tray groups by, so a creator arrives at it by destination.
+      required:
+        - definition
+        - title
+        - summary
+        - group
+        - groupTitle
+        - repeatable
+        - choices
+      properties:
+        definition:
+          type: string
+        title:
+          type: string
+        summary:
+          type: string
+        group:
+          type: string
+          enum:
+            - file
+            - reader
+            - work
+            - other
+        groupTitle:
+          type: string
+        repeatable:
+          type: boolean
+        choices:
+          type: array
+          description: >-
+            The elements a creator may start the section with. One choice needs
+            no question asking.
+          items:
+            $ref: '#/components/schemas/AddableSectionChoice'
+    AddableSectionChoice:
+      type: object
+      required:
+        - type
+        - label
+      properties:
+        type:
+          $ref: '#/components/schemas/ElementType'
+        label:
+          type: string

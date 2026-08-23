@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "biome check",
     "format": "biome format --write",
-    "gen:api": "openapi-typescript ../api/openapi/openapi.yaml -o src/lib/api/schema.d.ts && biome format --write src/lib/api/schema.d.ts"
+    "bundle:api": "bun scripts/bundle-openapi.mjs",
+    "check:api": "bun scripts/bundle-openapi.mjs --check",
+    "gen:api": "openapi-typescript ../api/openapi/openapi.gen.yaml -o src/lib/api/schema.d.ts && biome format --write src/lib/api/schema.d.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.101.4",
@@ -22,6 +24,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@redocly/openapi-core": "1.34.19",
     "@biomejs/biome": "2.4.2",
     "@types/bun": "^1.3.14",
     "@types/node": "^20",

@@ -1,0 +1,839 @@
+paths:
+  /v1/link/requests:
+    post:
+      operationId: startLinkRequest
+      description: >-
+        Start Illarin's registration-free device fallback for an installation
+        that cannot receive a loopback callback. It follows RFC 8628 security
+        and polling semantics but is not an OAuth token endpoint.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartLinkRequest'
+      responses:
+        '201':
+          description: The code the installation keeps and the code it shows
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkRequest'
+        '400':
+          description: The declaration or requested scopes are not valid
+        '413':
+          description: The request body is too large
+        '429':
+          description: Too many link requests came from this source
+  /v1/link/poll:
+    post:
+      operationId: pollLinkRequest
+      description: >-
+        Ask whether the creator has approved yet. Wait at least the interval the
+        link request came with between calls.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PollLinkRequest'
+      responses:
+        '200':
+          description: Still waiting, or linked with a new token pair
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkPollResult'
+        '400':
+          description: The request was denied or expired
+        '404':
+          description: The request was redeemed or never existed
+        '413':
+          description: The request body is too large
+        '429':
+          description: Slow down before polling again
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+  /v1/link/requests/{userCode}:
+    get:
+      operationId: getLinkRequest
+      description: What the installation behind a user code is asking for.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: userCode
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/UserCode'
+      responses:
+        '200':
+          description: The unverified names, declaration and scopes to review
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PendingDeviceLink'
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: No unapproved link request has that code
+        '429':
+          description: Too many codes were entered
+  /v1/link/requests/{userCode}/approve:
+    post:
+      operationId: approveLinkRequest
+      description: >-
+        Approve a link request. A link request may be approved once and redeemed
+        once. This browser-only operation requires Illarin's request header.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: userCode
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/UserCode'
+        - $ref: ./common.yaml#/components/parameters/IllarinRequest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceLinkDecision'
+      responses:
+        '200':
+          description: What was approved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PendingLink'
+        '400':
+          description: A path or browser-proof header parameter is malformed
+        '401':
+          description: No account is signed in
+        '403':
+          description: Email is unverified or the browser origin/request proof is invalid
+        '404':
+          description: No unapproved link request has that code
+  /v1/link/requests/{userCode}/deny:
+    post:
+      operationId: denyLinkRequest
+      description: Deny the reviewed device request and stop its polling installation.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: userCode
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/UserCode'
+        - $ref: ./common.yaml#/components/parameters/IllarinRequest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceLinkDecision'
+      responses:
+        '204':
+          description: The request is denied
+        '400':
+          description: A path or browser-proof header parameter is malformed
+        '401':
+          description: No account is signed in
+        '403':
+          description: Email is unverified or the browser origin/request proof is invalid
+        '404':
+          description: No pending reviewed request has that code
+  /v1/link/authorizations:
+    post:
+      operationId: startLinkAuthorization
+      description: >-
+        Start same-device browser authorization with S256 PKCE. Only an exact
+        IPv4 or IPv6 loopback callback is accepted; its port may vary.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartLinkAuthorization'
+      responses:
+        '201':
+          description: The short-lived Illarin URL to open in the system browser
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkAuthorization'
+        '400':
+          description: The callback
+          PKCE data or declaration is not valid: null
+        '413':
+          description: The request body is too large
+        '429':
+          description: Too many link requests came from this source
+  /v1/link/authorizations/{requestCode}:
+    get:
+      operationId: getLinkAuthorization
+      description: What the installation behind a browser authorization is asking for.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: requestCode
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/RequestCode'
+      responses:
+        '200':
+          description: The unverified names, declaration and scopes to review
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PendingLink'
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: No pending authorization has that request code
+  /v1/link/authorizations/{requestCode}/approve:
+    post:
+      operationId: approveLinkAuthorization
+      description: Approve once and return the validated loopback redirect.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: requestCode
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/RequestCode'
+        - $ref: ./common.yaml#/components/parameters/IllarinRequest
+      responses:
+        '200':
+          description: The exact loopback URL carrying the one-use code and state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkRedirect'
+        '400':
+          description: A path or browser-proof header parameter is malformed
+        '401':
+          description: No account is signed in
+        '403':
+          description: Email is unverified or the browser origin/request proof is invalid
+        '404':
+          description: No pending authorization has that request code
+  /v1/link/authorizations/{requestCode}/deny:
+    post:
+      operationId: denyLinkAuthorization
+      description: Deny once and return the validated loopback error redirect.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: requestCode
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/RequestCode'
+        - $ref: ./common.yaml#/components/parameters/IllarinRequest
+      responses:
+        '200':
+          description: The exact loopback URL carrying access_denied and state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkRedirect'
+        '400':
+          description: A path or browser-proof header parameter is malformed
+        '401':
+          description: No account is signed in
+        '403':
+          description: Email is unverified or the browser origin/request proof is invalid
+        '404':
+          description: No pending authorization has that request code
+  /v1/link/token:
+    post:
+      operationId: exchangeLinkAuthorization
+      description: Exchange one approved authorization code using its PKCE verifier.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExchangeLinkAuthorization'
+      responses:
+        '200':
+          description: A short-lived access token and rotating refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstanceTokenGrant'
+        '400':
+          description: The code
+          verifier or callback is not valid: null
+        '413':
+          description: The request body is too large
+        '429':
+          description: Too many exchanges came from this source
+  /v1/link/refresh:
+    post:
+      operationId: refreshInstanceToken
+      description: >-
+        Rotate one live refresh token. Replaying a replacement retained in the
+        90-day detection window revokes that instance and every access token it
+        holds. A family also expires after 90 days without authenticated use.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshInstanceToken'
+      responses:
+        '200':
+          description: A replacement access and refresh token pair
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstanceTokenGrant'
+        '401':
+          description: The refresh token is not live
+        '413':
+          description: The request body is too large
+        '429':
+          description: Too many refresh attempts came from this source
+  /v1/instances:
+    get:
+      operationId: listInstances
+      description: >-
+        Every instance linked to the signed-in account, live ones first, then
+        the record of the ones they revoked.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: The creator's linked instances
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkedInstanceList'
+        '401':
+          description: No account is signed in
+  /v1/instances/me:
+    get:
+      operationId: getInstance
+      description: >-
+        The instance the access token belongs to. Every authenticated request
+        updates lastSeenAt, and this one exists so an installation can check its
+        token without sending anything.
+      security:
+        - instanceToken: []
+      responses:
+        '200':
+          description: The instance holding the credential
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkedInstance'
+        '401':
+          description: The access token does not identify a live instance
+    put:
+      operationId: updateInstance
+      description: >-
+        Replace the live instance's non-authoritative interoperability
+        declaration. This cannot change its granted scopes.
+      security:
+        - instanceToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateInstance'
+      responses:
+        '200':
+          description: The updated instance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkedInstance'
+        '400':
+          description: The declaration is not valid
+        '401':
+          description: The access token does not identify a live instance
+        '413':
+          description: The request body is too large
+  /v1/instances/{id}:
+    delete:
+      operationId: revokeInstance
+      description: >-
+        Cut an instance off. Its tokens stop working immediately and the state
+        it held here is discarded. A record that it was linked and revoked
+        stays.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: ./common.yaml#/components/parameters/IllarinRequest
+      responses:
+        '204':
+          description: The instance is revoked
+        '400':
+          description: The id or browser-proof header parameter is malformed
+        '401':
+          description: No account is signed in
+        '403':
+          description: The browser origin or request proof is invalid
+        '404':
+          description: The account has no live instance with that id
+components:
+  schemas:
+    Scope:
+      type: string
+      enum:
+        - asset:receive
+        - library:sync
+      description: >-
+        asset:receive lets an instance receive assets sent to it. library:sync
+        lets it report what it has installed.
+    StartLinkRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - applicationName
+        - instanceName
+        - protocolVersion
+        - capabilities
+        - acceptedTargets
+        - scopes
+      properties:
+        applicationName:
+          $ref: '#/components/schemas/ApplicationName'
+        instanceName:
+          $ref: '#/components/schemas/InstanceName'
+        applicationVersion:
+          $ref: '#/components/schemas/ApplicationVersion'
+        protocolVersion:
+          $ref: '#/components/schemas/LinkProtocolVersion'
+        capabilities:
+          $ref: '#/components/schemas/InstanceCapabilities'
+        acceptedTargets:
+          $ref: '#/components/schemas/AcceptedTargets'
+        scopes:
+          $ref: '#/components/schemas/Scopes'
+    StartLinkAuthorization:
+      type: object
+      additionalProperties: false
+      required:
+        - applicationName
+        - instanceName
+        - protocolVersion
+        - capabilities
+        - acceptedTargets
+        - scopes
+        - redirectUri
+        - state
+        - codeChallenge
+        - codeChallengeMethod
+      properties:
+        applicationName:
+          $ref: '#/components/schemas/ApplicationName'
+        instanceName:
+          $ref: '#/components/schemas/InstanceName'
+        applicationVersion:
+          $ref: '#/components/schemas/ApplicationVersion'
+        protocolVersion:
+          $ref: '#/components/schemas/LinkProtocolVersion'
+        capabilities:
+          $ref: '#/components/schemas/InstanceCapabilities'
+        acceptedTargets:
+          $ref: '#/components/schemas/AcceptedTargets'
+        scopes:
+          $ref: '#/components/schemas/Scopes'
+        redirectUri:
+          type: string
+          maxLength: 512
+          description: >-
+            An exact http callback using 127.0.0.1 or [::1], with an explicit
+            port, a path, no user information, no query and no fragment.
+        state:
+          type: string
+          minLength: 32
+          maxLength: 128
+        codeChallenge:
+          type: string
+          minLength: 43
+          maxLength: 43
+        codeChallengeMethod:
+          type: string
+          enum:
+            - S256
+    ApplicationName:
+      type: string
+      minLength: 1
+      maxLength: 64
+      description: A self-asserted, unverified application name.
+    InstanceName:
+      type: string
+      minLength: 1
+      maxLength: 64
+      description: A self-asserted name for this installation.
+    ApplicationVersion:
+      type:
+        - string
+        - 'null'
+      minLength: 1
+      maxLength: 64
+    LinkProtocolVersion:
+      type: integer
+      enum:
+        - 1
+    CapabilityId:
+      type: string
+      minLength: 3
+      maxLength: 64
+      pattern: ^[a-z][a-z0-9.-]*:[a-z][a-z0-9._-]*$
+      description: >-
+        A namespaced interoperability claim. It never grants permission and
+        unknown values have no effect.
+    InstanceCapabilities:
+      type: array
+      maxItems: 32
+      uniqueItems: true
+      items:
+        $ref: '#/components/schemas/CapabilityId'
+    ExportTargetId:
+      type: string
+      minLength: 1
+      maxLength: 64
+      pattern: ^[a-z0-9][a-z0-9._-]*$
+      description: >-
+        A format-module identifier accepted by the instance. Unknown values do
+        not make a target available.
+    AcceptedTargets:
+      type: array
+      maxItems: 32
+      uniqueItems: true
+      items:
+        $ref: '#/components/schemas/ExportTargetId'
+    Scopes:
+      type: array
+      minItems: 1
+      maxItems: 2
+      uniqueItems: true
+      items:
+        $ref: '#/components/schemas/Scope'
+    UserCode:
+      type: string
+      minLength: 8
+      maxLength: 16
+      pattern: ^[BCDFGHJKLMNPQRSTVWXZ23456789bcdfghjklmnpqrstvwxz -]{8,16}$
+    RequestCode:
+      type: string
+      minLength: 43
+      maxLength: 43
+      pattern: ^[A-Za-z0-9_-]{43}$
+    DeviceCode:
+      type: string
+      minLength: 43
+      maxLength: 43
+      pattern: ^[A-Za-z0-9_-]{43}$
+    ApprovalToken:
+      type: string
+      minLength: 43
+      maxLength: 43
+      pattern: ^[A-Za-z0-9_-]{43}$
+    AuthorizationCode:
+      type: string
+      minLength: 43
+      maxLength: 43
+      pattern: ^[A-Za-z0-9_-]{43}$
+    AccessToken:
+      type: string
+      minLength: 56
+      maxLength: 56
+      pattern: ^ia1\.[BCDFGHJKLMNPQRSTVWXZ23456789]{8}\.[A-Za-z0-9_-]{43}$
+    RefreshToken:
+      type: string
+      minLength: 56
+      maxLength: 56
+      pattern: ^ir1\.[BCDFGHJKLMNPQRSTVWXZ23456789]{8}\.[A-Za-z0-9_-]{43}$
+    LinkRequest:
+      type: object
+      required:
+        - deviceCode
+        - userCode
+        - verificationUrl
+        - expiresAt
+        - interval
+      properties:
+        deviceCode:
+          $ref: '#/components/schemas/DeviceCode'
+          description: Kept private by the installation and sent when polling.
+        userCode:
+          $ref: '#/components/schemas/UserCode'
+          description: Shown to the creator, who enters it on Illarin.
+        verificationUrl:
+          type: string
+          description: Where the creator enters the user code.
+        expiresAt:
+          type: string
+          format: date-time
+        interval:
+          type: integer
+          description: Seconds to wait between polls.
+    PollLinkRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - deviceCode
+      properties:
+        deviceCode:
+          $ref: '#/components/schemas/DeviceCode'
+    PendingLinkPollResult:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - pending
+    LinkedLinkPollResult:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+        - accessToken
+        - accessTokenExpiresAt
+        - refreshToken
+        - instance
+      properties:
+        status:
+          type: string
+          enum:
+            - linked
+        accessToken:
+          $ref: '#/components/schemas/AccessToken'
+        accessTokenExpiresAt:
+          type: string
+          format: date-time
+          description: The 15-minute access-token deadline.
+        refreshToken:
+          $ref: '#/components/schemas/RefreshToken'
+        instance:
+          $ref: '#/components/schemas/LinkedInstance'
+    LinkPollResult:
+      oneOf:
+        - $ref: '#/components/schemas/PendingLinkPollResult'
+        - $ref: '#/components/schemas/LinkedLinkPollResult'
+      discriminator:
+        propertyName: status
+        mapping:
+          pending: '#/components/schemas/PendingLinkPollResult'
+          linked: '#/components/schemas/LinkedLinkPollResult'
+    PendingLink:
+      type: object
+      required:
+        - applicationName
+        - instanceName
+        - protocolVersion
+        - capabilities
+        - acceptedTargets
+        - scopes
+        - expiresAt
+      properties:
+        applicationName:
+          $ref: '#/components/schemas/ApplicationName'
+        instanceName:
+          $ref: '#/components/schemas/InstanceName'
+        applicationVersion:
+          $ref: '#/components/schemas/ApplicationVersion'
+        protocolVersion:
+          $ref: '#/components/schemas/LinkProtocolVersion'
+        capabilities:
+          $ref: '#/components/schemas/InstanceCapabilities'
+        acceptedTargets:
+          $ref: '#/components/schemas/AcceptedTargets'
+        scopes:
+          $ref: '#/components/schemas/Scopes'
+        expiresAt:
+          type: string
+          format: date-time
+    PendingDeviceLink:
+      allOf:
+        - $ref: '#/components/schemas/PendingLink'
+        - type: object
+          required:
+            - approvalToken
+          properties:
+            approvalToken:
+              $ref: '#/components/schemas/ApprovalToken'
+              description: A private one-use proof that this code was reviewed.
+    DeviceLinkDecision:
+      type: object
+      additionalProperties: false
+      required:
+        - approvalToken
+      properties:
+        approvalToken:
+          $ref: '#/components/schemas/ApprovalToken'
+    LinkAuthorization:
+      type: object
+      additionalProperties: false
+      required:
+        - authorizationUrl
+        - expiresAt
+      properties:
+        authorizationUrl:
+          type: string
+          description: The Illarin page to open in the system browser.
+        expiresAt:
+          type: string
+          format: date-time
+    LinkRedirect:
+      type: object
+      additionalProperties: false
+      required:
+        - redirectUrl
+      properties:
+        redirectUrl:
+          type: string
+          description: A server-validated exact loopback redirect.
+    ExchangeLinkAuthorization:
+      type: object
+      additionalProperties: false
+      required:
+        - authorizationCode
+        - codeVerifier
+        - redirectUri
+      properties:
+        authorizationCode:
+          $ref: '#/components/schemas/AuthorizationCode'
+        codeVerifier:
+          type: string
+          minLength: 43
+          maxLength: 128
+        redirectUri:
+          type: string
+          maxLength: 512
+    RefreshInstanceToken:
+      type: object
+      additionalProperties: false
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          $ref: '#/components/schemas/RefreshToken'
+    InstanceTokenGrant:
+      type: object
+      additionalProperties: false
+      required:
+        - accessToken
+        - accessTokenExpiresAt
+        - refreshToken
+        - instance
+      properties:
+        accessToken:
+          $ref: '#/components/schemas/AccessToken'
+        accessTokenExpiresAt:
+          type: string
+          format: date-time
+          description: The 15-minute access-token deadline.
+        refreshToken:
+          $ref: '#/components/schemas/RefreshToken'
+        instance:
+          $ref: '#/components/schemas/LinkedInstance'
+    UpdateInstance:
+      type: object
+      additionalProperties: false
+      required:
+        - protocolVersion
+        - capabilities
+        - acceptedTargets
+      properties:
+        applicationVersion:
+          $ref: '#/components/schemas/ApplicationVersion'
+        protocolVersion:
+          $ref: '#/components/schemas/LinkProtocolVersion'
+        capabilities:
+          $ref: '#/components/schemas/InstanceCapabilities'
+        acceptedTargets:
+          $ref: '#/components/schemas/AcceptedTargets'
+    LinkedInstance:
+      type: object
+      required:
+        - id
+        - applicationName
+        - instanceName
+        - protocolVersion
+        - capabilities
+        - acceptedTargets
+        - prefix
+        - scopes
+        - linkedAt
+        - lastSeenAt
+        - revokedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        applicationName:
+          type: string
+        instanceName:
+          type: string
+        applicationVersion:
+          type:
+            - string
+            - 'null'
+        protocolVersion:
+          type:
+            - integer
+            - 'null'
+        capabilities:
+          type: array
+          items:
+            type: string
+        acceptedTargets:
+          type: array
+          items:
+            type: string
+        prefix:
+          type: string
+          description: The readable prefix of the current refresh token.
+        scopes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Scope'
+        linkedAt:
+          type: string
+          format: date-time
+        lastSeenAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        revokedAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+    LinkedInstanceList:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LinkedInstance'

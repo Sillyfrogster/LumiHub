@@ -1,0 +1,20 @@
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: lumihub_session
+    instanceToken:
+      type: http
+      scheme: bearer
+      description: A short-lived access token issued to one linked instance.
+  parameters:
+    IllarinRequest:
+      name: X-Illarin-Request
+      in: header
+      required: true
+      description: Illarin's browser request proof. The value must be 1.
+      schema:
+        type: string
+        enum:
+          - '1'

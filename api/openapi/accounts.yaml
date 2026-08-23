@@ -1,0 +1,430 @@
+paths:
+  /v1/account/discord:
+    delete:
+      operationId: detachDiscord
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: The account with Discord detached
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '401':
+          description: No account is signed in
+        '409':
+          description: Discord is absent or is the last usable sign-in method
+  /v1/account/email:
+    patch:
+      operationId: changeUnverifiedEmail
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeEmailRequest'
+      responses:
+        '200':
+          description: The account with a fresh verification link sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '400':
+          description: The address is not valid
+        '401':
+          description: No account is signed in
+        '409':
+          description: The address is verified here or elsewhere
+  /v1/account/handle:
+    patch:
+      operationId: renameHandle
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RenameHandleRequest'
+      responses:
+        '200':
+          description: The account under its new handle
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '400':
+          description: The handle is not valid
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '409':
+          description: The handle is active or retired
+  /v1/account/password:
+    put:
+      operationId: setPassword
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordRequest'
+      responses:
+        '200':
+          description: The account with a password set
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '400':
+          description: The password is empty
+        '401':
+          description: No account is signed in
+        '409':
+          description: The account already has a password
+  /v1/account/nsfw-visibility:
+    put:
+      operationId: setNsfwVisibility
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NsfwVisibilityRequest'
+      responses:
+        '204':
+          description: The reader's content preference is saved
+        '400':
+          description: The visibility value is invalid
+        '401':
+          description: No account is signed in
+  /v1/auth/sign-up:
+    post:
+      operationId: signUp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignUpRequest'
+      responses:
+        '201':
+          description: The new signed-in account
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '400':
+          description: The account details are not valid
+        '409':
+          description: The handle or verified address is already claimed
+  /v1/auth/sign-in:
+    post:
+      operationId: signIn
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignInRequest'
+      responses:
+        '200':
+          description: The signed-in account
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '401':
+          description: The credentials do not identify one account
+  /v1/auth/discord:
+    get:
+      operationId: beginDiscord
+      parameters:
+        - name: intent
+          in: query
+          schema:
+            type: string
+            enum:
+              - sign-in
+              - attach
+            default: sign-in
+        - name: returnTo
+          in: query
+          description: Internal page to resume after sign-in
+          schema:
+            type: string
+      responses:
+        '303':
+          description: Continue on Discord
+        '401':
+          description: Attaching Discord requires a signed-in account
+        '403':
+          description: Attaching Discord requires a verified account
+        '503':
+          description: Discord sign-in is not configured
+  /v1/auth/discord/callback:
+    get:
+      operationId: completeDiscord
+      parameters:
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: code
+          in: query
+          schema:
+            type: string
+        - name: error
+          in: query
+          schema:
+            type: string
+      responses:
+        '303':
+          description: Continue on LumiHub
+  /v1/auth/sign-out:
+    post:
+      operationId: signOut
+      responses:
+        '204':
+          description: The session no longer exists
+  /v1/auth/session:
+    get:
+      operationId: getSession
+      responses:
+        '200':
+          description: The account at this origin, when one is signed in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionState'
+  /v1/auth/verify-email:
+    post:
+      operationId: verifyEmail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyEmailRequest'
+      responses:
+        '200':
+          description: The account with its address verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '400':
+          description: The link is invalid
+          expired or has already lost the address: null
+        '409':
+          description: Another account verified the address first
+  /v1/auth/password-reset:
+    post:
+      operationId: requestPasswordReset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+      responses:
+        '204':
+          description: A reset is sent when the verified account exists
+        '400':
+          description: The request is not valid JSON
+  /v1/auth/password-reset/complete:
+    post:
+      operationId: completePasswordReset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompletePasswordResetRequest'
+      responses:
+        '204':
+          description: The password is set
+        '400':
+          description: The link or password is invalid
+  /v1/profiles/{handle}:
+    get:
+      operationId: getProfile
+      parameters:
+        - name: handle
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The active public profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '404':
+          description: No active profile uses the handle
+components:
+  schemas:
+    Account:
+      type: object
+      required:
+        - id
+        - handle
+        - email
+        - emailVerified
+        - discordLinked
+        - hasPassword
+        - role
+      properties:
+        id:
+          type: string
+          format: uuid
+        handle:
+          type: string
+        email:
+          type:
+            - string
+            - 'null'
+          format: email
+        emailVerified:
+          type: boolean
+        discordLinked:
+          type: boolean
+        hasPassword:
+          type: boolean
+        role:
+          type: string
+          enum:
+            - user
+            - moderator
+            - admin
+    ChangeEmailRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+    SessionState:
+      type: object
+      required:
+        - user
+      properties:
+        user:
+          anyOf:
+            - $ref: '#/components/schemas/Account'
+            - type: 'null'
+    Profile:
+      type: object
+      required:
+        - id
+        - handle
+      properties:
+        id:
+          type: string
+          format: uuid
+        handle:
+          type: string
+    RenameHandleRequest:
+      type: object
+      required:
+        - handle
+      properties:
+        handle:
+          type: string
+          minLength: 3
+          maxLength: 32
+    SignUpRequest:
+      type: object
+      required:
+        - email
+        - password
+        - handle
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 1
+        handle:
+          type: string
+          minLength: 3
+          maxLength: 32
+    SignInRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+    PasswordRequest:
+      type: object
+      required:
+        - password
+      properties:
+        password:
+          type: string
+          minLength: 1
+    NsfwVisibilityRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - visibility
+      properties:
+        visibility:
+          type: string
+          enum:
+            - hidden
+            - blurred
+            - shown
+    PasswordResetRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+    CompletePasswordResetRequest:
+      type: object
+      required:
+        - token
+        - password
+      properties:
+        token:
+          type: string
+        password:
+          type: string
+          minLength: 1
+    VerifyEmailRequest:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
