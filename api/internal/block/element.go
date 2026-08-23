@@ -481,7 +481,7 @@ func (e Element) MarshalJSON() ([]byte, error) {
 	if !ok {
 		return nil, fmt.Errorf("no element type %q", e.Type)
 	}
-	content, err := json.Marshal(e.Content)
+	content, err := json.Marshal(withEmptyCollections(e.Content))
 	if err != nil {
 		return nil, fmt.Errorf("write %s content: %w", e.Type, err)
 	}
@@ -493,7 +493,7 @@ func (e Element) MarshalJSON() ([]byte, error) {
 
 // ContentJSON returns the element's body on its own.
 func (e Element) ContentJSON() (json.RawMessage, error) {
-	body, err := json.Marshal(e.Content)
+	body, err := json.Marshal(withEmptyCollections(e.Content))
 	if err != nil {
 		return nil, fmt.Errorf("write %s content: %w", e.Type, err)
 	}
