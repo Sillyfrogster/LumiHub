@@ -12,6 +12,7 @@ import { DiscoveryControl } from "./DiscoveryControl";
 import { IdentityPanel } from "./IdentityPanel";
 import { PreservedPanel } from "./PreservedPanel";
 import { PublishPanel } from "./PublishPanel";
+import { ShortfallPanel } from "./ShortfallPanel";
 import { WithholdControl } from "./WithholdControl";
 
 export type CreatorMenuProps = {
@@ -117,6 +118,14 @@ export function CreatorMenu(props: CreatorMenuProps) {
                 {props.isOwner && props.isDraft && props.readiness ? (
                   <PublishPanel
                     assetId={props.assetId}
+                    kind={props.kind}
+                    readiness={props.readiness}
+                    onNavigateToBlock={goToBlock}
+                  />
+                ) : null}
+
+                {props.isOwner && !props.isDraft && props.readiness ? (
+                  <ShortfallPanel
                     kind={props.kind}
                     readiness={props.readiness}
                     onNavigateToBlock={goToBlock}

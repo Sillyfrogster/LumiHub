@@ -403,3 +403,64 @@ func TestAPublishedAssetKeepsItsAdultContentAnswer(t *testing.T) {
 		t.Errorf("an overlong name status = %d, want 400: %s", long.Code, long.Body.String())
 	}
 }
+
+func TestAPublishedPageBelowTheFloorMarksTheShortfallForItsOwner(t *testing.T) {
+	r, session := newVerifiedTestRouter(t)
+	started := startCharacter(t, r, session)
+	writeCharacterFloor(t, r, session, started)
+	if got := publishAsset(t, r, session, started.ID); got.Code != http.StatusOK {
+		t.Fatalf("publish status = %d, want 200: %s", got.Code, got.Body.String())
+	}
+
+	page := fetchStartedAsset(t, r, session, started.ID)
+	if len(page.Readiness) != 0 {
+		t.Errorf("a published page that meets the floor carries %d items", len(page.Readiness))
+	}
+
+	messagesBlock := blockNamed(t, page.Blocks, "messages")
+	messages := editableBlock(messagesBlock)
+	messages.Elements[0].Content = json.RawMessage(`{"texts":[]}`)
+	if got := saveBlock(t, r, session, started.ID, messagesBlock.ID, messages); got.Code != http.StatusOK {
+		t.Fatalf("empty the greetings status = %d, want 200: %s", got.Code, got.Body.String())
+	}
+
+	short := fetchStartedAsset(t, r, session, started.ID)
+	if short.Lifecycle != "published" {
+		t.Errorf("the page is now %q, and a shortfall never unpublishes", short.Lifecycle)
+	}
+	greetings := itemNamed(t, short.Readiness, "greetings")
+	if greetings.Met {
+		t.Error("the greetings requirement reads as met with no greeting")
+	}
+	if greetings.BlockID == nil {
+		t.Error("the shortfall links to no block for the owner to go to")
+	}
+}
+
+func TestAPublishedPageBelowTheFloorMarksNothingForAVisitor(t *testing.T) {
+	r, session := newVerifiedTestRouter(t)
+	started := startCharacter(t, r, session)
+	writeCharacterFloor(t, r, session, started)
+	if got := publishAsset(t, r, session, started.ID); got.Code != http.StatusOK {
+		t.Fatalf("publish status = %d, want 200: %s", got.Code, got.Body.String())
+	}
+	page := fetchStartedAsset(t, r, session, started.ID)
+	messagesBlock := blockNamed(t, page.Blocks, "messages")
+	messages := editableBlock(messagesBlock)
+	messages.Elements[0].Content = json.RawMessage(`{"texts":[]}`)
+	if got := saveBlock(t, r, session, started.ID, messagesBlock.ID, messages); got.Code != http.StatusOK {
+		t.Fatalf("empty the greetings status = %d, want 200: %s", got.Code, got.Body.String())
+	}
+
+	response := send(t, r, httptest.NewRequest(http.MethodGet, "/v1/assets/"+started.ID, nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("read the page as a visitor status = %d, want 200", response.Code)
+	}
+	var visitor startedAsset
+	if err := json.Unmarshal(response.Body.Bytes(), &visitor); err != nil {
+		t.Fatalf("decode the visitor's page: %v", err)
+	}
+	if len(visitor.Readiness) != 0 {
+		t.Errorf("a visitor reads %d readiness items, want none", len(visitor.Readiness))
+	}
+}

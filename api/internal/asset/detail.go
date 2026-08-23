@@ -63,8 +63,7 @@ type Detail struct {
 	Media []DetailImage
 	// Preview is the composed social preview a link unfurler fetches.
 	Preview *string
-	// Readiness is what publication waits on, and stands only while the owner
-	// is reading their own draft.
+	// Readiness is the whole publish floor on a draft and only the shortfall on a published page, and stands only for the owner.
 	Readiness []ReadinessItem
 	Withhold  *Withhold
 }
@@ -145,12 +144,14 @@ func (s *Service) Detail(
 			Height:    int(image.Height.Int32),
 		})
 	}
-	if draft {
-		// A draft is not shareable, so nothing unfurls it and the readiness
-		// list stands in the rail instead.
-		if found.IsOwner {
+	if found.IsOwner {
+		if draft {
 			found.Readiness = readiness(found.Kind, found.Name, found.IsNSFW, found.Blocks)
+		} else {
+			found.Readiness = MigratedShortfall(found.Kind, found.Name, found.IsNSFW, found.Blocks)
 		}
+	}
+	if draft {
 		return found, nil
 	}
 	for _, image := range found.Media {
