@@ -70,9 +70,10 @@ func (Module) Declaration() format.Declaration {
 			PayloadBytes: block.MaxPayloadBytes, CollectionItems: block.MaxCollectionItems,
 			ItemBytes: block.MaxItemBytes,
 		},
-		ConsumedKeys:  []string{"packName", "packAuthor", "version", "lumiaItems"},
-		Preservation:  format.PreservationDeclaration{Body: packNamespace},
-		TestedOrigins: []string{ID, format.OriginIllarin},
+		ConsumedKeys:     []string{"packName", "packAuthor", "version", "lumiaItems"},
+		Preservation:     format.PreservationDeclaration{Body: packNamespace},
+		TestedOrigins:    []string{ID, format.OriginIllarin, format.OriginV1},
+		PreservesOrigins: []string{format.OriginV1},
 	}
 }
 

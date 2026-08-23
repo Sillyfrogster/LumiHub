@@ -162,7 +162,7 @@ func declaration(id string) format.Declaration {
 		Preservation: format.PreservationDeclaration{
 			Body: cardNamespace, Container: []string{extensionsKey},
 		},
-		TestedOrigins: []string{V2, V3, CharX, format.OriginIllarin},
+		TestedOrigins: []string{V2, V3, CharX, format.OriginIllarin, format.OriginV1},
 	}
 }
 

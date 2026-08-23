@@ -340,3 +340,18 @@ func TestExpressionsArePlacedWhereASourceCarriesThem(t *testing.T) {
 		}
 	}
 }
+
+func TestUnroledPageContentUsesTheCatalogsTypeSlots(t *testing.T) {
+	elements := []Element{
+		{ID: uuid.New(), Type: TypeProse, Content: Prose{Text: "Read this first."}},
+		{ID: uuid.New(), Type: TypeTextSet, Content: TextSet{Texts: []TextItem{{Text: "Changed."}}}},
+	}
+	blocks, err := Place("preset", elements)
+	if err != nil {
+		t.Fatalf("place unroled page content: %v", err)
+	}
+	if find(t, blocks, Usage).Elements[0].Type != TypeProse ||
+		find(t, blocks, Changelog).Elements[0].Type != TypeTextSet {
+		t.Error("the catalog did not place unroled content by its declared type")
+	}
+}

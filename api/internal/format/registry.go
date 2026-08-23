@@ -57,9 +57,14 @@ func (r *Registry) ValidateDeclarations() error {
 		if err := ValidateDeclaration(declaration); err != nil {
 			return fmt.Errorf("module %q declaration: %w", id, err)
 		}
-		if declaration.Direction.Read {
+		if declaration.Direction.Read && declaration.Input == InputFile {
 			if _, ok := module.(Reader); !ok {
 				return fmt.Errorf("module %q declares read support without a reader: %w", id, ErrInvariant)
+			}
+		}
+		if declaration.Direction.Read && declaration.Input == InputDatabaseRow {
+			if _, ok := module.(DatabaseReader); !ok {
+				return fmt.Errorf("module %q declares row read support without a database reader: %w", id, ErrInvariant)
 			}
 		}
 		if declaration.Direction.Write {
@@ -152,7 +157,7 @@ func (r *Registry) ReadableLabels() []string {
 	labels := make([]string, 0, len(ids))
 	for _, id := range ids {
 		declaration := r.modules[id].Declaration()
-		if declaration.Direction.Read {
+		if declaration.Direction.Read && declaration.Input == InputFile {
 			labels = append(labels, declaration.Label)
 		}
 	}

@@ -193,7 +193,8 @@ func (LumiverseModule) Declaration() format.Declaration {
 			Body: lumiverseNamespace, Container: []string{lvExtensions},
 		},
 		// This module does not convert between preset formats.
-		TestedOrigins: []string{LumiverseID, format.OriginIllarin},
+		TestedOrigins:    []string{LumiverseID, format.OriginIllarin, format.OriginV1},
+		PreservesOrigins: []string{format.OriginV1},
 	}
 }
 

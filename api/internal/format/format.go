@@ -137,6 +137,45 @@ type Direction struct {
 	Write bool
 }
 
+type Input string
+
+const (
+	InputFile        Input = ""
+	InputDatabaseRow Input = "database_row"
+)
+
+type ColumnDispositionKind string
+
+const (
+	ColumnMapped    ColumnDispositionKind = "mapped"
+	ColumnPreserved ColumnDispositionKind = "preserved"
+	ColumnDropped   ColumnDispositionKind = "dropped"
+)
+
+// ColumnDisposition makes a database reader account for every source column.
+// Destination names where mapped or preserved data goes. A dropped column
+// instead carries the reason it deliberately goes nowhere.
+type ColumnDisposition struct {
+	Table       string
+	Column      string
+	Disposition ColumnDispositionKind
+	Destination string
+	Reason      string
+}
+
+type AnomalyDisposition string
+
+const (
+	AnomalyTolerated AnomalyDisposition = "tolerated"
+	AnomalyFatal     AnomalyDisposition = "fatal"
+)
+
+type AnomalyDeclaration struct {
+	Kind        string
+	Disposition AnomalyDisposition
+	Reason      string
+}
+
 type RecognitionKind string
 
 const (
@@ -416,6 +455,10 @@ type Declaration struct {
 	// without having to learn what the formats are.
 	Label       string
 	Kind        string
+	Kinds       []string
+	Input       Input
+	Columns     []ColumnDisposition
+	Anomalies   []AnomalyDeclaration
 	Direction   Direction
 	Recognition []Recognition
 	Roles       map[block.Role]DirectionalRoleSupport
@@ -429,6 +472,9 @@ type Declaration struct {
 	Boilerplate   []Boilerplate
 	Preservation  PreservationDeclaration
 	TestedOrigins []string
+	// PreservesOrigins names exceptional source modules whose remainder this
+	// writer restores despite not sharing its ordinary preservation family.
+	PreservesOrigins []string
 	// CrossPlatform requires an explicit allowance before the target is offered.
 	CrossPlatform bool
 }
@@ -436,8 +482,26 @@ type Declaration struct {
 // ValidateDeclaration checks the parts registry consumers rely on without
 // asking the module to parse a file.
 func ValidateDeclaration(d Declaration) error {
-	if d.ID == "" || d.Kind == "" {
-		return errors.New("identity and kind are required")
+	if d.ID == "" {
+		return errors.New("identity is required")
+	}
+	if d.Input == InputDatabaseRow {
+		if d.Kind != "" || len(d.Kinds) == 0 {
+			return errors.New("a database reader needs its supported kinds")
+		}
+		if !d.Direction.Read || d.Direction.Write || len(d.Recognition) > 0 {
+			return errors.New("a database reader reads rows and neither recognises nor writes files")
+		}
+		if len(d.Columns) == 0 {
+			return errors.New("a database reader needs a disposition for every source column")
+		}
+		if len(d.Anomalies) == 0 {
+			return errors.New("a database reader needs an ahead-of-run anomaly policy")
+		}
+	} else if d.Kind == "" || len(d.Kinds) > 0 {
+		return errors.New("a file module needs exactly one kind")
+	} else if len(d.Columns) > 0 || len(d.Anomalies) > 0 {
+		return errors.New("only a database reader declares source columns and anomalies")
 	}
 	if d.Direction.Write && d.Label == "" {
 		return errors.New("a writer needs a label for the download menu")
@@ -445,8 +509,44 @@ func ValidateDeclaration(d Declaration) error {
 	if !d.Direction.Read && !d.Direction.Write {
 		return errors.New("at least one direction is required")
 	}
-	if d.Direction.Read && len(d.Recognition) == 0 {
+	if d.Direction.Read && d.Input == InputFile && len(d.Recognition) == 0 {
 		return errors.New("a reader needs declared recognition")
+	}
+	seenColumns := make(map[string]bool, len(d.Columns))
+	for _, column := range d.Columns {
+		key := column.Table + "." + column.Column
+		if column.Table == "" || column.Column == "" {
+			return errors.New("a source column needs its table and name")
+		}
+		if seenColumns[key] {
+			return fmt.Errorf("source column %s is declared twice", key)
+		}
+		seenColumns[key] = true
+		switch column.Disposition {
+		case ColumnMapped, ColumnPreserved:
+			if column.Destination == "" || column.Reason != "" {
+				return fmt.Errorf("%s %s column needs only a destination", key, column.Disposition)
+			}
+		case ColumnDropped:
+			if column.Reason == "" || column.Destination != "" {
+				return fmt.Errorf("dropped %s column needs only a reason", key)
+			}
+		default:
+			return fmt.Errorf("source column %s has disposition %q", key, column.Disposition)
+		}
+	}
+	seenAnomalies := make(map[string]bool, len(d.Anomalies))
+	for _, anomaly := range d.Anomalies {
+		if anomaly.Kind == "" || anomaly.Reason == "" {
+			return errors.New("an anomaly needs a kind and reason")
+		}
+		if seenAnomalies[anomaly.Kind] {
+			return fmt.Errorf("anomaly %q is declared twice", anomaly.Kind)
+		}
+		seenAnomalies[anomaly.Kind] = true
+		if anomaly.Disposition != AnomalyTolerated && anomaly.Disposition != AnomalyFatal {
+			return fmt.Errorf("anomaly %q has disposition %q", anomaly.Kind, anomaly.Disposition)
+		}
 	}
 	for _, field := range d.Header {
 		if !field.Known() {
@@ -513,7 +613,7 @@ func ValidateDeclaration(d Declaration) error {
 	if d.Limits.PayloadBytes <= 0 || d.Limits.CollectionItems <= 0 || d.Limits.ItemBytes <= 0 {
 		return errors.New("payload, collection and item limits are required")
 	}
-	if len(d.ConsumedKeys) == 0 {
+	if d.Input == InputFile && len(d.ConsumedKeys) == 0 {
 		return errors.New("consumed keys are required")
 	}
 	if d.Preservation.Body == "" {
@@ -521,6 +621,11 @@ func ValidateDeclaration(d Declaration) error {
 	}
 	if len(d.TestedOrigins) == 0 {
 		return errors.New("tested origins are required")
+	}
+	for _, origin := range d.PreservesOrigins {
+		if !slices.Contains(d.TestedOrigins, origin) {
+			return fmt.Errorf("preserved origin %q has not been tested", origin)
+		}
 	}
 	return nil
 }
@@ -541,6 +646,14 @@ type Reader interface {
 	Module
 	Claim(probe.Inspection) (Claim, bool)
 	Parse(ctx context.Context, file probe.Inspection, claim Claim) (Parsed, error)
+}
+
+// DatabaseReader is the row-input form of Reader. The source stays opaque to
+// the registry, but the result is the same role-and-header value a file reader
+// returns before catalog placement.
+type DatabaseReader interface {
+	Module
+	ReadDatabaseRow(ctx context.Context, row any) (Parsed, error)
 }
 
 /**

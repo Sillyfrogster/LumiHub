@@ -86,7 +86,8 @@ func (Module) Declaration() format.Declaration {
 			Body: bookNamespace, Container: []string{extensionsKey},
 		},
 		// This module does not convert character cards into standalone books.
-		TestedOrigins: []string{ID, format.OriginIllarin},
+		TestedOrigins:    []string{ID, format.OriginIllarin, format.OriginV1},
+		PreservesOrigins: []string{format.OriginV1},
 	}
 }
 

@@ -11,7 +11,10 @@ import (
 // OriginIllarin is the origin of an asset built here rather than imported. A
 // null origin_format means exactly this and never "unknown", so the builder is
 // an origin in its own right and a writer may declare itself tested against it.
-const OriginIllarin = "illarin"
+const (
+	OriginIllarin = "illarin"
+	OriginV1      = "v1"
+)
 
 // ExportAsset is the asset at the role layer. It holds everything a writer may
 // read and nothing about how any of it is stored, which is what makes import
@@ -94,6 +97,9 @@ type Writer interface {
 // place are the same family, which is the whole of the origin-match rule: a
 // namespace goes back where it came from, and nowhere else.
 func TravelsWithOrigin(origin, target Declaration) bool {
+	if slices.Contains(target.PreservesOrigins, origin.ID) {
+		return true
+	}
 	return origin.Preservation.Body == target.Preservation.Body &&
 		slices.Equal(origin.Preservation.Container, target.Preservation.Container)
 }
