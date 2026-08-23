@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BrandMark } from "@/components/brand/BrandMark";
+import { LEGAL_DOCUMENTS } from "@/lib/legal-documents";
 import { Shell } from "./Shell";
 import styles from "./SiteFooter.module.css";
 
@@ -33,6 +34,14 @@ export function SiteFooter() {
 
           <span className={styles.copyright}>© 2026 Illarin</span>
         </div>
+
+        <nav className={styles.legal} aria-label="Legal documents">
+          {LEGAL_DOCUMENTS.map((document) => (
+            <Link key={document.href} href={document.href}>
+              {document.title}
+            </Link>
+          ))}
+        </nav>
       </Shell>
     </footer>
   );

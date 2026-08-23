@@ -57,6 +57,25 @@
   line-height: 1.55;
 }
 
+.legal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 26px;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 58%, transparent);
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-leading);
+}
+
+.legal a {
+  color: var(--color-text-secondary);
+}
+
+.legal a:hover {
+  color: var(--color-text-primary);
+}
+
 @media (max-width: 720px) {
   .meta {
     grid-template-columns: 1fr;
