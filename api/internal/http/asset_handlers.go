@@ -547,6 +547,7 @@ func toAPIDetail(found asset.Detail, visibility asset.ContentVisibility) (AssetD
 		Media:         media,
 		Preview:       found.Preview,
 		Readiness:     toAPIReadiness(found.Readiness),
+		SealedBlocks:  countOrAbsent(found.SealedBlocks),
 		AddableBlocks: addable,
 		Visibility:    AssetDetailVisibility(visibility),
 		Withhold:      toAPIWithhold(found.Withhold),
@@ -751,4 +752,12 @@ func toAPI(a asset.Asset) Asset {
 		Name: a.Name, Blurb: a.Blurb, Tags: a.Tags, IsNsfw: a.IsNSFW,
 		Discovery: AssetDiscovery(a.Discovery), CreatedAt: a.CreatedAt,
 	}
+}
+
+// countOrAbsent leaves the field out where there is nothing to count, because a zero would read as an answer this reader is not entitled to.
+func countOrAbsent(count int) *int {
+	if count == 0 {
+		return nil
+	}
+	return &count
 }

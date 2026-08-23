@@ -59,3 +59,23 @@ func (h *Handlers) DeletePreservedNamespace(
 		c.Status(http.StatusNoContent)
 	}
 }
+
+// ExportSealedContent hands an owner the content their v1 preset kept sealed, so the preserved set stays live data rather than a backup nobody has ever opened.
+func (h *Handlers) ExportSealedContent(c *gin.Context, id openapi_types.UUID) {
+	owner, ok := h.verifiedAccount(c, "reading sealed content")
+	if !ok {
+		return
+	}
+	sealed, err := h.assets.OpenSealedContent(c.Request.Context(), owner.ID, uuid.UUID(id))
+	switch {
+	case errors.Is(err, asset.ErrNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": "This asset holds no sealed content."})
+	case err != nil:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not read the sealed content."})
+	default:
+		c.Header("Content-Disposition", `attachment; filename="`+sealed.Filename+`"`)
+		c.Header("X-Content-Type-Options", "nosniff")
+		c.Header("Cache-Control", "private, no-store")
+		c.Data(http.StatusOK, sealed.MediaType, sealed.Body)
+	}
+}

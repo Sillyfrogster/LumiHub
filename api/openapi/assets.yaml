@@ -533,6 +533,38 @@ paths:
           description: The asset or the namespace does not belong to the creator
         '409':
           description: The asset is withheld and cannot be changed
+  /v1/assets/{id}/sealed:
+    get:
+      operationId: exportSealedContent
+      description: >-
+        Hand the owner the content their v1 preset kept sealed, as one file.
+        Illarin has no mechanism that resolves sealed blocks and does not grow
+        one here; the export exists so the preserved set is live data rather
+        than a backup nobody has ever opened. Deny by default: anyone but the
+        owner, and any asset holding nothing sealed, gets 404.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Every sealed block the asset preserves, in version and key order
+          content:
+            application/json:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: No account is signed in
+        '403':
+          description: The signed-in account has not verified its email
+        '404':
+          description: The asset holds no sealed content for this creator
   /v1/assets/{id}/restore:
     post:
       operationId: restoreAsset
@@ -1166,6 +1198,13 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ReadinessItem'
+        sealedBlocks:
+          type: integer
+          description: >-
+            How many sealed v1 preset blocks the asset preserves. Present only
+            while the owner is reading their own asset, and absent where there
+            are none, so a stranger cannot learn that an asset is withholding
+            anything.
         addableBlocks:
           description: >-
             The blocks this kind can still be given, in catalog order. Present

@@ -638,6 +638,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/assets/{id}/sealed": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Hand the owner the content their v1 preset kept sealed, as one file. Illarin has no mechanism that resolves sealed blocks and does not grow one here; the export exists so the preserved set is live data rather than a backup nobody has ever opened. Deny by default: anyone but the owner, and any asset holding nothing sealed, gets 404. */
+    get: operations["exportSealedContent"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/assets/{id}/restore": {
     parameters: {
       query?: never;
@@ -1543,6 +1560,8 @@ export interface components {
       preview: string | null;
       /** @description The publish floor, present only while the owner is reading their own asset. A draft carries the whole list, because publishing waits on it. A published page carries it only where it falls short, which is how a migrated asset shows its owner what to come back and fix. */
       readiness?: components["schemas"]["ReadinessItem"][];
+      /** @description How many sealed v1 preset blocks the asset preserves. Present only while the owner is reading their own asset, and absent where there are none, so a stranger cannot learn that an asset is withholding anything. */
+      sealedBlocks?: number;
       /** @description The blocks this kind can still be given, in catalog order. Present only while the owner is reading their own asset. */
       addableBlocks?: components["schemas"]["AddableBlock"][];
       /** @enum {string} */
@@ -3647,6 +3666,49 @@ export interface operations {
       };
       /** @description The asset is withheld and cannot be changed */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  exportSealedContent: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Every sealed block the asset preserves, in version and key order */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": string;
+        };
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The signed-in account has not verified its email */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The asset holds no sealed content for this creator */
+      404: {
         headers: {
           [name: string]: unknown;
         };

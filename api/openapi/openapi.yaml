@@ -82,6 +82,8 @@ paths:
     $ref: ./assets.yaml#/paths/~1v1~1assets~1{id}~1preserved
   /v1/assets/{id}/preserved/{namespace}:
     $ref: ./assets.yaml#/paths/~1v1~1assets~1{id}~1preserved~1{namespace}
+  /v1/assets/{id}/sealed:
+    $ref: ./assets.yaml#/paths/~1v1~1assets~1{id}~1sealed
   /v1/assets/{id}/restore:
     $ref: ./assets.yaml#/paths/~1v1~1assets~1{id}~1restore
   /v1/assets/{id}/identity:

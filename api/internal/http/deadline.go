@@ -91,6 +91,7 @@ func Register(r *gin.Engine, h *Handlers, d Deadlines, readiness Readiness) erro
 		routeKey(http.MethodPost, "/v1/assets/:id/publish"):                         d.JSON,
 		routeKey(http.MethodGet, "/v1/assets/:id/preserved"):                        d.JSON,
 		routeKey(http.MethodDelete, "/v1/assets/:id/preserved/:namespace"):          d.JSON,
+		routeKey(http.MethodGet, "/v1/assets/:id/sealed"):                           d.JSON,
 		routeKey(http.MethodPut, "/v1/assets/:id/withhold"):                         d.JSON,
 		routeKey(http.MethodDelete, "/v1/assets/:id/withhold"):                      d.JSON,
 		routeKey(http.MethodPost, "/v1/assets/:id/media"):                           d.Upload,

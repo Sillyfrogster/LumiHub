@@ -1453,10 +1453,13 @@ type AssetDetail struct {
 	Preview *string `json:"preview"`
 
 	// Readiness The publish floor, present only while the owner is reading their own asset. A draft carries the whole list, because publishing waits on it. A published page carries it only where it falls short, which is how a migrated asset shows its owner what to come back and fix.
-	Readiness  *[]ReadinessItem      `json:"readiness,omitempty"`
-	Tags       []AssetTag            `json:"tags"`
-	Visibility AssetDetailVisibility `json:"visibility"`
-	Withhold   *AssetWithhold        `json:"withhold,omitempty"`
+	Readiness *[]ReadinessItem `json:"readiness,omitempty"`
+
+	// SealedBlocks How many sealed v1 preset blocks the asset preserves. Present only while the owner is reading their own asset, and absent where there are none, so a stranger cannot learn that an asset is withholding anything.
+	SealedBlocks *int                  `json:"sealedBlocks,omitempty"`
+	Tags         []AssetTag            `json:"tags"`
+	Visibility   AssetDetailVisibility `json:"visibility"`
+	Withhold     *AssetWithhold        `json:"withhold,omitempty"`
 }
 
 // AssetDetailDiscovery defines model for AssetDetail.Discovery.
@@ -2799,6 +2802,9 @@ type ServerInterface interface {
 	// (POST /v1/assets/{id}/revisions)
 	AddAssetRevision(c *gin.Context, id openapi_types.UUID)
 
+	// (GET /v1/assets/{id}/sealed)
+	ExportSealedContent(c *gin.Context, id openapi_types.UUID)
+
 	// (DELETE /v1/assets/{id}/withhold)
 	ClearAssetWithhold(c *gin.Context, id openapi_types.UUID)
 
@@ -3636,6 +3642,31 @@ func (siw *ServerInterfaceWrapper) AddAssetRevision(c *gin.Context) {
 	siw.Handler.AddAssetRevision(c, id)
 }
 
+// ExportSealedContent operation middleware
+func (siw *ServerInterfaceWrapper) ExportSealedContent(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ExportSealedContent(c, id)
+}
+
 // ClearAssetWithhold operation middleware
 func (siw *ServerInterfaceWrapper) ClearAssetWithhold(c *gin.Context) {
 
@@ -4448,6 +4479,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/v1/assets/:id/blocks/:blockId/move-and-remove", wrapper.MoveAssetBlockContent)
 	router.GET(options.BaseURL+"/v1/assets/:id/preserved", wrapper.ListPreservedNamespaces)
 	router.DELETE(options.BaseURL+"/v1/assets/:id/preserved/:namespace", wrapper.DeletePreservedNamespace)
+	router.GET(options.BaseURL+"/v1/assets/:id/sealed", wrapper.ExportSealedContent)
 	router.POST(options.BaseURL+"/v1/assets/:id/restore", wrapper.RestoreAsset)
 	router.PUT(options.BaseURL+"/v1/assets/:id/identity", wrapper.SetAssetIdentity)
 	router.POST(options.BaseURL+"/v1/assets/:id/publish", wrapper.PublishAsset)

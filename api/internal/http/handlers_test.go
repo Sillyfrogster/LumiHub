@@ -220,17 +220,29 @@ func newVerifiedTestRoutersWithPool(
 	setupRouter, pool, handlers := newTestRouterWithSenderPoolAndHandlers(
 		t, maxUploadBytes, DefaultDeadlines(), outbox,
 	)
-	session := signUp(t, setupRouter, "verified@example.com", "verified.creator")
-	verificationURL, err := url.Parse(outbox.messages[0].link)
+	session := verifiedSignUp(t, setupRouter, outbox, "verified@example.com", "verified.creator")
+	return setupRouter, registerTestRouter(t, handlers, deadlines), session, handlers.assets, pool
+}
+
+// verifiedSignUp signs an account up and follows the link the outbox caught, so the session it returns is past the verification gate.
+func verifiedSignUp(
+	t *testing.T,
+	setupRouter *gin.Engine,
+	outbox *verificationOutbox,
+	email, handle string,
+) *http.Cookie {
+	t.Helper()
+	session := signUp(t, setupRouter, email, handle)
+	verificationURL, err := url.Parse(outbox.messages[len(outbox.messages)-1].link)
 	if err != nil {
 		t.Fatalf("parse verification link: %v", err)
 	}
 	rec := sendJSON(t, setupRouter, http.MethodPost, "/v1/auth/verify-email",
 		`{"token":"`+verificationURL.Query().Get("token")+`"}`)
 	if rec.Code != http.StatusOK {
-		t.Fatalf("verify test account: %d %s", rec.Code, rec.Body.String())
+		t.Fatalf("verify %s: %d %s", email, rec.Code, rec.Body.String())
 	}
-	return setupRouter, registerTestRouter(t, handlers, deadlines), session, handlers.assets, pool
+	return session
 }
 
 func authorized(req *http.Request, session *http.Cookie) *http.Request {

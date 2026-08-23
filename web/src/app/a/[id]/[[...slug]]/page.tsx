@@ -200,6 +200,7 @@ export default async function AssetPage({
                 withheld: Boolean(asset.withhold),
                 hasOriginal: Boolean(asset.original),
                 readiness: asset.readiness,
+                sealedBlocks: asset.sealedBlocks,
               }}
             />
           </section>

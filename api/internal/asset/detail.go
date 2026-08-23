@@ -64,8 +64,9 @@ type Detail struct {
 	// Preview is the composed social preview a link unfurler fetches.
 	Preview *string
 	// Readiness is the whole publish floor on a draft and only the shortfall on a published page, and stands only for the owner.
-	Readiness []ReadinessItem
-	Withhold  *Withhold
+	Readiness    []ReadinessItem
+	SealedBlocks int
+	Withhold     *Withhold
 }
 
 type Withhold struct {
@@ -149,6 +150,13 @@ func (s *Service) Detail(
 			found.Readiness = readiness(found.Kind, found.Name, found.IsNSFW, found.Blocks)
 		} else {
 			found.Readiness = MigratedShortfall(found.Kind, found.Name, found.IsNSFW, found.Blocks)
+		}
+		if viewerID != nil {
+			sealed, err := s.SealedBlockCount(ctx, *viewerID, id)
+			if err != nil {
+				return Detail{}, err
+			}
+			found.SealedBlocks = sealed
 		}
 	}
 	if draft {
