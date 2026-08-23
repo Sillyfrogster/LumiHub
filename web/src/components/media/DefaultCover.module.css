@@ -4,9 +4,15 @@
   display: grid;
   place-items: center;
   align-content: center;
-  gap: 18px;
+  gap: 20px;
   overflow: hidden;
-  background: var(--color-media-surface);
+  background:
+    radial-gradient(
+      120% 90% at 50% 0%,
+      color-mix(in srgb, var(--color-media-text) 9%, transparent) 0%,
+      transparent 55%
+    ),
+    var(--color-media-surface);
   color: var(--color-media-text);
   isolation: isolate;
 }
@@ -139,7 +145,7 @@
   position: relative;
   z-index: 1;
   display: grid;
-  width: 90px;
+  width: 96px;
   aspect-ratio: 1;
   place-items: center;
   isolation: isolate;
@@ -149,7 +155,7 @@
   position: absolute;
   z-index: -1;
   inset: 0;
-  background: color-mix(in srgb, currentColor 12%, transparent);
+  background: color-mix(in srgb, currentColor 14%, transparent);
   clip-path: polygon(
     50% 0,
     61% 39%,
@@ -160,14 +166,21 @@
     0 50%,
     39% 39%
   );
+  transition: transform 0.55s var(--ease);
+}
+
+/* The cover span fills the whole card face, so its own hover tracks
+   the card hover without needing cross-module class names. */
+.cover:hover .arch::before {
+  transform: rotate(45deg);
 }
 
 .label {
   position: relative;
   z-index: 1;
   font-size: var(--type-label-size);
-  font-weight: 800;
-  letter-spacing: 0.16em;
+  font-weight: 700;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
 }
 

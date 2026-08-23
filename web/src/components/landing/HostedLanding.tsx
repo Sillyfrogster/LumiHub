@@ -130,7 +130,7 @@ export function HostedLanding({
         </Shell>
       </section>
 
-      <section className={styles.journey}>
+      <section className={styles.journey} data-reveal>
         <Shell className={styles.journeyShell}>
           <div className={styles.compositionCopy}>
             <h2>Edit the page itself.</h2>
@@ -144,9 +144,10 @@ export function HostedLanding({
             className={styles.builderProof}
             role="img"
             aria-label="The character block editor with block naming, page layout, width, and description controls"
+            data-reveal
           />
 
-          <div className={styles.deliveryPlane}>
+          <div className={styles.deliveryPlane} data-reveal>
             <div className={styles.deliveryCopy}>
               <h2>Download it. Or send it.</h2>
               <p>

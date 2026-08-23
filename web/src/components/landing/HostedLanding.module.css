@@ -39,11 +39,15 @@
 
 :global(:root[data-theme="dark"]) .environment {
   background-image: url("../../assets/art/full/illarin-landing-hero-dark-v1.webp");
+  /* Dark-theme art sits close to the page ground; lift it so it reads
+     as an intentional scene instead of an unloaded region. */
+  filter: brightness(1.22) saturate(1.04);
 }
 
 @media (prefers-color-scheme: dark) {
   :global(:root:not([data-theme])) .environment {
     background-image: url("../../assets/art/full/illarin-landing-hero-dark-v1.webp");
+    filter: brightness(1.22) saturate(1.04);
   }
 }
 
@@ -122,23 +126,10 @@
 .catalogSeam {
   position: relative;
   overflow: hidden;
-  padding: 22px 24px 24px;
+  padding: 26px 26px 28px;
   border-radius: var(--radius-md);
   background: var(--color-elevated);
   box-shadow: var(--shadow-lift);
-}
-
-.catalogSeam::after {
-  position: absolute;
-  top: 0;
-  right: -42px;
-  width: 160px;
-  height: 42px;
-  background: var(--color-text-primary);
-  clip-path: polygon(22% 0, 100% 0, 78% 100%, 0 100%);
-  content: "";
-  opacity: 0.08;
-  pointer-events: none;
 }
 
 .catalogHeader {
@@ -170,17 +161,30 @@
   min-height: 44px;
   flex: none;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   color: var(--color-text-primary);
-  font-size: var(--type-label-size);
-  font-weight: 800;
+  font-size: var(--type-secondary-size);
+  font-weight: 600;
+  transition: color 180ms var(--ease);
+}
+
+.catalogHeader > a:hover {
+  color: var(--color-link);
+}
+
+.catalogHeader > a svg {
+  transition: transform 180ms var(--ease);
+}
+
+.catalogHeader > a:hover svg {
+  transform: translateX(3px);
 }
 
 .catalogGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 16px;
+  gap: 14px;
+  margin-top: 20px;
   list-style: none;
 }
 
@@ -195,7 +199,7 @@
   grid-template-columns: 72px minmax(0, 1fr) 16px;
   gap: 13px;
   align-items: center;
-  padding: 10px;
+  padding: 12px;
   border-radius: var(--radius-sm);
   color: var(--color-text-primary);
   transition:
@@ -376,20 +380,6 @@
   color: var(--color-background);
 }
 
-.deliveryPlane::after {
-  position: absolute;
-  top: -60%;
-  right: -3%;
-  width: 36%;
-  height: 190%;
-  background: var(--color-background);
-  clip-path: polygon(48% 0, 100% 0, 52% 100%, 0 100%);
-  content: "";
-  opacity: 0.08;
-  pointer-events: none;
-  transform: rotate(8deg);
-}
-
 .deliveryCopy {
   position: relative;
   z-index: 1;
@@ -438,8 +428,12 @@
   gap: 14px;
   align-items: center;
   padding-block: 18px;
-  box-shadow: inset 0 1px 0
-    color-mix(in srgb, var(--color-background) 26%, transparent);
+  border-top: 1px solid
+    color-mix(in srgb, var(--color-background) 22%, transparent);
+}
+
+.deliveryOutcomes li:first-child {
+  border-top: 0;
 }
 
 .deliveryOutcomes span {
@@ -456,6 +450,30 @@
   color: var(--color-background);
   font-size: var(--type-label-size);
   opacity: 0.68;
+}
+
+/* Scroll-entry for below-fold sections. Hidden only once the reveal script
+   announces itself on <html>, so no-JS and reduced-motion readers always
+   see the content. */
+:global([data-reveal-ready] [data-reveal]) {
+  opacity: 0;
+  transform: translateY(26px);
+  transition:
+    opacity 0.7s var(--ease),
+    transform 0.7s var(--ease);
+}
+
+:global([data-reveal][data-revealed]) {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :global([data-reveal]) {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
 }
 
 @keyframes apertureArrive {

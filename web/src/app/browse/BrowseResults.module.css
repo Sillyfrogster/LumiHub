@@ -51,7 +51,7 @@
 .resultsHeader p {
   margin-top: 5px;
   color: var(--color-text-secondary);
-  font-size: 0.76rem;
+  font-size: 0.85rem;
 }
 
 .searchRegion {
@@ -62,15 +62,16 @@
   display: flex;
   align-items: center;
   width: 100%;
-  min-height: 48px;
-  padding: 3px 4px 3px 0;
+  min-height: 52px;
+  padding: 3px 4px 3px 14px;
   border-bottom: 1px solid var(--color-border);
   background: transparent;
   color: var(--color-text-secondary);
+  transition: border-color 200ms var(--ease);
 }
 
 .searchForm:focus-within {
-  border-color: var(--color-accent);
+  border-color: var(--color-text-secondary);
 }
 
 .searchForm input {
@@ -80,8 +81,8 @@
   outline: 0;
   background: transparent;
   color: var(--color-text-primary);
-  padding: 8px 11px;
-  font-size: 0.92rem;
+  padding: 8px 12px;
+  font-size: 0.95rem;
 }
 
 .searchForm input::placeholder {
@@ -114,13 +115,14 @@
   border-radius: var(--radius-sm);
   background: var(--color-accent);
   color: var(--color-on-accent);
-  font-size: 0.76rem;
-  font-weight: 900;
-  letter-spacing: 0.05em;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
   box-shadow: var(--shadow-button);
   transition:
     transform 0.25s var(--ease),
-    box-shadow 0.25s var(--ease);
+    box-shadow 0.25s var(--ease),
+    opacity 0.25s var(--ease);
 }
 
 .searchButton:hover,
@@ -131,16 +133,16 @@
 }
 
 .searchHint {
-  margin-top: 7px;
+  margin-top: 8px;
   color: var(--color-text-secondary);
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   text-align: right;
 }
 
 .searchHint code {
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   font-family: var(--font-body);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .resultsHeaderContent[data-compact] .searchHint {
@@ -185,19 +187,20 @@
   gap: 8px;
   color: var(--color-text-primary);
   font-size: 0.78rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .filterHeading button {
-  color: var(--color-accent);
-  font-size: 0.68rem;
-  font-weight: 700;
+  color: var(--color-text-secondary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  transition: color 180ms var(--ease);
 }
 
 .filterHeading button:hover {
-  text-decoration: underline;
+  color: var(--color-text-primary);
 }
 
 .filterGroup {
@@ -207,11 +210,11 @@
 
 .filterGroup legend {
   width: 100%;
-  margin-bottom: 11px;
-  color: var(--color-text-primary);
-  font-size: 0.7rem;
-  font-weight: 900;
-  letter-spacing: 0.11em;
+  margin-bottom: 12px;
+  color: var(--color-text-secondary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
@@ -223,11 +226,12 @@
 .filterButton {
   position: relative;
   min-height: 36px;
-  padding-inline: 14px 8px;
+  padding-inline: 16px 8px;
   color: var(--color-text-secondary);
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: 0.82rem;
+  font-weight: 500;
   text-align: left;
+  transition: color 180ms var(--ease);
 }
 
 .filterButton:hover {
@@ -235,40 +239,46 @@
 }
 
 .filterButton[aria-pressed="true"] {
-  color: var(--color-accent-strong);
+  color: var(--color-text-primary);
+  font-weight: 700;
 }
 
 .filterButton[aria-pressed="true"]::before {
   position: absolute;
-  top: 10px;
-  bottom: 10px;
+  top: 50%;
   left: 0;
-  width: 2px;
-  border-radius: 2px;
+  width: 8px;
+  height: 8px;
   background: var(--color-accent);
   content: "";
+  transform: translateY(-50%) rotate(45deg);
 }
 
 .option {
   display: grid;
   grid-template-columns: 16px minmax(0, 1fr) auto;
-  gap: 9px;
+  gap: 10px;
   align-items: center;
-  min-height: 31px;
+  min-height: 32px;
   color: var(--color-text-secondary);
   cursor: pointer;
-  font-size: 0.76rem;
+  font-size: 0.84rem;
+  transition: color 180ms var(--ease);
+}
+
+.option:hover {
+  color: var(--color-text-primary);
 }
 
 .option input {
-  width: 14px;
-  height: 14px;
+  width: 15px;
+  height: 15px;
   accent-color: var(--color-accent);
 }
 
 .option small {
   color: var(--color-text-secondary);
-  font-size: 0.68rem;
+  font-size: 0.74rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -290,8 +300,11 @@
   min-height: 34px;
   border-radius: calc(var(--radius-sm) - 2px);
   color: var(--color-text-secondary);
-  font-size: 0.69rem;
-  font-weight: 700;
+  font-size: 0.76rem;
+  font-weight: 600;
+  transition:
+    background-color 180ms var(--ease),
+    color 180ms var(--ease);
 }
 
 .visibilityOptions button[aria-pressed="true"] {
@@ -305,9 +318,9 @@
 
 .preferenceNote,
 .preferenceError {
-  margin-top: 9px;
+  margin-top: 10px;
   color: var(--color-text-secondary);
-  font-size: 0.65rem;
+  font-size: 0.72rem;
   line-height: 1.45;
 }
 
@@ -373,7 +386,7 @@
 .loadingGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 38px 22px;
+  gap: 44px 26px;
   margin-top: 0;
 }
 
@@ -571,9 +584,9 @@
   }
 
   .filterToggle small {
-    color: var(--color-accent);
-    font-size: 0.7rem;
-    font-weight: 800;
+    color: var(--color-text-primary);
+    font-size: 0.74rem;
+    font-weight: 600;
   }
 
   .filters {
@@ -603,8 +616,8 @@
     background: var(--color-text-primary);
     box-shadow: var(--shadow-button);
     color: var(--color-background);
-    font-size: 0.76rem;
-    font-weight: 900;
+    font-size: 0.85rem;
+    font-weight: 700;
   }
 
   .finishFilters:hover {
