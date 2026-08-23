@@ -1,0 +1,10 @@
+[Unit]
+Description=Illarin off-box backup
+Requires=docker.service
+After=docker.service network-online.target
+ConditionPathExists=/etc/illarin/backups-enabled
+
+[Service]
+Type=oneshot
+Environment=ILLARIN_ENV_FILE=/etc/illarin/production.env
+ExecStart=/usr/bin/make -C /opt/illarin prod-backup

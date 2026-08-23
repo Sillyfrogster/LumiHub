@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the Illarin backup every night
+
+[Timer]
+OnCalendar=*-*-* 03:20:00
+RandomizedDelaySec=30m
+Persistent=true
+Unit=illarin-backup.service
+
+[Install]
+WantedBy=timers.target

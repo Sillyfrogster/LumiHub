@@ -3,6 +3,8 @@ import type { NextConfig } from "next";
 const apiUrl = process.env.API_URL ?? "http://localhost:8080";
 
 const nextConfig: NextConfig = {
+  output: "standalone",
+  deploymentId: process.env.ILLARIN_VERSION,
   logging: {
     incomingRequests: {
       // These URLs carry short-lived link secrets. nginx redacts them too.

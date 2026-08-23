@@ -8,6 +8,9 @@ SQLC  := go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
 OAPI  := go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0
 WEB_PORT ?= 3000
 TEST ?= ./...
+VERSION ?=
+SERVICE ?=
+PROD_ENV ?= /etc/illarin/production.env
 NGINX_IMAGE ?= nginx:alpine
 NGINX := docker run --rm --network host -v "$(CURDIR):/work:ro" -w /work $(NGINX_IMAGE) \
 	nginx -p /work/ -c nginx/local.conf
@@ -50,6 +53,48 @@ web: ## Run the site
 proxy: ## Run the local nginx proxy on port 8000
 	$(NGINX) -g 'daemon off;'
 
+# Production
+
+.PHONY: prod-deploy
+prod-deploy: ## Deploy one immutable Git commit to production
+	@ILLARIN_ENV_FILE="$(PROD_ENV)" VERSION="$(VERSION)" ./ops/deploy.sh
+
+.PHONY: prod-rollback
+prod-rollback: ## Restore the previously deployed application images
+	@ILLARIN_ENV_FILE="$(PROD_ENV)" ./ops/rollback.sh
+
+.PHONY: prod-status
+prod-status: ## Show production container and health status
+	@ILLARIN_ENV_FILE="$(PROD_ENV)" ./ops/compose.sh ps
+
+.PHONY: prod-logs
+prod-logs: ## Follow recent production logs; optionally set SERVICE
+	@ILLARIN_ENV_FILE="$(PROD_ENV)" ./ops/compose.sh logs --tail=200 --follow $(SERVICE)
+
+.PHONY: prod-restart
+prod-restart: ## Restart one production service with SERVICE=api, web or gateway
+	@test -n "$(SERVICE)" || { echo "Set SERVICE to api, web or gateway."; exit 1; }
+	@case "$(SERVICE)" in api|web|gateway) ;; *) echo "SERVICE must be api, web or gateway."; exit 1 ;; esac
+	@ILLARIN_ENV_FILE="$(PROD_ENV)" ./ops/compose.sh restart "$(SERVICE)"
+
+.PHONY: prod-smoke
+prod-smoke: ## Check the production gateway, API and site
+	@ILLARIN_ENV_FILE="$(PROD_ENV)" ./ops/smoke.sh
+
+.PHONY: prod-config-check
+prod-config-check: ## Validate the production Compose configuration
+	@ILLARIN_ENV_FILE="$(PROD_ENV)" ./ops/compose.sh config --quiet
+
+.PHONY: prod-backup prod-backup-init prod-backup-check
+prod-backup: ## Run an off-box backup when backups are enabled
+	@ILLARIN_ENV_FILE="$(PROD_ENV)" ./ops/backup.sh run
+
+prod-backup-init: ## Create the configured off-box backup repository
+	@ILLARIN_ENV_FILE="$(PROD_ENV)" ./ops/backup.sh init
+
+prod-backup-check: ## Verify the configured off-box backup repository
+	@ILLARIN_ENV_FILE="$(PROD_ENV)" ./ops/backup.sh check
+
 # Checking
 
 .PHONY: check
@@ -90,6 +135,21 @@ fmt-check: ## Fail if any Go file needs formatting
 .PHONY: proxy-check
 proxy-check: ## Check the local nginx configuration
 	$(NGINX) -t
+
+.PHONY: production-proxy-check
+production-proxy-check: ## Check the production nginx configuration
+	docker run --rm -v "$(CURDIR)/nginx/production.conf:/etc/nginx/nginx.conf:ro" \
+		nginx:1.31.2-alpine3.23 nginx -t
+
+.PHONY: image-api image-web images
+image-api: ## Build the production Go image locally
+	docker build -f api/Dockerfile -t illarin-api:local .
+
+image-web: ## Build the production Next image locally
+	docker build --build-arg ILLARIN_VERSION="$(or $(VERSION),development)" \
+		-f web/Dockerfile -t illarin-web:local .
+
+images: image-api image-web ## Build both production application images
 
 # Database
 

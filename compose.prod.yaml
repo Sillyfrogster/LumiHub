@@ -1,0 +1,236 @@
+name: illarin
+
+x-log-options: &log-options
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "5"
+
+x-app-labels: &app-labels
+  com.datadoghq.tags.env: production
+  com.datadoghq.tags.version: "${ILLARIN_VERSION:?Set ILLARIN_VERSION}"
+
+services:
+  db:
+    image: postgres:18.6-alpine3.23
+    restart: unless-stopped
+    shm_size: 256mb
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB:?Set POSTGRES_DB}"
+      POSTGRES_USER: "${POSTGRES_USER:?Set POSTGRES_USER}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}"
+    volumes:
+      - "${ILLARIN_DATA_DIR:?Set ILLARIN_DATA_DIR}/postgres:/var/lib/postgresql"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - backend
+    logging: *log-options
+    labels:
+      <<: *app-labels
+      com.datadoghq.tags.service: illarin-postgres
+
+  migrate:
+    image: "${ILLARIN_IMAGE_REGISTRY:?Set ILLARIN_IMAGE_REGISTRY}/illarin-api:${ILLARIN_VERSION:?Set ILLARIN_VERSION}"
+    profiles: [tools]
+    entrypoint: ["/app/goose"]
+    command: ["-dir", "/app/migrations", "postgres", "${DATABASE_URL:?Set DATABASE_URL}", "up"]
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend
+    logging: *log-options
+
+  backup:
+    image: "${ILLARIN_IMAGE_REGISTRY:?Set ILLARIN_IMAGE_REGISTRY}/illarin-api:${ILLARIN_VERSION:?Set ILLARIN_VERSION}"
+    profiles: [tools]
+    entrypoint: ["/app/backup"]
+    command: ["run"]
+    environment:
+      DATABASE_URL: "${DATABASE_URL:?Set DATABASE_URL}"
+      UPLOADS_DIR: /data/uploads
+      BACKUP_WORK_DIR: /backup-work
+      BACKUP_TIMEOUT: "${BACKUP_TIMEOUT:-12h}"
+      RESTIC_REPOSITORY: "${RESTIC_REPOSITORY:-}"
+      RESTIC_PASSWORD_FILE: /run/secrets/restic_password
+      RESTIC_KEEP_DAILY: "${RESTIC_KEEP_DAILY:-30}"
+      AWS_ACCESS_KEY_ID: "${OVH_OBJECT_STORAGE_ACCESS_KEY:-}"
+      AWS_SECRET_ACCESS_KEY: "${OVH_OBJECT_STORAGE_SECRET_KEY:-}"
+      AWS_DEFAULT_REGION: "${OVH_OBJECT_STORAGE_REGION:-}"
+    secrets:
+      - restic_password
+    volumes:
+      - "${ILLARIN_DATA_DIR:?Set ILLARIN_DATA_DIR}/uploads:/data/uploads:ro"
+      - "${ILLARIN_DATA_DIR:?Set ILLARIN_DATA_DIR}/backup-work:/backup-work"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend
+      - egress
+    logging: *log-options
+
+  api:
+    image: "${ILLARIN_IMAGE_REGISTRY:?Set ILLARIN_IMAGE_REGISTRY}/illarin-api:${ILLARIN_VERSION:?Set ILLARIN_VERSION}"
+    restart: unless-stopped
+    stop_grace_period: 40s
+    environment:
+      PORT: "8080"
+      SITE_URL: "${SITE_URL:?Set SITE_URL}"
+      DATABASE_URL: "${DATABASE_URL:?Set DATABASE_URL}"
+      UPLOADS_DIR: /data/uploads
+      LINKING_HMAC_KEY: "${LINKING_HMAC_KEY:?Set LINKING_HMAC_KEY}"
+      MICROSOFT_365_TENANT_ID: "${MICROSOFT_365_TENANT_ID:?Set MICROSOFT_365_TENANT_ID}"
+      MICROSOFT_365_CLIENT_ID: "${MICROSOFT_365_CLIENT_ID:?Set MICROSOFT_365_CLIENT_ID}"
+      MICROSOFT_365_CLIENT_SECRET_FILE: /run/secrets/microsoft_365_client_secret
+      MICROSOFT_365_MAILBOX: "${MICROSOFT_365_MAILBOX:?Set MICROSOFT_365_MAILBOX}"
+      DISCORD_CLIENT_ID: "${DISCORD_CLIENT_ID:-}"
+      DISCORD_CLIENT_SECRET: "${DISCORD_CLIENT_SECRET:-}"
+      DD_ENV: production
+      DD_SERVICE: illarin-api
+      DD_VERSION: "${ILLARIN_VERSION:?Set ILLARIN_VERSION}"
+    secrets:
+      - microsoft_365_client_secret
+    volumes:
+      - "${ILLARIN_DATA_DIR:?Set ILLARIN_DATA_DIR}/uploads:/data/uploads"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-T", "3", "-O", "/dev/null", "http://127.0.0.1:8080/readyz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend
+      - egress
+    logging: *log-options
+    labels:
+      <<: *app-labels
+      com.datadoghq.tags.service: illarin-api
+
+  web:
+    image: "${ILLARIN_IMAGE_REGISTRY:?Set ILLARIN_IMAGE_REGISTRY}/illarin-web:${ILLARIN_VERSION:?Set ILLARIN_VERSION}"
+    restart: unless-stopped
+    environment:
+      API_URL: http://api:8080
+      DD_ENV: production
+      DD_SERVICE: illarin-web
+      DD_VERSION: "${ILLARIN_VERSION:?Set ILLARIN_VERSION}"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /app/.next/cache:size=128m,uid=1000,gid=1000,mode=0755
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - backend
+    logging: *log-options
+    labels:
+      <<: *app-labels
+      com.datadoghq.tags.service: illarin-web
+
+  gateway:
+    image: nginx:1.31.2-alpine3.23
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${ILLARIN_GATEWAY_PORT:-8000}:8080"
+    volumes:
+      - ./nginx/production.conf:/etc/nginx/nginx.conf:ro
+      - "${ILLARIN_DATA_DIR:?Set ILLARIN_DATA_DIR}/uploads:/data/uploads:ro"
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:size=32m,uid=101,gid=101,mode=0755
+      - /tmp:size=16m,mode=1777
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-T", "3", "-O", "/dev/null", "http://127.0.0.1:8080/gateway-healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    networks:
+      - backend
+    logging: *log-options
+    labels:
+      <<: *app-labels
+      com.datadoghq.tags.service: illarin-gateway
+
+  datadog:
+    image: registry.datadoghq.com/agent:7
+    restart: unless-stopped
+    pid: host
+    cgroup: host
+    ports:
+      - "127.0.0.1:8125:8125/udp"
+    environment:
+      DD_API_KEY: "${DD_API_KEY:?Set DD_API_KEY}"
+      DD_SITE: "${DD_SITE:-datadoghq.com}"
+      DD_ENV: production
+      DD_HOSTNAME: "${DD_HOSTNAME:-illarin-production}"
+      DD_LOGS_ENABLED: "true"
+      DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL: "true"
+      DD_PROCESS_CONFIG_PROCESS_COLLECTION_ENABLED: "true"
+      DD_DOGSTATSD_NON_LOCAL_TRAFFIC: "true"
+      DD_CONTAINER_EXCLUDE: name:illarin-datadog-1
+      DD_PROCFS_PATH: /host/proc
+      DD_CGROUPS_PATH: /host/sys/fs/cgroup
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc:/host/proc:ro
+      - /sys/fs/cgroup:/host/sys/fs/cgroup:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - egress
+    logging: *log-options
+    labels:
+      <<: *app-labels
+      com.datadoghq.tags.service: datadog-agent
+
+secrets:
+  microsoft_365_client_secret:
+    file: "${ILLARIN_SECRETS_DIR:?Set ILLARIN_SECRETS_DIR}/microsoft-365-client-secret"
+  restic_password:
+    file: "${ILLARIN_SECRETS_DIR:?Set ILLARIN_SECRETS_DIR}/restic-password"
+
+networks:
+  backend:
+    internal: true
+  egress:

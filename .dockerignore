@@ -1,0 +1,11 @@
+.ai
+.git
+.github
+.idea
+.vscode
+**/.env
+**/.next
+**/node_modules
+api/uploads
+coverage
+ops

@@ -1,0 +1,13 @@
+services:
+  gateway:
+    ports: !reset []
+    networks:
+      backend:
+      npmplus:
+        aliases:
+          - illarin-gateway
+
+networks:
+  npmplus:
+    external: true
+    name: "${NPMPLUS_NETWORK:?Set NPMPLUS_NETWORK}"
