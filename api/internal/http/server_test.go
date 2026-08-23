@@ -38,7 +38,7 @@ func TestAConnectionThatNeverFinishesItsHeadersIsCutOff(t *testing.T) {
 	defer conn.Close()
 
 	// No blank line after the header, so the request is never finished.
-	if _, err := fmt.Fprint(conn, "GET /v1/assets HTTP/1.1\r\nHost: lumihub.test\r\n"); err != nil {
+	if _, err := fmt.Fprint(conn, "GET /v1/assets HTTP/1.1\r\nHost: illarin.test\r\n"); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 	if err := conn.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {

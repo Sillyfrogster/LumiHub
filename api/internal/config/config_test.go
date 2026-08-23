@@ -25,7 +25,7 @@ func TestLoadRequiresDatabaseURL(t *testing.T) {
 
 func TestLoadUsesDefaultPort(t *testing.T) {
 	setLinkingKey(t)
-	t.Setenv("DATABASE_URL", "postgres://localhost/lumihub_dev")
+	t.Setenv("DATABASE_URL", "postgres://localhost/illarin_dev")
 	t.Setenv("UPLOADS_DIR", "/tmp/uploads")
 	t.Setenv("PORT", "")
 
@@ -39,7 +39,7 @@ func TestLoadUsesDefaultPort(t *testing.T) {
 }
 
 func TestLoadRequiresAnExactUnpaddedLinkingKey(t *testing.T) {
-	t.Setenv("DATABASE_URL", "postgres://localhost/lumihub_dev")
+	t.Setenv("DATABASE_URL", "postgres://localhost/illarin_dev")
 	t.Setenv("UPLOADS_DIR", "/tmp/uploads")
 
 	for _, key := range []string{
@@ -65,7 +65,7 @@ func TestLoadRequiresAnExactUnpaddedLinkingKey(t *testing.T) {
 
 func TestLoadRejectsAnUnreadableUploadCeiling(t *testing.T) {
 	setLinkingKey(t)
-	t.Setenv("DATABASE_URL", "postgres://localhost/lumihub_dev")
+	t.Setenv("DATABASE_URL", "postgres://localhost/illarin_dev")
 	t.Setenv("UPLOADS_DIR", "/tmp/uploads")
 	t.Setenv("MAX_UPLOAD_BYTES", "55mb")
 
@@ -76,7 +76,7 @@ func TestLoadRejectsAnUnreadableUploadCeiling(t *testing.T) {
 
 func TestLoadRejectsIncompleteSMTPSettings(t *testing.T) {
 	setLinkingKey(t)
-	t.Setenv("DATABASE_URL", "postgres://localhost/lumihub_dev")
+	t.Setenv("DATABASE_URL", "postgres://localhost/illarin_dev")
 	t.Setenv("UPLOADS_DIR", "/tmp/uploads")
 	t.Setenv("SMTP_ADDR", "smtp.example.com:587")
 	t.Setenv("SMTP_FROM", "")
@@ -88,7 +88,7 @@ func TestLoadRejectsIncompleteSMTPSettings(t *testing.T) {
 
 func TestLoadReadsMicrosoft365SecretFromAFile(t *testing.T) {
 	setLinkingKey(t)
-	t.Setenv("DATABASE_URL", "postgres://localhost/lumihub_dev")
+	t.Setenv("DATABASE_URL", "postgres://localhost/illarin_dev")
 	t.Setenv("UPLOADS_DIR", "/tmp/uploads")
 	t.Setenv("MICROSOFT_365_TENANT_ID", "tenant")
 	t.Setenv("MICROSOFT_365_CLIENT_ID", "client")
@@ -110,7 +110,7 @@ func TestLoadReadsMicrosoft365SecretFromAFile(t *testing.T) {
 
 func TestLoadRejectsIncompleteMicrosoft365Settings(t *testing.T) {
 	setLinkingKey(t)
-	t.Setenv("DATABASE_URL", "postgres://localhost/lumihub_dev")
+	t.Setenv("DATABASE_URL", "postgres://localhost/illarin_dev")
 	t.Setenv("UPLOADS_DIR", "/tmp/uploads")
 	t.Setenv("MICROSOFT_365_TENANT_ID", "tenant")
 
@@ -121,7 +121,7 @@ func TestLoadRejectsIncompleteMicrosoft365Settings(t *testing.T) {
 
 func TestLoadUsesSettledIngestLimits(t *testing.T) {
 	setLinkingKey(t)
-	t.Setenv("DATABASE_URL", "postgres://localhost/lumihub_dev")
+	t.Setenv("DATABASE_URL", "postgres://localhost/illarin_dev")
 	t.Setenv("UPLOADS_DIR", "/tmp/uploads")
 	for _, name := range []string{
 		"MAX_UPLOAD_BYTES",
@@ -160,7 +160,7 @@ func TestLoadUsesSettledIngestLimits(t *testing.T) {
 
 func TestLoadReadsIngestLimitOverrides(t *testing.T) {
 	setLinkingKey(t)
-	t.Setenv("DATABASE_URL", "postgres://localhost/lumihub_dev")
+	t.Setenv("DATABASE_URL", "postgres://localhost/illarin_dev")
 	t.Setenv("UPLOADS_DIR", "/tmp/uploads")
 	t.Setenv("MAX_UPLOAD_BYTES", "101")
 	t.Setenv("MAX_ARCHIVE_ENTRIES", "102")

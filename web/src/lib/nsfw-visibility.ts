@@ -1,7 +1,7 @@
 import type { NsfwVisibility } from "@/lib/api/query";
 
-const VISIBILITY_KEY = "lumihub.nsfw-visibility";
-const REVEAL_KEY = "lumihub.nsfw-reveal:v1";
+const VISIBILITY_KEY = "illarin.nsfw-visibility";
+const REVEAL_KEY = "illarin.nsfw-reveal:v1";
 
 export function readSessionVisibility(): NsfwVisibility | undefined {
   try {

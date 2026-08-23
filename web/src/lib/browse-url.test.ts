@@ -10,7 +10,7 @@ describe("browse URL state", () => {
       q: expression,
       facet: ["tone=gentle"],
     });
-    const url = new URL(href, "https://lumihub.test");
+    const url = new URL(href, "https://illarin.test");
 
     expect(url.searchParams.getAll("q")).toEqual([expression]);
     expect(readBrowseFilters(Object.fromEntries(url.searchParams))).toEqual({
