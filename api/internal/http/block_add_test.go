@@ -53,7 +53,7 @@ func TestTheOwnerIsOfferedTheSharedBlocksGroupedByDestination(t *testing.T) {
 	}
 	for _, definition := range []string{
 		"gallery", "usage", "changelog", "attributes",
-		"author_notes", "runs_best_with", "custom_section",
+		"author_notes", "runs_best_with", "custom_block",
 	} {
 		block, ok := byDefinition[definition]
 		if !ok {
@@ -69,7 +69,7 @@ func TestTheOwnerIsOfferedTheSharedBlocksGroupedByDestination(t *testing.T) {
 	if byDefinition["gallery"].GroupTitle != "Content that travels with the file" {
 		t.Errorf("a gallery is grouped under %q", byDefinition["gallery"].GroupTitle)
 	}
-	if !byDefinition["custom_section"].Repeatable {
+	if !byDefinition["custom_block"].Repeatable {
 		t.Errorf("a custom block does not repeat")
 	}
 }
@@ -121,8 +121,8 @@ func TestACustomBlockRepeatsAndTakesTheElementTheCreatorChose(t *testing.T) {
 	r, session := newVerifiedTestRouter(t)
 	started := startCharacter(t, r, session)
 
-	first := addedBlock(t, addBlock(t, r, session, started.ID, "custom_section", "prose"))
-	second := addedBlock(t, addBlock(t, r, session, started.ID, "custom_section", "link_list"))
+	first := addedBlock(t, addBlock(t, r, session, started.ID, "custom_block", "prose"))
+	second := addedBlock(t, addBlock(t, r, session, started.ID, "custom_block", "link_list"))
 
 	if first.Elements[0].Type != "prose" || second.Elements[0].Type != "link_list" {
 		t.Errorf("custom blocks hold %s and %s", first.Elements[0].Type, second.Elements[0].Type)
@@ -201,7 +201,7 @@ func TestSavingAnEmptyAddedBlockKeepsEveryDefinition(t *testing.T) {
 		{"attributes", "field_list"},
 		{"author_notes", "prose"},
 		{"runs_best_with", "link_list"},
-		{"custom_section", "prose"},
+		{"custom_block", "prose"},
 	}
 	for _, test := range tests {
 		t.Run(test.definition, func(t *testing.T) {

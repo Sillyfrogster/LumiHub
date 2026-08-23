@@ -328,7 +328,7 @@ func TestContentInsideACustomBlockAnswersNoFacet(t *testing.T) {
 	router, session := newVerifiedTestRouter(t)
 	started := startCharacter(t, router, session)
 	writeCharacterFloor(t, router, session, started)
-	custom := addedBlock(t, addBlock(t, router, session, started.ID, "custom_section", "text_set"))
+	custom := addedBlock(t, addBlock(t, router, session, started.ID, "custom_block", "text_set"))
 	if response := publishAsset(t, router, session, started.ID); response.Code != http.StatusOK {
 		t.Fatalf("publish status = %d: %s", response.Code, response.Body.String())
 	}

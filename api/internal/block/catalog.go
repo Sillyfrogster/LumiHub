@@ -28,7 +28,7 @@ const (
 	Attributes        DefinitionID = "attributes"
 	AuthorNotes       DefinitionID = "author_notes"
 	RunsBestWith      DefinitionID = "runs_best_with"
-	CustomBlock       DefinitionID = "custom_section"
+	CustomBlock       DefinitionID = "custom_block"
 )
 
 // Group identifies where a block's content belongs.
