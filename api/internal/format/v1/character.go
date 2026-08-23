@@ -10,6 +10,7 @@ import (
 	"github.com/Sillyfrogster/Illarin/api/internal/block"
 	"github.com/Sillyfrogster/Illarin/api/internal/format"
 	"github.com/Sillyfrogster/Illarin/api/internal/format/book"
+	"github.com/Sillyfrogster/Illarin/api/internal/media"
 	"github.com/google/uuid"
 )
 
@@ -17,6 +18,11 @@ const (
 	characterNamespace     = "card"
 	characterBookNamespace = "character_book"
 )
+
+// LiftedNamespaces are LumiHub's own display keys, which sit inside creators'
+// extensions against ADR-0007. Migration lifts them out rather than preserving
+// them, so a creator's download stops carrying somebody else's bookkeeping.
+func LiftedNamespaces() []string { return append([]string(nil), liftedNamespaces...) }
 
 var liftedNamespaces = []string{
 	"lumihub_art_display",
@@ -83,12 +89,15 @@ func readCharacter(row CharacterRow, recovery *CharacterRecovery) (readResult, e
 	if bookRead {
 		elements = append(elements, bookElement)
 	}
-	cover, media, imageElements, assetsConsumed, recoveredNames, err := readCharacterImages(row.Images, row.Assets)
+	cover, sources, imageElements, assetsConsumed, recoveredNames, err := readCharacterImages(row.Images, row.Assets)
 	if err != nil {
 		return readResult{}, err
 	}
 	if recoveredNames > 0 {
 		events = append(events, Event{Kind: RecoveredGalleryNames, Count: recoveredNames})
+	}
+	if !assetsConsumed && carriesAssetDescriptors(row.Assets) {
+		events = append(events, Event{Kind: GalleryAssetsMismatch, Count: 1})
 	}
 	elements = append(elements, imageElements...)
 	remainder := append(bookRemainder, characterRemainder(row, bookRead, assetsConsumed, len(imageElements) > 0)...)
@@ -103,7 +112,7 @@ func readCharacter(row CharacterRow, recovery *CharacterRecovery) (readResult, e
 			CreditedAuthor: row.Creator, Nickname: row.Nickname,
 		},
 		Elements: elements, Remainder: remainder,
-	}, cover: cover, media: media, events: events}, nil
+	}, cover: cover, media: sources, events: events}, nil
 }
 
 func readCharacterBook(raw json.RawMessage) (block.Element, []format.Remainder, bool) {
@@ -161,7 +170,7 @@ func readCharacterImages(
 	assetsConsumed, recoveredNames := recoverGalleryNames(rows, plainGallery, assets)
 
 	var cover *SourceMedia
-	media := make([]SourceMedia, 0, len(rows))
+	sources := make([]SourceMedia, 0, len(rows))
 	expressions := make([]block.ImageItem, 0)
 	gallery := make([]block.ImageItem, 0)
 	for _, row := range rows {
@@ -171,21 +180,24 @@ func readCharacterImages(
 		}
 		switch row.Type {
 		case "avatar":
+			source.Role = media.Avatar
 			copy := source
 			cover = &copy
 			continue
 		case "expression":
+			source.Role = media.Expression
 			expressions = append(expressions, block.ImageItem{
 				ID: block.NewItemID(), MediaID: source.MediaID, Name: source.Name,
 			})
 		case "gallery", "avatar_alt", "perspective_layer":
+			source.Role = media.Gallery
 			gallery = append(gallery, block.ImageItem{
 				ID: block.NewItemID(), MediaID: source.MediaID, Name: source.Name,
 			})
 		default:
 			return nil, nil, nil, false, 0, fmt.Errorf("v1 character image type %q is not declared", row.Type)
 		}
-		media = append(media, source)
+		sources = append(sources, source)
 	}
 	elements := make([]block.Element, 0, 2)
 	if len(expressions) > 0 {
@@ -200,7 +212,7 @@ func readCharacterImages(
 			Content: block.ImageSet{Images: gallery},
 		})
 	}
-	return cover, media, elements, assetsConsumed, recoveredNames, nil
+	return cover, sources, elements, assetsConsumed, recoveredNames, nil
 }
 
 func recoverGalleryNames(rows []CharacterImageRow, gallery []int, raw json.RawMessage) (bool, int) {
@@ -226,6 +238,16 @@ func recoverGalleryNames(rows []CharacterImageRow, gallery []int, raw json.RawMe
 		rows[gallery[i]].Label = descriptor.Name
 	}
 	return true, len(assets)
+}
+
+// carriesAssetDescriptors reports a CCv3 asset array with entries in it, which
+// is the only case where failing to line up loses a creator something.
+func carriesAssetDescriptors(raw json.RawMessage) bool {
+	if len(raw) == 0 || string(raw) == "null" {
+		return false
+	}
+	var descriptors []json.RawMessage
+	return json.Unmarshal(raw, &descriptors) == nil && len(descriptors) > 0
 }
 
 func characterRemainder(

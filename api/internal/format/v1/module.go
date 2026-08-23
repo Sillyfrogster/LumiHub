@@ -8,6 +8,7 @@ import (
 
 	"github.com/Sillyfrogster/Illarin/api/internal/block"
 	"github.com/Sillyfrogster/Illarin/api/internal/format"
+	"github.com/Sillyfrogster/Illarin/api/internal/media"
 	"github.com/google/uuid"
 )
 
@@ -136,6 +137,9 @@ type Row interface {
 	common() CommonRow
 }
 
+// Common returns the columns every kind of v1 row shares.
+func Common(row Row) CommonRow { return row.common() }
+
 type Result struct {
 	AssetID           uuid.UUID
 	OwnerID           uuid.UUID
@@ -165,6 +169,8 @@ type EventKind string
 const (
 	RecoveredAlternateGreeting EventKind = "recovered_alternate_greeting"
 	RecoveredGalleryNames      EventKind = "recovered_gallery_names"
+	GalleryAssetsMismatch      EventKind = "gallery_assets_mismatch"
+	MissingThemeStatusColors   EventKind = "missing_theme_status_colors"
 )
 
 type Event struct {
@@ -182,6 +188,7 @@ const (
 type ExternalMedia struct {
 	Owner   ExternalOwner
 	OwnerID uuid.UUID
+	Role    media.Role
 	URL     string
 }
 
@@ -219,6 +226,7 @@ type CharacterImageRow struct {
 type SourceMedia struct {
 	SourceID  uuid.UUID
 	MediaID   uuid.UUID
+	Role      media.Role
 	Path      string
 	MediaType string
 	ByteSize  int
@@ -310,7 +318,7 @@ func (module Module) Read(ctx context.Context, row Row) (Result, error) {
 	cover := read.cover
 	if cover == nil && common.ImagePath != "" && read.parsed.Kind != CharacterKind {
 		cover = &SourceMedia{
-			SourceID: common.ID, MediaID: uuid.New(), Path: common.ImagePath,
+			SourceID: common.ID, MediaID: uuid.New(), Role: media.Avatar, Path: common.ImagePath,
 		}
 	}
 	return Result{

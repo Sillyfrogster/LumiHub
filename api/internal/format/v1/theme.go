@@ -56,7 +56,11 @@ func readTheme(ctx context.Context, row ThemeRow) (readResult, error) {
 		})
 	}
 	parsed.Remainder = stripRemainderKeys(parsed.Remainder, theme.LumiverseID, "name", "description")
-	return readResult{parsed: parsed}, nil
+	events := make([]Event, 0, 1)
+	if _, present := config["statusColors"]; !present {
+		events = append(events, Event{Kind: MissingThemeStatusColors, Count: 1})
+	}
+	return readResult{parsed: parsed, events: events}, nil
 }
 
 func readThemeFonts(body []byte) ([]block.StylesheetAsset, error) {

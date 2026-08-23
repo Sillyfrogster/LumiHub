@@ -9,6 +9,7 @@ import (
 	"github.com/Sillyfrogster/Illarin/api/internal/block"
 	"github.com/Sillyfrogster/Illarin/api/internal/format"
 	packformat "github.com/Sillyfrogster/Illarin/api/internal/format/pack"
+	"github.com/Sillyfrogster/Illarin/api/internal/media"
 	"github.com/Sillyfrogster/Illarin/api/internal/probe"
 )
 
@@ -41,7 +42,7 @@ func readPack(ctx context.Context, row PackRow) (readResult, error) {
 
 	external := make([]ExternalMedia, 0)
 	if row.CoverURL != "" {
-		external = append(external, ExternalMedia{Owner: ExternalCover, URL: row.CoverURL})
+		external = append(external, ExternalMedia{Owner: ExternalCover, Role: media.Avatar, URL: row.CoverURL})
 	}
 	list, ok := packRecords(parsed.Elements)
 	if !ok {
@@ -56,7 +57,8 @@ func readPack(ctx context.Context, row PackRow) (readResult, error) {
 	for i, item := range items {
 		if item.AvatarURL != "" {
 			external = append(external, ExternalMedia{
-				Owner: ExternalPackItem, OwnerID: list.Records[i].ID, URL: item.AvatarURL,
+				Owner: ExternalPackItem, OwnerID: list.Records[i].ID,
+				Role: media.PackItem, URL: item.AvatarURL,
 			})
 		}
 	}
