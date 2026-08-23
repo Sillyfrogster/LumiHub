@@ -501,7 +501,13 @@ paths:
           name: kind
           in: query
           schema: { type: string, enum: [character, lorebook, preset, theme, pack] }
-        - { name: platform, in: query, schema: { type: string } }
+        -
+          name: platform
+          in: query
+          description: >-
+            An app, from the platforms list. An app matches an asset when any
+            of the asset's offered download formats is one that app reads.
+          schema: { type: string }
         -
           name: creator
           in: query
@@ -515,7 +521,14 @@ paths:
             blurbs. Repeat tag: to require every tag; one author: qualifier may
             narrow the creator. Quote qualifier values that contain spaces.
           schema: { type: string }
-        - { name: facet, in: query, schema: { type: array, items: { type: string } } }
+        -
+          name: facet
+          in: query
+          description: >-
+            Repeat key=value, taking the keys and values from the facets list.
+            Two values of one key widen the result; two keys narrow it. A key
+            or value the kind does not declare is ignored.
+          schema: { type: array, items: { type: string } }
         -
           name: nsfw
           in: query

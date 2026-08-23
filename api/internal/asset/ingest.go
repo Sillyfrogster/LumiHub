@@ -94,7 +94,6 @@ type preparedIngest struct {
 	Tags      []string
 	IsNSFW    bool
 	Discovery Discovery
-	Facets    []format.Facet
 	Blocks    []block.Block
 	Header    format.Header
 	Remainder []format.Remainder
@@ -376,8 +375,8 @@ func prepareIngest(job ingestJob, parsed format.Parsed) (preparedIngest, error) 
 	return preparedIngest{
 		Kind: kind, Format: parsed.Format,
 		Name: name, Blurb: blurb, Tags: tags, IsNSFW: isNSFW,
-		Discovery: job.Discovery, Facets: parsed.Facets,
-		Header: parsed.Header, Remainder: parsed.Remainder, CreatedAt: parsed.CreatedAt,
+		Discovery: job.Discovery,
+		Header:    parsed.Header, Remainder: parsed.Remainder, CreatedAt: parsed.CreatedAt,
 	}, nil
 }
 
@@ -522,7 +521,7 @@ func (s *Service) writeIngestResult(
 			prepared.Header.CreditedAuthor, prepared.Header.Nickname); err != nil {
 			return uuid.Nil, fmt.Errorf("move asset origin: %w", err)
 		}
-		if err := s.writeExportProjection(ctx, tx, job.Target.AssetID); err != nil {
+		if err := s.writeProjections(ctx, tx, job.Target.AssetID); err != nil {
 			return uuid.Nil, err
 		}
 		if err := s.moveContentGeneration(ctx, tx, job.Target.AssetID, fingerprint); err != nil {
@@ -553,7 +552,7 @@ func (s *Service) writeIngestResult(
 	if err := writeRevision(ctx, tx, assetID, 1, job, prepared); err != nil {
 		return uuid.Nil, err
 	}
-	return assetID, s.writeExportProjection(ctx, tx, assetID)
+	return assetID, s.writeProjections(ctx, tx, assetID)
 }
 
 // replacePreservedData replaces preserved fields for the asset, its elements,
@@ -643,9 +642,6 @@ func writeRevision(
 		Revision: number, BlobID: job.BlobID, MediaType: prepared.MediaType,
 		Format: prepared.Format,
 	}); err != nil {
-		return err
-	}
-	if err := insertFacets(ctx, tx, revisionID, prepared.Facets); err != nil {
 		return err
 	}
 	if err := supersedeExtractedMedia(ctx, tx, assetID); err != nil {

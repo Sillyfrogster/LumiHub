@@ -52,14 +52,21 @@ func main() {
 	}
 
 	svc := asset.NewServiceForSite(pool, registry, blob, cfg.ProbeLimits, cfg.SiteURL)
-	// Changing what a format declares is a deploy, so the deploy is what
-	// recomputes the loss reports the declaration invalidated.
+	// Changing what a format declares or what the facet catalog holds is a
+	// deploy, so the deploy is what recomputes the sections it invalidated.
 	recomputed, err := svc.RecomputeStaleExportProjections(context.Background())
 	if err != nil {
 		log.Fatalf("export projections: %v", err)
 	}
 	if recomputed > 0 {
 		log.Printf("recomputed the export projection for %d assets", recomputed)
+	}
+	remeasured, err := svc.RecomputeStaleFacetProjections(context.Background())
+	if err != nil {
+		log.Fatalf("facet projections: %v", err)
+	}
+	if remeasured > 0 {
+		log.Printf("recomputed the facet projection for %d assets", remeasured)
 	}
 	go svc.RunIngestWorkers(context.Background(), cfg.IngestWorkers, func(err error) {
 		log.Printf("ingest worker: %v", err)

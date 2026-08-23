@@ -9,10 +9,14 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/block"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
+	"github.com/Sillyfrogster/LumiHub/api/internal/format/character"
 	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type browseModule struct{}
@@ -28,39 +32,20 @@ func (browseModule) Claim(file probe.Inspection) (format.Claim, bool) {
 	return format.CompatibilityClaim(file.Payloads[0]), true
 }
 func (browseModule) Parse(_ context.Context, file probe.Inspection, _ format.Claim) (format.Parsed, error) {
-	tone := "gentle"
-	if declared, ok := file.Payloads[0].String("tone"); ok {
-		tone = declared
+	elements := []block.Element{
+		{Type: block.TypeProse, Role: block.RoleDescription, Content: block.Prose{Text: "Test description"}},
+		{Type: block.TypeTextSet, Role: block.RoleGreetings, Content: block.TextSet{Texts: []block.TextItem{{ID: block.NewItemID(), Text: "Hello"}}}},
 	}
-	return format.Parsed{
-		Kind: "character", Format: "browse_card",
-		Facets: []format.Facet{{Key: "tone", Value: tone}, {Key: "client_feature", Value: "lorebook"}},
-		Elements: []block.Element{
-			{Type: block.TypeProse, Role: block.RoleDescription, Content: block.Prose{Text: "Test description"}},
-			{Type: block.TypeTextSet, Role: block.RoleGreetings, Content: block.TextSet{Texts: []block.TextItem{{ID: block.NewItemID(), Text: "Hello"}}}},
-		},
-	}, nil
-}
-func (browseModule) BrowseDefinition() format.BrowseDefinition {
-	return format.BrowseDefinition{
-		Kind: "character",
-		ExportTargets: []format.BrowseOption{
-			{Value: "sillytavern", Label: "SillyTavern"},
-		},
-		Facets: []format.BrowseFacet{
-			{
-				Key: "tone", Label: "Tone",
-				Options: []format.BrowseOption{
-					{Value: "gentle", Label: "Gentle"},
-					{Value: "dramatic", Label: "Dramatic"},
-				},
-			},
-			{
-				Key: "client_feature", Label: "SillyTavern features", Platforms: []string{"sillytavern"},
-				Options: []format.BrowseOption{{Value: "lorebook", Label: "Embedded lorebook"}},
-			},
-		},
+	if entries, ok := file.Payloads[0].String("lorebook"); ok {
+		elements = append(elements, block.Element{
+			Type: block.TypeEntryTable, Role: block.RoleLorebookEntries,
+			Content: block.EntryTable{Entries: []block.Entry{{
+				ID: block.NewItemID(), Name: entries, Keys: []string{entries},
+				Text: entries, Enabled: true,
+			}}},
+		})
 	}
+	return format.Parsed{Kind: "character", Format: "browse_card", Elements: elements}, nil
 }
 
 func TestBrowseReturnsOnlyCardContentAndTheReadersEffectiveCount(t *testing.T) {
@@ -191,7 +176,60 @@ func TestBrowseSearchUsesCatalogWordsAndItsTwoQualifiers(t *testing.T) {
 	}
 }
 
-func TestBrowseFacetsComeFromModulesAndAppearOnlyInTheirScope(t *testing.T) {
+type browseOption struct {
+	Value    string `json:"value"`
+	Label    string `json:"label"`
+	Count    int    `json:"count"`
+	Selected bool   `json:"selected"`
+}
+
+type browseFacetGroup struct {
+	Key     string         `json:"key"`
+	Label   string         `json:"label"`
+	Options []browseOption `json:"options"`
+}
+
+type browseReading struct {
+	Names     []string
+	Platforms []browseOption
+	Facets    []browseFacetGroup
+}
+
+func readBrowse(t *testing.T, router http.Handler, path string) browseReading {
+	t.Helper()
+	response := send(t, router, httptest.NewRequest(http.MethodGet, path, nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("browse %s status = %d: %s", path, response.Code, response.Body.String())
+	}
+	var body struct {
+		Items []struct {
+			Name string `json:"name"`
+		} `json:"items"`
+		Platforms []browseOption     `json:"platforms"`
+		Facets    []browseFacetGroup `json:"facets"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode browse response: %v", err)
+	}
+	reading := browseReading{Platforms: body.Platforms, Facets: body.Facets}
+	for _, item := range body.Items {
+		reading.Names = append(reading.Names, item.Name)
+	}
+	return reading
+}
+
+func facetGroup(t *testing.T, groups []browseFacetGroup, key string) browseFacetGroup {
+	t.Helper()
+	for _, group := range groups {
+		if group.Key == key {
+			return group
+		}
+	}
+	t.Fatalf("no %s facet among %+v", key, groups)
+	return browseFacetGroup{}
+}
+
+func TestFacetsAreKindScopedAndFilterOnElementContent(t *testing.T) {
 	registry := format.NewRegistry()
 	if err := registry.Register(browseModule{}); err != nil {
 		t.Fatalf("register browse module: %v", err)
@@ -199,64 +237,237 @@ func TestBrowseFacetsComeFromModulesAndAppearOnlyInTheirScope(t *testing.T) {
 	router, session, assets := newVerifiedIngestRouter(t, registry)
 	metadata := exampleMetadata("Aster")
 	metadata["filename"] = "aster.json"
-	uploadAndFinish(t, router, session, assets, metadata, []byte(`{"card":true}`))
+	uploadAndFinish(t, router, session, assets, metadata, []byte(`{"card":true,"lorebook":"Ash"}`))
 	metadata = exampleMetadata("Storm")
 	metadata["filename"] = "storm.json"
-	uploadAndFinish(t, router, session, assets, metadata, []byte(`{"tone":"dramatic"}`))
+	uploadAndFinish(t, router, session, assets, metadata, []byte(`{"card":true}`))
 
-	type option struct {
-		Value    string `json:"value"`
-		Count    int    `json:"count"`
-		Selected bool   `json:"selected"`
-	}
-	type facet struct {
-		Key     string   `json:"key"`
-		Options []option `json:"options"`
-	}
-	read := func(path string) (platforms []option, facets []facet, names []string) {
-		t.Helper()
-		response := send(t, router, httptest.NewRequest(http.MethodGet, path, nil))
-		if response.Code != http.StatusOK {
-			t.Fatalf("browse %s status = %d: %s", path, response.Code, response.Body.String())
-		}
-		var body struct {
-			Items []struct {
-				Name string `json:"name"`
-			} `json:"items"`
-			Platforms []option `json:"platforms"`
-			Facets    []facet  `json:"facets"`
-		}
-		if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
-			t.Fatalf("decode browse response: %v", err)
-		}
-		for _, item := range body.Items {
-			names = append(names, item.Name)
-		}
-		return body.Platforms, body.Facets, names
+	mixed := readBrowse(t, router, "/v1/assets")
+	if len(mixed.Facets) != 0 {
+		t.Fatalf("the mixed catalog offered %+v, want no facets", mixed.Facets)
 	}
 
-	platforms, facets, _ := read("/v1/assets")
-	if len(platforms) < 2 || len(facets) != 0 {
-		t.Fatalf("all catalog platforms = %#v, facets = %#v; want raw and declared platforms, no facets", platforms, facets)
+	scoped := readBrowse(t, router, "/v1/assets?kind=character")
+	keys := make([]string, 0, len(scoped.Facets))
+	for _, group := range scoped.Facets {
+		keys = append(keys, group.Key)
 	}
-	_, facets, _ = read("/v1/assets?kind=character")
-	if len(facets) != 1 || facets[0].Key != "tone" || len(facets[0].Options) != 2 {
-		t.Fatalf("character facets = %#v, want only the two-option tone vocabulary", facets)
+	want := []string{"lorebook", "alternate_greetings", "expressions", "gallery"}
+	if !slices.Equal(keys, want) {
+		t.Fatalf("character facets = %v, want %v", keys, want)
 	}
-	if facets[0].Options[0].Count != 1 || facets[0].Options[1].Count != 1 {
-		t.Errorf("tone counts = %#v, want one gentle and one dramatic", facets[0].Options)
+	lorebook := facetGroup(t, scoped.Facets, "lorebook")
+	if lorebook.Options[0].Count != 1 || lorebook.Options[1].Count != 1 {
+		t.Errorf("lorebook counts = %+v, want one carrying and one not", lorebook.Options)
 	}
-	_, facets, names := read("/v1/assets?kind=character&platform=sillytavern&facet=tone=gentle")
-	if len(facets) != 2 || !facets[0].Options[0].Selected || !slices.Equal(names, []string{"Aster"}) {
-		t.Fatalf("scoped facets = %#v, names = %v", facets, names)
+
+	carried := readBrowse(t, router, "/v1/assets?kind=character&facet=lorebook%3Dtrue")
+	if !slices.Equal(carried.Names, []string{"Aster"}) {
+		t.Fatalf("assets with a lorebook = %v, want Aster", carried.Names)
 	}
-	if facets[0].Options[1].Count != 0 {
-		t.Fatalf("dramatic count after selecting gentle = %d, want 0 for conjunctive selection",
-			facets[0].Options[1].Count)
+	none := readBrowse(t, router, "/v1/assets?kind=character&facet=lorebook%3Dfalse")
+	if !slices.Equal(none.Names, []string{"Storm"}) {
+		t.Fatalf("assets with no lorebook = %v, want Storm", none.Names)
 	}
-	_, _, names = read("/v1/assets?kind=character&platform=lumiverse")
-	if len(names) != 0 {
-		t.Fatalf("unsupported platform returned %v", names)
+}
+
+func TestArrangingThePageChangesNoFilterResult(t *testing.T) {
+	r, session, assets, _ := newCharacterIngestRouterWithPool(t)
+	assetID := uploadedCharacterID(t, r, session, assets, aPlainCard)
+	givePictures(t, r, session, assetID, "gallery", "gallery")
+	publishCharacter(t, r, session, assetID)
+
+	before := readBrowse(t, r, "/v1/assets?kind=character&facet=gallery%3Dtrue")
+	if !slices.Equal(before.Names, []string{"Ana"}) {
+		t.Fatalf("a gallery answered %v, want Ana", before.Names)
+	}
+
+	page := fetchStartedAsset(t, r, session, assetID)
+	gallery := blockNamed(t, page.Blocks, "gallery")
+	messagesBlock := blockNamed(t, page.Blocks, "messages")
+
+	renamed := editableBlock(gallery)
+	title := "Concept art"
+	renamed.Title = &title
+	if response := saveBlock(t, r, session, assetID, gallery.ID, renamed); response.Code != http.StatusOK {
+		t.Fatalf("rename the gallery: %d %s", response.Code, response.Body.String())
+	}
+	reordered := arrangeBlocks(t, r, session, assetID, []arrangedBlock{
+		{ID: gallery.ID, Width: gallery.Width},
+		{ID: messagesBlock.ID, Width: messagesBlock.Width},
+		{ID: blockNamed(t, page.Blocks, "character_core").ID, Width: "full"},
+	})
+	if reordered.Code != http.StatusOK {
+		t.Fatalf("reorder the page: %d %s", reordered.Code, reordered.Body.String())
+	}
+
+	messages := editableBlock(messagesBlock)
+	messages.Layout = "stack-3"
+	messages.Elements[0].Slot = "top"
+	messages.Elements[1].Slot = "middle"
+	if response := saveBlock(t, r, session, assetID, messagesBlock.ID, messages); response.Code != http.StatusOK {
+		t.Fatalf("make room in Messages: %d %s", response.Code, response.Body.String())
+	}
+	move := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/assets/"+assetID+"/blocks/"+gallery.ID+"/move-and-remove",
+		strings.NewReader(`{"destinationBlockId":"`+messagesBlock.ID+`"}`),
+	)
+	move.Header.Set("Content-Type", "application/json")
+	if moved := send(t, r, authorized(move, session)); moved.Code != http.StatusOK {
+		t.Fatalf("move the gallery into Messages: %d %s", moved.Code, moved.Body.String())
+	}
+
+	after := readBrowse(t, r, "/v1/assets?kind=character&facet=gallery%3Dtrue")
+	if !slices.Equal(after.Names, before.Names) {
+		t.Fatalf("arranging the page changed the filter result to %v, want %v", after.Names, before.Names)
+	}
+}
+
+func TestContentInsideACustomSectionAnswersNoFacet(t *testing.T) {
+	router, session := newVerifiedTestRouter(t)
+	started := startCharacter(t, router, session)
+	writeCharacterFloor(t, router, session, started)
+	custom := addedBlock(t, addBlock(t, router, session, started.ID, "custom_section", "text_set"))
+	if response := publishAsset(t, router, session, started.ID); response.Code != http.StatusOK {
+		t.Fatalf("publish status = %d: %s", response.Code, response.Body.String())
+	}
+
+	body := editableBlock(custom)
+	body.Elements[0].Content = json.RawMessage(
+		`{"texts":[{"text":"One"},{"text":"Two"},{"text":"Three"}]}`,
+	)
+	if response := saveBlock(t, router, session, started.ID, custom.ID, body); response.Code != http.StatusOK {
+		t.Fatalf("save the custom section status = %d: %s", response.Code, response.Body.String())
+	}
+
+	for _, bucket := range []string{"1", "2-4", "5-up"} {
+		found := readBrowse(t, router, "/v1/assets?kind=character&facet=alternate_greetings%3D"+bucket)
+		if len(found.Names) != 0 {
+			t.Fatalf("a heading the creator invented answered bucket %q: %v", bucket, found.Names)
+		}
+	}
+}
+
+func TestAnEmptySectionNeverAnswersAsCarried(t *testing.T) {
+	r, session, assets, _ := newCharacterIngestRouterWithPool(t)
+	assetID := uploadedCharacterID(t, r, session, assets, aPlainCard)
+	addedBlock(t, addBlock(t, r, session, assetID, "expressions", "image_set"))
+	publishCharacter(t, r, session, assetID)
+
+	carried := readBrowse(t, r, "/v1/assets?kind=character&facet=expressions%3Dtrue")
+	if len(carried.Names) != 0 {
+		t.Fatalf("an empty expression set answered as carried: %v", carried.Names)
+	}
+	none := readBrowse(t, r, "/v1/assets?kind=character&facet=expressions%3Dfalse")
+	if !slices.Equal(none.Names, []string{"Ana"}) {
+		t.Fatalf("an empty expression set answered %v, want the none bucket", none.Names)
+	}
+}
+
+func TestThePlatformControlNamesAppsAndMatchesThroughOfferedTargets(t *testing.T) {
+	registry := format.NewRegistry()
+	for _, module := range character.Modules() {
+		if err := registry.Register(module); err != nil {
+			t.Fatalf("register %s: %v", module.ID(), err)
+		}
+	}
+	router, session, assets := newVerifiedIngestRouter(t, registry)
+	metadata := exampleMetadata("Ana")
+	metadata["filename"] = "ana.json"
+	uploadAndFinish(t, router, session, assets, metadata, []byte(`{
+		"spec":"chara_card_v3","spec_version":"3.0",
+		"data":{"name":"Ana","description":"Keeps the archive.","first_mes":"Welcome back."}
+	}`))
+
+	all := readBrowse(t, router, "/v1/assets")
+	labels := make([]string, 0, len(all.Platforms))
+	for _, option := range all.Platforms {
+		labels = append(labels, option.Label)
+	}
+	if !slices.Equal(labels, []string{"SillyTavern", "RisuAI", "Lumiverse"}) {
+		t.Fatalf("the platform control offered %v, want the apps Illarin names", labels)
+	}
+	for _, option := range all.Platforms {
+		if option.Count != 1 {
+			t.Errorf("%s count = %d, want the card every named app can open", option.Label, option.Count)
+		}
+	}
+
+	named := readBrowse(t, router, "/v1/assets?platform=sillytavern")
+	if !slices.Equal(named.Names, []string{"Ana"}) {
+		t.Fatalf("SillyTavern returned %v, want Ana", named.Names)
+	}
+	unknown := readBrowse(t, router, "/v1/assets?platform=notepad")
+	if len(unknown.Names) != 0 {
+		t.Fatalf("an app Illarin does not name returned %v", unknown.Names)
+	}
+}
+
+func facetComputedAt(t *testing.T, pool *pgxpool.Pool, assetID string) time.Time {
+	t.Helper()
+	var computedAt time.Time
+	if err := pool.QueryRow(context.Background(), `
+		select facet_computed_at from asset_projections where asset_id = $1
+	`, assetID).Scan(&computedAt); err != nil {
+		t.Fatalf("read the facet projection: %v", err)
+	}
+	return computedAt
+}
+
+func TestAHiddenSectionAnswersNoFacetAndStillExports(t *testing.T) {
+	r, session, assets, pool := newCharacterIngestRouterWithPool(t)
+	assetID := uploadedCharacterID(t, r, session, assets, aPlainCard)
+	giveExpressions(t, r, session, assetID)
+	publishCharacter(t, r, session, assetID)
+
+	shown := readBrowse(t, r, "/v1/assets?kind=character&facet=expressions%3Dtrue")
+	if !slices.Equal(shown.Names, []string{"Ana"}) {
+		t.Fatalf("a shown expression set answered %v, want Ana", shown.Names)
+	}
+
+	exportedAt := projectionComputedAt(t, pool, assetID)
+	measuredAt := facetComputedAt(t, pool, assetID)
+	generation := contentGeneration(t, pool, assetID)
+
+	page := fetchStartedAsset(t, r, session, assetID)
+	arrangement := make([]arrangedBlock, 0, len(page.Blocks))
+	for _, holder := range page.Blocks {
+		arrangement = append(arrangement, arrangedBlock{
+			ID: holder.ID, Hidden: holder.Definition == "expressions", Width: holder.Width,
+		})
+	}
+	if hidden := arrangeBlocks(t, r, session, assetID, arrangement); hidden.Code != http.StatusOK {
+		t.Fatalf("hide the expressions: %d %s", hidden.Code, hidden.Body.String())
+	}
+
+	if after := projectionComputedAt(t, pool, assetID); !after.Equal(exportedAt) {
+		t.Error("hiding a section moved the export section of the projection")
+	}
+	if after := facetComputedAt(t, pool, assetID); !after.After(measuredAt) {
+		t.Error("hiding a section left the facet section of the projection alone")
+	}
+	if after := contentGeneration(t, pool, assetID); after != generation {
+		t.Errorf("content generation = %d, want %d after a hide", after, generation)
+	}
+
+	carried := readBrowse(t, r, "/v1/assets?kind=character&facet=expressions%3Dtrue")
+	if len(carried.Names) != 0 {
+		t.Fatalf("a hidden expression set still answered the facet: %v", carried.Names)
+	}
+	none := readBrowse(t, r, "/v1/assets?kind=character&facet=expressions%3Dfalse")
+	if !slices.Equal(none.Names, []string{"Ana"}) {
+		t.Fatalf("a hidden expression set answered %v, want the none bucket", none.Names)
+	}
+
+	export, err := assets.OpenExport(
+		context.Background(), uuid.MustParse(assetID), nil, "chara_card_v3",
+	)
+	if err != nil {
+		t.Fatalf("export a card with a hidden section: %v", err)
+	}
+	if !containsBytes(export.Body, []byte("happy")) {
+		t.Fatal("a hidden section's content did not travel in the download")
 	}
 }
 

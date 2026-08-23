@@ -2975,11 +2975,13 @@ export interface operations {
     parameters: {
       query?: {
         kind?: "character" | "lorebook" | "preset" | "theme" | "pack";
+        /** @description An app, from the platforms list. An app matches an asset when any of the asset's offered download formats is one that app reads. */
         platform?: string;
         /** @description Scope the listing to one creator's public profile. */
         creator?: string;
         /** @description One search expression. Bare text matches names, creator handles and blurbs. Repeat tag: to require every tag; one author: qualifier may narrow the creator. Quote qualifier values that contain spaces. */
         q?: string;
+        /** @description Repeat key=value, taking the keys and values from the facets list. Two values of one key widen the result; two keys narrow it. A key or value the kind does not declare is ignored. */
         facet?: string[];
         /** @description The reader's presentation preference. Browse page URLs keep this preference out of their own query string. */
         nsfw?: "hidden" | "blurred" | "shown";

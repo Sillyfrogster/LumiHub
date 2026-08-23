@@ -16,12 +16,6 @@ func (CCv2Module) ID() string { return V2 }
 
 func (CCv2Module) Declaration() format.Declaration { return declaration(V2) }
 
-func (m CCv2Module) BrowseDefinition() format.BrowseDefinition {
-	return browseDefinition(m.ExportTargets())
-}
-
-func (CCv2Module) ExportTargets() []format.BrowseOption { return exportTargets() }
-
 func (m CCv2Module) Claim(file probe.Inspection) (format.Claim, bool) {
 	return format.ClaimByDeclaration(file, m.Declaration())
 }

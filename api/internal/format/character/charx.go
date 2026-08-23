@@ -26,12 +26,6 @@ func (CharXModule) Declaration() format.Declaration { return declaration(CharX) 
 
 func (CharXModule) OwnedSpecs() []string { return []string{V3} }
 
-func (m CharXModule) BrowseDefinition() format.BrowseDefinition {
-	return browseDefinition(m.ExportTargets())
-}
-
-func (CharXModule) ExportTargets() []format.BrowseOption { return exportTargets() }
-
 func (m CharXModule) Claim(file probe.Inspection) (format.Claim, bool) {
 	return format.ClaimByDeclaration(file, m.Declaration())
 }

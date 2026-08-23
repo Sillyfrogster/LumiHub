@@ -1,176 +1,223 @@
 package asset
 
 import (
-	"bytes"
 	"context"
 	"testing"
 
+	"github.com/Sillyfrogster/LumiHub/api/internal/block"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
-	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
-	"github.com/Sillyfrogster/LumiHub/api/internal/testdb"
 	"github.com/google/uuid"
 )
 
-/** A module that always emits the facets it was built with */
-type facetModule struct {
+type roleModule struct {
 	claimsFirstPayload
-	facets []format.Facet
+	kind     string
+	elements []block.Element
 }
 
-func (facetModule) ID() string { return "facets" }
-func (facetModule) Declaration() format.Declaration {
-	return testReaderDeclaration("facets", "character")
+func (roleModule) ID() string { return "roles" }
+
+func (m roleModule) Declaration() format.Declaration {
+	declaration := testReaderDeclaration("roles", m.kind)
+	declaration.Kind = m.kind
+	return declaration
 }
-func (m facetModule) Parse(context.Context, probe.Inspection, format.Claim) (format.Parsed, error) {
-	return format.Parsed{Kind: "character", Format: "facets", Facets: m.facets}, nil
+
+func (m roleModule) Parse(context.Context, probe.Inspection, format.Claim) (format.Parsed, error) {
+	return format.Parsed{Kind: m.kind, Format: "roles", Elements: m.elements}, nil
 }
 
-func TestListMatchesEveryRequestedFacet(t *testing.T) {
-	pool := testdb.Connect(t)
-	blob, _ := storage.NewStore(pool, t.TempDir())
-
-	reg := registryWithModule(t, facetModule{facets: []format.Facet{
-		{Key: "pack_type", Value: "lumia"},
-		{Key: "has_expressions", Value: "true"},
-	}})
-	svc := NewService(pool, reg, blob)
-
-	if _, err := svc.Create(context.Background(), CreateInput{
-		OwnerID: uuid.New(), Kind: "preset", Filename: "p.json",
-		File: bytes.NewReader([]byte("{}")), Name: "Pack", Discovery: "listed",
-	}); err != nil {
-		t.Fatalf("create: %v", err)
+func textSet(role block.Role, texts ...string) block.Element {
+	items := make([]block.TextItem, len(texts))
+	for i, text := range texts {
+		items[i] = block.TextItem{ID: uuid.New(), Text: text}
 	}
+	return block.Element{Type: block.TypeTextSet, Role: role, Content: block.TextSet{Texts: items}}
+}
 
-	matching, err := svc.List(context.Background(), ListFilter{
-		Limit:  50,
-		Facets: []format.Facet{{Key: "pack_type", Value: "lumia"}},
-	})
+func entryTable(role block.Role, names ...string) block.Element {
+	entries := make([]block.Entry, len(names))
+	for i, name := range names {
+		entries[i] = block.Entry{
+			ID: uuid.New(), Name: name, Keys: []string{name},
+			Text: name, Enabled: true,
+		}
+	}
+	return block.Element{
+		Type: block.TypeEntryTable, Role: role,
+		Content: block.EntryTable{Entries: entries},
+	}
+}
+
+func publishedWithElements(
+	t *testing.T,
+	kind string,
+	elements []block.Element,
+) (*Service, uuid.UUID) {
+	t.Helper()
+	floor := []block.Element{
+		{Type: block.TypeProse, Role: block.RoleDescription, Content: block.Prose{Text: "Keeps the archive."}},
+	}
+	carriesGreetings := false
+	for _, element := range elements {
+		carriesGreetings = carriesGreetings || element.Role == block.RoleGreetings
+	}
+	if !carriesGreetings {
+		floor = append(floor, textSet(block.RoleGreetings, "Welcome back."))
+	}
+	svc, _ := newTestServiceWithRegistry(t, registryWithModule(t, roleModule{
+		kind: kind, elements: append(floor, elements...),
+	}))
+	ownerID := revisionOwner(t, svc, "facet.owner")
+	created := ingestOne(t, svc, ownerID, "asset.json", []byte(`{"payload":true}`))
+	publishImported(t, svc, ownerID, created)
+	return svc, created.ID
+}
+
+func browseWith(t *testing.T, svc *Service, f ListFilter) BrowsePage {
+	t.Helper()
+	if f.Limit == 0 {
+		f.Limit = 24
+	}
+	page, err := svc.Browse(context.Background(), f, ContentShown)
 	if err != nil {
-		t.Fatalf("List: %v", err)
+		t.Fatalf("browse: %v", err)
 	}
-	if len(matching) != 1 {
-		t.Fatalf("got %d assets for a matching facet, want 1", len(matching))
-	}
+	return page
+}
 
-	missing, err := svc.List(context.Background(), ListFilter{
-		Limit:  50,
-		Facets: []format.Facet{{Key: "pack_type", Value: "loom"}},
+func TestAFacetFiltersOnWhatTheElementsHold(t *testing.T) {
+	svc, _ := publishedWithElements(t, "character", []block.Element{
+		entryTable(block.RoleLorebookEntries, "Ash", "Bay"),
 	})
-	if err != nil {
-		t.Fatalf("List: %v", err)
+
+	carried := browseWith(t, svc, ListFilter{
+		Kind:   "character",
+		Facets: []FacetSelection{{Key: string(block.FacetLorebook), Value: "true"}},
+	})
+	if carried.Total != 1 {
+		t.Fatalf("assets with a lorebook = %d, want 1", carried.Total)
 	}
-	if len(missing) != 0 {
-		t.Fatalf("got %d assets for a facet nothing has, want 0", len(missing))
+	without := browseWith(t, svc, ListFilter{
+		Kind:   "character",
+		Facets: []FacetSelection{{Key: string(block.FacetLorebook), Value: "false"}},
+	})
+	if without.Total != 0 {
+		t.Fatalf("assets with no lorebook = %d, want 0", without.Total)
 	}
 }
 
-func TestListRequiresAllFacetsNotAny(t *testing.T) {
-	pool := testdb.Connect(t)
-	blob, _ := storage.NewStore(pool, t.TempDir())
+func TestACountFacetFiltersByItsDeclaredBuckets(t *testing.T) {
+	svc, _ := publishedWithElements(t, "character", []block.Element{
+		textSet(block.RoleGreetings, "Hello", "Hi", "Hey"),
+	})
 
-	reg := registryWithModule(t, facetModule{facets: []format.Facet{
-		{Key: "pack_type", Value: "lumia"},
-	}})
-	svc := NewService(pool, reg, blob)
-
-	if _, err := svc.Create(context.Background(), CreateInput{
-		OwnerID: uuid.New(), Kind: "preset", Filename: "p.json",
-		File: bytes.NewReader([]byte("{}")), Name: "Pack", Discovery: "listed",
-	}); err != nil {
-		t.Fatalf("create: %v", err)
+	for _, test := range []struct {
+		bucket string
+		want   int
+	}{{"1", 0}, {"2-4", 1}, {"5-up", 0}} {
+		page := browseWith(t, svc, ListFilter{
+			Kind: "character",
+			Facets: []FacetSelection{
+				{Key: string(block.FacetAlternateGreetings), Value: test.bucket},
+			},
+		})
+		if page.Total != test.want {
+			t.Errorf("bucket %q matched %d assets, want %d", test.bucket, page.Total, test.want)
+		}
 	}
+}
 
-	got, err := svc.List(context.Background(), ListFilter{
-		Limit: 50,
-		Facets: []format.Facet{
-			{Key: "pack_type", Value: "lumia"},
-			{Key: "has_expressions", Value: "true"},
+func TestTwoBucketsOfOneFacetWidenTheResultRatherThanEmptyingIt(t *testing.T) {
+	svc, _ := publishedWithElements(t, "character", []block.Element{
+		textSet(block.RoleGreetings, "Hello", "Hi", "Hey"),
+	})
+
+	page := browseWith(t, svc, ListFilter{
+		Kind: "character",
+		Facets: []FacetSelection{
+			{Key: string(block.FacetAlternateGreetings), Value: "1"},
+			{Key: string(block.FacetAlternateGreetings), Value: "2-4"},
 		},
 	})
-	if err != nil {
-		t.Fatalf("List: %v", err)
-	}
-	if len(got) != 0 {
-		t.Fatalf("got %d assets, an asset must match every facet asked for", len(got))
+	if page.Total != 1 {
+		t.Fatalf("two buckets of one facet matched %d assets, want 1", page.Total)
 	}
 }
 
-func TestFacetKeysAndValuesContainingEqualsDoNotCollide(t *testing.T) {
-	pool := testdb.Connect(t)
-	blob, err := storage.NewStore(pool, t.TempDir())
-	if err != nil {
-		t.Fatalf("storage: %v", err)
-	}
-
-	reg := registryWithModule(t, facetModule{facets: []format.Facet{
-		{Key: "a=b", Value: "c"},
-	}})
-	svc := NewService(pool, reg, blob)
-
-	if _, err := svc.Create(context.Background(), CreateInput{
-		OwnerID: uuid.New(), Kind: "character", Filename: "p.json",
-		File: bytes.NewReader([]byte("{}")), Name: "Pack", Discovery: "listed",
-	}); err != nil {
-		t.Fatalf("create: %v", err)
-	}
-
-	// A different facet that would encode to the same string if key and
-	// value were joined with an equals sign.
-	got, err := svc.List(context.Background(), ListFilter{
-		Limit:  50,
-		Facets: []format.Facet{{Key: "a", Value: "b=c"}},
+func TestAnAssetMustMatchEveryFacetAskedFor(t *testing.T) {
+	svc, _ := publishedWithElements(t, "character", []block.Element{
+		entryTable(block.RoleLorebookEntries, "Ash"),
 	})
-	if err != nil {
-		t.Fatalf("List: %v", err)
-	}
-	if len(got) != 0 {
-		t.Fatalf("got %d assets, a different key and value must not match", len(got))
-	}
 
-	exact, err := svc.List(context.Background(), ListFilter{
-		Limit:  50,
-		Facets: []format.Facet{{Key: "a=b", Value: "c"}},
-	})
-	if err != nil {
-		t.Fatalf("List: %v", err)
-	}
-	if len(exact) != 1 {
-		t.Fatalf("got %d assets for the exact facet, want 1", len(exact))
-	}
-}
-
-func TestRequestingTheSameFacetTwiceStillMatches(t *testing.T) {
-	pool := testdb.Connect(t)
-	blob, err := storage.NewStore(pool, t.TempDir())
-	if err != nil {
-		t.Fatalf("storage: %v", err)
-	}
-
-	reg := registryWithModule(t, facetModule{facets: []format.Facet{
-		{Key: "pack_type", Value: "lumia"},
-	}})
-	svc := NewService(pool, reg, blob)
-
-	if _, err := svc.Create(context.Background(), CreateInput{
-		OwnerID: uuid.New(), Kind: "preset", Filename: "p.json",
-		File: bytes.NewReader([]byte("{}")), Name: "Pack", Discovery: "listed",
-	}); err != nil {
-		t.Fatalf("create: %v", err)
-	}
-
-	got, err := svc.List(context.Background(), ListFilter{
-		Limit: 50,
-		Facets: []format.Facet{
-			{Key: "pack_type", Value: "lumia"},
-			{Key: "pack_type", Value: "lumia"},
+	page := browseWith(t, svc, ListFilter{
+		Kind: "character",
+		Facets: []FacetSelection{
+			{Key: string(block.FacetLorebook), Value: "true"},
+			{Key: string(block.FacetExpressions), Value: "true"},
 		},
 	})
-	if err != nil {
-		t.Fatalf("List: %v", err)
+	if page.Total != 0 {
+		t.Fatalf("matched %d assets, an asset must answer every facet asked for", page.Total)
 	}
-	if len(got) != 1 {
-		t.Fatalf("got %d assets, asking for one facet twice must not exclude it", len(got))
+}
+
+func TestAFacetNoKindDeclaresNarrowsNothing(t *testing.T) {
+	svc, _ := publishedWithElements(t, "character", []block.Element{
+		entryTable(block.RoleLorebookEntries, "Ash"),
+	})
+
+	page := browseWith(t, svc, ListFilter{
+		Kind:   "character",
+		Facets: []FacetSelection{{Key: "spec", Value: "chara_card_v3"}},
+	})
+	if page.Total != 1 {
+		t.Fatalf("an undeclared facet narrowed the catalog to %d", page.Total)
+	}
+}
+
+func TestABucketNoFacetDeclaresNarrowsNothing(t *testing.T) {
+	svc, _ := publishedWithElements(t, "character", []block.Element{
+		entryTable(block.RoleLorebookEntries, "Ash"),
+	})
+
+	page := browseWith(t, svc, ListFilter{
+		Kind:   "character",
+		Facets: []FacetSelection{{Key: string(block.FacetLorebook), Value: "maybe"}},
+	})
+	if page.Total != 1 {
+		t.Fatalf("an undeclared bucket narrowed the catalog to %d", page.Total)
+	}
+}
+
+func TestFacetsAreScopedToTheirKind(t *testing.T) {
+	svc, _ := publishedWithElements(t, "character", []block.Element{
+		entryTable(block.RoleLorebookEntries, "Ash"),
+	})
+
+	mixed := browseWith(t, svc, ListFilter{})
+	if len(mixed.Facets) != 0 {
+		t.Fatalf("the mixed catalog offered %d facet groups, want none", len(mixed.Facets))
+	}
+	scoped := browseWith(t, svc, ListFilter{Kind: "character"})
+	if len(scoped.Facets) != 4 {
+		t.Fatalf("character offered %d facet groups, want 4", len(scoped.Facets))
+	}
+}
+
+func TestTheProjectionStoresTheRawCount(t *testing.T) {
+	svc, assetID := publishedWithElements(t, "character", []block.Element{
+		entryTable(block.RoleLorebookEntries, "Ash", "Bay", "Cove"),
+	})
+
+	var stored map[string]int
+	if err := svc.pool.QueryRow(context.Background(),
+		`select facets from asset_projections where asset_id = $1`, assetID,
+	).Scan(&stored); err != nil {
+		t.Fatalf("read the facet projection: %v", err)
+	}
+	if stored[string(block.FacetLorebook)] != 3 {
+		t.Fatalf("stored lorebook count = %d, want the raw 3", stored[string(block.FacetLorebook)])
 	}
 }

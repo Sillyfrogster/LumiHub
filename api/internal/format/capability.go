@@ -21,9 +21,17 @@ type App struct {
 // Apps returns the applications Illarin names, in the order it names them.
 func Apps() []App {
 	return []App{
-		{ID: "sillytavern", Label: "SillyTavern", Reads: []string{"chara_card_v2", "chara_card_v3"}},
-		{ID: "risu", Label: "RisuAI", Reads: []string{"chara_card_v2", "chara_card_v3", "charx"}},
-		{ID: "lumiverse", Label: "Lumiverse", Reads: []string{"chara_card_v2", "chara_card_v3"}},
+		{ID: "sillytavern", Label: "SillyTavern", Reads: []string{
+			"chara_card_v2", "chara_card_v3",
+			"lorebook_sillytavern", "preset_sillytavern", "theme_sillytavern",
+		}},
+		{ID: "risu", Label: "RisuAI", Reads: []string{
+			"chara_card_v2", "chara_card_v3", "charx", "lorebook_sillytavern",
+		}},
+		{ID: "lumiverse", Label: "Lumiverse", Reads: []string{
+			"chara_card_v2", "chara_card_v3",
+			"lorebook", "preset_lumiverse", "theme_lumiverse", "pack_lumiverse",
+		}},
 	}
 }
 

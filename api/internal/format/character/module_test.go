@@ -20,7 +20,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestEveryModuleDeclaresTheCharacterKindAndItsExportTargets(t *testing.T) {
+func TestEveryModuleDeclaresTheCharacterKind(t *testing.T) {
 	for _, module := range Modules() {
 		declaration := module.Declaration()
 		if declaration.Kind != Kind {
@@ -175,40 +175,37 @@ func TestKindComesFromTheModuleForEveryCharacterFormat(t *testing.T) {
 	}
 }
 
-func TestAnEmbeddedLorebookIsAFacetAndNotASecondAsset(t *testing.T) {
+func TestAnEmbeddedLorebookStaysPartOfTheCard(t *testing.T) {
 	withBook := jsonCard(t, `{
 		"spec":"chara_card_v3","spec_version":"3.0",
-		"data":{"name":"Ana","character_book":{"name":"Ana's world","entries":[]}}
+		"data":{"name":"Ana","character_book":{"name":"Ana's world","entries":[
+			{"keys":["ash"],"content":"Ash is a city."}
+		]}}
 	}`)
-	if got := facetValue(t, resolveAndParse(t, withBook), "has_lorebook"); got != "true" {
-		t.Errorf("has_lorebook = %q, want true", got)
+	parsed := resolveAndParse(t, withBook)
+	if parsed.Kind != Kind {
+		t.Fatalf("kind = %q, want the one character asset", parsed.Kind)
+	}
+	entries := 0
+	for _, element := range parsed.Elements {
+		if element.Role != block.RoleLorebookEntries {
+			continue
+		}
+		table, ok := element.Content.(block.EntryTable)
+		if !ok {
+			t.Fatalf("lorebook content = %T, want an entry table", element.Content)
+		}
+		entries += len(table.Entries)
+	}
+	if entries != 1 {
+		t.Errorf("entries read off the card = %d, want 1", entries)
 	}
 
 	without := jsonCard(t, `{"spec":"chara_card_v3","spec_version":"3.0","data":{"name":"Ana"}}`)
-	if got := facetValue(t, resolveAndParse(t, without), "has_lorebook"); got != "false" {
-		t.Errorf("has_lorebook = %q, want false", got)
-	}
-}
-
-func TestEachExtensionNamespaceBecomesItsOwnFacet(t *testing.T) {
-	file := jsonCard(t, `{
-		"spec":"chara_card_v3","spec_version":"3.0",
-		"data":{"name":"Ana","extensions":{
-			"depth_prompt":{"depth":4,"prompt":"stay in character"},
-			"lumiverse_modules":{"version":1},
-			"talkativeness":"0.5"
-		}}
-	}`)
-
-	var namespaces []string
-	for _, facet := range resolveAndParse(t, file).Facets {
-		if facet.Key == "extension" {
-			namespaces = append(namespaces, facet.Value)
+	for _, element := range resolveAndParse(t, without).Elements {
+		if element.Role == block.RoleLorebookEntries && !element.Content.Empty() {
+			t.Error("a card with no book produced lorebook entries")
 		}
-	}
-	want := []string{"depth_prompt", "lumiverse_modules", "talkativeness"}
-	if !slices.Equal(namespaces, want) {
-		t.Errorf("extension facets = %v, want %v", namespaces, want)
 	}
 }
 
@@ -484,17 +481,6 @@ func claimFor(t *testing.T, module format.Reader, file probe.Inspection) format.
 		t.Fatalf("module %q did not claim the card", module.ID())
 	}
 	return claim
-}
-
-func facetValue(t *testing.T, parsed format.Parsed, key string) string {
-	t.Helper()
-	for _, facet := range parsed.Facets {
-		if facet.Key == key {
-			return facet.Value
-		}
-	}
-	t.Fatalf("no %s facet in %+v", key, parsed.Facets)
-	return ""
 }
 
 // The helpers below build real containers and inspect them, so the tests read

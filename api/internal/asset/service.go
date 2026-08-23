@@ -257,7 +257,7 @@ func (s *Service) StartFromNothing(
 	if err := insertBlocks(ctx, tx, a.ID, blocks); err != nil {
 		return uuid.Nil, err
 	}
-	if err := s.writeExportProjection(ctx, tx, a.ID); err != nil {
+	if err := s.writeProjections(ctx, tx, a.ID); err != nil {
 		return uuid.Nil, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -329,9 +329,6 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Asset, error) {
 	}); err != nil {
 		return Asset{}, err
 	}
-	if err := insertFacets(ctx, tx, revisionID, parsed.Facets); err != nil {
-		return Asset{}, err
-	}
 	if err := insertAssetMedia(ctx, tx, a.ID, extractedMedia); err != nil {
 		return Asset{}, err
 	}
@@ -347,7 +344,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Asset, error) {
 	if err := setCoverMedia(ctx, tx, a.ID, avatarMedia(extractedMedia)); err != nil {
 		return Asset{}, err
 	}
-	if err := s.writeExportProjection(ctx, tx, a.ID); err != nil {
+	if err := s.writeProjections(ctx, tx, a.ID); err != nil {
 		return Asset{}, err
 	}
 

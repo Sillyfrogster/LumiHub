@@ -717,16 +717,14 @@ func cursorFrom(params ListAssetsParams) (*asset.Cursor, bool) {
 	return &asset.Cursor{MadeAt: *params.Before, ID: uuid.UUID(*params.BeforeId)}, true
 }
 
-/** Split "key=value" query values into facets. Anything without an = is ignored. */
-func parseFacets(raw []string) []format.Facet {
-	out := make([]format.Facet, 0, len(raw))
+func parseFacets(raw []string) []asset.FacetSelection {
+	out := make([]asset.FacetSelection, 0, len(raw))
 	for _, pair := range raw {
-		for i := 0; i < len(pair); i++ {
-			if pair[i] == '=' {
-				out = append(out, format.Facet{Key: pair[:i], Value: pair[i+1:]})
-				break
-			}
+		key, value, split := strings.Cut(pair, "=")
+		if !split {
+			continue
 		}
+		out = append(out, asset.FacetSelection{Key: key, Value: value})
 	}
 	return out
 }

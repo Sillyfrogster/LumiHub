@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/db"
-	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -40,19 +39,4 @@ func insertAsset(ctx context.Context, tx pgx.Tx, a Asset, ownerID uuid.UUID, mad
 		return time.Time{}, fmt.Errorf("insert asset: %w", err)
 	}
 	return timeFromPgtype(made), nil
-}
-
-func insertFacets(ctx context.Context, tx pgx.Tx, revisionID uuid.UUID, facets []format.Facet) error {
-	queries := db.New(tx)
-	for _, f := range facets {
-		params := db.InsertFacetParams{
-			RevisionID: uuidToPgtype(revisionID),
-			Key:        f.Key,
-			Value:      f.Value,
-		}
-		if err := queries.InsertFacet(ctx, params); err != nil {
-			return fmt.Errorf("insert facet %s: %w", f.Key, err)
-		}
-	}
-	return nil
 }

@@ -237,18 +237,18 @@ func (failingModule) Parse(context.Context, probe.Inspection, format.Claim) (for
 	return format.Parsed{}, errors.New("cannot parse")
 }
 
-/** Emits a facet Postgres cannot store, so the failure lands mid transaction */
-type badFacetModule struct{ claimsFirstPayload }
+/** Emits a header Postgres cannot store, so the failure lands mid transaction */
+type badHeaderModule struct{ claimsFirstPayload }
 
-func (badFacetModule) ID() string { return "badfacet" }
-func (badFacetModule) Declaration() format.Declaration {
-	return testReaderDeclaration("badfacet", "character")
+func (badHeaderModule) ID() string { return "badheader" }
+func (badHeaderModule) Declaration() format.Declaration {
+	return testReaderDeclaration("badheader", "character")
 }
-func (badFacetModule) Parse(context.Context, probe.Inspection, format.Claim) (format.Parsed, error) {
+func (badHeaderModule) Parse(context.Context, probe.Inspection, format.Claim) (format.Parsed, error) {
 	return format.Parsed{
 		Kind:   "character",
-		Format: "badfacet",
-		Facets: []format.Facet{{Key: "bad", Value: "\x00"}},
+		Format: "badheader",
+		Header: format.Header{Nickname: "\x00"},
 	}, nil
 }
 
@@ -258,14 +258,14 @@ func TestCreateRollsBackAfterRowsAreWritten(t *testing.T) {
 	if err != nil {
 		t.Fatalf("storage: %v", err)
 	}
-	svc := NewService(pool, registryWithModule(t, badFacetModule{}), blob)
+	svc := NewService(pool, registryWithModule(t, badHeaderModule{}), blob)
 
 	_, err = svc.Create(context.Background(), CreateInput{
 		OwnerID: uuid.New(), Kind: "character", Filename: "a.bin",
 		File: bytes.NewReader([]byte("{}")), Name: "A", Discovery: "listed",
 	})
 	if err == nil {
-		t.Fatal("expected Create to fail when a facet cannot be stored")
+		t.Fatal("expected Create to fail when a header value cannot be stored")
 	}
 
 	for _, table := range []string{"assets", "asset_revisions"} {

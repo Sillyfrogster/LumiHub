@@ -24,18 +24,10 @@ insert into asset_revisions
   (id, asset_id, revision, blob_id, media_type, format)
 values ($1, $2, $3, $4, $5, $6);
 
--- name: InsertFacet :exec
-insert into asset_facets (revision_id, key, value)
-values ($1, $2, $3)
-on conflict do nothing;
-
 -- name: SetCurrentRevision :exec
 update assets set current_revision_id = $2, updated_at = now() where id = $1;
 
 -- name: ListAssets :many
-with facet_pairs as (
-  select unnest($5::text[]) as k, unnest($6::text[]) as v
-)
 select a.id, a.kind, revision.format, a.origin_format,
        a.asset_version, a.credited_author, a.nickname, a.lifecycle,
        a.name, a.blurb, a.tags,
@@ -52,18 +44,11 @@ select a.id, a.kind, revision.format, a.origin_format,
    and ($1 = '' or a.kind = $1)
    and (not $2::boolean or revision.format is not distinct from $3)
    and ($4::text[] is null or a.tags @> $4)
-   and (array_length($5::text[], 1) is null or (
-         select count(*) from asset_facets af
-          where af.revision_id = a.current_revision_id
-            and (af.key, af.value) in (
-                  select k, v from facet_pairs
-            )
-       ) = array_length($5::text[], 1))
    and (sqlc.narg('before')::timestamptz is null
         or (a.created_at, a.id)
            < (sqlc.narg('before')::timestamptz, sqlc.narg('before_id')::uuid))
  order by a.created_at desc, a.id desc
- limit $7;
+ limit $5;
 
 -- name: BrowseAssets :many
 -- A creator's own listing is the one place a draft appears, so the adult
@@ -73,7 +58,7 @@ select a.id, a.name, coalesce(owner.username, 'unknown') as creator,
        cover.id as cover_id, cover.width as cover_width, cover.height as cover_height,
        a.discovery, a.withheld_at, a.withheld_reason, actor.username as withheld_by
   from assets a
-  left join asset_revisions revision on revision.id = a.current_revision_id
+  left join asset_projections projection on projection.asset_id = a.id
   left join users owner on owner.id = a.owner_id
   left join users actor on actor.id = a.withheld_by
   left join asset_media cover
@@ -98,18 +83,23 @@ select a.id, a.name, coalesce(owner.username, 'unknown') as creator,
    and (sqlc.arg('kind')::text = '' or a.kind = sqlc.arg('kind')::text)
    and (sqlc.arg('own_profile')::boolean
         or sqlc.arg('nsfw_visibility')::text <> 'hidden' or not a.is_nsfw)
-   and (sqlc.arg('platform')::text = ''
-        or sqlc.arg('platform')::text = 'raw'
-        or revision.format = any(sqlc.arg('formats')::text[]))
+   and (sqlc.arg('platform')::text = '' or exists (
+        select 1
+          from jsonb_array_elements(coalesce(projection.export, '[]'::jsonb)) as offered(target)
+         where offered.target ->> 'format' = any(sqlc.arg('formats')::text[])
+   ))
    and (cardinality(sqlc.arg('facet_keys')::text[]) = 0 or not exists (
         select 1
-          from (select unnest(sqlc.arg('facet_keys')::text[]) as key,
-                       unnest(sqlc.arg('facet_values')::text[]) as value) selected
-         where not exists (
-             select 1 from asset_facets stored
-              where stored.revision_id = a.current_revision_id
-                and stored.key = selected.key and stored.value = selected.value
-         )
+          from unnest(sqlc.arg('facet_keys')::text[]) with ordinality as chosen(key, at)
+          join unnest(sqlc.arg('facet_lows')::int[]) with ordinality as lows(low, at)
+            on lows.at = chosen.at
+          join unnest(sqlc.arg('facet_highs')::int[]) with ordinality as highs(high, at)
+            on highs.at = chosen.at
+         group by chosen.key
+        having not bool_or(
+                 coalesce((projection.facets ->> chosen.key)::int, 0) >= lows.low
+                 and (highs.high < 0
+                      or coalesce((projection.facets ->> chosen.key)::int, 0) <= highs.high))
    ))
    and (sqlc.arg('search_text')::text = ''
         or position(sqlc.arg('search_text')::text in lower(a.name)) > 0
@@ -132,7 +122,7 @@ select a.id, a.name, coalesce(owner.username, 'unknown') as creator,
 -- name: CountBrowseAssets :one
 select count(*)
   from assets a
-  left join asset_revisions revision on revision.id = a.current_revision_id
+  left join asset_projections projection on projection.asset_id = a.id
   left join users owner on owner.id = a.owner_id
  where (a.lifecycle = 'published'
         or (sqlc.arg('own_profile')::boolean
@@ -151,18 +141,23 @@ select count(*)
    and (sqlc.arg('kind')::text = '' or a.kind = sqlc.arg('kind')::text)
    and (sqlc.arg('own_profile')::boolean
         or sqlc.arg('nsfw_visibility')::text <> 'hidden' or not a.is_nsfw)
-   and (sqlc.arg('platform')::text = ''
-        or sqlc.arg('platform')::text = 'raw'
-        or revision.format = any(sqlc.arg('formats')::text[]))
+   and (sqlc.arg('platform')::text = '' or exists (
+        select 1
+          from jsonb_array_elements(coalesce(projection.export, '[]'::jsonb)) as offered(target)
+         where offered.target ->> 'format' = any(sqlc.arg('formats')::text[])
+   ))
    and (cardinality(sqlc.arg('facet_keys')::text[]) = 0 or not exists (
         select 1
-          from (select unnest(sqlc.arg('facet_keys')::text[]) as key,
-                       unnest(sqlc.arg('facet_values')::text[]) as value) selected
-         where not exists (
-             select 1 from asset_facets stored
-              where stored.revision_id = a.current_revision_id
-                and stored.key = selected.key and stored.value = selected.value
-         )
+          from unnest(sqlc.arg('facet_keys')::text[]) with ordinality as chosen(key, at)
+          join unnest(sqlc.arg('facet_lows')::int[]) with ordinality as lows(low, at)
+            on lows.at = chosen.at
+          join unnest(sqlc.arg('facet_highs')::int[]) with ordinality as highs(high, at)
+            on highs.at = chosen.at
+         group by chosen.key
+        having not bool_or(
+                 coalesce((projection.facets ->> chosen.key)::int, 0) >= lows.low
+                 and (highs.high < 0
+                      or coalesce((projection.facets ->> chosen.key)::int, 0) <= highs.high))
    ))
    and (sqlc.arg('search_text')::text = ''
         or position(sqlc.arg('search_text')::text in lower(a.name)) > 0
@@ -180,7 +175,7 @@ select count(*)
 -- name: CountSuppressedBrowseAssets :one
 select count(*)
   from assets a
-  left join asset_revisions revision on revision.id = a.current_revision_id
+  left join asset_projections projection on projection.asset_id = a.id
   left join users owner on owner.id = a.owner_id
  where a.lifecycle = 'published'
    and a.discovery = 'listed'
@@ -190,18 +185,23 @@ select count(*)
    and (sqlc.narg('creator_id')::uuid is null
         or sqlc.arg('creator_allows_nsfw')::boolean or not a.is_nsfw)
    and (sqlc.arg('kind')::text = '' or a.kind = sqlc.arg('kind')::text)
-   and (sqlc.arg('platform')::text = ''
-        or sqlc.arg('platform')::text = 'raw'
-        or revision.format = any(sqlc.arg('formats')::text[]))
+   and (sqlc.arg('platform')::text = '' or exists (
+        select 1
+          from jsonb_array_elements(coalesce(projection.export, '[]'::jsonb)) as offered(target)
+         where offered.target ->> 'format' = any(sqlc.arg('formats')::text[])
+   ))
    and (cardinality(sqlc.arg('facet_keys')::text[]) = 0 or not exists (
         select 1
-          from (select unnest(sqlc.arg('facet_keys')::text[]) as key,
-                       unnest(sqlc.arg('facet_values')::text[]) as value) selected
-         where not exists (
-             select 1 from asset_facets stored
-              where stored.revision_id = a.current_revision_id
-                and stored.key = selected.key and stored.value = selected.value
-         )
+          from unnest(sqlc.arg('facet_keys')::text[]) with ordinality as chosen(key, at)
+          join unnest(sqlc.arg('facet_lows')::int[]) with ordinality as lows(low, at)
+            on lows.at = chosen.at
+          join unnest(sqlc.arg('facet_highs')::int[]) with ordinality as highs(high, at)
+            on highs.at = chosen.at
+         group by chosen.key
+        having not bool_or(
+                 coalesce((projection.facets ->> chosen.key)::int, 0) >= lows.low
+                 and (highs.high < 0
+                      or coalesce((projection.facets ->> chosen.key)::int, 0) <= highs.high))
    ))
    and (sqlc.arg('search_text')::text = ''
         or position(sqlc.arg('search_text')::text in lower(a.name)) > 0

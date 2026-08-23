@@ -159,28 +159,6 @@ func (r *Registry) ReadableLabels() []string {
 	return labels
 }
 
-type RegisteredBrowseDefinition struct {
-	Format     string
-	Definition BrowseDefinition
-}
-
-func (r *Registry) BrowseDefinitions() []RegisteredBrowseDefinition {
-	definitions := make([]RegisteredBrowseDefinition, 0)
-	ids := make([]string, 0, len(r.modules))
-	for id := range r.modules {
-		ids = append(ids, id)
-	}
-	slices.Sort(ids)
-	for _, id := range ids {
-		if declarer, ok := r.modules[id].(BrowseDeclarer); ok {
-			definitions = append(definitions, RegisteredBrowseDefinition{
-				Format: id, Definition: declarer.BrowseDefinition(),
-			})
-		}
-	}
-	return definitions
-}
-
 func (r *Registry) Resolve(file probe.Inspection) (Resolution, bool, error) {
 	var candidates []Resolution
 	for _, module := range r.modules {

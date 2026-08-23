@@ -263,11 +263,10 @@ func TestOnlyTheOwnerOfALiveAssetCanAddARevision(t *testing.T) {
 	}
 }
 
-func TestReimportedMediaFillsTheAssetWhileFacetsTrackTheRevision(t *testing.T) {
+func TestReimportedMediaFillsTheAsset(t *testing.T) {
 	registry := registryWithModule(t, recognizedModule{parsed: format.Parsed{
 		Kind: "character", Format: "recognized",
-		Facets: []format.Facet{{Key: "has_lorebook", Value: "true"}},
-		Media:  []format.Media{{Role: MediaAvatar, ImageID: 0}},
+		Media: []format.Media{{Role: MediaAvatar, ImageID: 0}},
 	}})
 	svc, pool := newTestServiceWithRegistry(t, registry)
 	ownerID := revisionOwner(t, svc, "scoped.owner")
@@ -286,24 +285,6 @@ func TestReimportedMediaFillsTheAssetWhileFacetsTrackTheRevision(t *testing.T) {
 	if operation.Status != IngestSuccess || operation.Asset == nil {
 		t.Fatalf("revision operation = %+v, want success", operation)
 	}
-	var facetRevisions []uuid.UUID
-	rows, err := pool.Query(context.Background(),
-		`select revision_id from asset_facets where key = 'has_lorebook'`)
-	if err != nil {
-		t.Fatalf("read facets: %v", err)
-	}
-	for rows.Next() {
-		var id uuid.UUID
-		if err := rows.Scan(&id); err != nil {
-			t.Fatalf("scan facet: %v", err)
-		}
-		facetRevisions = append(facetRevisions, id)
-	}
-	rows.Close()
-	if len(facetRevisions) != 2 {
-		t.Fatalf("facet rows = %d, want one per revision", len(facetRevisions))
-	}
-
 	media, err := svc.ListMedia(context.Background(), created.ID, &ownerID)
 	if err != nil {
 		t.Fatalf("list reimported media: %v", err)

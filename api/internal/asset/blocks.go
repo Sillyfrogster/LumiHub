@@ -106,7 +106,7 @@ func (s *Service) SaveBlock(
 	if err := dropUnownedPreservedData(ctx, tx, assetID, blocks); err != nil {
 		return SavedBlock{}, err
 	}
-	if err := s.writeExportProjection(ctx, tx, assetID); err != nil {
+	if err := s.writeProjections(ctx, tx, assetID); err != nil {
 		return SavedBlock{}, err
 	}
 	if err := s.moveContentGeneration(ctx, tx, assetID, fingerprint); err != nil {
@@ -161,7 +161,7 @@ func (s *Service) AddBlock(
 	if err := insertBlocks(ctx, tx, assetID, []block.Block{added}); err != nil {
 		return SavedBlock{}, err
 	}
-	if err := s.writeExportProjection(ctx, tx, assetID); err != nil {
+	if err := s.writeProjections(ctx, tx, assetID); err != nil {
 		return SavedBlock{}, err
 	}
 	if err := s.moveContentGeneration(ctx, tx, assetID, fingerprint); err != nil {
@@ -233,6 +233,9 @@ func (s *Service) ArrangeBlocks(
 			return SavedBlocks{}, fmt.Errorf("save block arrangement: %w", err)
 		}
 	}
+	if err := s.writeFacetProjection(ctx, tx, assetID); err != nil {
+		return SavedBlocks{}, err
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return SavedBlocks{}, err
 	}
@@ -289,7 +292,7 @@ func (s *Service) RemoveBlock(
 	if err := dropUnownedPreservedData(ctx, tx, assetID, remaining); err != nil {
 		return err
 	}
-	if err := s.writeExportProjection(ctx, tx, assetID); err != nil {
+	if err := s.writeProjections(ctx, tx, assetID); err != nil {
 		return err
 	}
 	if err := s.moveContentGeneration(ctx, tx, assetID, fingerprint); err != nil {
@@ -395,7 +398,7 @@ func (s *Service) MoveBlockContent(
 	if err := dropUnownedPreservedData(ctx, tx, assetID, after); err != nil {
 		return SavedBlocks{}, err
 	}
-	if err := s.writeExportProjection(ctx, tx, assetID); err != nil {
+	if err := s.writeProjections(ctx, tx, assetID); err != nil {
 		return SavedBlocks{}, err
 	}
 	if err := s.moveContentGeneration(ctx, tx, assetID, fingerprint); err != nil {

@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"strings"
 	"time"
 
+	"github.com/Sillyfrogster/LumiHub/api/internal/block"
 	"github.com/Sillyfrogster/LumiHub/api/internal/db"
 	"github.com/Sillyfrogster/LumiHub/api/internal/format"
 	"github.com/google/uuid"
@@ -20,7 +20,7 @@ type ListFilter struct {
 	Platform    *string
 	PlatformSet bool
 	Tags        []string
-	Facets      []format.Facet
+	Facets      []FacetSelection
 	Query       string
 	Limit       int
 	Before      *Cursor
@@ -89,16 +89,19 @@ type BrowseFacet struct {
 	Options []BrowseOption
 }
 
+type FacetSelection struct {
+	Key   string
+	Value string
+}
+
 // listAssets takes anything that runs a query, so a read does not have to open
 // a transaction.
 func listAssets(ctx context.Context, q db.DBTX, f ListFilter) ([]Asset, error) {
 	queries := db.New(q)
-	facetKeys, facetValues := facetPairs(f.Facets)
 
 	params := db.ListAssetsParams{
 		Column1: f.Kind, Column2: f.PlatformSet, Format: valueOrEmpty(f.Platform),
-		Column4: nullableTags(f.Tags), Column5: facetKeys, Column6: facetValues,
-		Limit: int32(f.Limit),
+		Column4: nullableTags(f.Tags), Limit: int32(f.Limit),
 	}
 	if f.Before != nil {
 		params.Before = timeToNullable(&f.Before.MadeAt)
@@ -143,16 +146,14 @@ func (s *Service) browseAssets(
 ) (BrowsePage, error) {
 	queries := db.New(s.pool)
 	search := parseBrowseQuery(f.Query)
-	definitions := s.reg.BrowseDefinitions()
-	facetDefinitions := browseFacetDefinitions(definitions, f.Kind, f.Platform)
-	f.Facets = declaredFacetSelections(f.Facets, facetDefinitions)
-	platforms := browsePlatforms(definitions)
+	facetDefinitions := block.Facets(f.Kind)
+	chosen := declaredFacetSelections(f.Kind, f.Facets)
 	platform := ""
 	if f.Platform != nil {
 		platform = normalizeBrowseText(*f.Platform)
 	}
-	formats := formatsForPlatform(definitions, platform)
-	facetKeys, facetValues := facetPairs(f.Facets)
+	formats := formatsForPlatform(platform)
+	facetKeys, facetLows, facetHighs := facetRanges(chosen)
 	creatorID, creatorShowsNSFW, ownProfile := profileListingValues(f.Profile)
 	params := db.BrowseAssetsParams{
 		Kind: f.Kind, NsfwVisibility: string(visibility),
@@ -160,7 +161,7 @@ func (s *Service) browseAssets(
 		OwnProfile: ownProfile,
 		SearchText: search.Text, Author: search.Author, Tags: search.Tags,
 		Platform: platform, Formats: formats,
-		FacetKeys: facetKeys, FacetValues: facetValues,
+		FacetKeys: facetKeys, FacetLows: facetLows, FacetHighs: facetHighs,
 		PageSize: int32(f.Limit + 1),
 	}
 	if f.Before != nil {
@@ -217,7 +218,7 @@ func (s *Service) browseAssets(
 		OwnProfile: ownProfile,
 		SearchText: search.Text, Author: search.Author, Tags: search.Tags,
 		Platform: platform, Formats: formats,
-		FacetKeys: facetKeys, FacetValues: facetValues,
+		FacetKeys: facetKeys, FacetLows: facetLows, FacetHighs: facetHighs,
 	}
 	count, err := queries.CountBrowseAssets(ctx, countParams)
 	if err != nil {
@@ -231,7 +232,7 @@ func (s *Service) browseAssets(
 				CreatorID:         uuidToNullable(creatorID),
 				CreatorAllowsNsfw: creatorShowsNSFW,
 				Platform:          platform, Formats: formats,
-				FacetKeys: facetKeys, FacetValues: facetValues,
+				FacetKeys: facetKeys, FacetLows: facetLows, FacetHighs: facetHighs,
 			},
 		)
 		if err != nil {
@@ -239,11 +240,11 @@ func (s *Service) browseAssets(
 		}
 		page.Suppressed = int(suppressed)
 	}
-	page.Platforms, err = countedPlatforms(ctx, queries, countParams, definitions, platforms, platform)
+	page.Platforms, err = countedPlatforms(ctx, queries, countParams, platform)
 	if err != nil {
 		return BrowsePage{}, err
 	}
-	page.Facets, err = countedFacets(ctx, queries, countParams, f.Facets, facetDefinitions)
+	page.Facets, err = countedFacets(ctx, queries, countParams, chosen, facetDefinitions)
 	if err != nil {
 		return BrowsePage{}, err
 	}
@@ -251,7 +252,7 @@ func (s *Service) browseAssets(
 		if page.Suppressed > 0 {
 			page.EmptyState = "suppressed"
 		} else if f.Kind == "" && search.Text == "" && search.Author == "" &&
-			len(search.Tags) == 0 && f.Platform == nil && len(f.Facets) == 0 {
+			len(search.Tags) == 0 && f.Platform == nil && len(chosen) == 0 {
 			page.EmptyState = "catalog"
 		} else {
 			page.EmptyState = "no_matches"
@@ -268,139 +269,74 @@ func profileListingValues(scope *ProfileListingScope) (*uuid.UUID, bool, bool) {
 	return &scope.CreatorID, scope.CreatorShowsNSFW, ownedByViewer
 }
 
-func browsePlatforms(definitions []format.RegisteredBrowseDefinition) []format.BrowseOption {
-	byValue := map[string]format.BrowseOption{
-		"raw":       {Value: "raw", Label: "Original file"},
-		"lumiverse": {Value: "lumiverse", Label: "Lumiverse"},
-	}
-	for _, registered := range definitions {
-		for _, target := range registered.Definition.ExportTargets {
-			value := normalizeBrowseText(target.Value)
-			if value != "" {
-				byValue[value] = format.BrowseOption{Value: value, Label: target.Label}
-			}
+func browsePlatforms() []format.App { return format.Apps() }
+
+func formatsForPlatform(platform string) []string {
+	for _, app := range format.Apps() {
+		if normalizeBrowseText(app.ID) == platform {
+			return app.Reads
 		}
 	}
-	options := make([]format.BrowseOption, 0, len(byValue))
-	for _, option := range byValue {
-		options = append(options, option)
-	}
-	slices.SortFunc(options, func(a, b format.BrowseOption) int {
-		if a.Value == "raw" {
-			return -1
-		}
-		if b.Value == "raw" {
-			return 1
-		}
-		return strings.Compare(a.Label, b.Label)
-	})
-	return options
+	return nil
 }
 
-func formatsForPlatform(
-	definitions []format.RegisteredBrowseDefinition,
-	platform string,
-) []string {
-	if platform == "" || platform == "raw" {
-		return nil
-	}
-	var formats []string
-	for _, registered := range definitions {
-		for _, target := range registered.Definition.ExportTargets {
-			if normalizeBrowseText(target.Value) == platform {
-				formats = append(formats, registered.Format)
-				break
-			}
-		}
-	}
-	return formats
+type chosenFacet struct {
+	FacetSelection
+	bucket block.Bucket
 }
 
-func browseFacetDefinitions(
-	definitions []format.RegisteredBrowseDefinition,
-	kind string,
-	platform *string,
-) []format.BrowseFacet {
-	if kind == "" {
-		return nil
-	}
-	selectedPlatform := ""
-	if platform != nil {
-		selectedPlatform = normalizeBrowseText(*platform)
-	}
-	byKey := make(map[string]format.BrowseFacet)
-	order := make([]string, 0)
-	for _, registered := range definitions {
-		if registered.Definition.Kind != kind {
+func declaredFacetSelections(kind string, requested []FacetSelection) []chosenFacet {
+	chosen := make([]chosenFacet, 0, len(requested))
+	for _, request := range requested {
+		facet, known := block.FacetByKey(kind, request.Key)
+		if !known {
 			continue
 		}
-		for _, facet := range registered.Definition.Facets {
-			if len(facet.Platforms) > 0 && !slices.ContainsFunc(facet.Platforms, func(value string) bool {
-				return normalizeBrowseText(value) == selectedPlatform
-			}) {
-				continue
-			}
-			current, exists := byKey[facet.Key]
-			if !exists {
-				current = format.BrowseFacet{Key: facet.Key, Label: facet.Label}
-				order = append(order, facet.Key)
-			}
-			for _, option := range facet.Options {
-				if !slices.ContainsFunc(current.Options, func(existing format.BrowseOption) bool {
-					return existing.Value == option.Value
-				}) {
-					current.Options = append(current.Options, option)
-				}
-			}
-			byKey[facet.Key] = current
+		bucket, offered := facet.Bucket(request.Value)
+		if !offered {
+			continue
 		}
+		if slices.ContainsFunc(chosen, func(already chosenFacet) bool {
+			return already.FacetSelection == request
+		}) {
+			continue
+		}
+		chosen = append(chosen, chosenFacet{FacetSelection: request, bucket: bucket})
 	}
-	result := make([]format.BrowseFacet, 0, len(order))
-	for _, key := range order {
-		result = append(result, byKey[key])
-	}
-	return result
+	return chosen
 }
 
-func declaredFacetSelections(
-	requested []format.Facet,
-	definitions []format.BrowseFacet,
-) []format.Facet {
-	var selected []format.Facet
-	for _, request := range requested {
-		for _, definition := range definitions {
-			if request.Key != definition.Key {
-				continue
-			}
-			if slices.ContainsFunc(definition.Options, func(option format.BrowseOption) bool {
-				return request.Value == option.Value
-			}) {
-				selected = append(selected, request)
-			}
-		}
+func facetRanges(chosen []chosenFacet) (keys []string, lows, highs []int32) {
+	keys = make([]string, 0, len(chosen))
+	lows = make([]int32, 0, len(chosen))
+	highs = make([]int32, 0, len(chosen))
+	for _, one := range chosen {
+		keys = append(keys, one.Key)
+		lows = append(lows, int32(one.bucket.Min))
+		highs = append(highs, int32(one.bucket.Max))
 	}
-	return selected
+	return keys, lows, highs
 }
 
 func countedPlatforms(
 	ctx context.Context,
 	queries *db.Queries,
 	base db.CountBrowseAssetsParams,
-	definitions []format.RegisteredBrowseDefinition,
-	options []format.BrowseOption,
 	selected string,
 ) ([]BrowseOption, error) {
-	result := make([]BrowseOption, 0, len(options))
-	for _, option := range options {
+	apps := browsePlatforms()
+	result := make([]BrowseOption, 0, len(apps))
+	for _, app := range apps {
 		params := base
-		params.Platform = option.Value
-		params.Formats = formatsForPlatform(definitions, option.Value)
+		params.Platform = app.ID
+		params.Formats = app.Reads
 		count, err := queries.CountBrowseAssets(ctx, params)
 		if err != nil {
-			return nil, fmt.Errorf("count platform %s: %w", option.Value, err)
+			return nil, fmt.Errorf("count platform %s: %w", app.ID, err)
 		}
 		result = append(result, BrowseOption{
-			Value: option.Value, Label: option.Label, Count: int(count), Selected: option.Value == selected,
+			Value: app.ID, Label: app.Label, Count: int(count),
+			Selected: app.ID == selected,
 		})
 	}
 	return result, nil
@@ -410,28 +346,34 @@ func countedFacets(
 	ctx context.Context,
 	queries *db.Queries,
 	base db.CountBrowseAssetsParams,
-	selected []format.Facet,
-	definitions []format.BrowseFacet,
+	chosen []chosenFacet,
+	definitions []block.Facet,
 ) ([]BrowseFacet, error) {
 	result := make([]BrowseFacet, 0, len(definitions))
 	for _, definition := range definitions {
-		group := BrowseFacet{Key: definition.Key, Label: definition.Label}
-		for _, option := range definition.Options {
-			facet := format.Facet{Key: definition.Key, Value: option.Value}
-			candidate := slices.Clone(selected)
-			if !slices.Contains(selected, facet) {
-				candidate = append(candidate, facet)
+		group := BrowseFacet{Key: string(definition.Key), Label: definition.Label}
+		for _, bucket := range definition.Buckets {
+			choice := chosenFacet{
+				FacetSelection: FacetSelection{
+					Key: string(definition.Key), Value: bucket.Value,
+				},
+				bucket: bucket,
 			}
-			keys, values := facetPairs(candidate)
+			picked := slices.Contains(chosen, choice)
+			candidate := slices.Clone(chosen)
+			if !picked {
+				candidate = append(candidate, choice)
+			}
+			keys, lows, highs := facetRanges(candidate)
 			params := base
-			params.FacetKeys, params.FacetValues = keys, values
+			params.FacetKeys, params.FacetLows, params.FacetHighs = keys, lows, highs
 			count, err := queries.CountBrowseAssets(ctx, params)
 			if err != nil {
-				return nil, fmt.Errorf("count facet %s=%s: %w", definition.Key, option.Value, err)
+				return nil, fmt.Errorf("count facet %s=%s: %w", definition.Key, bucket.Value, err)
 			}
 			group.Options = append(group.Options, BrowseOption{
-				Value: option.Value, Label: option.Label, Count: int(count),
-				Selected: slices.Contains(selected, facet),
+				Value: bucket.Value, Label: bucket.Label, Count: int(count),
+				Selected: picked,
 			})
 		}
 		result = append(result, group)
@@ -453,23 +395,6 @@ func assetByID(ctx context.Context, q db.DBTX, id uuid.UUID) (Asset, error) {
 		CurrentRevisionID: uuidFromPgtype(row.CurrentRevisionID),
 		CreatedAt:         timeFromPgtype(row.CreatedAt),
 	}, nil
-}
-
-// facetPairs splits facets into parallel key and value arrays, dropping
-// duplicates.
-func facetPairs(facets []format.Facet) (keys, values []string) {
-	seen := make(map[format.Facet]bool, len(facets))
-	keys = make([]string, 0, len(facets))
-	values = make([]string, 0, len(facets))
-	for _, f := range facets {
-		if seen[f] {
-			continue
-		}
-		seen[f] = true
-		keys = append(keys, f.Key)
-		values = append(values, f.Value)
-	}
-	return keys, values
 }
 
 func nullableTags(tags []string) []string {

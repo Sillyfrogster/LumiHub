@@ -330,7 +330,7 @@ func projectionComputedAt(t *testing.T, pool *pgxpool.Pool, assetID string) time
 	t.Helper()
 	var computedAt time.Time
 	if err := pool.QueryRow(context.Background(), `
-		select computed_at from asset_projections where asset_id = $1
+		select export_computed_at from asset_projections where asset_id = $1
 	`, assetID).Scan(&computedAt); err != nil {
 		t.Fatalf("read the export projection: %v", err)
 	}

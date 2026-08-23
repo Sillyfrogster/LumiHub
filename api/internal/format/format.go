@@ -70,34 +70,6 @@ func FailureOf(err error) (FailureReason, bool) {
 	return classified.reason, true
 }
 
-/** A key and value a module extracts so Browse can filter on it */
-type Facet struct {
-	Key   string
-	Value string
-}
-
-type BrowseOption struct {
-	Value string
-	Label string
-}
-
-type BrowseFacet struct {
-	Key       string
-	Label     string
-	Platforms []string
-	Options   []BrowseOption
-}
-
-type BrowseDefinition struct {
-	Kind          string
-	ExportTargets []BrowseOption
-	Facets        []BrowseFacet
-}
-
-type BrowseDeclarer interface {
-	BrowseDefinition() BrowseDefinition
-}
-
 // Media is one image a module found in a source file and gave a role. It names
 // an image the probe located rather than carrying bytes, so a module never
 // holds a file in memory and never writes one.
@@ -114,7 +86,6 @@ type Parsed struct {
 	Format string
 	Tags   []string
 	IsNSFW *bool
-	Facets []Facet
 	Media  []Media
 	// CreatedAt is the date the file carries. Nil means the file does not say.
 	CreatedAt *time.Time

@@ -390,7 +390,7 @@ select a.id, a.name, coalesce(owner.username, 'unknown') as creator,
        cover.id as cover_id, cover.width as cover_width, cover.height as cover_height,
        a.discovery, a.withheld_at, a.withheld_reason, actor.username as withheld_by
   from assets a
-  left join asset_revisions revision on revision.id = a.current_revision_id
+  left join asset_projections projection on projection.asset_id = a.id
   left join users owner on owner.id = a.owner_id
   left join users actor on actor.id = a.withheld_by
   left join asset_media cover
@@ -415,36 +415,41 @@ select a.id, a.name, coalesce(owner.username, 'unknown') as creator,
    and ($4::text = '' or a.kind = $4::text)
    and ($1::boolean
         or $5::text <> 'hidden' or not a.is_nsfw)
-   and ($6::text = ''
-        or $6::text = 'raw'
-        or revision.format = any($7::text[]))
+   and ($6::text = '' or exists (
+        select 1
+          from jsonb_array_elements(coalesce(projection.export, '[]'::jsonb)) as offered(target)
+         where offered.target ->> 'format' = any($7::text[])
+   ))
    and (cardinality($8::text[]) = 0 or not exists (
         select 1
-          from (select unnest($8::text[]) as key,
-                       unnest($9::text[]) as value) selected
-         where not exists (
-             select 1 from asset_facets stored
-              where stored.revision_id = a.current_revision_id
-                and stored.key = selected.key and stored.value = selected.value
-         )
+          from unnest($8::text[]) with ordinality as chosen(key, at)
+          join unnest($9::int[]) with ordinality as lows(low, at)
+            on lows.at = chosen.at
+          join unnest($10::int[]) with ordinality as highs(high, at)
+            on highs.at = chosen.at
+         group by chosen.key
+        having not bool_or(
+                 coalesce((projection.facets ->> chosen.key)::int, 0) >= lows.low
+                 and (highs.high < 0
+                      or coalesce((projection.facets ->> chosen.key)::int, 0) <= highs.high))
    ))
-   and ($10::text = ''
-        or position($10::text in lower(a.name)) > 0
-        or position($10::text in lower(a.blurb)) > 0
-        or position($10::text in lower(coalesce(owner.username, ''))) > 0)
-   and ($11::text = '' or lower(coalesce(owner.username, '')) = $11::text)
-   and (cardinality($12::text[]) = 0 or not exists (
-        select 1 from unnest($12::text[]) wanted(tag)
+   and ($11::text = ''
+        or position($11::text in lower(a.name)) > 0
+        or position($11::text in lower(a.blurb)) > 0
+        or position($11::text in lower(coalesce(owner.username, ''))) > 0)
+   and ($12::text = '' or lower(coalesce(owner.username, '')) = $12::text)
+   and (cardinality($13::text[]) = 0 or not exists (
+        select 1 from unnest($13::text[]) wanted(tag)
          where not exists (
              select 1 from unnest(a.tags) stored(tag)
               where lower(btrim(stored.tag)) = wanted.tag
          )
    ))
-   and ($13::timestamptz is null
+   and ($14::timestamptz is null
         or (a.created_at, a.id)
-           < ($13::timestamptz, $14::uuid))
+           < ($14::timestamptz, $15::uuid))
  order by a.created_at desc, a.id desc
- limit $15
+ limit $16
 `
 
 type BrowseAssetsParams struct {
@@ -456,7 +461,8 @@ type BrowseAssetsParams struct {
 	Platform          string
 	Formats           []string
 	FacetKeys         []string
-	FacetValues       []string
+	FacetLows         []int32
+	FacetHighs        []int32
 	SearchText        string
 	Author            string
 	Tags              []string
@@ -494,7 +500,8 @@ func (q *Queries) BrowseAssets(ctx context.Context, arg BrowseAssetsParams) ([]B
 		arg.Platform,
 		arg.Formats,
 		arg.FacetKeys,
-		arg.FacetValues,
+		arg.FacetLows,
+		arg.FacetHighs,
 		arg.SearchText,
 		arg.Author,
 		arg.Tags,
@@ -569,7 +576,7 @@ func (q *Queries) ClearPendingEmailCopies(ctx context.Context, arg ClearPendingE
 const countBrowseAssets = `-- name: CountBrowseAssets :one
 select count(*)
   from assets a
-  left join asset_revisions revision on revision.id = a.current_revision_id
+  left join asset_projections projection on projection.asset_id = a.id
   left join users owner on owner.id = a.owner_id
  where (a.lifecycle = 'published'
         or ($1::boolean
@@ -588,26 +595,31 @@ select count(*)
    and ($4::text = '' or a.kind = $4::text)
    and ($1::boolean
         or $5::text <> 'hidden' or not a.is_nsfw)
-   and ($6::text = ''
-        or $6::text = 'raw'
-        or revision.format = any($7::text[]))
+   and ($6::text = '' or exists (
+        select 1
+          from jsonb_array_elements(coalesce(projection.export, '[]'::jsonb)) as offered(target)
+         where offered.target ->> 'format' = any($7::text[])
+   ))
    and (cardinality($8::text[]) = 0 or not exists (
         select 1
-          from (select unnest($8::text[]) as key,
-                       unnest($9::text[]) as value) selected
-         where not exists (
-             select 1 from asset_facets stored
-              where stored.revision_id = a.current_revision_id
-                and stored.key = selected.key and stored.value = selected.value
-         )
+          from unnest($8::text[]) with ordinality as chosen(key, at)
+          join unnest($9::int[]) with ordinality as lows(low, at)
+            on lows.at = chosen.at
+          join unnest($10::int[]) with ordinality as highs(high, at)
+            on highs.at = chosen.at
+         group by chosen.key
+        having not bool_or(
+                 coalesce((projection.facets ->> chosen.key)::int, 0) >= lows.low
+                 and (highs.high < 0
+                      or coalesce((projection.facets ->> chosen.key)::int, 0) <= highs.high))
    ))
-   and ($10::text = ''
-        or position($10::text in lower(a.name)) > 0
-        or position($10::text in lower(a.blurb)) > 0
-        or position($10::text in lower(coalesce(owner.username, ''))) > 0)
-   and ($11::text = '' or lower(coalesce(owner.username, '')) = $11::text)
-   and (cardinality($12::text[]) = 0 or not exists (
-        select 1 from unnest($12::text[]) wanted(tag)
+   and ($11::text = ''
+        or position($11::text in lower(a.name)) > 0
+        or position($11::text in lower(a.blurb)) > 0
+        or position($11::text in lower(coalesce(owner.username, ''))) > 0)
+   and ($12::text = '' or lower(coalesce(owner.username, '')) = $12::text)
+   and (cardinality($13::text[]) = 0 or not exists (
+        select 1 from unnest($13::text[]) wanted(tag)
          where not exists (
              select 1 from unnest(a.tags) stored(tag)
               where lower(btrim(stored.tag)) = wanted.tag
@@ -624,7 +636,8 @@ type CountBrowseAssetsParams struct {
 	Platform          string
 	Formats           []string
 	FacetKeys         []string
-	FacetValues       []string
+	FacetLows         []int32
+	FacetHighs        []int32
 	SearchText        string
 	Author            string
 	Tags              []string
@@ -640,7 +653,8 @@ func (q *Queries) CountBrowseAssets(ctx context.Context, arg CountBrowseAssetsPa
 		arg.Platform,
 		arg.Formats,
 		arg.FacetKeys,
-		arg.FacetValues,
+		arg.FacetLows,
+		arg.FacetHighs,
 		arg.SearchText,
 		arg.Author,
 		arg.Tags,
@@ -653,7 +667,7 @@ func (q *Queries) CountBrowseAssets(ctx context.Context, arg CountBrowseAssetsPa
 const countSuppressedBrowseAssets = `-- name: CountSuppressedBrowseAssets :one
 select count(*)
   from assets a
-  left join asset_revisions revision on revision.id = a.current_revision_id
+  left join asset_projections projection on projection.asset_id = a.id
   left join users owner on owner.id = a.owner_id
  where a.lifecycle = 'published'
    and a.discovery = 'listed'
@@ -663,26 +677,31 @@ select count(*)
    and ($1::uuid is null
         or $2::boolean or not a.is_nsfw)
    and ($3::text = '' or a.kind = $3::text)
-   and ($4::text = ''
-        or $4::text = 'raw'
-        or revision.format = any($5::text[]))
+   and ($4::text = '' or exists (
+        select 1
+          from jsonb_array_elements(coalesce(projection.export, '[]'::jsonb)) as offered(target)
+         where offered.target ->> 'format' = any($5::text[])
+   ))
    and (cardinality($6::text[]) = 0 or not exists (
         select 1
-          from (select unnest($6::text[]) as key,
-                       unnest($7::text[]) as value) selected
-         where not exists (
-             select 1 from asset_facets stored
-              where stored.revision_id = a.current_revision_id
-                and stored.key = selected.key and stored.value = selected.value
-         )
+          from unnest($6::text[]) with ordinality as chosen(key, at)
+          join unnest($7::int[]) with ordinality as lows(low, at)
+            on lows.at = chosen.at
+          join unnest($8::int[]) with ordinality as highs(high, at)
+            on highs.at = chosen.at
+         group by chosen.key
+        having not bool_or(
+                 coalesce((projection.facets ->> chosen.key)::int, 0) >= lows.low
+                 and (highs.high < 0
+                      or coalesce((projection.facets ->> chosen.key)::int, 0) <= highs.high))
    ))
-   and ($8::text = ''
-        or position($8::text in lower(a.name)) > 0
-        or position($8::text in lower(a.blurb)) > 0
-        or position($8::text in lower(coalesce(owner.username, ''))) > 0)
-   and ($9::text = '' or lower(coalesce(owner.username, '')) = $9::text)
-   and (cardinality($10::text[]) = 0 or not exists (
-        select 1 from unnest($10::text[]) wanted(tag)
+   and ($9::text = ''
+        or position($9::text in lower(a.name)) > 0
+        or position($9::text in lower(a.blurb)) > 0
+        or position($9::text in lower(coalesce(owner.username, ''))) > 0)
+   and ($10::text = '' or lower(coalesce(owner.username, '')) = $10::text)
+   and (cardinality($11::text[]) = 0 or not exists (
+        select 1 from unnest($11::text[]) wanted(tag)
          where not exists (
              select 1 from unnest(a.tags) stored(tag)
               where lower(btrim(stored.tag)) = wanted.tag
@@ -698,7 +717,8 @@ type CountSuppressedBrowseAssetsParams struct {
 	Platform          string
 	Formats           []string
 	FacetKeys         []string
-	FacetValues       []string
+	FacetLows         []int32
+	FacetHighs        []int32
 	SearchText        string
 	Author            string
 	Tags              []string
@@ -712,7 +732,8 @@ func (q *Queries) CountSuppressedBrowseAssets(ctx context.Context, arg CountSupp
 		arg.Platform,
 		arg.Formats,
 		arg.FacetKeys,
-		arg.FacetValues,
+		arg.FacetLows,
+		arg.FacetHighs,
 		arg.SearchText,
 		arg.Author,
 		arg.Tags,
@@ -1208,23 +1229,6 @@ func (q *Queries) InsertEmailVerificationToken(ctx context.Context, arg InsertEm
 	return err
 }
 
-const insertFacet = `-- name: InsertFacet :exec
-insert into asset_facets (revision_id, key, value)
-values ($1, $2, $3)
-on conflict do nothing
-`
-
-type InsertFacetParams struct {
-	RevisionID pgtype.UUID
-	Key        string
-	Value      string
-}
-
-func (q *Queries) InsertFacet(ctx context.Context, arg InsertFacetParams) error {
-	_, err := q.db.Exec(ctx, insertFacet, arg.RevisionID, arg.Key, arg.Value)
-	return err
-}
-
 const insertInstanceAccessToken = `-- name: InsertInstanceAccessToken :one
 with live_instance as (
     select id
@@ -1554,9 +1558,6 @@ func (q *Queries) InstanceForUsedRefreshToken(ctx context.Context, refreshTokenH
 }
 
 const listAssets = `-- name: ListAssets :many
-with facet_pairs as (
-  select unnest($5::text[]) as k, unnest($6::text[]) as v
-)
 select a.id, a.kind, revision.format, a.origin_format,
        a.asset_version, a.credited_author, a.nickname, a.lifecycle,
        a.name, a.blurb, a.tags,
@@ -1573,18 +1574,11 @@ select a.id, a.kind, revision.format, a.origin_format,
    and ($1 = '' or a.kind = $1)
    and (not $2::boolean or revision.format is not distinct from $3)
    and ($4::text[] is null or a.tags @> $4)
-   and (array_length($5::text[], 1) is null or (
-         select count(*) from asset_facets af
-          where af.revision_id = a.current_revision_id
-            and (af.key, af.value) in (
-                  select k, v from facet_pairs
-            )
-       ) = array_length($5::text[], 1))
-   and ($8::timestamptz is null
+   and ($6::timestamptz is null
         or (a.created_at, a.id)
-           < ($8::timestamptz, $9::uuid))
+           < ($6::timestamptz, $7::uuid))
  order by a.created_at desc, a.id desc
- limit $7
+ limit $5
 `
 
 type ListAssetsParams struct {
@@ -1592,8 +1586,6 @@ type ListAssetsParams struct {
 	Column2  bool
 	Format   string
 	Column4  []string
-	Column5  []string
-	Column6  []string
 	Limit    int32
 	Before   pgtype.Timestamptz
 	BeforeID pgtype.UUID
@@ -1623,8 +1615,6 @@ func (q *Queries) ListAssets(ctx context.Context, arg ListAssetsParams) ([]ListA
 		arg.Column2,
 		arg.Format,
 		arg.Column4,
-		arg.Column5,
-		arg.Column6,
 		arg.Limit,
 		arg.Before,
 		arg.BeforeID,

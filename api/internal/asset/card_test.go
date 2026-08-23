@@ -76,25 +76,6 @@ func TestACardKeepsItsExactBytesWhileItsPictureIsExtracted(t *testing.T) {
 		t.Fatalf("cover = %s on asset %s", coverRole, coverAsset)
 	}
 
-	var namespaces []string
-	rows, err := pool.Query(context.Background(), `
-		select value from asset_facets
-		 where revision_id = $1 and key = 'extension' order by value
-	`, created.CurrentRevisionID)
-	if err != nil {
-		t.Fatalf("read facets: %v", err)
-	}
-	for rows.Next() {
-		var value string
-		if err := rows.Scan(&value); err != nil {
-			t.Fatalf("scan facet: %v", err)
-		}
-		namespaces = append(namespaces, value)
-	}
-	rows.Close()
-	if !slices.Equal(namespaces, []string{"depth_prompt", "third_party"}) {
-		t.Fatalf("extension facets = %v, want one per namespace", namespaces)
-	}
 }
 
 // pngCardFile puts a card in a text chunk of a picture, the way an exporter does.

@@ -2407,14 +2407,18 @@ type GetMediaVariantParamsVariant string
 
 // ListAssetsParams defines parameters for ListAssets.
 type ListAssetsParams struct {
-	Kind     *ListAssetsParamsKind `form:"kind,omitempty" json:"kind,omitempty"`
-	Platform *string               `form:"platform,omitempty" json:"platform,omitempty"`
+	Kind *ListAssetsParamsKind `form:"kind,omitempty" json:"kind,omitempty"`
+
+	// Platform An app, from the platforms list. An app matches an asset when any of the asset's offered download formats is one that app reads.
+	Platform *string `form:"platform,omitempty" json:"platform,omitempty"`
 
 	// Creator Scope the listing to one creator's public profile.
 	Creator *string `form:"creator,omitempty" json:"creator,omitempty"`
 
 	// Q One search expression. Bare text matches names, creator handles and blurbs. Repeat tag: to require every tag; one author: qualifier may narrow the creator. Quote qualifier values that contain spaces.
-	Q     *string   `form:"q,omitempty" json:"q,omitempty"`
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+
+	// Facet Repeat key=value, taking the keys and values from the facets list. Two values of one key widen the result; two keys narrow it. A key or value the kind does not declare is ignored.
 	Facet *[]string `form:"facet,omitempty" json:"facet,omitempty"`
 
 	// Nsfw The reader's presentation preference. Browse page URLs keep this preference out of their own query string.

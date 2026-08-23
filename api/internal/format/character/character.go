@@ -31,53 +31,6 @@ const (
 	maxTagRunes = 64
 )
 
-// A card carries whatever namespaces its tools wrote. These bounds keep one
-// odd file from filling the facet table.
-const (
-	maxExtensionNamespaces = 64
-	maxNamespaceRunes      = 64
-)
-
-// exportTargets are the platforms a character card reaches. Every character
-// format reaches all of them, which is the point: naming a platform narrows
-// what a reader sees and never unlocks anything.
-func exportTargets() []format.BrowseOption {
-	return []format.BrowseOption{
-		{Value: "sillytavern", Label: "SillyTavern"},
-		{Value: "risu", Label: "Risu"},
-		{Value: "lumiverse", Label: "Lumiverse"},
-	}
-}
-
-// browsableExtensions are functional namespaces worth exposing as filters.
-var browsableExtensions = []format.BrowseOption{
-	{Value: "depth_prompt", Label: "Depth prompt"},
-	{Value: "regex_scripts", Label: "Regex scripts"},
-	{Value: "alternate_character_name", Label: "Alternate name"},
-	{Value: "tavern_helper", Label: "TavernHelper scripts"},
-	{Value: "lumiverse_modules", Label: "Lumiverse modules"},
-	{Value: "landing_perspective_layers", Label: "Perspective layers"},
-	{Value: "chub", Label: "Chub metadata"},
-}
-
-func browseFacets() []format.BrowseFacet {
-	return []format.BrowseFacet{
-		{Key: "has_lorebook", Label: "Lorebook", Options: []format.BrowseOption{
-			{Value: "true", Label: "Included"},
-			{Value: "false", Label: "None"},
-		}},
-		{Key: "extension", Label: "Extensions", Options: browsableExtensions},
-	}
-}
-
-func browseDefinition(targets []format.BrowseOption) format.BrowseDefinition {
-	return format.BrowseDefinition{
-		Kind:          Kind,
-		ExportTargets: targets,
-		Facets:        browseFacets(),
-	}
-}
-
 // labels name a format in a download menu, where a reader picks without
 // having to learn what the formats are.
 var labels = map[string]string{
@@ -277,7 +230,6 @@ func (c card) parsed(formatID string, pictures []format.Media) (format.Parsed, e
 		Kind:      Kind,
 		Format:    formatID,
 		Tags:      c.tags(),
-		Facets:    c.facets(),
 		Media:     pictures,
 		CreatedAt: c.createdAt(),
 		Header: format.Header{
@@ -496,57 +448,12 @@ func (c card) createdAt() *time.Time {
 	return &made
 }
 
-// facets are what browse can filter on. An embedded lorebook is one of them:
-// it stays part of the card it came from rather than becoming a second asset
-// nobody uploaded and nobody can update on its own.
-func (c card) facets() []format.Facet {
-	facets := []format.Facet{
-		{Key: "has_lorebook", Value: strconv.FormatBool(c.hasLorebook())},
-	}
-	for _, namespace := range c.extensionNamespaces() {
-		facets = append(facets, format.Facet{Key: "extension", Value: namespace})
-	}
-	return facets
-}
-
-func (c card) hasLorebook() bool {
-	if isPopulatedObject(c.fields[bookKey]) {
-		return true
-	}
-	return isPopulatedObject(c.extensions()[bookKey])
-}
-
-// extensionNamespaces names every top-level key under extensions, so what a
-// platform wrote into a card becomes a filter rather than opaque bytes.
-func (c card) extensionNamespaces() []string {
-	namespaces := make([]string, 0)
-	for namespace := range c.extensions() {
-		if namespace == "" || len([]rune(namespace)) > maxNamespaceRunes {
-			continue
-		}
-		namespaces = append(namespaces, namespace)
-	}
-	slices.Sort(namespaces)
-	if len(namespaces) > maxExtensionNamespaces {
-		namespaces = namespaces[:maxExtensionNamespaces]
-	}
-	return namespaces
-}
-
 func (c card) extensions() map[string]json.RawMessage {
 	var extensions map[string]json.RawMessage
 	if raw, ok := c.fields["extensions"]; ok {
 		_ = json.Unmarshal(raw, &extensions)
 	}
 	return extensions
-}
-
-func isPopulatedObject(raw json.RawMessage) bool {
-	var object map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &object); err != nil {
-		return false
-	}
-	return len(object) > 0
 }
 
 // documentImage gives the card's own picture the avatar role when the file

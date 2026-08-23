@@ -16,7 +16,6 @@ func TestCoreTablesExist(t *testing.T) {
 	want := []string{
 		"assets",
 		"asset_revisions",
-		"asset_facets",
 		"asset_media",
 		"asset_blocks",
 		"asset_projections",
@@ -509,29 +508,38 @@ func TestDownloadEventVocabularyIsClosed(t *testing.T) {
 	}
 }
 
-func TestFacetsBindOnlyToARevision(t *testing.T) {
+func TestTheProjectionCarriesTwoIndependentSections(t *testing.T) {
 	pool := Connect(t)
-	assetID, revisionID, _ := insertAssetRevision(t, pool)
+	assetID, _, _ := insertAssetRevision(t, pool)
 
-	columns, err := tableColumns(pool, "asset_facets")
+	columns, err := tableColumns(pool, "asset_projections")
 	if err != nil {
-		t.Fatalf("read facet columns: %v", err)
+		t.Fatalf("read projection columns: %v", err)
 	}
-	if !slices.Equal(columns, []string{"revision_id", "key", "value"}) {
-		t.Errorf("facet columns = %v, want revision_id, key and value", columns)
+	want := []string{
+		"asset_id", "export", "export_stamp", "export_computed_at",
+		"facets", "facet_stamp", "facet_computed_at",
+	}
+	for _, column := range want {
+		if !slices.Contains(columns, column) {
+			t.Errorf("the projection has no %s column; it holds %v", column, columns)
+		}
 	}
 
-	_, err = pool.Exec(context.Background(),
-		`insert into asset_facets (revision_id, key, value) values ($1, 'spec', 'chara_card_v3')`,
-		revisionID)
-	if err != nil {
-		t.Fatalf("insert revision facet for asset %s: %v", assetID, err)
+	if _, err := pool.Exec(context.Background(),
+		`insert into asset_projections (asset_id, facets, facet_stamp) values ($1, $2, 'stamp')`,
+		assetID, `{"lorebook":3}`); err != nil {
+		t.Fatalf("write only the facet section: %v", err)
 	}
-	_, err = pool.Exec(context.Background(),
-		`insert into asset_facets (revision_id, key, value) values ($1, 'spec', 'unknown')`,
-		uuid.New())
-	if err == nil {
-		t.Fatal("facet without a revision was accepted")
+	if _, err := pool.Exec(context.Background(),
+		`insert into asset_projections (asset_id, facets, facet_stamp) values ($1, $2, 'stamp')`,
+		uuid.New(), `{}`); err == nil {
+		t.Fatal("a projection without an asset was accepted")
+	}
+	if _, err := pool.Exec(context.Background(), `
+		update asset_projections set facets = '[]'::jsonb where asset_id = $1
+	`, assetID); err == nil {
+		t.Fatal("a facet section that is not an object was accepted")
 	}
 }
 

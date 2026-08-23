@@ -47,12 +47,6 @@ type AssetBlock struct {
 	Elements   []byte
 }
 
-type AssetFacet struct {
-	RevisionID pgtype.UUID
-	Key        string
-	Value      string
-}
-
 type AssetMedium struct {
 	ID          pgtype.UUID
 	AssetID     pgtype.UUID
@@ -75,10 +69,13 @@ type AssetPreservedDatum struct {
 }
 
 type AssetProjection struct {
-	AssetID     pgtype.UUID
-	Export      []byte
-	ExportStamp string
-	ComputedAt  pgtype.Timestamptz
+	AssetID          pgtype.UUID
+	Export           []byte
+	ExportStamp      string
+	ExportComputedAt pgtype.Timestamptz
+	Facets           []byte
+	FacetStamp       string
+	FacetComputedAt  pgtype.Timestamptz
 }
 
 type AssetRevision struct {

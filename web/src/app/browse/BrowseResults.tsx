@@ -111,8 +111,7 @@ export function BrowseResults({
   );
   const activeVisibility =
     visibilityOverride ?? overview?.visibility ?? "blurred";
-  const applicationOptions =
-    overview?.platforms.filter((option) => option.value !== "raw") ?? [];
+  const applicationOptions = overview?.platforms ?? [];
   const hasFilters = Boolean(
     filters.kind || filters.platform || filters.q || filters.facet?.length,
   );
@@ -312,14 +311,8 @@ export function BrowseResults({
                 <input
                   type="radio"
                   name="platform"
-                  checked={!filters.platform || filters.platform === "raw"}
-                  onChange={() =>
-                    navigate({
-                      ...filters,
-                      platform: undefined,
-                      facet: undefined,
-                    })
-                  }
+                  checked={!filters.platform}
+                  onChange={() => navigate({ ...filters, platform: undefined })}
                 />
                 <span>Any app</span>
               </label>
@@ -336,16 +329,10 @@ export function BrowseResults({
                     checked={filters.platform === platform.value}
                     disabled={platform.count === 0}
                     onChange={() =>
-                      navigate({
-                        ...filters,
-                        platform: platform.value,
-                        facet: undefined,
-                      })
+                      navigate({ ...filters, platform: platform.value })
                     }
                   />
-                  <span>
-                    {platform.value === "risu" ? "RisuAI" : platform.label}
-                  </span>
+                  <span>{platform.label}</span>
                   <small>{platform.count}</small>
                 </label>
               ))}

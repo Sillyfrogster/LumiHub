@@ -14,6 +14,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+func (s *Service) writeProjections(
+	ctx context.Context,
+	tx pgx.Tx,
+	assetID uuid.UUID,
+) error {
+	if err := s.writeExportProjection(ctx, tx, assetID); err != nil {
+		return err
+	}
+	return s.writeFacetProjection(ctx, tx, assetID)
+}
+
 // writeExportProjection recomputes an asset's offered targets and what each one
 // costs it, and stores them.
 //
@@ -34,12 +45,12 @@ func (s *Service) writeExportProjection(
 		return fmt.Errorf("write the export projection: %w", err)
 	}
 	if _, err := tx.Exec(ctx, `
-		insert into asset_projections (asset_id, export, export_stamp, computed_at)
+		insert into asset_projections (asset_id, export, export_stamp, export_computed_at)
 		values ($1, $2, $3, now())
 		on conflict (asset_id) do update
 		   set export = excluded.export,
 		       export_stamp = excluded.export_stamp,
-		       computed_at = excluded.computed_at
+		       export_computed_at = excluded.export_computed_at
 	`, assetID, stored, s.reg.CapabilityStamp()); err != nil {
 		return fmt.Errorf("store the export projection: %w", err)
 	}
@@ -106,30 +117,16 @@ func (s *Service) exportProjection(
 // finishes in seconds, and being wrong means a stale sentence in a menu rather
 // than stale bytes in somebody's hands.
 func (s *Service) RecomputeStaleExportProjections(ctx context.Context) (int, error) {
-	stamp := s.reg.CapabilityStamp()
-	rows, err := s.pool.Query(ctx, `
+	stale, err := s.staleProjections(ctx, `
 		select asset.id
 		  from assets asset
 		  left join asset_projections projection on projection.asset_id = asset.id
 		 where asset.deleted_at is null
 		   and (projection.asset_id is null or projection.export_stamp <> $1)
 		 order by asset.id
-	`, stamp)
+	`, s.reg.CapabilityStamp())
 	if err != nil {
-		return 0, fmt.Errorf("find stale export projections: %w", err)
-	}
-	stale := make([]uuid.UUID, 0)
-	for rows.Next() {
-		var assetID uuid.UUID
-		if err := rows.Scan(&assetID); err != nil {
-			rows.Close()
-			return 0, fmt.Errorf("read a stale export projection: %w", err)
-		}
-		stale = append(stale, assetID)
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return 0, fmt.Errorf("find stale export projections: %w", err)
+		return 0, err
 	}
 	for _, assetID := range stale {
 		if err := s.inTransaction(ctx, func(tx pgx.Tx) error {
@@ -139,6 +136,30 @@ func (s *Service) RecomputeStaleExportProjections(ctx context.Context) (int, err
 		}
 	}
 	return len(stale), nil
+}
+
+func (s *Service) staleProjections(
+	ctx context.Context,
+	query string,
+	stamp string,
+) ([]uuid.UUID, error) {
+	rows, err := s.pool.Query(ctx, query, stamp)
+	if err != nil {
+		return nil, fmt.Errorf("find stale projections: %w", err)
+	}
+	defer rows.Close()
+	stale := make([]uuid.UUID, 0)
+	for rows.Next() {
+		var assetID uuid.UUID
+		if err := rows.Scan(&assetID); err != nil {
+			return nil, fmt.Errorf("read a stale projection: %w", err)
+		}
+		stale = append(stale, assetID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("find stale projections: %w", err)
+	}
+	return stale, nil
 }
 
 func (s *Service) inTransaction(ctx context.Context, run func(pgx.Tx) error) error {
