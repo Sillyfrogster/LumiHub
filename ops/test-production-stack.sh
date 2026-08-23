@@ -93,7 +93,7 @@ curl --fail --silent --show-error "http://127.0.0.1:$TEST_PORT/api/readyz" --out
 curl --fail --silent --show-error "http://127.0.0.1:$TEST_PORT/" --output /dev/null
 curl --fail --silent --show-error "http://127.0.0.1:$TEST_PORT/openapi.yaml" --output /dev/null
 
-internal_status="$(curl --silent --output /dev/null --write-out '%{http_code}' "http://127.0.0.1:$TEST_PORT/_lumihub/blobs/not-public")"
+internal_status="$(curl --silent --output /dev/null --write-out '%{http_code}' "http://127.0.0.1:$TEST_PORT/_illarin/blobs/not-public")"
 if [[ "$internal_status" != "404" ]]; then
   echo "The internal blob location returned $internal_status instead of 404." >&2
   exit 1

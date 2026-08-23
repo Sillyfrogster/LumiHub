@@ -28,8 +28,8 @@ type contentStore struct {
 }
 
 const (
-	internalBlobPrefix       = "/_lumihub/blobs/"
-	internalDerivativePrefix = "/_lumihub/derivatives/"
+	internalBlobPrefix       = "/_illarin/blobs/"
+	internalDerivativePrefix = "/_illarin/derivatives/"
 )
 
 // NewStore opens a content-addressed store rooted at root.

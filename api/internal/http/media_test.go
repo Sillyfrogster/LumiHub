@@ -88,7 +88,7 @@ func TestCreatorAddsMediaAndAnyoneFetchesAnImmutableVariant(t *testing.T) {
 	if got := variant.Header().Get("X-Content-Type-Options"); got != "nosniff" {
 		t.Errorf("X-Content-Type-Options = %q, want nosniff", got)
 	}
-	if got := variant.Header().Get("X-Accel-Redirect"); !strings.HasPrefix(got, "/_lumihub/derivatives/") {
+	if got := variant.Header().Get("X-Accel-Redirect"); !strings.HasPrefix(got, "/_illarin/derivatives/") {
 		t.Errorf("X-Accel-Redirect = %q, want internal derivative path", got)
 	}
 	if variant.Body.Len() != 0 {

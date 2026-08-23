@@ -262,7 +262,7 @@ func TestDerivativeCanBeHandedToTheInternalByteServer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("InternalDerivativeRedirect: %v", err)
 	}
-	if !strings.HasPrefix(redirect, "/_lumihub/derivatives/") {
+	if !strings.HasPrefix(redirect, "/_illarin/derivatives/") {
 		t.Fatalf("redirect = %q, want internal derivative location", redirect)
 	}
 
