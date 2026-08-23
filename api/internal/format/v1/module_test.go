@@ -278,8 +278,8 @@ func TestALorebookRowBecomesAnEntryTable(t *testing.T) {
 		},
 		Creator: "Mapmaker",
 		Entries: json.RawMessage(`[
-			{"name":"North gate","keys":["gate"],"content":"Closed at dusk.","enabled":true,"insertion_order":10,"uid":7},
-			{"keys":["market"],"content":"Open every day.","enabled":true,"insertion_order":20}
+			{"comment":"North gate","key":["gate"],"keysecondary":["north"],"content":"Closed at dusk.","disabled":false,"order_value":10,"position":1,"uid":"7"},
+			{"comment":"","key":["market"],"content":"Open every day.","disabled":true,"order_value":20,"position":0}
 		]`),
 	})
 	if err != nil {
@@ -294,6 +294,17 @@ func TestALorebookRowBecomesAnEntryTable(t *testing.T) {
 	if len(table.Entries) != 2 || table.Entries[0].Name != "North gate" ||
 		table.Entries[1].Text != "Open every day." {
 		t.Errorf("entries = %+v, want both row entries", table.Entries)
+	}
+	first, second := table.Entries[0], table.Entries[1]
+	if len(first.Keys) != 1 || first.Keys[0] != "gate" ||
+		len(first.SecondaryKeys) != 1 || first.SecondaryKeys[0] != "north" {
+		t.Errorf("the words that switch the first entry on = %+v", first)
+	}
+	if first.Order != 10 || first.Position != block.AfterCharacter || !first.Enabled {
+		t.Errorf("the first entry's placement = %+v", first)
+	}
+	if second.Enabled || second.Position != block.BeforeCharacter {
+		t.Errorf("an entry v1 switched off came back switched on: %+v", second)
 	}
 	if preservedNamespace(result.Parsed.Remainder, lorebookEntryNamespace) == nil {
 		t.Error("the first entry's unread uid was dropped")

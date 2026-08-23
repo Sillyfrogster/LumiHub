@@ -6,7 +6,6 @@ import (
 
 	"github.com/Sillyfrogster/Illarin/api/internal/block"
 	"github.com/Sillyfrogster/Illarin/api/internal/format"
-	"github.com/Sillyfrogster/Illarin/api/internal/format/book"
 	"github.com/google/uuid"
 )
 
@@ -17,7 +16,7 @@ func readLorebook(row LorebookRow) (readResult, error) {
 	if json.Unmarshal(row.Entries, &payloads) != nil {
 		return readResult{}, fmt.Errorf("v1 lorebook entries: expected a list")
 	}
-	entries, leftovers := book.Read(payloads)
+	entries, leftovers := readLorebookEntries(payloads)
 	element := block.Element{
 		ID: uuid.New(), Type: block.TypeEntryTable, Role: block.RoleLorebookEntries,
 		Content: block.EntryTable{Entries: entries},
