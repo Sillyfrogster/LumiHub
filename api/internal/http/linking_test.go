@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/testdb"
+	"github.com/Sillyfrogster/Illarin/api/internal/testdb"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 )

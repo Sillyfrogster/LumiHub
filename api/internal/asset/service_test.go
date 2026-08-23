@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/block"
-	"github.com/Sillyfrogster/LumiHub/api/internal/format"
-	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
-	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
-	"github.com/Sillyfrogster/LumiHub/api/internal/testdb"
+	"github.com/Sillyfrogster/Illarin/api/internal/block"
+	"github.com/Sillyfrogster/Illarin/api/internal/format"
+	"github.com/Sillyfrogster/Illarin/api/internal/probe"
+	"github.com/Sillyfrogster/Illarin/api/internal/storage"
+	"github.com/Sillyfrogster/Illarin/api/internal/testdb"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )

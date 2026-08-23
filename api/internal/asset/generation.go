@@ -10,9 +10,9 @@ import (
 	"hash"
 	"slices"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/block"
-	"github.com/Sillyfrogster/LumiHub/api/internal/db"
-	"github.com/Sillyfrogster/LumiHub/api/internal/format"
+	"github.com/Sillyfrogster/Illarin/api/internal/block"
+	"github.com/Sillyfrogster/Illarin/api/internal/db"
+	"github.com/Sillyfrogster/Illarin/api/internal/format"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"

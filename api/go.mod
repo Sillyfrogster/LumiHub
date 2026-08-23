@@ -1,4 +1,4 @@
-module github.com/Sillyfrogster/LumiHub/api
+module github.com/Sillyfrogster/Illarin/api
 
 go 1.26.5
 

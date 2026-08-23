@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/block"
+	"github.com/Sillyfrogster/Illarin/api/internal/block"
 )
 
 // App describes formats an application can open for download recommendations.

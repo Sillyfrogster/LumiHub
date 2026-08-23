@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/block"
-	"github.com/Sillyfrogster/LumiHub/api/internal/db"
+	"github.com/Sillyfrogster/Illarin/api/internal/block"
+	"github.com/Sillyfrogster/Illarin/api/internal/db"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )

@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/format"
+	"github.com/Sillyfrogster/Illarin/api/internal/format"
 )
 
 func TestCreatorAddsMediaAndAnyoneFetchesAnImmutableVariant(t *testing.T) {

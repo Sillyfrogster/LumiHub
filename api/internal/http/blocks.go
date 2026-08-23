@@ -1,7 +1,7 @@
 package http
 
 import (
-	"github.com/Sillyfrogster/LumiHub/api/internal/block"
+	"github.com/Sillyfrogster/Illarin/api/internal/block"
 	"github.com/oapi-codegen/runtime/types"
 )
 

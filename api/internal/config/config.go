@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	apihttp "github.com/Sillyfrogster/LumiHub/api/internal/http"
-	"github.com/Sillyfrogster/LumiHub/api/internal/postgres"
-	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
+	apihttp "github.com/Sillyfrogster/Illarin/api/internal/http"
+	"github.com/Sillyfrogster/Illarin/api/internal/postgres"
+	"github.com/Sillyfrogster/Illarin/api/internal/probe"
 )
 
 const defaultMaxUploadBytes = 32 << 20

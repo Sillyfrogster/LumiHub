@@ -10,13 +10,13 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/format"
-	"github.com/Sillyfrogster/LumiHub/api/internal/format/character"
-	"github.com/Sillyfrogster/LumiHub/api/internal/format/lorebook"
-	"github.com/Sillyfrogster/LumiHub/api/internal/format/pack"
-	"github.com/Sillyfrogster/LumiHub/api/internal/format/preset"
-	"github.com/Sillyfrogster/LumiHub/api/internal/format/theme"
-	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
+	"github.com/Sillyfrogster/Illarin/api/internal/format"
+	"github.com/Sillyfrogster/Illarin/api/internal/format/character"
+	"github.com/Sillyfrogster/Illarin/api/internal/format/lorebook"
+	"github.com/Sillyfrogster/Illarin/api/internal/format/pack"
+	"github.com/Sillyfrogster/Illarin/api/internal/format/preset"
+	"github.com/Sillyfrogster/Illarin/api/internal/format/theme"
+	"github.com/Sillyfrogster/Illarin/api/internal/probe"
 	"github.com/google/uuid"
 )
 

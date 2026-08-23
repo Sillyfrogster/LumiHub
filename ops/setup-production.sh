@@ -316,7 +316,7 @@ set_secret PRODUCTION_SSH_PORT "$PRODUCTION_SSH_PORT"
 set_secret PRODUCTION_SSH_KEY "$(<"$DEPLOY_KEY")"
 set_secret PRODUCTION_HOST_KEYS "$PRODUCTION_HOST_KEYS"
 set_var PRODUCTION_URL "https://$ILLARIN_DOMAIN"
-open_url "https://github.com/Sillyfrogster/LumiHub/settings/environments"
+open_url "https://github.com/Sillyfrogster/Illarin/settings/environments"
 step "Create an environment named production and restrict its deployment branch to master."
 step "Add a required reviewer if your GitHub plan exposes that control."
 
@@ -344,7 +344,7 @@ note "NPMPlus owns certificates. The repo nginx owns /api, /media, /download, an
 
 stage "First deployment and verification"
 say "Merge this work to master first. CI must pass and Publish images must finish before deployment."
-open_url "https://github.com/Sillyfrogster/LumiHub/actions/workflows/deploy-production.yml"
+open_url "https://github.com/Sillyfrogster/Illarin/actions/workflows/deploy-production.yml"
 step "Choose Run workflow on master. Approve the production environment if GitHub asks."
 step "After it finishes, open https://$ILLARIN_DOMAIN/api/healthz and expect ok."
 step "Create a test account and confirm the Microsoft 365 mailbox sends its verification email."

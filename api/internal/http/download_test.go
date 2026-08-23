@@ -20,9 +20,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/asset"
-	"github.com/Sillyfrogster/LumiHub/api/internal/format"
-	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
+	"github.com/Sillyfrogster/Illarin/api/internal/asset"
+	"github.com/Sillyfrogster/Illarin/api/internal/format"
+	"github.com/Sillyfrogster/Illarin/api/internal/storage"
 	"github.com/google/uuid"
 )
 

@@ -3,8 +3,8 @@ package character
 import (
 	"context"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/format"
-	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
+	"github.com/Sillyfrogster/Illarin/api/internal/format"
+	"github.com/Sillyfrogster/Illarin/api/internal/probe"
 )
 
 // CCv2Module reads a Character Card V2, as a JSON document or inside a raster

@@ -5,9 +5,9 @@ import (
 	"maps"
 	"slices"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/block"
-	"github.com/Sillyfrogster/LumiHub/api/internal/format"
-	"github.com/Sillyfrogster/LumiHub/api/internal/format/keys"
+	"github.com/Sillyfrogster/Illarin/api/internal/block"
+	"github.com/Sillyfrogster/Illarin/api/internal/format"
+	"github.com/Sillyfrogster/Illarin/api/internal/format/keys"
 	"github.com/google/uuid"
 )
 

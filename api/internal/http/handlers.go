@@ -1,9 +1,9 @@
 package http
 
 import (
-	"github.com/Sillyfrogster/LumiHub/api/internal/account"
-	"github.com/Sillyfrogster/LumiHub/api/internal/asset"
-	"github.com/Sillyfrogster/LumiHub/api/internal/linking"
+	"github.com/Sillyfrogster/Illarin/api/internal/account"
+	"github.com/Sillyfrogster/Illarin/api/internal/asset"
+	"github.com/Sillyfrogster/Illarin/api/internal/linking"
 )
 
 // Handlers turns HTTP requests into catalog calls.

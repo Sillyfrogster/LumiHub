@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
+	"github.com/Sillyfrogster/Illarin/api/internal/probe"
 )
 
 var (

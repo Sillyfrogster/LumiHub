@@ -15,11 +15,11 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/format"
-	mediaproc "github.com/Sillyfrogster/LumiHub/api/internal/media"
-	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
-	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
-	"github.com/Sillyfrogster/LumiHub/api/internal/testdb"
+	"github.com/Sillyfrogster/Illarin/api/internal/format"
+	mediaproc "github.com/Sillyfrogster/Illarin/api/internal/media"
+	"github.com/Sillyfrogster/Illarin/api/internal/probe"
+	"github.com/Sillyfrogster/Illarin/api/internal/storage"
+	"github.com/Sillyfrogster/Illarin/api/internal/testdb"
 	"github.com/google/uuid"
 )
 

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/format"
-	packformat "github.com/Sillyfrogster/LumiHub/api/internal/format/pack"
+	"github.com/Sillyfrogster/Illarin/api/internal/format"
+	packformat "github.com/Sillyfrogster/Illarin/api/internal/format/pack"
 )
 
 func startPack(t *testing.T, r http.Handler, session *http.Cookie) startedAsset {

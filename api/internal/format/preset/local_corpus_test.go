@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/block"
+	"github.com/Sillyfrogster/Illarin/api/internal/block"
 )
 
 // TestEveryLocalPresetSurvivesADownload exercises optional local fixtures and

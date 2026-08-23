@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/db"
+	"github.com/Sillyfrogster/Illarin/api/internal/db"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"

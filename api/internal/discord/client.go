@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/account"
+	"github.com/Sillyfrogster/Illarin/api/internal/account"
 )
 
 const maxResponseBytes = 1 << 20

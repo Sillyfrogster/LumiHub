@@ -3,8 +3,8 @@ package character
 import (
 	"encoding/json"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/format"
-	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
+	"github.com/Sillyfrogster/Illarin/api/internal/format"
+	"github.com/Sillyfrogster/Illarin/api/internal/probe"
 )
 
 const (

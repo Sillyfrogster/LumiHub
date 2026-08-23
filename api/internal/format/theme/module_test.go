@@ -11,10 +11,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/block"
-	"github.com/Sillyfrogster/LumiHub/api/internal/format"
-	"github.com/Sillyfrogster/LumiHub/api/internal/format/preset"
-	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
+	"github.com/Sillyfrogster/Illarin/api/internal/block"
+	"github.com/Sillyfrogster/Illarin/api/internal/format"
+	"github.com/Sillyfrogster/Illarin/api/internal/format/preset"
+	"github.com/Sillyfrogster/Illarin/api/internal/probe"
 	"github.com/google/uuid"
 )
 

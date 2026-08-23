@@ -11,8 +11,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/format"
-	"github.com/Sillyfrogster/LumiHub/api/internal/format/character"
+	"github.com/Sillyfrogster/Illarin/api/internal/format"
+	"github.com/Sillyfrogster/Illarin/api/internal/format/character"
 	"github.com/google/uuid"
 )
 

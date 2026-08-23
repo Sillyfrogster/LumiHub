@@ -5,7 +5,7 @@ import (
 	"io"
 	"slices"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
+	"github.com/Sillyfrogster/Illarin/api/internal/probe"
 )
 
 // Module provides a format's identity and declaration.

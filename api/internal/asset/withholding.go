@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/db"
+	"github.com/Sillyfrogster/Illarin/api/internal/db"
 	"github.com/google/uuid"
 )
 

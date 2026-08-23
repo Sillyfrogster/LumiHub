@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/block"
-	"github.com/Sillyfrogster/LumiHub/api/internal/db"
-	"github.com/Sillyfrogster/LumiHub/api/internal/format"
-	mediaproc "github.com/Sillyfrogster/LumiHub/api/internal/media"
+	"github.com/Sillyfrogster/Illarin/api/internal/block"
+	"github.com/Sillyfrogster/Illarin/api/internal/db"
+	"github.com/Sillyfrogster/Illarin/api/internal/format"
+	mediaproc "github.com/Sillyfrogster/Illarin/api/internal/media"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )

@@ -11,14 +11,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/block"
-	"github.com/Sillyfrogster/LumiHub/api/internal/format"
-	characterformat "github.com/Sillyfrogster/LumiHub/api/internal/format/character"
-	lorebookformat "github.com/Sillyfrogster/LumiHub/api/internal/format/lorebook"
-	packformat "github.com/Sillyfrogster/LumiHub/api/internal/format/pack"
-	presetformat "github.com/Sillyfrogster/LumiHub/api/internal/format/preset"
-	themeformat "github.com/Sillyfrogster/LumiHub/api/internal/format/theme"
-	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
+	"github.com/Sillyfrogster/Illarin/api/internal/block"
+	"github.com/Sillyfrogster/Illarin/api/internal/format"
+	characterformat "github.com/Sillyfrogster/Illarin/api/internal/format/character"
+	lorebookformat "github.com/Sillyfrogster/Illarin/api/internal/format/lorebook"
+	packformat "github.com/Sillyfrogster/Illarin/api/internal/format/pack"
+	presetformat "github.com/Sillyfrogster/Illarin/api/internal/format/preset"
+	themeformat "github.com/Sillyfrogster/Illarin/api/internal/format/theme"
+	"github.com/Sillyfrogster/Illarin/api/internal/probe"
 	"github.com/google/uuid"
 )
 

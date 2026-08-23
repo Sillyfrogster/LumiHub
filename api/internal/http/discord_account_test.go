@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/account"
-	discordapi "github.com/Sillyfrogster/LumiHub/api/internal/discord"
+	"github.com/Sillyfrogster/Illarin/api/internal/account"
+	discordapi "github.com/Sillyfrogster/Illarin/api/internal/discord"
 )
 
 type discordStub struct {

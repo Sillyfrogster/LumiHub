@@ -12,7 +12,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/testdb"
+	"github.com/Sillyfrogster/Illarin/api/internal/testdb"
 )
 
 func newTestStore(t *testing.T) Store {

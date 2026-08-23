@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/format"
+	"github.com/Sillyfrogster/Illarin/api/internal/format"
 	"github.com/google/uuid"
 )
 

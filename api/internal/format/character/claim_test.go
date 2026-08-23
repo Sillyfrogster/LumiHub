@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
+	"github.com/Sillyfrogster/Illarin/api/internal/probe"
 )
 
 func TestCCv2UsesTheSpecRepresentationWithoutShadowFields(t *testing.T) {

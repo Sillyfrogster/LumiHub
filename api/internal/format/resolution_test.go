@@ -6,7 +6,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
+	"github.com/Sillyfrogster/Illarin/api/internal/probe"
 )
 
 type claimingModule struct {

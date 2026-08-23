@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/block"
-	"github.com/Sillyfrogster/LumiHub/api/internal/format"
-	packformat "github.com/Sillyfrogster/LumiHub/api/internal/format/pack"
-	"github.com/Sillyfrogster/LumiHub/api/internal/probe"
+	"github.com/Sillyfrogster/Illarin/api/internal/block"
+	"github.com/Sillyfrogster/Illarin/api/internal/format"
+	packformat "github.com/Sillyfrogster/Illarin/api/internal/format/pack"
+	"github.com/Sillyfrogster/Illarin/api/internal/probe"
 )
 
 func readPack(ctx context.Context, row PackRow) (readResult, error) {

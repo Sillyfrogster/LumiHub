@@ -1,6 +1,6 @@
 package v1
 
-import "github.com/Sillyfrogster/LumiHub/api/internal/format"
+import "github.com/Sillyfrogster/Illarin/api/internal/format"
 
 func v1Columns() []format.ColumnDisposition {
 	columns := make([]format.ColumnDisposition, 0, 220)

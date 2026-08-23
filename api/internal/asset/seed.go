@@ -1,9 +1,9 @@
 package asset
 
 import (
-	"github.com/Sillyfrogster/LumiHub/api/internal/block"
-	"github.com/Sillyfrogster/LumiHub/api/internal/format/preset"
-	"github.com/Sillyfrogster/LumiHub/api/internal/format/theme"
+	"github.com/Sillyfrogster/Illarin/api/internal/block"
+	"github.com/Sillyfrogster/Illarin/api/internal/format/preset"
+	"github.com/Sillyfrogster/Illarin/api/internal/format/theme"
 )
 
 // kindsAskedForAnApp lists kinds whose initial slot names depend on an app. The

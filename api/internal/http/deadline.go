@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Sillyfrogster/LumiHub/api/openapi"
+	"github.com/Sillyfrogster/Illarin/api/openapi"
 	"github.com/gin-gonic/gin"
 )
 

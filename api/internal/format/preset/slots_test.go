@@ -3,7 +3,7 @@ package preset
 import (
 	"testing"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/block"
+	"github.com/Sillyfrogster/Illarin/api/internal/block"
 )
 
 // Every app Illarin offers has slot names for all three settings groups and

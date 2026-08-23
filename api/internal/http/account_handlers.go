@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/account"
+	"github.com/Sillyfrogster/Illarin/api/internal/account"
 	"github.com/gin-gonic/gin"
 	"github.com/oapi-codegen/runtime/types"
 )

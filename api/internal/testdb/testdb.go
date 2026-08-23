@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/postgres"
+	"github.com/Sillyfrogster/Illarin/api/internal/postgres"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 

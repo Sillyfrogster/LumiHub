@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/postgres"
-	"github.com/Sillyfrogster/LumiHub/api/internal/storage"
+	"github.com/Sillyfrogster/Illarin/api/internal/postgres"
+	"github.com/Sillyfrogster/Illarin/api/internal/storage"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )

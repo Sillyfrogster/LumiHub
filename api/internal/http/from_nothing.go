@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/account"
-	"github.com/Sillyfrogster/LumiHub/api/internal/asset"
+	"github.com/Sillyfrogster/Illarin/api/internal/account"
+	"github.com/Sillyfrogster/Illarin/api/internal/asset"
 	"github.com/gin-gonic/gin"
 )
 

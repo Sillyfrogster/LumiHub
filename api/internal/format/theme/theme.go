@@ -4,7 +4,7 @@ package theme
 import (
 	"fmt"
 
-	"github.com/Sillyfrogster/LumiHub/api/internal/block"
+	"github.com/Sillyfrogster/Illarin/api/internal/block"
 	"github.com/google/uuid"
 )
 
