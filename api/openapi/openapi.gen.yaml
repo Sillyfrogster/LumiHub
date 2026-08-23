@@ -1008,9 +1008,9 @@ paths:
     post:
       operationId: addAssetBlock
       description: >-
-        Add one optional section to the foot of the page, holding the element
-        the creator chose. A required section, and a section already present
-        that cannot repeat, are both refused.
+        Add one optional block to the foot of the page, holding the element the
+        creator chose. A required block, and a block already present that cannot
+        repeat, are both refused.
       security:
         - sessionCookie: []
       parameters:
@@ -1028,13 +1028,13 @@ paths:
               $ref: '#/components/schemas/AddAssetBlockRequest'
       responses:
         '201':
-          description: The new section as it now appears at the foot of the page
+          description: The new block as it now appears at the foot of the page
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AssetBlock'
         '400':
-          description: The section cannot be added to this asset
+          description: The block cannot be added to this asset
         '401':
           description: No account is signed in
         '403':
@@ -1087,8 +1087,8 @@ paths:
     post:
       operationId: moveAssetBlockContent
       description: >-
-        Move every unpinned element into a section with enough free slots, then
-        remove the emptied optional section. Both changes commit together.
+        Move every unpinned element into a block with enough free slots, then
+        remove the emptied optional block. Both changes commit together.
       security:
         - sessionCookie: []
       parameters:

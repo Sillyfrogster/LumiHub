@@ -87,13 +87,13 @@ func (c Claim) Payload(file probe.Inspection) (probe.Payload, bool) {
 	return probe.Payload{}, false
 }
 
-// TextBlock is one labelled block of extracted text.
-type TextBlock struct {
+// LabelledText is one labelled run of text pulled out of a file.
+type LabelledText struct {
 	Label string
 	Text  string
 }
 
 // TextExtractor reads text from formats that provide it.
 type TextExtractor interface {
-	ExtractText(ctx context.Context, src io.Reader) ([]TextBlock, error)
+	ExtractText(ctx context.Context, src io.Reader) ([]LabelledText, error)
 }

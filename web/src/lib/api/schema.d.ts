@@ -562,7 +562,7 @@ export interface paths {
     get?: never;
     /** @description Rewrite the whole page order and save visibility and width choices in the same transaction. Every current block must appear exactly once. */
     put: operations["arrangeAssetBlocks"];
-    /** @description Add one optional section to the foot of the page, holding the element the creator chose. A required section, and a section already present that cannot repeat, are both refused. */
+    /** @description Add one optional block to the foot of the page, holding the element the creator chose. A required block, and a block already present that cannot repeat, are both refused. */
     post: operations["addAssetBlock"];
     delete?: never;
     options?: never;
@@ -579,7 +579,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Move every unpinned element into a section with enough free slots, then remove the emptied optional section. Both changes commit together. */
+    /** @description Move every unpinned element into a block with enough free slots, then remove the emptied optional block. Both changes commit together. */
     post: operations["moveAssetBlockContent"];
     delete?: never;
     options?: never;
@@ -3402,7 +3402,7 @@ export interface operations {
       };
     };
     responses: {
-      /** @description The new section as it now appears at the foot of the page */
+      /** @description The new block as it now appears at the foot of the page */
       201: {
         headers: {
           [name: string]: unknown;
@@ -3411,7 +3411,7 @@ export interface operations {
           "application/json": components["schemas"]["AssetBlock"];
         };
       };
-      /** @description The section cannot be added to this asset */
+      /** @description The block cannot be added to this asset */
       400: {
         headers: {
           [name: string]: unknown;

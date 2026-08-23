@@ -113,7 +113,7 @@ export function BlockSheet({
         </header>
 
         <div className={styles.scroller}>
-          <section className={styles.naming} aria-labelledby="section-name">
+          <section className={styles.naming} aria-labelledby="block-name">
             <div className={styles.blockHeading}>
               <h3 id="block-name">Block name</h3>
               {block.required ? (
