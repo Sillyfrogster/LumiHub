@@ -212,7 +212,7 @@ func TestConcurrentVerificationProducesOneWinnerWithoutDeadlock(t *testing.T) {
 	}
 	defer blocker.Rollback(ctx)
 	if _, err := blocker.Exec(ctx, `select pg_advisory_xact_lock(
-		hashtextextended('lumihub-email:' || $1::text, 0)
+		hashtextextended('illarin-email:' || $1::text, 0)
 	)`, "race@example.com"); err != nil {
 		t.Fatalf("hold email lock: %v", err)
 	}

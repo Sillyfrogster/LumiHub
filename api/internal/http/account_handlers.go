@@ -15,9 +15,9 @@ import (
 )
 
 const (
-	sessionCookieName     = "lumihub_session"
-	oauthStateCookieName  = "lumihub_discord_state"
-	oauthReturnCookieName = "lumihub_discord_return"
+	sessionCookieName     = "illarin_session"
+	oauthStateCookieName  = "illarin_discord_state"
+	oauthReturnCookieName = "illarin_discord_return"
 )
 
 func (h *Handlers) SignUp(c *gin.Context) {

@@ -341,12 +341,12 @@ select storage_key, byte_size from blobs where id = $1;
 
 -- name: LockHandle :one
 select 1 from pg_advisory_xact_lock(
-    hashtextextended('lumihub-handle:' || sqlc.arg('handle')::text, 0)
+    hashtextextended('illarin-handle:' || sqlc.arg('handle')::text, 0)
 );
 
 -- name: LockEmail :one
 select 1 from pg_advisory_xact_lock(
-    hashtextextended('lumihub-email:' || sqlc.arg('email')::text, 0)
+    hashtextextended('illarin-email:' || sqlc.arg('email')::text, 0)
 );
 
 -- name: HandleUnavailable :one
@@ -489,13 +489,13 @@ returning intent, user_id;
 
 -- name: LockOAuthIdentity :one
 select 1 from pg_advisory_xact_lock(
-    hashtextextended('lumihub-oauth:' || sqlc.arg('provider')::text || ':' ||
+    hashtextextended('illarin-oauth:' || sqlc.arg('provider')::text || ':' ||
                      sqlc.arg('subject')::text, 0)
 );
 
 -- name: LockOAuthUser :one
 select 1 from pg_advisory_xact_lock(
-    hashtextextended('lumihub-oauth-user:' || sqlc.arg('user_id')::uuid::text, 0)
+    hashtextextended('illarin-oauth-user:' || sqlc.arg('user_id')::uuid::text, 0)
 );
 
 -- name: UserByOAuthIdentity :one

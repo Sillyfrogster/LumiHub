@@ -15,7 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-const backupLockName = "lumihub-backup:blob-deletion"
+const backupLockName = "illarin-backup:blob-deletion"
 
 type settings struct {
 	databaseURL    string

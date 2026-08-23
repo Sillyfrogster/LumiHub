@@ -3,7 +3,7 @@ components:
     sessionCookie:
       type: apiKey
       in: cookie
-      name: lumihub_session
+      name: illarin_session
     instanceToken:
       type: http
       scheme: bearer

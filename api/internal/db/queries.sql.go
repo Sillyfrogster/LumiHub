@@ -1807,7 +1807,7 @@ func (q *Queries) LockDeviceLinkRequest(ctx context.Context, deviceCodeHash []by
 
 const lockEmail = `-- name: LockEmail :one
 select 1 from pg_advisory_xact_lock(
-    hashtextextended('lumihub-email:' || $1::text, 0)
+    hashtextextended('illarin-email:' || $1::text, 0)
 )
 `
 
@@ -1820,7 +1820,7 @@ func (q *Queries) LockEmail(ctx context.Context, email string) (int32, error) {
 
 const lockHandle = `-- name: LockHandle :one
 select 1 from pg_advisory_xact_lock(
-    hashtextextended('lumihub-handle:' || $1::text, 0)
+    hashtextextended('illarin-handle:' || $1::text, 0)
 )
 `
 
@@ -1925,7 +1925,7 @@ func (q *Queries) LockLinkedInstanceByRefreshToken(ctx context.Context, refreshT
 
 const lockOAuthIdentity = `-- name: LockOAuthIdentity :one
 select 1 from pg_advisory_xact_lock(
-    hashtextextended('lumihub-oauth:' || $1::text || ':' ||
+    hashtextextended('illarin-oauth:' || $1::text || ':' ||
                      $2::text, 0)
 )
 `
@@ -1944,7 +1944,7 @@ func (q *Queries) LockOAuthIdentity(ctx context.Context, arg LockOAuthIdentityPa
 
 const lockOAuthUser = `-- name: LockOAuthUser :one
 select 1 from pg_advisory_xact_lock(
-    hashtextextended('lumihub-oauth-user:' || $1::uuid::text, 0)
+    hashtextextended('illarin-oauth-user:' || $1::uuid::text, 0)
 )
 `
 
