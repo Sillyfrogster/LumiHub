@@ -31,8 +31,7 @@ const (
 	CustomSection     DefinitionID = "custom_section"
 )
 
-// Group is where a block's content ends up. The add tray groups by it,
-// because a creator knows the destination before they know the name.
+// Group identifies where a block's content belongs.
 type Group string
 
 const (
@@ -55,43 +54,29 @@ func Groups() []Group { return []Group{GroupFile, GroupReader, GroupWork, GroupO
 // Title returns the group's wording in the add tray.
 func (g Group) Title() string { return groupTitles[g] }
 
-// Definition describes a kind's block at render time; it is not copied into
-// persisted block rows.
+// Definition describes a kind's block at render time.
 type Definition struct {
-	ID DefinitionID
-	// Title is the wording a block carries until its creator writes their own.
-	Title string
-	// Only required blocks need a hide policy; optional blocks can be removed.
+	ID       DefinitionID
+	Title    string
 	Required bool
 	Hideable bool
-	// Elements are the definition's own, in slot order.
 	Elements []DefinedElement
-	// Layouts are in preference order, and placement takes the first with room
-	// for the elements it placed.
-	Layouts []Layout
-	// Width is what stops an imported asset arriving as a stack of identical
-	// full-width cards.
-	Width Width
-	// Summary is the line the add tray carries under the definition's name.
-	Summary string
-	// Group is where this block's content ends up.
-	Group Group
-	// Repeatable definitions may sit on a page more than once.
+	// Layouts are in preference order.
+	Layouts    []Layout
+	Width      Width
+	Summary    string
+	Group      Group
 	Repeatable bool
-	// Choices are the elements a creator may start the block with. A
-	// definition that names none starts with the elements it declares.
+	// Choices override the starting elements in the add tray.
 	Choices []DefinedElement
 }
 
-// start describes one add-tray choice and the elements created with it.
 type start struct {
 	Type     Type
 	Label    string
 	Elements []DefinedElement
 }
 
-// starts returns the ways a creator may start this block, in the order the
-// tray offers them.
 func (d Definition) starts() []start {
 	if len(d.Choices) > 0 {
 		starts := make([]start, 0, len(d.Choices))
@@ -112,17 +97,13 @@ func (d Definition) starts() []start {
 
 // DefinedElement is one element a definition places.
 type DefinedElement struct {
-	Role Role
-	Type Type
-	// Options are the definition's presentation choices for this element.
+	Role    Role
+	Type    Type
 	Options Options
-	// A pinned element exists from the moment the asset does and can be neither
-	// removed nor moved, so a required block can never be hollowed out. An
-	// unpinned one is placed only where a source carries it.
+	// Pinned elements cannot be removed or moved.
 	Pinned bool
 }
 
-// character is the character catalog, in page order.
 var character = []Definition{
 	{
 		ID:       CharacterCore,
@@ -145,8 +126,6 @@ var character = []Definition{
 		Elements: []DefinedElement{
 			{Role: RoleGreetings, Type: TypeTextSet, Options: Options{Display: DisplayRich}, Pinned: true},
 			{Role: RoleExampleDialogue, Type: TypeDialogueSample, Pinned: true},
-			// Group-only greetings fire in group chats alone, so they stay a
-			// separate role and appear only where a source carries them.
 			{Role: RoleGroupGreetings, Type: TypeTextSet, Options: Options{Display: DisplayRich}},
 		},
 		Layouts: []Layout{Stack2, Stack3},
@@ -177,8 +156,6 @@ var character = []Definition{
 		Title:   "Image prompts",
 		Summary: "The settings and the prompt text the artwork came from.",
 		Group:   GroupWork,
-		// A prompt is text and its settings are named values, so the section
-		// needs no type of its own for either.
 		Elements: []DefinedElement{
 			{Type: TypeFieldList},
 			{Type: TypeProse, Options: Options{Display: DisplayVerbatim}},
@@ -196,8 +173,6 @@ var character = []Definition{
 			{Role: RoleSystemPrompt, Type: TypeProse, Options: Options{Display: DisplayVerbatim}},
 			{Role: RolePostHistoryInstructions, Type: TypeProse, Options: Options{Display: DisplayVerbatim}},
 		},
-		// Half width has no room for duo, so a creator who wants the two
-		// prompts side by side widens the section first.
 		Layouts: []Layout{Stack2, Duo},
 		Width:   Half,
 	},
@@ -212,14 +187,11 @@ var character = []Definition{
 	},
 }
 
-// lorebook is the lorebook catalog. A book is its entries, so the kind has one
-// required section and nothing else of its own.
 var lorebook = []Definition{
 	{
 		ID:       LorebookCore,
 		Title:    "Entries",
 		Required: true,
-		// A lorebook with its entries withheld is not a page.
 		Hideable: false,
 		Elements: []DefinedElement{
 			{Role: RoleLorebookEntries, Type: TypeEntryTable, Pinned: true},
@@ -229,15 +201,11 @@ var lorebook = []Definition{
 	},
 }
 
-// preset is the preset catalog, in page order. A preset is its prompt, and
-// the four groups of settings around it are each absent until something fills
-// them.
 var preset = []Definition{
 	{
 		ID:       PresetCore,
 		Title:    "Prompt fragments",
 		Required: true,
-		// A preset with its prompt withheld is not a page.
 		Hideable: false,
 		Elements: []DefinedElement{
 			{Role: RolePromptFragments, Type: TypePromptList, Pinned: true},
@@ -250,8 +218,6 @@ var preset = []Definition{
 		Title:   "Settings",
 		Summary: "Samplers, completion behaviour, and the advanced settings.",
 		Group:   GroupFile,
-		// Three groups of one type rather than three sections, because three
-		// near-identical cards of settings read as a spreadsheet.
 		Elements: []DefinedElement{
 			{Role: RoleSamplerSettings, Type: TypeSettingGroup},
 			{Role: RoleCompletionSettings, Type: TypeSettingGroup},
@@ -283,7 +249,6 @@ var preset = []Definition{
 		Title:   "Nudges",
 		Summary: "The short prompts an app sends on its own, and the formats it wraps.",
 		Group:   GroupFile,
-		// Prompt text with macros in it, so it is shown exactly as written.
 		Elements: []DefinedElement{
 			{Role: RolePromptNudges, Type: TypeTextSet, Options: Options{Display: DisplayVerbatim}},
 		},
@@ -332,8 +297,6 @@ var pack = []Definition{
 	},
 }
 
-// shared is the seven definitions every kind lists. They hold the parts no
-// file format carries, whatever a creator is building.
 var shared = []Definition{
 	{
 		ID:       Gallery,
@@ -376,8 +339,6 @@ var shared = []Definition{
 		Title:   "Author’s notes",
 		Summary: "What you want to say about making it.",
 		Group:   GroupWork,
-		// Creator notes are what a card format carries, so this is where the
-		// role binds. A kind whose formats carry none never fills it.
 		Elements: []DefinedElement{
 			{Role: RoleCreatorNotes, Type: TypeProse, Options: Options{Display: DisplayRich}},
 		},
@@ -410,8 +371,6 @@ var shared = []Definition{
 	},
 }
 
-// catalogs holds one catalog per kind. A kind with no catalog cannot be built
-// yet, and creation refuses it rather than offering an empty page.
 var catalogs = map[string][]Definition{
 	"character": character,
 	"lorebook":  lorebook,
@@ -420,8 +379,7 @@ var catalogs = map[string][]Definition{
 	"pack":      pack,
 }
 
-// Catalog returns the block definitions a kind declares, in page order. Every
-// kind lists its own and then the seven shared ones.
+// Catalog returns a kind's block definitions in page order.
 func Catalog(kind string) ([]Definition, bool) {
 	own, ok := catalogs[kind]
 	if !ok {
@@ -430,8 +388,7 @@ func Catalog(kind string) ([]Definition, bool) {
 	return slices.Concat(own, shared), true
 }
 
-// Kinds returns every kind that has a catalog, so a creator is only offered
-// what Illarin can actually build.
+// Kinds returns every kind that has a catalog.
 func Kinds() []string {
 	kinds := make([]string, 0, len(catalogs))
 	for kind := range catalogs {
@@ -454,7 +411,6 @@ func (id DefinitionID) Definition(kind string) (Definition, bool) {
 	return Definition{}, false
 }
 
-// element returns the definition's entry for a role.
 func (d Definition) element(role Role) (DefinedElement, bool) {
 	for _, defined := range d.Elements {
 		if defined.Role == role {
@@ -464,7 +420,6 @@ func (d Definition) element(role Role) (DefinedElement, bool) {
 	return DefinedElement{}, false
 }
 
-// layoutFor returns the first allowed layout with room for count elements.
 func (d Definition) layoutFor(count int) (Layout, bool) {
 	for _, layout := range d.Layouts {
 		if len(layout.Slots()) >= count {

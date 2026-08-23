@@ -7,11 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// Preset element types stay separate because their editing surfaces differ.
-
-// PromptList is a preset's prompt fragments, in the order they are sent. One
-// level of grouping is the list's own nesting rather than a second element,
-// because a heading over some fragments is still the same collection.
+// PromptList is a preset's ordered prompt fragments.
 type PromptList struct {
 	Groups    []PromptGroup    `json:"groups"`
 	Fragments []PromptFragment `json:"fragments"`
@@ -19,8 +15,7 @@ type PromptList struct {
 
 // PromptGroup is a heading over some of the fragments.
 type PromptGroup struct {
-	// ID is Illarin's own, minted when the group is created. Preserved data
-	// keys against it, so reordering the list moves nothing onto a neighbour.
+	// ID anchors preserved data across reordering.
 	ID   uuid.UUID `json:"id"`
 	Name string    `json:"name"`
 }
@@ -28,32 +23,22 @@ type PromptGroup struct {
 // PromptFragment is one piece of a preset's prompt.
 type PromptFragment struct {
 	ID uuid.UUID `json:"id"`
-	// Name is the creator's own label. It reaches no model.
+	// Name is a label and never reaches the model.
 	Name string `json:"name,omitempty"`
-	// GroupID is the group the fragment sits under, and is unset where it sits
-	// under none.
+	// GroupID is unset for an ungrouped fragment.
 	GroupID *uuid.UUID `json:"groupId,omitempty"`
-	// Role is who the fragment speaks as.
-	Role PromptRole `json:"role"`
-	Text string     `json:"text"`
-	// Marker names what an app splices in where this fragment sits, such as the
-	// chat or the lorebook. A marker carries no text of its own, and the name
-	// is taken at face value from whatever supplied it.
-	Marker string `json:"marker,omitempty"`
-	// Enabled is the creator's switch. A switched-off fragment stays in the
-	// list.
-	Enabled bool `json:"enabled"`
-	// Placement is where the fragment goes relative to the conversation, and is
-	// unset where the preset leaves it to whatever reads it.
+	Role    PromptRole `json:"role"`
+	Text    string     `json:"text"`
+	// Marker names content an app splices into this position.
+	Marker  string `json:"marker,omitempty"`
+	Enabled bool   `json:"enabled"`
+	// Placement is unset when the preset leaves the choice open.
 	Placement PromptPlacement `json:"placement,omitempty"`
-	// Depth counts messages back from the most recent, and is unset where the
-	// placement does not reach into the conversation.
+	// Depth counts backward from the most recent message.
 	Depth *int `json:"depth,omitempty"`
 }
 
-// PromptRole is who a fragment speaks as. The two appending roles add to the
-// message before them rather than starting one, which is a distinction one of
-// the two preset formats makes and the other does not.
+// PromptRole identifies who speaks; append roles extend the prior message.
 type PromptRole string
 
 const (
@@ -64,8 +49,7 @@ const (
 	PromptAssistantAppend PromptRole = "assistant_append"
 )
 
-// Known reports whether the role belongs to the closed vocabulary. An unset
-// role is the preset leaving it to whatever reads it, so it is known too.
+// Known reports whether the role belongs to the closed vocabulary.
 func (r PromptRole) Known() bool {
 	switch r {
 	case "", PromptSystem, PromptUser, PromptAssistant, PromptUserAppend, PromptAssistantAppend:
@@ -91,8 +75,7 @@ const (
 	InHistory     PromptPlacement = "in_history"
 )
 
-// Known reports whether the placement belongs to the closed vocabulary. An
-// unset placement is the preset leaving the choice open, so it is known too.
+// Known reports whether the placement belongs to the closed vocabulary.
 func (p PromptPlacement) Known() bool {
 	switch p {
 	case "", BeforeHistory, AfterHistory, InHistory:
@@ -107,24 +90,19 @@ func PromptPlacements() []PromptPlacement {
 	return []PromptPlacement{BeforeHistory, AfterHistory, InHistory}
 }
 
-// Empty reports whether the list would show a reader nothing. A marker carries
-// no text and is still a fragment, so this counts fragments rather than words.
+// Empty counts marker-only fragments as content.
 func (l PromptList) Empty() bool { return len(l.Fragments) == 0 }
 
-// Value is one typed value. A setting holds one, and so does a variable's
-// default and the value saved for it. Nothing set at all is nobody having
-// supplied one, which a format writes as an absent key rather than as a zero.
+// Value holds one setting or variable value.
 type Value struct {
 	Number  *float64 `json:"number,omitempty"`
 	Boolean *bool    `json:"boolean,omitempty"`
 	Text    *string  `json:"text,omitempty"`
-	// Strings keeps its items as they were written and in the order they were
-	// written, duplicates included.
+	// Strings preserves order and duplicates.
 	Strings []string `json:"strings,omitempty"`
 }
 
-// SettingType is what one setting holds. A text setting that names choices is
-// limited to them, and one that names none is free text.
+// SettingType identifies what one setting holds.
 type SettingType string
 
 const (
@@ -149,31 +127,24 @@ func SettingTypes() []SettingType {
 	return []SettingType{SettingNumber, SettingBoolean, SettingText, SettingStrings}
 }
 
-// SettingGroup is a set of named settings an app understands. The names are
-// taken at face value from whichever app the preset is for, and Illarin models
-// nothing about what any of them controls.
+// SettingGroup is a set of app-defined settings.
 type SettingGroup struct {
 	Settings []Setting `json:"settings"`
 }
 
 // Setting is one named slot and whatever is in it.
 type Setting struct {
-	ID uuid.UUID `json:"id"`
-	// Name is the slot's name in the app that reads it.
-	Name string `json:"name"`
-	// Label is wording for a person where the slot name is not readable on its
-	// own.
-	Label string      `json:"label,omitempty"`
-	Type  SettingType `json:"type"`
-	// Choices limit a text setting to a set. None leaves it free.
-	Choices []string `json:"choices,omitempty"`
-	// Value is nil where nobody has supplied one, which is not the same as an
-	// empty one. A setting nobody filled in is written out as an absent key.
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+	// Label is readable wording for an opaque slot name.
+	Label   string      `json:"label,omitempty"`
+	Type    SettingType `json:"type"`
+	Choices []string    `json:"choices,omitempty"`
+	// Value is nil when nobody supplied one.
 	Value *Value `json:"value,omitempty"`
 }
 
-// Empty reports whether the group would show a reader nothing. Named slots
-// with nothing in them are a form a creator fills in, not content.
+// Empty reports whether the group has any supplied values.
 func (g SettingGroup) Empty() bool {
 	for _, setting := range g.Settings {
 		if setting.Value != nil {
@@ -194,9 +165,7 @@ func (g SettingGroup) Supplied() int {
 	return count
 }
 
-// VariableSchema is the form a preset asks a reader to fill in before they use
-// it. It is the clearest case in the catalog of content one target takes whole
-// and another has no counterpart for at all.
+// VariableSchema is the form a preset asks a reader to fill in.
 type VariableSchema struct {
 	Variables []Variable `json:"variables"`
 }
@@ -235,31 +204,23 @@ func VariableWidgets() []VariableWidget {
 
 // Variable is one thing a reader chooses before the preset runs.
 type Variable struct {
-	ID uuid.UUID `json:"id"`
-	// Name is what the prompt fragments refer to it by.
+	ID          uuid.UUID      `json:"id"`
 	Name        string         `json:"name"`
 	Widget      VariableWidget `json:"widget"`
 	Label       string         `json:"label,omitempty"`
 	Description string         `json:"description,omitempty"`
-	// FragmentID is the prompt fragment the variable belongs to, and is unset
-	// where the preset ties it to none.
-	FragmentID *uuid.UUID `json:"fragmentId,omitempty"`
-	// Default is what the variable holds until somebody changes it.
-	Default *Value `json:"default,omitempty"`
-	// Value is what the creator saved, which is what a reader installs.
-	Value *Value `json:"value,omitempty"`
-	// Options are what a select or a multiselect offers.
-	Options []VariableOption `json:"options,omitempty"`
-	// Range bounds a number or a slider.
-	Range *VariableRange `json:"range,omitempty"`
-	// Separator joins a multiselect's chosen values on the way into a prompt.
+	// FragmentID is unset when the variable belongs to no fragment.
+	FragmentID *uuid.UUID       `json:"fragmentId,omitempty"`
+	Default    *Value           `json:"default,omitempty"`
+	Value      *Value           `json:"value,omitempty"`
+	Options    []VariableOption `json:"options,omitempty"`
+	Range      *VariableRange   `json:"range,omitempty"`
+	// Separator joins multiselect values in a prompt.
 	Separator string `json:"separator,omitempty"`
-	// Rows is how tall a text area is drawn.
-	Rows int `json:"rows,omitempty"`
+	Rows      int    `json:"rows,omitempty"`
 }
 
-// VariableOption pairs display text with the value sent to the prompt. Key
-// preserves formats that name choices separately.
+// VariableOption pairs display text with a prompt value.
 type VariableOption struct {
 	Key   string `json:"key,omitempty"`
 	Label string `json:"label"`
@@ -318,11 +279,8 @@ func ScriptTargets() []ScriptTarget {
 type ScriptEffect string
 
 const (
-	// EffectDisplay changes what a person is shown and leaves what the model
-	// is sent alone.
 	EffectDisplay ScriptEffect = "display"
-	// EffectPrompt changes what the model is sent.
-	EffectPrompt ScriptEffect = "prompt"
+	EffectPrompt  ScriptEffect = "prompt"
 )
 
 // Known reports whether the effect belongs to the closed vocabulary.
@@ -339,31 +297,22 @@ type Script struct {
 	Name        string    `json:"name,omitempty"`
 	Description string    `json:"description,omitempty"`
 	Find        string    `json:"find"`
-	// Flags are the expression's own, such as g for every match and i for
-	// ignoring case.
-	Flags   string `json:"flags,omitempty"`
-	Replace string `json:"replace"`
-	// Trim is text cut out of the match before the replacement is written.
-	Trim []string `json:"trim,omitempty"`
-	// Targets are the text the script runs over.
+	// Flags are regular expression flags.
+	Flags   string         `json:"flags,omitempty"`
+	Replace string         `json:"replace"`
+	Trim    []string       `json:"trim,omitempty"`
 	Targets []ScriptTarget `json:"targets,omitempty"`
-	// Affects is what the replacement changes. It is what a person is shown,
-	// what the model is sent, or both.
 	Affects []ScriptEffect `json:"affects,omitempty"`
 	Enabled bool           `json:"enabled"`
-	// MinDepth and MaxDepth bound how far back the script reaches, counted in
-	// messages from the most recent. Unset at either end is no bound there.
-	MinDepth *int `json:"minDepth,omitempty"`
-	MaxDepth *int `json:"maxDepth,omitempty"`
-	// RunOnEdit runs the script again when a message is edited.
+	// MinDepth and MaxDepth count backward from the latest message.
+	MinDepth  *int `json:"minDepth,omitempty"`
+	MaxDepth  *int `json:"maxDepth,omitempty"`
 	RunOnEdit bool `json:"runOnEdit,omitempty"`
 }
 
 // Empty reports whether the list would change nothing.
 func (l ScriptList) Empty() bool { return len(l.Scripts) == 0 }
 
-// decodePromptList reads a save request into a prompt list. Every fragment is
-// read on its own terms, so a refusal names the fragment to go back to.
 func decodePromptList(raw json.RawMessage) (Content, error) {
 	var incoming struct {
 		Groups *[]struct {
@@ -439,9 +388,6 @@ func decodePromptList(raw json.RawMessage) (Content, error) {
 	return PromptList{Groups: groups, Fragments: fragments}, nil
 }
 
-// decodeSettingGroup reads a save request into a settings group. A value that
-// is absent stays absent, because a setting nobody supplied is written out as
-// an absent key rather than as a zero.
 func decodeSettingGroup(raw json.RawMessage) (Content, error) {
 	var incoming struct {
 		Settings *[]struct {
@@ -482,7 +428,6 @@ func decodeSettingGroup(raw json.RawMessage) (Content, error) {
 	return SettingGroup{Settings: settings}, nil
 }
 
-// decodeVariableSchema reads a save request into a variable schema.
 func decodeVariableSchema(raw json.RawMessage) (Content, error) {
 	var incoming struct {
 		Variables *[]struct {
@@ -535,7 +480,6 @@ func decodeVariableSchema(raw json.RawMessage) (Content, error) {
 	return VariableSchema{Variables: variables}, nil
 }
 
-// decodeScriptList reads a save request into a script list.
 func decodeScriptList(raw json.RawMessage) (Content, error) {
 	var incoming struct {
 		Scripts *[]struct {

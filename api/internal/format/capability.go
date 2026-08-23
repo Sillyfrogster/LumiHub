@@ -35,8 +35,6 @@ func Apps() []App {
 	}
 }
 
-// reach is how many of the named apps open a format. It is the whole of what
-// "the formats most apps can open" means.
 func reach(formatID string) int {
 	count := 0
 	for _, app := range Apps() {
@@ -47,8 +45,7 @@ func reach(formatID string) int {
 	return count
 }
 
-// Verdict is how much of one role's content a target keeps. Where that content
-// lands is a separate fact, carried by a destination note on any of the three.
+// Verdict describes how much content a target keeps.
 type Verdict string
 
 const (
@@ -64,27 +61,19 @@ type RoleLoss struct {
 	Verdict Verdict    `json:"verdict"`
 	// Reason names what went, and stands only on a reduced verdict.
 	Reason string `json:"reason,omitempty"`
-	// Destination names where the content lands when that is not the format's
-	// standard home for it, such as an extensions namespace only some clients
-	// read.
-	Destination string `json:"destination,omitempty"`
-	// Sample is a glance at what is at stake, so a reader recognises in two
-	// seconds whether they care.
-	Sample block.Sample `json:"sample"`
+	// Destination names a nonstandard output location.
+	Destination string       `json:"destination,omitempty"`
+	Sample      block.Sample `json:"sample"`
 }
 
 // Lossy reports whether this verdict costs the asset something.
 func (l RoleLoss) Lossy() bool { return l.Verdict != Carried }
 
-// Target is one format an asset may be downloaded as, and what the trip costs
-// it. A target that is not offered is absent rather than listed as
-// unavailable, so the menu is a list of choices.
+// Target is one offered download format and its content costs.
 type Target struct {
 	Format string `json:"format"`
 	Label  string `json:"label"`
-	// Recommended is computed by the widest-compatibility rule and is never a
-	// creator's choice, because a loss report is a fact where a preference is
-	// not.
+	// Recommended is computed from compatibility and loss.
 	Recommended bool       `json:"recommended"`
 	Roles       []RoleLoss `json:"roles"`
 }
@@ -103,15 +92,10 @@ func (t Target) Losses() []RoleLoss {
 // CapabilitySubject is the asset as the export gates read it.
 type CapabilitySubject struct {
 	Kind string
-	// Origin is the format the asset arrived in. Empty means it was authored
-	// in Illarin, which is an origin in its own right and never an unknown.
-	Origin string
-	// Elements are the asset's content, hidden blocks included.
+	// Origin is empty for content authored in Illarin.
+	Origin   string
 	Elements []block.Element
-	// AllowedCrossPlatform names the cross-platform targets this creator has
-	// allowed. Nothing grants an allowance yet, so a cross-platform target is
-	// refused. The three character card formats are ordinary targets and never
-	// meet this gate.
+	// AllowedCrossPlatform names explicitly allowed targets.
 	AllowedCrossPlatform []string
 }
 
@@ -155,14 +139,6 @@ func (r *Registry) OfferedTargets(subject CapabilitySubject) []Target {
 	return offered
 }
 
-// lossReport measures one writer's declaration against what this asset really
-// holds, and reports whether the asset survives the trip.
-//
-// A role the asset has no content for gets no verdict at all. The test is loss
-// rather than emptiness, so a creator who left a field alone is never punished
-// for it. A target is blocked only where the asset has content for a role its
-// kind requires and none of it survives. Nothing is withheld for losing
-// optional content, however much of it.
 func lossReport(declaration Declaration, subject CapabilitySubject) ([]RoleLoss, bool) {
 	required := block.RequiredRoles(subject.Kind)
 	report := make([]RoleLoss, 0, len(block.Roles()))
@@ -192,8 +168,6 @@ func lossReport(declaration Declaration, subject CapabilitySubject) ([]RoleLoss,
 	return report, true
 }
 
-// writtenContent returns the content an asset actually holds under a role. A
-// repeatable role may carry several elements and an empty one carries nothing.
 func writtenContent(elements []block.Element, role block.Role) []block.Content {
 	written := make([]block.Content, 0, 1)
 	for _, element := range elements {
@@ -217,11 +191,7 @@ func matchesAny(condition *ContentCondition, written []block.Content) bool {
 	return false
 }
 
-// recommend marks the format that loses the least among the formats most apps
-// can open. Recommending a format somebody's app refuses is a worse failure
-// than dropping a gallery, so reach comes first and loss breaks the tie. Where
-// two formats are read as widely and lose as little, the one that can carry
-// more wins.
+// recommend prefers reach, fewer losses, and wider role support.
 func recommend(targets []Target, r *Registry) {
 	best := -1
 	for i := range targets {
@@ -248,8 +218,6 @@ func outranks(candidate, holder Target, r *Registry) bool {
 	return false
 }
 
-// writableRoles counts the roles a format can carry at all, which is what
-// separates two formats that lose nothing on this particular asset.
 func writableRoles(r *Registry, formatID string) int {
 	declaration, ok := r.Declaration(formatID)
 	if !ok {
@@ -264,10 +232,7 @@ func writableRoles(r *Registry, formatID string) int {
 	return count
 }
 
-// CapabilityStamp digests every writer's declared capability and the app table
-// the recommendation reads. A stored loss report records the stamp it was
-// computed under, so a deploy that changes a declaration recomputes what it
-// invalidated rather than waiting for somebody to remember a version number.
+// CapabilityStamp identifies the current writer and app declarations.
 func (r *Registry) CapabilityStamp() string {
 	ids := make([]string, 0, len(r.modules))
 	for id := range r.modules {

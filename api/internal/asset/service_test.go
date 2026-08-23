@@ -226,7 +226,6 @@ func TestCreateDerivesKindFromARecognizedFormat(t *testing.T) {
 	}
 }
 
-/** Always fails, so the test can prove nothing is left behind */
 type failingModule struct{ claimsFirstPayload }
 
 func (failingModule) ID() string { return "failing" }
@@ -237,7 +236,6 @@ func (failingModule) Parse(context.Context, probe.Inspection, format.Claim) (for
 	return format.Parsed{}, errors.New("cannot parse")
 }
 
-/** Emits a header Postgres cannot store, so the failure lands mid transaction */
 type badHeaderModule struct{ claimsFirstPayload }
 
 func (badHeaderModule) ID() string { return "badheader" }

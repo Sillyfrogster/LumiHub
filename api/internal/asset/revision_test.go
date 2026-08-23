@@ -322,7 +322,6 @@ func TestReimportedMediaFillsTheAsset(t *testing.T) {
 	}
 }
 
-/** A module that claims a payload naming its own id and declares one kind */
 type kindModule struct {
 	id   string
 	kind string
