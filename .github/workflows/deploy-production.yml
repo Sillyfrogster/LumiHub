@@ -1,0 +1,41 @@
+name: Deploy production
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/master'
+    name: Deploy verified images to the OVH VPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+    env:
+      PRODUCTION_HOST: ${{ secrets.PRODUCTION_HOST }}
+      PRODUCTION_USER: ${{ secrets.PRODUCTION_USER }}
+      PRODUCTION_SSH_KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+      PRODUCTION_HOST_KEYS: ${{ secrets.PRODUCTION_HOST_KEYS }}
+    steps:
+      - name: Prepare the production SSH identity
+        run: |
+          set -euo pipefail
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$PRODUCTION_SSH_KEY" >"$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$PRODUCTION_HOST_KEYS" >"$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519" "$HOME/.ssh/known_hosts"
+
+      - name: Deploy the selected master commit
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "$PRODUCTION_USER@$PRODUCTION_HOST" \
+            "cd /opt/illarin && git fetch --quiet origin '${GITHUB_SHA}' && git switch --detach '${GITHUB_SHA}' && make prod-deploy VERSION='${GITHUB_SHA}'"

@@ -6,6 +6,7 @@
 GOOSE := go run github.com/pressly/goose/v3/cmd/goose@v3.26.0
 SQLC  := go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
 OAPI  := go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0
+ACTIONLINT := go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 WEB_PORT ?= 3000
 TEST ?= ./...
 VERSION ?=
@@ -37,7 +38,7 @@ setup: ## Get a fresh clone ready to run
 
 .PHONY: web-install
 web-install: ## Install the site's locked dependencies
-	cd web && bun install
+	cd web && bun install --frozen-lockfile
 
 # Running
 
@@ -98,7 +99,7 @@ prod-backup-check: ## Verify the configured off-box backup repository
 # Checking
 
 .PHONY: check
-check: fmt-check vet test test-web lint openapi-check ## Everything CI would run
+check: fmt-check vet test test-web lint openapi-check workflow-check ## Everything CI would run
 
 .PHONY: test
 test: need-test-db ## Run the Go tests
@@ -135,6 +136,10 @@ fmt-check: ## Fail if any Go file needs formatting
 .PHONY: proxy-check
 proxy-check: ## Check the local nginx configuration
 	$(NGINX) -t
+
+.PHONY: workflow-check
+workflow-check: ## Check GitHub Actions workflows and their shell commands
+	$(ACTIONLINT)
 
 .PHONY: production-proxy-check
 production-proxy-check: ## Check the production nginx configuration
