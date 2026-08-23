@@ -327,7 +327,7 @@ func TestNoCardWriterIsOfferedForABook(t *testing.T) {
 }
 
 // Import fills the kind's blocks through its catalog rather than through the
-// module, so a book lands as the one section a lorebook has.
+// module, so a book lands as the one block a lorebook has.
 func TestAnImportedBookIsPlacedIntoTheLorebookCatalog(t *testing.T) {
 	parsed := parse(t, twoEntries)
 	blocks, err := block.Place(parsed.Kind, parsed.Elements)
@@ -335,7 +335,7 @@ func TestAnImportedBookIsPlacedIntoTheLorebookCatalog(t *testing.T) {
 		t.Fatalf("place: %v", err)
 	}
 	if len(blocks) != 1 {
-		t.Fatalf("placed %d blocks, want the one section a lorebook has", len(blocks))
+		t.Fatalf("placed %d blocks, want the one block a lorebook has", len(blocks))
 	}
 	placed := blocks[0]
 	if placed.Definition != block.LorebookCore || placed.Layout != block.Single ||

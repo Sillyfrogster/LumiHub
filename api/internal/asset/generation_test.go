@@ -258,7 +258,7 @@ func TestANewCoverMovesTheContentGenerationAndAnUnusedPictureDoesNot(t *testing.
 	}
 }
 
-func TestAddingAnEmptySectionLeavesTheContentGenerationAlone(t *testing.T) {
+func TestAddingAnEmptyBlockLeavesTheContentGenerationAlone(t *testing.T) {
 	svc, pool := newTestService(t)
 	owner, draft := startedDraft(t, svc)
 	before := contentGeneration(t, pool, draft)
@@ -266,30 +266,30 @@ func TestAddingAnEmptySectionLeavesTheContentGenerationAlone(t *testing.T) {
 	if _, err := svc.AddBlock(
 		context.Background(), owner, draft, block.AuthorNotes, block.TypeProse,
 	); err != nil {
-		t.Fatalf("add a section: %v", err)
+		t.Fatalf("add a block: %v", err)
 	}
 
 	if got := contentGeneration(t, pool, draft); got != before {
-		t.Fatalf("content generation = %d, want %d after an empty section", got, before)
+		t.Fatalf("content generation = %d, want %d after an empty block", got, before)
 	}
 }
 
-func TestRemovingASectionThatHeldContentMovesTheContentGeneration(t *testing.T) {
+func TestRemovingABlockThatHeldContentMovesTheContentGeneration(t *testing.T) {
 	svc, pool := newTestService(t)
 	owner, draft := startedDraft(t, svc)
 	added, err := svc.AddBlock(context.Background(), owner, draft, block.AuthorNotes, block.TypeProse)
 	if err != nil {
-		t.Fatalf("add a section: %v", err)
+		t.Fatalf("add a block: %v", err)
 	}
 	update := updateOf(added.Block)
 	update.Elements[0].Content = block.Prose{Text: "Run her at a low temperature."}
 	if _, err := svc.SaveBlock(context.Background(), owner, draft, added.Block.ID, update); err != nil {
-		t.Fatalf("fill the section in: %v", err)
+		t.Fatalf("fill the block in: %v", err)
 	}
 	before := contentGeneration(t, pool, draft)
 
 	if err := svc.RemoveBlock(context.Background(), owner, draft, added.Block.ID); err != nil {
-		t.Fatalf("remove the section: %v", err)
+		t.Fatalf("remove the block: %v", err)
 	}
 
 	if got := contentGeneration(t, pool, draft); got != before+1 {
@@ -331,17 +331,17 @@ func TestTheAssetVersionIsPartOfTheFingerprintAndTheDiscoveryStateIsNot(t *testi
 	}
 }
 
-func TestHidingASectionAndMovingItsContentLeaveTheContentGenerationAlone(t *testing.T) {
+func TestHidingABlockAndMovingItsContentLeaveTheContentGenerationAlone(t *testing.T) {
 	svc, pool := newTestService(t)
 	owner, draft := startedDraft(t, svc)
 	added, err := svc.AddBlock(context.Background(), owner, draft, block.AuthorNotes, block.TypeProse)
 	if err != nil {
-		t.Fatalf("add a section: %v", err)
+		t.Fatalf("add a block: %v", err)
 	}
 	update := updateOf(added.Block)
 	update.Elements[0].Content = block.Prose{Text: "Run her at a low temperature."}
 	if _, err := svc.SaveBlock(context.Background(), owner, draft, added.Block.ID, update); err != nil {
-		t.Fatalf("fill the section in: %v", err)
+		t.Fatalf("fill the block in: %v", err)
 	}
 	before := contentGeneration(t, pool, draft)
 
@@ -353,20 +353,20 @@ func TestHidingASectionAndMovingItsContentLeaveTheContentGenerationAlone(t *test
 		}
 	}
 	if _, err := svc.ArrangeBlocks(context.Background(), owner, draft, arrangement); err != nil {
-		t.Fatalf("hide the section: %v", err)
+		t.Fatalf("hide the block: %v", err)
 	}
 	if got := contentGeneration(t, pool, draft); got != before {
-		t.Fatalf("content generation = %d, want %d after hiding a section", got, before)
+		t.Fatalf("content generation = %d, want %d after hiding a block", got, before)
 	}
 
-	// The same content under a different section is the same file, because an
+	// The same content under a different block is the same file, because an
 	// element keeps its identity wherever the creator puts it. Messages is
 	// widened to a third slot first, so there is somewhere for it to land.
 	messages := blockFor(t, draftBlocks(t, pool, draft), "messages")
 	widened := updateOf(messages)
 	widened.Layout = block.Stack3
 	if _, err := svc.SaveBlock(context.Background(), owner, draft, messages.ID, widened); err != nil {
-		t.Fatalf("widen the messages section: %v", err)
+		t.Fatalf("widen the messages block: %v", err)
 	}
 	if _, err := svc.MoveBlockContent(
 		context.Background(), owner, draft, added.Block.ID, messages.ID,
@@ -374,7 +374,7 @@ func TestHidingASectionAndMovingItsContentLeaveTheContentGenerationAlone(t *test
 		t.Fatalf("move the content: %v", err)
 	}
 	if got := contentGeneration(t, pool, draft); got != before {
-		t.Fatalf("content generation = %d, want %d after moving content between sections", got, before)
+		t.Fatalf("content generation = %d, want %d after moving content between blocks", got, before)
 	}
 }
 

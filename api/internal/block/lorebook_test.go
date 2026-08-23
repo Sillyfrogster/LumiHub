@@ -5,9 +5,9 @@ import (
 	"testing"
 )
 
-// A lorebook is its entries. The kind has one section of its own, and a
+// A lorebook is its entries. The kind has one block of its own, and a
 // creator starting from nothing sees it before they have typed anything.
-func TestAnEmptyLorebookIsOneRequiredSectionHoldingItsEntries(t *testing.T) {
+func TestAnEmptyLorebookIsOneRequiredBlockHoldingItsEntries(t *testing.T) {
 	blocks, err := Place("lorebook", nil)
 	if err != nil {
 		t.Fatalf("place a lorebook: %v", err)
@@ -36,12 +36,12 @@ func TestAnEmptyLorebookIsOneRequiredSectionHoldingItsEntries(t *testing.T) {
 	}
 }
 
-// A lorebook with its entries withheld is not a page, so the one section it
+// A lorebook with its entries withheld is not a page, so the one block it
 // has can be neither hidden nor emptied out.
-func TestTheEntriesSectionCannotBeHiddenOrHollowedOut(t *testing.T) {
+func TestTheEntriesBlockCannotBeHiddenOrHollowedOut(t *testing.T) {
 	definition, ok := LorebookCore.Definition("lorebook")
 	if !ok {
-		t.Fatal("the lorebook catalog has no core section")
+		t.Fatal("the lorebook catalog has no core block")
 	}
 	if !definition.Required || definition.Hideable {
 		t.Errorf("definition = required %v hideable %v, want required and not hideable",
@@ -56,10 +56,10 @@ func TestTheEntriesSectionCannotBeHiddenOrHollowedOut(t *testing.T) {
 	}
 }
 
-// Every kind lists the seven shared sections, so a lorebook can carry a
+// Every kind lists the seven shared blocks, so a lorebook can carry a
 // gallery, a note on how to use it and the rest without a catalog of its own
 // repeating them.
-func TestALorebookIsOfferedTheSevenSharedSections(t *testing.T) {
+func TestALorebookIsOfferedTheSevenSharedBlocks(t *testing.T) {
 	offers, ok := Offers("lorebook")
 	if !ok {
 		t.Fatal("the lorebook kind offers nothing")
@@ -69,13 +69,13 @@ func TestALorebookIsOfferedTheSevenSharedSections(t *testing.T) {
 		offered = append(offered, offer.Definition)
 	}
 	for _, shared := range []DefinitionID{
-		Gallery, Usage, Changelog, Attributes, AuthorNotes, RunsBestWith, CustomSection,
+		Gallery, Usage, Changelog, Attributes, AuthorNotes, RunsBestWith, CustomBlock,
 	} {
 		if !slices.Contains(offered, shared) {
 			t.Errorf("%s is not offered on a lorebook", shared)
 		}
 	}
-	// The add tray never offers a section that is on the page already, and it
+	// The add tray never offers a block that is on the page already, and it
 	// never offers another kind's.
 	for _, unwanted := range []DefinitionID{LorebookCore, CharacterCore, Messages, Lorebook} {
 		if slices.Contains(offered, unwanted) {

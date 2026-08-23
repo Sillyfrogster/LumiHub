@@ -72,7 +72,7 @@ func (s *Service) contentFingerprint(
 	})
 	for _, element := range elements {
 		// An element the creator has left empty is one no writer writes, so a
-		// section added and not yet filled in changes no file.
+		// block added and not yet filled in changes no file.
 		if element.Content == nil || element.Content.Empty() {
 			continue
 		}

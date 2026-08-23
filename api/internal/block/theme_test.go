@@ -68,7 +68,7 @@ func TestAThemeOffersOnlyItsOwnBlocksAndTheSharedLibrary(t *testing.T) {
 	}
 	wanted := []DefinitionID{
 		ThemeCore, ThemeStylesheet, Gallery, Usage, Changelog, Attributes,
-		AuthorNotes, RunsBestWith, CustomSection,
+		AuthorNotes, RunsBestWith, CustomBlock,
 	}
 	for _, id := range wanted {
 		if !slices.ContainsFunc(definitions, func(definition Definition) bool {

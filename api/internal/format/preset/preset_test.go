@@ -241,7 +241,7 @@ func TestAPresetWrittenBackCarriesItsContentAndEveryPreservedKey(t *testing.T) {
 }
 
 // Import fills the kind's blocks through its catalog rather than through the
-// module, so a preset lands as the sections a preset has.
+// module, so a preset lands as the blocks a preset has.
 func TestAnImportedPresetIsPlacedIntoThePresetCatalog(t *testing.T) {
 	for _, test := range []struct{ name, body string }{
 		{"lumiverse", lumiversePreset},
@@ -625,7 +625,7 @@ func TestAnEmptyScriptListComesBack(t *testing.T) {
 			parsed := parse(t, test.body)
 			for _, element := range parsed.Elements {
 				if element.Role == block.RoleRegexScripts {
-					t.Fatal("an empty script list became a section on the page")
+					t.Fatal("an empty script list became a block on the page")
 				}
 			}
 			var body map[string]json.RawMessage

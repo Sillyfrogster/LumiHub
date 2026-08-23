@@ -268,9 +268,9 @@ func TestThePresetVocabulariesAreClosed(t *testing.T) {
 	}
 }
 
-// A preset is its prompt. The one section a creator cannot remove holds the
+// A preset is its prompt. The one block a creator cannot remove holds the
 // fragments, and everything else about the kind is optional.
-func TestAnEmptyPresetIsOneRequiredSectionHoldingItsPromptFragments(t *testing.T) {
+func TestAnEmptyPresetIsOneRequiredBlockHoldingItsPromptFragments(t *testing.T) {
 	blocks, err := Place("preset", nil)
 	if err != nil {
 		t.Fatalf("place a preset: %v", err)
@@ -300,7 +300,7 @@ func TestAnEmptyPresetIsOneRequiredSectionHoldingItsPromptFragments(t *testing.T
 
 	definition, ok := PresetCore.Definition("preset")
 	if !ok {
-		t.Fatal("the preset catalog has no core section")
+		t.Fatal("the preset catalog has no core block")
 	}
 	if !definition.Required || definition.Hideable {
 		t.Errorf("definition = required %v hideable %v, want required and not hideable",
@@ -311,9 +311,9 @@ func TestAnEmptyPresetIsOneRequiredSectionHoldingItsPromptFragments(t *testing.T
 	}
 }
 
-// The four optional sections carry the rest of what a preset holds, each one
+// The four optional blocks carry the rest of what a preset holds, each one
 // absent until something fills it.
-func TestThePresetCatalogCarriesItsFourOptionalSections(t *testing.T) {
+func TestThePresetCatalogCarriesItsFourOptionalBlocks(t *testing.T) {
 	type slot struct {
 		role        Role
 		elementType Type
@@ -335,7 +335,7 @@ func TestThePresetCatalogCarriesItsFourOptionalSections(t *testing.T) {
 	for _, want := range wanted {
 		definition, ok := want.id.Definition("preset")
 		if !ok {
-			t.Errorf("the preset catalog has no %s section", want.id)
+			t.Errorf("the preset catalog has no %s block", want.id)
 			continue
 		}
 		if definition.Required {
@@ -363,15 +363,15 @@ func TestThePresetCatalogCarriesItsFourOptionalSections(t *testing.T) {
 	}
 }
 
-// Every kind lists the seven shared sections, so a preset can carry a gallery,
+// Every kind lists the seven shared blocks, so a preset can carry a gallery,
 // a note on how to run it and the rest without a catalog of its own.
-func TestAPresetListsTheSevenSharedSections(t *testing.T) {
+func TestAPresetListsTheSevenSharedBlocks(t *testing.T) {
 	definitions, ok := Catalog("preset")
 	if !ok {
 		t.Fatal("there is no preset catalog")
 	}
 	for _, id := range []DefinitionID{
-		Gallery, Usage, Changelog, Attributes, AuthorNotes, RunsBestWith, CustomSection,
+		Gallery, Usage, Changelog, Attributes, AuthorNotes, RunsBestWith, CustomBlock,
 	} {
 		found := slices.ContainsFunc(definitions, func(d Definition) bool { return d.ID == id })
 		if !found {
@@ -382,7 +382,7 @@ func TestAPresetListsTheSevenSharedSections(t *testing.T) {
 
 // A preset publishes on a name, an answered adult content question and one
 // prompt fragment. The check reads the fragments themselves, because the
-// section holding them is on every preset from the moment it exists.
+// block holding them is on every preset from the moment it exists.
 func TestAPresetNeedsOnePromptFragmentBeforeItPublishes(t *testing.T) {
 	blocks, err := Place("preset", nil)
 	if err != nil {
@@ -399,7 +399,7 @@ func TestAPresetNeedsOnePromptFragmentBeforeItPublishes(t *testing.T) {
 		t.Error("an empty preset already meets its floor")
 	}
 	if checks[0].BlockID == nil {
-		t.Error("the floor names no section to go and fill in")
+		t.Error("the floor names no block to go and fill in")
 	}
 
 	blocks[0].Elements[0].Content = PromptList{Fragments: []PromptFragment{

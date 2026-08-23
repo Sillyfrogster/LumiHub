@@ -229,7 +229,7 @@ func TestTheProjectionIsWrittenWithTheChangeAndPublishingComputesNothing(t *test
 
 // Hiding is a promise about a page and an export is a promise about a file, so
 // a hidden block leaves the download alone and its content still travels.
-func TestHidingASectionLeavesTheDownloadAlone(t *testing.T) {
+func TestHidingABlockLeavesTheDownloadAlone(t *testing.T) {
 	r, session, assets, pool := newCharacterIngestRouterWithPool(t)
 	assetID := uploadedCharacterID(t, r, session, assets, aPlainCard)
 	giveExpressions(t, r, session, assetID)
@@ -248,28 +248,28 @@ func TestHidingASectionLeavesTheDownloadAlone(t *testing.T) {
 		t.Fatalf("hide the expressions: %d %s", arranged.Code, arranged.Body.String())
 	}
 	if after := projectionComputedAt(t, pool, assetID); !after.Equal(before) {
-		t.Fatal("hiding a section moved the export section of the projection")
+		t.Fatal("hiding a block moved the export half of the projection")
 	}
 
 	export, err := assets.OpenExport(
 		context.Background(), uuid.MustParse(assetID), nil, "chara_card_v3",
 	)
 	if err != nil {
-		t.Fatalf("export a card with a hidden section: %v", err)
+		t.Fatalf("export a card with a hidden block: %v", err)
 	}
 	if !containsBytes(export.Body, []byte("emotion")) {
-		t.Fatal("a hidden section's content did not travel in the download")
+		t.Fatal("a hidden block's content did not travel in the download")
 	}
 }
 
-// giveExpressions adds a picture and puts it in an expressions section, which
+// giveExpressions adds a picture and puts it in an expressions block, which
 // is a role two of the three character formats have nowhere to put.
 func giveExpressions(t *testing.T, r http.Handler, session *http.Cookie, assetID string) {
 	t.Helper()
 	givePictures(t, r, session, assetID, "expression", "expressions")
 }
 
-// givePictures adds one picture in a role and puts it in the section that
+// givePictures adds one picture in a role and puts it in the block that
 // carries that role.
 func givePictures(
 	t *testing.T,
@@ -290,13 +290,13 @@ func givePictures(
 	if err := json.Unmarshal(added.Body.Bytes(), &picture); err != nil {
 		t.Fatalf("decode the added picture: %v", err)
 	}
-	section := addedBlock(t, addBlock(t, r, session, assetID, definition, "image_set"))
-	body := editableBlock(section)
+	block := addedBlock(t, addBlock(t, r, session, assetID, definition, "image_set"))
+	body := editableBlock(block)
 	body.Elements[0].Content = json.RawMessage(
 		`{"images":[{"mediaId":"` + picture.ID + `","name":"happy"}]}`,
 	)
-	if saved := saveBlock(t, r, session, assetID, section.ID, body); saved.Code != http.StatusOK {
-		t.Fatalf("save the %s section: %d %s", definition, saved.Code, saved.Body.String())
+	if saved := saveBlock(t, r, session, assetID, block.ID, body); saved.Code != http.StatusOK {
+		t.Fatalf("save the %s block: %d %s", definition, saved.Code, saved.Body.String())
 	}
 }
 

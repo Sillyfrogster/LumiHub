@@ -11,11 +11,11 @@ drop table file_field_patches;
 -- it arrived, and only the text type keeps it.
 alter table asset_preserved_data alter column payload type json using payload::json;
 
--- One derived row per asset. The export section holds the targets a download
+-- One derived row per asset. The export half holds the targets a download
 -- menu offers and what each one costs, under the stamp of the declarations it
 -- was computed from: a deploy that changes a declaration recomputes what it
 -- invalidated. Facets join it later with a stamp of their own, because the two
--- sections follow different rules.
+-- halves follow different rules.
 create table asset_projections (
     asset_id     uuid primary key references assets (id) on delete cascade,
     export       jsonb not null,

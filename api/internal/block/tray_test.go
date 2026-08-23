@@ -25,7 +25,7 @@ func TestTheTrayOffersTheSharedSevenGroupedByWhereTheContentEndsUp(t *testing.T)
 	}
 
 	for _, id := range []DefinitionID{
-		Gallery, Usage, Changelog, Attributes, AuthorNotes, RunsBestWith, CustomSection,
+		Gallery, Usage, Changelog, Attributes, AuthorNotes, RunsBestWith, CustomBlock,
 	} {
 		offer := offerFor(t, offers, id)
 		if offer.Title == "" || offer.Summary == "" {
@@ -42,8 +42,8 @@ func TestTheTrayOffersTheSharedSevenGroupedByWhereTheContentEndsUp(t *testing.T)
 	if offerFor(t, offers, Gallery).Group != GroupFile {
 		t.Errorf("a gallery is not offered as content that travels with the file")
 	}
-	if offerFor(t, offers, CustomSection).Group != GroupOther {
-		t.Errorf("a custom section is not offered under anything else")
+	if offerFor(t, offers, CustomBlock).Group != GroupOther {
+		t.Errorf("a custom block is not offered under anything else")
 	}
 	for _, group := range Groups() {
 		if group.Title() == "" {
@@ -52,15 +52,15 @@ func TestTheTrayOffersTheSharedSevenGroupedByWhereTheContentEndsUp(t *testing.T)
 	}
 }
 
-func TestOnlyACustomSectionRepeats(t *testing.T) {
+func TestOnlyACustomBlockRepeats(t *testing.T) {
 	offers, _ := Offers("character")
 	for _, offer := range offers {
-		if offer.Repeatable != (offer.Definition == CustomSection) {
+		if offer.Repeatable != (offer.Definition == CustomBlock) {
 			t.Errorf("%s repeatable = %v", offer.Definition, offer.Repeatable)
 		}
 	}
-	if got := len(offerFor(t, offers, CustomSection).Choices); got < 4 {
-		t.Errorf("a custom section offers %d elements, want text, images, links and a list", got)
+	if got := len(offerFor(t, offers, CustomBlock).Choices); got < 4 {
+		t.Errorf("a custom block offers %d elements, want text, images, links and a list", got)
 	}
 }
 
@@ -105,19 +105,19 @@ func TestANewBlockArrivesHoldingTheElementTheCreatorAskedFor(t *testing.T) {
 		t.Errorf("a new gallery does not pass structural validation: %v", err)
 	}
 
-	custom, err := NewBlock("character", CustomSection, TypeLinkList, append(page, gallery))
+	custom, err := NewBlock("character", CustomBlock, TypeLinkList, append(page, gallery))
 	if err != nil {
-		t.Fatalf("add a custom section: %v", err)
+		t.Fatalf("add a custom block: %v", err)
 	}
 	if len(custom.Elements) != 1 || custom.Elements[0].Type != TypeLinkList {
-		t.Fatalf("a custom section arrived holding %v", custom.Elements)
+		t.Fatalf("a custom block arrived holding %v", custom.Elements)
 	}
 	if custom.Elements[0].Role != "" {
-		t.Errorf("a custom section's element carries role %q, want none", custom.Elements[0].Role)
+		t.Errorf("a custom block's element carries role %q, want none", custom.Elements[0].Role)
 	}
 }
 
-func TestASecondCustomSectionIsAllowedAndASecondGalleryIsNot(t *testing.T) {
+func TestASecondCustomBlockIsAllowedAndASecondGalleryIsNot(t *testing.T) {
 	page, _ := Place("character", nil)
 	gallery, err := NewBlock("character", Gallery, TypeImageSet, page)
 	if err != nil {
@@ -129,12 +129,12 @@ func TestASecondCustomSectionIsAllowedAndASecondGalleryIsNot(t *testing.T) {
 		t.Errorf("a second gallery was allowed")
 	}
 
-	first, err := NewBlock("character", CustomSection, TypeProse, page)
+	first, err := NewBlock("character", CustomBlock, TypeProse, page)
 	if err != nil {
-		t.Fatalf("add a custom section: %v", err)
+		t.Fatalf("add a custom block: %v", err)
 	}
-	if _, err := NewBlock("character", CustomSection, TypeProse, append(page, first)); err != nil {
-		t.Errorf("a second custom section was refused: %v", err)
+	if _, err := NewBlock("character", CustomBlock, TypeProse, append(page, first)); err != nil {
+		t.Errorf("a second custom block was refused: %v", err)
 	}
 }
 
@@ -143,21 +143,21 @@ func TestABlockCannotStartWithAnElementItsDefinitionDoesNotOffer(t *testing.T) {
 	if _, err := NewBlock("character", Gallery, TypeProse, page); err == nil {
 		t.Errorf("a gallery was started with prose")
 	}
-	if _, err := NewBlock("character", CustomSection, TypeDialogueSample, page); err == nil {
-		t.Errorf("a custom section was started with a dialogue sample")
+	if _, err := NewBlock("character", CustomBlock, TypeDialogueSample, page); err == nil {
+		t.Errorf("a custom block was started with a dialogue sample")
 	}
 	if _, err := NewBlock("character", CharacterCore, TypeProse, page); err == nil {
 		t.Errorf("a required block was added from the tray")
 	}
 }
 
-func TestAPageWithTwoCustomSectionsPassesValidationAndTwoGalleriesDoNot(t *testing.T) {
+func TestAPageWithTwoCustomBlocksPassesValidationAndTwoGalleriesDoNot(t *testing.T) {
 	page, _ := Place("character", nil)
-	first, _ := NewBlock("character", CustomSection, TypeProse, page)
-	second, _ := NewBlock("character", CustomSection, TypeProse, append(page, first))
+	first, _ := NewBlock("character", CustomBlock, TypeProse, page)
+	second, _ := NewBlock("character", CustomBlock, TypeProse, append(page, first))
 	repeated := append(slices.Clone(page), first, second)
 	if err := ValidateBuilderConstraints("character", repeated, repeated); err != nil {
-		t.Errorf("two custom sections were refused: %v", err)
+		t.Errorf("two custom blocks were refused: %v", err)
 	}
 
 	gallery, _ := NewBlock("character", Gallery, TypeImageSet, page)
@@ -174,8 +174,8 @@ func TestAPageWithTwoCustomSectionsPassesValidationAndTwoGalleriesDoNot(t *testi
 	}
 }
 
-func TestASectionWithMoreThanOneElementArrivesWholeRatherThanInPieces(t *testing.T) {
-	// There is no route that adds an element to a section later, so a
+func TestABlockWithMoreThanOneElementArrivesWholeRatherThanInPieces(t *testing.T) {
+	// There is no route that adds an element to a block later, so a
 	// definition that declares three of them has to arrive holding all three.
 	prompts, err := NewBlock("character", ImagePrompts, TypeFieldList, nil)
 	if err != nil {
@@ -210,7 +210,7 @@ func TestASectionWithMoreThanOneElementArrivesWholeRatherThanInPieces(t *testing
 	}
 }
 
-func TestASectionThatArrivesWholeIsOfferedAsOneChoice(t *testing.T) {
+func TestABlockThatArrivesWholeIsOfferedAsOneChoice(t *testing.T) {
 	offers, ok := Offers("character")
 	if !ok {
 		t.Fatalf("a character has no add tray")
@@ -224,9 +224,9 @@ func TestASectionThatArrivesWholeIsOfferedAsOneChoice(t *testing.T) {
 		t.Fatalf("image prompts are not offered on a character")
 	}
 	if len(prompts.Choices) != 1 {
-		t.Errorf("image prompts are offered as %d choices, want one whole section", len(prompts.Choices))
+		t.Errorf("image prompts are offered as %d choices, want one whole block", len(prompts.Choices))
 	}
-	if len(byDefinition[CustomSection].Choices) < 2 {
-		t.Errorf("a custom section is offered without the elements it can start with")
+	if len(byDefinition[CustomBlock].Choices) < 2 {
+		t.Errorf("a custom block is offered without the elements it can start with")
 	}
 }

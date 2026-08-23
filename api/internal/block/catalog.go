@@ -28,7 +28,7 @@ const (
 	Attributes        DefinitionID = "attributes"
 	AuthorNotes       DefinitionID = "author_notes"
 	RunsBestWith      DefinitionID = "runs_best_with"
-	CustomSection     DefinitionID = "custom_section"
+	CustomBlock       DefinitionID = "custom_section"
 )
 
 // Group identifies where a block's content belongs.
@@ -355,8 +355,8 @@ var shared = []Definition{
 		Width:    Third,
 	},
 	{
-		ID:         CustomSection,
-		Title:      "New section",
+		ID:         CustomBlock,
+		Title:      "New block",
 		Summary:    "A heading you write, with text, images, links or a list under it.",
 		Group:      GroupOther,
 		Repeatable: true,

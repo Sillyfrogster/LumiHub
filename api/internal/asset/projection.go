@@ -111,7 +111,7 @@ func (s *Service) exportProjection(
 	return targets, nil
 }
 
-// RecomputeStaleExportProjections rewrites every asset whose export section was
+// RecomputeStaleExportProjections rewrites every asset whose export capability was
 // computed under a contract that has since changed. Changing a declaration is a
 // deploy, so the deploy is the trigger. At this catalog's size the whole sweep
 // finishes in seconds, and being wrong means a stale sentence in a menu rather

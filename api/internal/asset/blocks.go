@@ -118,7 +118,7 @@ func (s *Service) SaveBlock(
 	return SavedBlock{Kind: kind, Block: *saved}, nil
 }
 
-// AddBlock puts one optional section at the foot of the page, holding the
+// AddBlock puts one optional block at the foot of the page, holding the
 // element the creator chose.
 func (s *Service) AddBlock(
 	ctx context.Context,
@@ -195,7 +195,7 @@ func (s *Service) ArrangeBlocks(
 		return SavedBlocks{}, err
 	}
 	if len(arrangement) != len(blocks) {
-		return SavedBlocks{}, fmt.Errorf("%w: include every section once before saving the arrangement", ErrInvalidBlock)
+		return SavedBlocks{}, fmt.Errorf("%w: include every block once before saving the arrangement", ErrInvalidBlock)
 	}
 	byID := make(map[uuid.UUID]block.Block, len(blocks))
 	for _, holder := range blocks {
@@ -206,10 +206,10 @@ func (s *Service) ArrangeBlocks(
 	for position, choice := range arrangement {
 		holder, ok := byID[choice.ID]
 		if !ok {
-			return SavedBlocks{}, fmt.Errorf("%w: the arrangement includes a section that is not on this page", ErrInvalidBlock)
+			return SavedBlocks{}, fmt.Errorf("%w: the arrangement includes a block that is not on this page", ErrInvalidBlock)
 		}
 		if _, duplicate := seen[choice.ID]; duplicate {
-			return SavedBlocks{}, fmt.Errorf("%w: include each section once before saving the arrangement", ErrInvalidBlock)
+			return SavedBlocks{}, fmt.Errorf("%w: include each block once before saving the arrangement", ErrInvalidBlock)
 		}
 		seen[choice.ID] = struct{}{}
 		definition, _ := holder.Definition.Definition(kind)
@@ -350,7 +350,7 @@ func (s *Service) MoveBlockContent(
 		}
 	}
 	if len(source.Elements) == 0 {
-		return SavedBlocks{}, fmt.Errorf("%w: this section has no content to move", ErrInvalidBlock)
+		return SavedBlocks{}, fmt.Errorf("%w: this block has no content to move", ErrInvalidBlock)
 	}
 	occupied := make(map[block.Slot]struct{}, len(destination.Elements))
 	for _, element := range destination.Elements {

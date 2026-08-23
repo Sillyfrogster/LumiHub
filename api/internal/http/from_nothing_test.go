@@ -50,11 +50,11 @@ type startedAsset struct {
 		DetailURL string `json:"detailUrl"`
 		ThumbURL  string `json:"thumbUrl"`
 	} `json:"media"`
-	Readiness       []readinessItem  `json:"readiness"`
-	Blocks          []startedBlock   `json:"blocks"`
-	AddableSections []addableSection `json:"addableSections"`
-	Downloads       []downloadTarget `json:"downloads"`
-	Original        *originalUpload  `json:"original"`
+	Readiness     []readinessItem  `json:"readiness"`
+	Blocks        []startedBlock   `json:"blocks"`
+	AddableBlocks []addableBlock   `json:"addableBlocks"`
+	Downloads     []downloadTarget `json:"downloads"`
+	Original      *originalUpload  `json:"original"`
 }
 
 type downloadTarget struct {
@@ -83,7 +83,7 @@ type originalUpload struct {
 	ArrivedAt string `json:"arrivedAt"`
 }
 
-type addableSection struct {
+type addableBlock struct {
 	Definition string `json:"definition"`
 	Title      string `json:"title"`
 	Summary    string `json:"summary"`
@@ -124,7 +124,7 @@ func blockNamed(t *testing.T, blocks []startedBlock, definition string) startedB
 	return startedBlock{}
 }
 
-func TestACharacterBuiltFromNothingLandsOnItsTwoRequiredSections(t *testing.T) {
+func TestACharacterBuiltFromNothingLandsOnItsTwoRequiredBlocks(t *testing.T) {
 	r, session := newVerifiedTestRouter(t)
 
 	started := startCharacter(t, r, session)

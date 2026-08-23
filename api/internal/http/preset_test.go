@@ -119,7 +119,7 @@ func TestTheAppAnsweredSeedsItsOwnSlotNamesAndNoValues(t *testing.T) {
 		for _, definition := range []string{"variables", "scripts"} {
 			for _, held := range started.Blocks {
 				if held.Definition == definition {
-					t.Errorf("%s seeded a %s section nothing fills", app, definition)
+					t.Errorf("%s seeded a %s block nothing fills", app, definition)
 				}
 			}
 		}
@@ -148,7 +148,7 @@ func TestTheAppAnsweredIsStoredNowhere(t *testing.T) {
 }
 
 // A preset publishes on a name, an answered adult content question and one
-// prompt fragment, and the checklist names the section holding them.
+// prompt fragment, and the checklist names the block holding them.
 func TestAPresetIsReadyToPublishOnItsNameRatingAndOneFragment(t *testing.T) {
 	r, session := newVerifiedTestRouter(t)
 
@@ -165,7 +165,7 @@ func TestAPresetIsReadyToPublishOnItsNameRatingAndOneFragment(t *testing.T) {
 		}
 	}
 	if fragments == nil {
-		t.Fatalf("readiness = %+v, want a prompt fragment naming its section", started.Readiness)
+		t.Fatalf("readiness = %+v, want a prompt fragment naming its block", started.Readiness)
 	}
 	core := blockNamed(t, started.Blocks, "preset_core")
 	if *fragments != core.ID {

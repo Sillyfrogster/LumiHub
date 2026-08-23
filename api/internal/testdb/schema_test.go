@@ -508,7 +508,7 @@ func TestDownloadEventVocabularyIsClosed(t *testing.T) {
 	}
 }
 
-func TestTheProjectionCarriesTwoIndependentSections(t *testing.T) {
+func TestTheProjectionCarriesTwoIndependentHalves(t *testing.T) {
 	pool := Connect(t)
 	assetID, _, _ := insertAssetRevision(t, pool)
 
@@ -529,7 +529,7 @@ func TestTheProjectionCarriesTwoIndependentSections(t *testing.T) {
 	if _, err := pool.Exec(context.Background(),
 		`insert into asset_projections (asset_id, facets, facet_stamp) values ($1, $2, 'stamp')`,
 		assetID, `{"lorebook":3}`); err != nil {
-		t.Fatalf("write only the facet section: %v", err)
+		t.Fatalf("write only the facet half: %v", err)
 	}
 	if _, err := pool.Exec(context.Background(),
 		`insert into asset_projections (asset_id, facets, facet_stamp) values ($1, $2, 'stamp')`,
@@ -539,7 +539,7 @@ func TestTheProjectionCarriesTwoIndependentSections(t *testing.T) {
 	if _, err := pool.Exec(context.Background(), `
 		update asset_projections set facets = '[]'::jsonb where asset_id = $1
 	`, assetID); err == nil {
-		t.Fatal("a facet section that is not an object was accepted")
+		t.Fatal("a facet half that is not an object was accepted")
 	}
 }
 

@@ -218,7 +218,7 @@ func TestASingularRoleTakesOneElementHoldingItsList(t *testing.T) {
 	}
 }
 
-func TestTheCharacterCatalogDeclaresItsFiveOptionalSections(t *testing.T) {
+func TestTheCharacterCatalogDeclaresItsFiveOptionalBlocks(t *testing.T) {
 	definitions, ok := Catalog("character")
 	if !ok {
 		t.Fatalf("a character has no catalog")
@@ -275,7 +275,7 @@ func TestTheCharacterCatalogDeclaresItsFiveOptionalSections(t *testing.T) {
 	wantOrder := []DefinitionID{
 		CharacterCore, Messages, Expressions, Lorebook,
 		ImagePrompts, ModelInstructions, Relationships,
-		Gallery, Usage, Changelog, Attributes, AuthorNotes, RunsBestWith, CustomSection,
+		Gallery, Usage, Changelog, Attributes, AuthorNotes, RunsBestWith, CustomBlock,
 	}
 	if !slices.Equal(order, wantOrder) {
 		t.Errorf("the character catalog reads %v, want %v", order, wantOrder)

@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestPackCatalogPlacesItsItemsAndOffersTheSharedSections(t *testing.T) {
+func TestPackCatalogPlacesItsItemsAndOffersTheSharedBlocks(t *testing.T) {
 	blocks, err := Place("pack", nil)
 	if err != nil {
 		t.Fatalf("place an empty pack: %v", err)
@@ -34,7 +34,7 @@ func TestPackCatalogPlacesItsItemsAndOffersTheSharedSections(t *testing.T) {
 		t.Fatal("the pack kind has no add tray")
 	}
 	want := []DefinitionID{
-		Gallery, Usage, Changelog, Attributes, AuthorNotes, RunsBestWith, CustomSection,
+		Gallery, Usage, Changelog, Attributes, AuthorNotes, RunsBestWith, CustomBlock,
 	}
 	got := make([]DefinitionID, 0, len(offers))
 	for _, offer := range offers {

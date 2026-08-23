@@ -100,7 +100,7 @@ func TestArrangementRequiresEveryCurrentBlockExactlyOnce(t *testing.T) {
 		{ID: core.ID, Width: core.Width},
 	})
 
-	if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), "each section once") {
+	if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), "each block once") {
 		t.Fatalf("duplicate arrangement = %d, want exact-membership refusal: %s", response.Code, response.Body.String())
 	}
 }

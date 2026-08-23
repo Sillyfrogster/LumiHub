@@ -38,7 +38,7 @@ func uploadedImageID(t *testing.T, r http.Handler, session *http.Cookie, assetID
 	return added.ID
 }
 
-func TestALorebookSectionSavesItsEntriesAndSaysHowManyItHolds(t *testing.T) {
+func TestALorebookBlockSavesItsEntriesAndSaysHowManyItHolds(t *testing.T) {
 	r, session := newVerifiedTestRouter(t)
 	started := startCharacter(t, r, session)
 
@@ -119,7 +119,7 @@ func TestModelInstructionsArriveHoldingBothPrompts(t *testing.T) {
 			t.Errorf("%s is shown as %q, want the exact text", element.Role, element.Display)
 		}
 	}
-	// Half width has no room for duo, so the section arrives stacked.
+	// Half width has no room for duo, so the block arrives stacked.
 	if added.Layout != "stack-2" || added.Width != "half" {
 		t.Errorf("model instructions arrived %s wide in %s", added.Width, added.Layout)
 	}

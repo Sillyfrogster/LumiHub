@@ -265,17 +265,17 @@ func ValidateBuilderConstraints(kind string, before []Block, after []Block) erro
 		switch {
 		case original.Layout != holder.Layout && original.Width == holder.Width:
 			return fmt.Errorf(
-				"%s needs %s, and this section is %s. Widen it first",
+				"%s needs %s, and this block is %s. Widen it first",
 				holder.Layout, minimum.label(), holder.Width.label(),
 			)
 		case original.Layout == holder.Layout && original.Width != holder.Width:
 			return fmt.Errorf(
-				"%s needs %s, and this section is %s. Choose another layout before narrowing it",
+				"%s needs %s, and this block is %s. Choose another layout before narrowing it",
 				holder.Layout, minimum.label(), holder.Width.label(),
 			)
 		default:
 			return fmt.Errorf(
-				"%s needs %s, and this section is %s. Change one before saving",
+				"%s needs %s, and this block is %s. Change one before saving",
 				holder.Layout, minimum.label(), holder.Width.label(),
 			)
 		}

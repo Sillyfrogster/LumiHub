@@ -21,7 +21,7 @@ func addBlock(
 		"definition": definition, "elementType": elementType,
 	})
 	if err != nil {
-		t.Fatalf("encode the section to add: %v", err)
+		t.Fatalf("encode the block to add: %v", err)
 	}
 	request := httptest.NewRequest(
 		http.MethodPost, "/v1/assets/"+assetID+"/blocks", strings.NewReader(string(body)),
@@ -33,76 +33,76 @@ func addBlock(
 func addedBlock(t *testing.T, response *httptest.ResponseRecorder) startedBlock {
 	t.Helper()
 	if response.Code != http.StatusCreated {
-		t.Fatalf("add a section: status = %d, want 201: %s", response.Code, response.Body.String())
+		t.Fatalf("add a block: status = %d, want 201: %s", response.Code, response.Body.String())
 	}
 	var added startedBlock
 	if err := json.Unmarshal(response.Body.Bytes(), &added); err != nil {
-		t.Fatalf("decode the new section: %v", err)
+		t.Fatalf("decode the new block: %v", err)
 	}
 	return added
 }
 
-func TestTheOwnerIsOfferedTheSharedSectionsGroupedByDestination(t *testing.T) {
+func TestTheOwnerIsOfferedTheSharedBlocksGroupedByDestination(t *testing.T) {
 	r, session := newVerifiedTestRouter(t)
 	started := startCharacter(t, r, session)
 
 	page := fetchStartedAsset(t, r, session, started.ID)
-	byDefinition := make(map[string]addableSection, len(page.AddableSections))
-	for _, section := range page.AddableSections {
-		byDefinition[section.Definition] = section
+	byDefinition := make(map[string]addableBlock, len(page.AddableBlocks))
+	for _, block := range page.AddableBlocks {
+		byDefinition[block.Definition] = block
 	}
 	for _, definition := range []string{
 		"gallery", "usage", "changelog", "attributes",
 		"author_notes", "runs_best_with", "custom_section",
 	} {
-		section, ok := byDefinition[definition]
+		block, ok := byDefinition[definition]
 		if !ok {
 			t.Fatalf("%s is not offered on a character", definition)
 		}
-		if section.Summary == "" || section.GroupTitle == "" || len(section.Choices) == 0 {
-			t.Errorf("%s is offered as %+v, want a line, a group and an element", definition, section)
+		if block.Summary == "" || block.GroupTitle == "" || len(block.Choices) == 0 {
+			t.Errorf("%s is offered as %+v, want a line, a group and an element", definition, block)
 		}
 	}
 	if _, offered := byDefinition["character_core"]; offered {
-		t.Errorf("a required section is offered in the add tray")
+		t.Errorf("a required block is offered in the add tray")
 	}
 	if byDefinition["gallery"].GroupTitle != "Content that travels with the file" {
 		t.Errorf("a gallery is grouped under %q", byDefinition["gallery"].GroupTitle)
 	}
 	if !byDefinition["custom_section"].Repeatable {
-		t.Errorf("a custom section does not repeat")
+		t.Errorf("a custom block does not repeat")
 	}
 }
 
-func TestAddingASectionPutsItAtTheFootOfThePageHoldingItsElement(t *testing.T) {
+func TestAddingABlockPutsItAtTheFootOfThePageHoldingItsElement(t *testing.T) {
 	r, session := newVerifiedTestRouter(t)
 	started := startCharacter(t, r, session)
 
 	added := addedBlock(t, addBlock(t, r, session, started.ID, "gallery", "image_set"))
 
 	if added.Definition != "gallery" || added.Position != 2 {
-		t.Fatalf("the new section = %+v, want a gallery at the foot of the page", added)
+		t.Fatalf("the new block = %+v, want a gallery at the foot of the page", added)
 	}
 	if len(added.Elements) != 1 || added.Elements[0].Type != "image_set" {
-		t.Fatalf("the new section holds %+v, want one image set", added.Elements)
+		t.Fatalf("the new block holds %+v, want one image set", added.Elements)
 	}
 	if added.Elements[0].ItemSize == "" {
 		t.Errorf("the gallery's images have no declared size")
 	}
 	if added.Required || !added.Hideable {
-		t.Errorf("the new section is required = %v, hideable = %v", added.Required, added.Hideable)
+		t.Errorf("the new block is required = %v, hideable = %v", added.Required, added.Hideable)
 	}
 	if added.Width != "half" || added.Layout != "single" {
-		t.Errorf("the new section arrived %s at %s, want the catalog's declared pair", added.Layout, added.Width)
+		t.Errorf("the new block arrived %s at %s, want the catalog's declared pair", added.Layout, added.Width)
 	}
 
 	page := fetchStartedAsset(t, r, session, started.ID)
 	if len(page.Blocks) != 3 || page.Blocks[2].ID != added.ID {
-		t.Errorf("the saved page = %d sections, want the gallery last", len(page.Blocks))
+		t.Errorf("the saved page = %d blocks, want the gallery last", len(page.Blocks))
 	}
 }
 
-func TestASectionThatCannotRepeatIsRefusedTwice(t *testing.T) {
+func TestABlockThatCannotRepeatIsRefusedTwice(t *testing.T) {
 	r, session := newVerifiedTestRouter(t)
 	started := startCharacter(t, r, session)
 
@@ -110,14 +110,14 @@ func TestASectionThatCannotRepeatIsRefusedTwice(t *testing.T) {
 	response := addBlock(t, r, session, started.ID, "usage", "prose")
 
 	if response.Code != http.StatusBadRequest {
-		t.Fatalf("a second usage section: status = %d, want 400", response.Code)
+		t.Fatalf("a second usage block: status = %d, want 400", response.Code)
 	}
 	if !strings.Contains(response.Body.String(), "already on this page") {
-		t.Errorf("refusal = %s, want it to say the section is already there", response.Body.String())
+		t.Errorf("refusal = %s, want it to say the block is already there", response.Body.String())
 	}
 }
 
-func TestACustomSectionRepeatsAndTakesTheElementTheCreatorChose(t *testing.T) {
+func TestACustomBlockRepeatsAndTakesTheElementTheCreatorChose(t *testing.T) {
 	r, session := newVerifiedTestRouter(t)
 	started := startCharacter(t, r, session)
 
@@ -125,30 +125,30 @@ func TestACustomSectionRepeatsAndTakesTheElementTheCreatorChose(t *testing.T) {
 	second := addedBlock(t, addBlock(t, r, session, started.ID, "custom_section", "link_list"))
 
 	if first.Elements[0].Type != "prose" || second.Elements[0].Type != "link_list" {
-		t.Errorf("custom sections hold %s and %s", first.Elements[0].Type, second.Elements[0].Type)
+		t.Errorf("custom blocks hold %s and %s", first.Elements[0].Type, second.Elements[0].Type)
 	}
 	if second.Position != first.Position+1 {
-		t.Errorf("the second custom section is at %d, want after the first", second.Position)
+		t.Errorf("the second custom block is at %d, want after the first", second.Position)
 	}
 }
 
-func TestARequiredSectionAndAnUnofferedElementAreBothRefused(t *testing.T) {
+func TestARequiredBlockAndAnUnofferedElementAreBothRefused(t *testing.T) {
 	r, session := newVerifiedTestRouter(t)
 	started := startCharacter(t, r, session)
 
 	if response := addBlock(t, r, session, started.ID, "character_core", "prose"); response.Code != http.StatusBadRequest {
-		t.Errorf("adding a required section: status = %d, want 400", response.Code)
+		t.Errorf("adding a required block: status = %d, want 400", response.Code)
 	}
 	if response := addBlock(t, r, session, started.ID, "gallery", "prose"); response.Code != http.StatusBadRequest {
 		t.Errorf("starting a gallery with prose: status = %d, want 400", response.Code)
 	}
-	// A theme's core section belongs to another kind's catalog entirely.
+	// A theme's core block belongs to another kind's catalog entirely.
 	if response := addBlock(t, r, session, started.ID, "theme_core", "color_set"); response.Code != http.StatusBadRequest {
-		t.Errorf("adding a section the kind has not got: status = %d, want 400", response.Code)
+		t.Errorf("adding a block the kind has not got: status = %d, want 400", response.Code)
 	}
 }
 
-func TestAnAddedSectionIsFilledAndReadBack(t *testing.T) {
+func TestAnAddedBlockIsFilledAndReadBack(t *testing.T) {
 	r, session := newVerifiedTestRouter(t)
 	started := startCharacter(t, r, session)
 	added := addedBlock(t, addBlock(t, r, session, started.ID, "runs_best_with", "link_list"))
@@ -164,7 +164,7 @@ func TestAnAddedSectionIsFilledAndReadBack(t *testing.T) {
 	page := fetchStartedAsset(t, r, session, started.ID)
 	saved := blockNamed(t, page.Blocks, "runs_best_with")
 	if saved.IsEmpty {
-		t.Errorf("a section holding a link reads as empty")
+		t.Errorf("a block holding a link reads as empty")
 	}
 	if !strings.Contains(string(saved.Elements[0].Content), "The winter lorebook") {
 		t.Errorf("saved links = %s", saved.Elements[0].Content)
@@ -174,7 +174,7 @@ func TestAnAddedSectionIsFilledAndReadBack(t *testing.T) {
 	}
 }
 
-func TestASectionSavedWithAScriptAddressIsRefused(t *testing.T) {
+func TestABlockSavedWithAScriptAddressIsRefused(t *testing.T) {
 	r, session := newVerifiedTestRouter(t)
 	started := startCharacter(t, r, session)
 	added := addedBlock(t, addBlock(t, r, session, started.ID, "runs_best_with", "link_list"))
@@ -190,7 +190,7 @@ func TestASectionSavedWithAScriptAddressIsRefused(t *testing.T) {
 	}
 }
 
-func TestSavingAnEmptyAddedSectionKeepsEveryDefinition(t *testing.T) {
+func TestSavingAnEmptyAddedBlockKeepsEveryDefinition(t *testing.T) {
 	tests := []struct {
 		definition  string
 		elementType string
@@ -227,7 +227,7 @@ func TestSavingAnEmptyAddedSectionKeepsEveryDefinition(t *testing.T) {
 	}
 }
 
-func TestOnlyTheOwnerIsOfferedSectionsToAdd(t *testing.T) {
+func TestOnlyTheOwnerIsOfferedBlocksToAdd(t *testing.T) {
 	r, session := newVerifiedTestRouter(t)
 	started := startCharacter(t, r, session)
 
@@ -238,8 +238,8 @@ func TestOnlyTheOwnerIsOfferedSectionsToAdd(t *testing.T) {
 		if err := json.Unmarshal(response.Body.Bytes(), &page); err != nil {
 			t.Fatalf("decode the reader's page: %v", err)
 		}
-		if len(page.AddableSections) > 0 {
-			t.Errorf("a reader is offered %d sections to add", len(page.AddableSections))
+		if len(page.AddableBlocks) > 0 {
+			t.Errorf("a reader is offered %d blocks to add", len(page.AddableBlocks))
 		}
 	}
 	_ = session

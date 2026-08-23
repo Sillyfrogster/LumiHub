@@ -324,7 +324,7 @@ func TestArrangingThePageChangesNoFilterResult(t *testing.T) {
 	}
 }
 
-func TestContentInsideACustomSectionAnswersNoFacet(t *testing.T) {
+func TestContentInsideACustomBlockAnswersNoFacet(t *testing.T) {
 	router, session := newVerifiedTestRouter(t)
 	started := startCharacter(t, router, session)
 	writeCharacterFloor(t, router, session, started)
@@ -338,7 +338,7 @@ func TestContentInsideACustomSectionAnswersNoFacet(t *testing.T) {
 		`{"texts":[{"text":"One"},{"text":"Two"},{"text":"Three"}]}`,
 	)
 	if response := saveBlock(t, router, session, started.ID, custom.ID, body); response.Code != http.StatusOK {
-		t.Fatalf("save the custom section status = %d: %s", response.Code, response.Body.String())
+		t.Fatalf("save the custom block status = %d: %s", response.Code, response.Body.String())
 	}
 
 	for _, bucket := range []string{"1", "2-4", "5-up"} {
@@ -349,7 +349,7 @@ func TestContentInsideACustomSectionAnswersNoFacet(t *testing.T) {
 	}
 }
 
-func TestAnEmptySectionNeverAnswersAsCarried(t *testing.T) {
+func TestAnEmptyBlockNeverAnswersAsCarried(t *testing.T) {
 	r, session, assets, _ := newCharacterIngestRouterWithPool(t)
 	assetID := uploadedCharacterID(t, r, session, assets, aPlainCard)
 	addedBlock(t, addBlock(t, r, session, assetID, "expressions", "image_set"))
@@ -415,7 +415,7 @@ func facetComputedAt(t *testing.T, pool *pgxpool.Pool, assetID string) time.Time
 	return computedAt
 }
 
-func TestAHiddenSectionAnswersNoFacetAndStillExports(t *testing.T) {
+func TestAHiddenBlockAnswersNoFacetAndStillExports(t *testing.T) {
 	r, session, assets, pool := newCharacterIngestRouterWithPool(t)
 	assetID := uploadedCharacterID(t, r, session, assets, aPlainCard)
 	giveExpressions(t, r, session, assetID)
@@ -442,10 +442,10 @@ func TestAHiddenSectionAnswersNoFacetAndStillExports(t *testing.T) {
 	}
 
 	if after := projectionComputedAt(t, pool, assetID); !after.Equal(exportedAt) {
-		t.Error("hiding a section moved the export section of the projection")
+		t.Error("hiding a block moved the export half of the projection")
 	}
 	if after := facetComputedAt(t, pool, assetID); !after.After(measuredAt) {
-		t.Error("hiding a section left the facet section of the projection alone")
+		t.Error("hiding a block left the facet half of the projection alone")
 	}
 	if after := contentGeneration(t, pool, assetID); after != generation {
 		t.Errorf("content generation = %d, want %d after a hide", after, generation)
@@ -464,10 +464,10 @@ func TestAHiddenSectionAnswersNoFacetAndStillExports(t *testing.T) {
 		context.Background(), uuid.MustParse(assetID), nil, "chara_card_v3",
 	)
 	if err != nil {
-		t.Fatalf("export a card with a hidden section: %v", err)
+		t.Fatalf("export a card with a hidden block: %v", err)
 	}
 	if !containsBytes(export.Body, []byte("happy")) {
-		t.Fatal("a hidden section's content did not travel in the download")
+		t.Fatal("a hidden block's content did not travel in the download")
 	}
 }
 

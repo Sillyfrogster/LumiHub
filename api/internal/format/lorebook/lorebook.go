@@ -49,7 +49,7 @@ func (Module) Declaration() format.Declaration {
 			Required:   map[string]format.ValueType{entriesKey: format.ValueArray},
 		}},
 		// A lorebook page can hold a gallery and an author's note, because
-		// every kind lists the shared sections. The file has nowhere to put
+		// every kind lists the shared blocks. The file has nowhere to put
 		// either, so a reader downloading one is told what stays behind.
 		Roles: map[block.Role]format.DirectionalRoleSupport{
 			block.RoleLorebookEntries: {

@@ -367,7 +367,7 @@ func decodePromptList(raw json.RawMessage) (Content, error) {
 		if item.GroupID != nil {
 			if _, ok := known[*item.GroupID]; !ok {
 				return nil, fmt.Errorf(
-					"fragment %d names a group this section does not carry. "+
+					"fragment %d names a group this block does not carry. "+
 						"Add the group or take the fragment out of it before saving",
 					i+1,
 				)
