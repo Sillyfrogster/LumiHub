@@ -167,6 +167,11 @@ image-web: ## Build the production Next image locally
 
 images: image-api image-web ## Build both production application images
 
+.PHONY: production-stack-test
+production-stack-test: VERSION := $(shell git rev-parse HEAD)
+production-stack-test: images ## Run an isolated smoke test against the production Compose stack
+	@./ops/test-production-stack.sh
+
 # Database
 
 .PHONY: migrate

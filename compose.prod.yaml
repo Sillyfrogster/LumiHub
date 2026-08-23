@@ -86,6 +86,7 @@ services:
     restart: unless-stopped
     stop_grace_period: 40s
     environment:
+      GIN_MODE: release
       PORT: "8080"
       SITE_URL: "${SITE_URL:?Set SITE_URL}"
       DATABASE_URL: "${DATABASE_URL:?Set DATABASE_URL}"
@@ -161,6 +162,7 @@ services:
   gateway:
     image: nginx:1.31.2-alpine3.23
     restart: unless-stopped
+    user: "101:101"
     ports:
       - "${ILLARIN_GATEWAY_BIND:-127.0.0.1}:${ILLARIN_GATEWAY_PORT:-8000}:8080"
     volumes:
@@ -186,6 +188,7 @@ services:
         condition: service_healthy
     networks:
       - backend
+      - egress
     logging: *log-options
     labels:
       <<: *app-labels
