@@ -965,13 +965,3 @@ components:
           $ref: '#/components/schemas/ElementType'
         label:
           type: string
-    AddableSection:
-      deprecated: true
-      description: Superseded by AddableBlock. Removed once no caller reads it.
-      allOf:
-        - $ref: '#/components/schemas/AddableBlock'
-    AddableSectionChoice:
-      deprecated: true
-      description: Superseded by AddableBlockChoice. Removed once no caller reads it.
-      allOf:
-        - $ref: '#/components/schemas/AddableBlockChoice'

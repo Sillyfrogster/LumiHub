@@ -260,10 +260,6 @@ components:
       $ref: ./blocks.yaml#/components/schemas/AddableBlock
     AddableBlockChoice:
       $ref: ./blocks.yaml#/components/schemas/AddableBlockChoice
-    AddableSection:
-      $ref: ./blocks.yaml#/components/schemas/AddableSection
-    AddableSectionChoice:
-      $ref: ./blocks.yaml#/components/schemas/AddableSectionChoice
     Asset:
       $ref: ./assets.yaml#/components/schemas/Asset
     AssetDetail:

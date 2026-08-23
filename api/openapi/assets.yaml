@@ -1133,12 +1133,6 @@ components:
           type: array
           items:
             $ref: ./blocks.yaml#/components/schemas/AddableBlock
-        addableSections:
-          deprecated: true
-          description: Superseded by addableBlocks. Removed once no caller reads it.
-          type: array
-          items:
-            $ref: ./blocks.yaml#/components/schemas/AddableSection
         visibility:
           type: string
           enum:

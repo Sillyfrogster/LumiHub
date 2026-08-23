@@ -1346,11 +1346,6 @@ type AddableBlockChoice struct {
 	Type ElementType `json:"type"`
 }
 
-// AddableSection Superseded by AddableBlock. Removed once no caller reads it.
-//
-// Deprecated: this type has been marked as deprecated upstream, but no `x-deprecated-reason` was set
-type AddableSection = AddableBlock
-
 // ApplicationName A self-asserted, unverified application name.
 type ApplicationName = string
 
@@ -1423,10 +1418,6 @@ type AssetBlockWidth string
 type AssetDetail struct {
 	// AddableBlocks The blocks this kind can still be given, in catalog order. Present only while the owner is reading their own asset.
 	AddableBlocks *[]AddableBlock `json:"addableBlocks,omitempty"`
-
-	// AddableSections Superseded by addableBlocks. Removed once no caller reads it.
-	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
-	AddableSections *[]AddableSection `json:"addableSections,omitempty"`
 
 	// Blocks The asset's blocks in page order.
 	Blocks []AssetBlock `json:"blocks"`

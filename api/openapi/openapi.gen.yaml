@@ -3224,16 +3224,6 @@ components:
           $ref: '#/components/schemas/ElementType'
         label:
           type: string
-    AddableSection:
-      deprecated: true
-      description: Superseded by AddableBlock. Removed once no caller reads it.
-      allOf:
-        - $ref: '#/components/schemas/AddableBlock'
-    AddableSectionChoice:
-      deprecated: true
-      description: Superseded by AddableBlockChoice. Removed once no caller reads it.
-      allOf:
-        - $ref: '#/components/schemas/AddableBlockChoice'
     Asset:
       type: object
       required:
@@ -3397,12 +3387,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/AddableBlock'
-        addableSections:
-          deprecated: true
-          description: Superseded by addableBlocks. Removed once no caller reads it.
-          type: array
-          items:
-            $ref: '#/components/schemas/AddableSection'
         visibility:
           type: string
           enum:

@@ -1477,16 +1477,6 @@ export interface components {
       type: components["schemas"]["ElementType"];
       label: string;
     };
-    /**
-     * @deprecated
-     * @description Superseded by AddableBlock. Removed once no caller reads it.
-     */
-    AddableSection: components["schemas"]["AddableBlock"];
-    /**
-     * @deprecated
-     * @description Superseded by AddableBlockChoice. Removed once no caller reads it.
-     */
-    AddableSectionChoice: components["schemas"]["AddableBlockChoice"];
     Asset: {
       /** Format: uuid */
       id: string;
@@ -1538,11 +1528,6 @@ export interface components {
       readiness?: components["schemas"]["ReadinessItem"][];
       /** @description The blocks this kind can still be given, in catalog order. Present only while the owner is reading their own asset. */
       addableBlocks?: components["schemas"]["AddableBlock"][];
-      /**
-       * @deprecated
-       * @description Superseded by addableBlocks. Removed once no caller reads it.
-       */
-      addableSections?: components["schemas"]["AddableSection"][];
       /** @enum {string} */
       visibility: "hidden" | "blurred" | "shown";
       withhold?: components["schemas"]["AssetWithhold"];
