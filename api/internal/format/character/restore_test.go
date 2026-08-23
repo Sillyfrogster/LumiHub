@@ -168,3 +168,27 @@ func compact(t *testing.T, raw json.RawMessage) any {
 	}
 	return value
 }
+
+// v1 wrote lumihub_art_display into 36 cards and the name is theirs now, so the rename leaves it alone and this holds the line.
+func TestTheGrandfatheredArtDisplayKeyComesBackByteIdentical(t *testing.T) {
+	source := `{
+		"spec":"chara_card_v3","spec_version":"3.0",
+		"data":{
+			"name":"Ana","description":"Quiet","first_mes":"Hello",
+			"extensions":{"lumihub_art_display":"avatar"}
+		}
+	}`
+	parsed := resolveAndParse(t, jsonCard(t, source))
+	written := map[string]json.RawMessage{
+		"name":        json.RawMessage(`"Ana"`),
+		"description": json.RawMessage(`"Quieter than she was."`),
+		"first_mes":   json.RawMessage(`"Hello"`),
+	}
+	if err := RestorePreserved(written, nil, parsed.Remainder); err != nil {
+		t.Fatalf("restore preserved data: %v", err)
+	}
+	got := keys.Object(written["extensions"])["lumihub_art_display"]
+	if !reflect.DeepEqual(compact(t, got), compact(t, json.RawMessage(`"avatar"`))) {
+		t.Errorf("lumihub_art_display = %s, want \"avatar\" byte for byte", got)
+	}
+}
