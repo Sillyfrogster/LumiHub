@@ -63,6 +63,8 @@ paths:
     $ref: ./linking.yaml#/paths/~1v1~1instances~1{id}
   /v1/profiles/{handle}:
     $ref: ./accounts.yaml#/paths/~1v1~1profiles~1{handle}
+  /v1/legacy-profiles/{discordId}:
+    $ref: ./accounts.yaml#/paths/~1v1~1legacy-profiles~1{discordId}
   /v1/assets:
     $ref: ./assets.yaml#/paths/~1v1~1assets
   /v1/assets/{id}:

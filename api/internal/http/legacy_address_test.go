@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -75,6 +76,47 @@ func TestAV1AddressForADraftIsAPlainMiss(t *testing.T) {
 		httptest.NewRequest(http.MethodGet, "/v1/legacy-assets/old-author/old-name", nil))
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404", response.Code)
+	}
+}
+
+func TestEveryUnavailableV1AddressAnswersTheSame(t *testing.T) {
+	router, pool, session := legacyAddressStack(t)
+	withheldID := publishedCharacter(t, router, session)
+	deletedID := publishedCharacter(t, router, session)
+	storeLegacyAddress(t, pool, "old-author/withheld", withheldID)
+	storeLegacyAddress(t, pool, "old-author/deleted", deletedID)
+	if _, err := pool.Exec(context.Background(), `
+		update assets
+		   set withheld_at = now(), withheld_by = owner_id, withheld_reason = 'checking'
+		 where id = $1`, withheldID); err != nil {
+		t.Fatalf("withhold the asset: %v", err)
+	}
+	if _, err := pool.Exec(context.Background(), `
+		update assets
+		   set deleted_at = now(), recoverable_until = now() + interval '30 days'
+		 where id = $1`, deletedID); err != nil {
+		t.Fatalf("delete the asset: %v", err)
+	}
+
+	var first *httptest.ResponseRecorder
+	for _, path := range []string{
+		"/v1/legacy-assets/old-author/withheld",
+		"/v1/legacy-assets/old-author/deleted",
+		"/v1/legacy-assets/old-author/never-existed",
+	} {
+		response := send(t, router, httptest.NewRequest(http.MethodGet, path, nil))
+		if response.Code != http.StatusNotFound {
+			t.Fatalf("GET %s status = %d, want 404: %s", path, response.Code, response.Body.String())
+		}
+		if first == nil {
+			first = response
+			continue
+		}
+		if response.Body.String() != first.Body.String() ||
+			!reflect.DeepEqual(response.Header(), first.Header()) {
+			t.Fatalf("GET %s answers differently: body %q headers %v; want body %q headers %v",
+				path, response.Body.String(), response.Header(), first.Body.String(), first.Header())
+		}
 	}
 }
 

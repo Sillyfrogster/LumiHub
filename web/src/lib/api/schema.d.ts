@@ -483,6 +483,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/legacy-profiles/{discordId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Resolves v1's /user/<discordId> address through the Discord identity link. The lookup happens before any redirect, so an address with no account behind it is a plain miss. */
+    get: operations["resolveLegacyProfile"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/assets": {
     parameters: {
       query?: never;
@@ -3004,6 +3021,35 @@ export interface operations {
         };
       };
       /** @description No active profile uses the handle */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  resolveLegacyProfile: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        discordId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The profile the Discord identity belongs to */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Profile"];
+        };
+      };
+      /** @description No account carries that Discord identity */
       404: {
         headers: {
           [name: string]: unknown;

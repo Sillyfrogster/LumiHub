@@ -2856,6 +2856,9 @@ type ServerInterface interface {
 	// (GET /v1/legacy-assets/{author}/{name})
 	ResolveLegacyAsset(c *gin.Context, author string, name string)
 
+	// (GET /v1/legacy-profiles/{discordId})
+	ResolveLegacyProfile(c *gin.Context, discordId string)
+
 	// (POST /v1/link/authorizations)
 	StartLinkAuthorization(c *gin.Context)
 
@@ -4036,6 +4039,31 @@ func (siw *ServerInterfaceWrapper) ResolveLegacyAsset(c *gin.Context) {
 	siw.Handler.ResolveLegacyAsset(c, author, name)
 }
 
+// ResolveLegacyProfile operation middleware
+func (siw *ServerInterfaceWrapper) ResolveLegacyProfile(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "discordId" -------------
+	var discordId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "discordId", c.Param("discordId"), &discordId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter discordId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ResolveLegacyProfile(c, discordId)
+}
+
 // StartLinkAuthorization operation middleware
 func (siw *ServerInterfaceWrapper) StartLinkAuthorization(c *gin.Context) {
 
@@ -4466,6 +4494,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.PUT(options.BaseURL+"/v1/instances/me", wrapper.UpdateInstance)
 	router.DELETE(options.BaseURL+"/v1/instances/:id", wrapper.RevokeInstance)
 	router.GET(options.BaseURL+"/v1/profiles/:handle", wrapper.GetProfile)
+	router.GET(options.BaseURL+"/v1/legacy-profiles/:discordId", wrapper.ResolveLegacyProfile)
 	router.GET(options.BaseURL+"/v1/assets", wrapper.ListAssets)
 	router.POST(options.BaseURL+"/v1/assets", wrapper.CreateAsset)
 	router.DELETE(options.BaseURL+"/v1/assets/:id", wrapper.DeleteAsset)

@@ -11,7 +11,7 @@ import { type AssetDetail, fetchAsset } from "@/lib/api/query";
 import { assetMetadata } from "@/lib/asset-metadata";
 import { assetDisplayName } from "@/lib/asset-name";
 import { assetHoldsNothing } from "@/lib/asset-page-content";
-import { assetRedirect } from "@/lib/asset-url";
+import { assetRedirect, isAssetId } from "@/lib/asset-url";
 import { KIND_LABELS } from "@/lib/kinds";
 import { formattingWasRemoved } from "@/lib/rich-text";
 import { AssetBlocks } from "./AssetBlocks";
@@ -21,10 +21,8 @@ import { DraftHeaderActions } from "./DraftHeaderActions";
 import styles from "./page.module.css";
 import { WithholdNotice } from "./WithholdNotice";
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 const loadAsset = cache(async (id: string): Promise<AssetDetail | null> => {
-  if (!UUID.test(id)) return null;
+  if (!isAssetId(id)) return null;
   const cookie = (await cookies()).toString();
   return fetchAsset(id, cookie);
 });

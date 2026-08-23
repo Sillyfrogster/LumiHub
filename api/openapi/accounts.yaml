@@ -282,6 +282,28 @@ paths:
                 $ref: '#/components/schemas/Profile'
         '404':
           description: No active profile uses the handle
+  /v1/legacy-profiles/{discordId}:
+    get:
+      operationId: resolveLegacyProfile
+      description: >-
+        Resolves v1's /user/<discordId> address through the Discord identity
+        link. The lookup happens before any redirect, so an address with no
+        account behind it is a plain miss.
+      parameters:
+        - name: discordId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The profile the Discord identity belongs to
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '404':
+          description: No account carries that Discord identity
 components:
   schemas:
     Account:

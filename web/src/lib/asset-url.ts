@@ -1,5 +1,13 @@
 const SLUG_LIMIT = 60;
 
+const ASSET_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Whether a path segment could be an asset id, so a lookup only runs when it could answer. */
+export function isAssetId(segment: string): boolean {
+  return ASSET_ID.test(segment);
+}
+
 /**
  * The decorative half of an asset's address. Nothing resolves by it, so a
  * rename cannot break a link and a collision costs nothing. A name that

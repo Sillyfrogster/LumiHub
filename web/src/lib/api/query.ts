@@ -108,6 +108,16 @@ export async function fetchLegacyAsset(
   return data;
 }
 
+export async function fetchLegacyProfile(
+  discordId: string,
+): Promise<Profile | null> {
+  const { data, error } = await api.GET("/v1/legacy-profiles/{discordId}", {
+    params: { path: { discordId } },
+  });
+  if (error || !data) return null;
+  return data;
+}
+
 export async function fetchDeletedAssets(
   handle: string,
   cookie: string,

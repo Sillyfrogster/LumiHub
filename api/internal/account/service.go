@@ -473,6 +473,21 @@ func (s *Service) Profile(ctx context.Context, handle string) (Profile, error) {
 	}, nil
 }
 
+// ProfileByDiscordSubject finds the account a Discord identity belongs to
+func (s *Service) ProfileByDiscordSubject(ctx context.Context, subject string) (Profile, error) {
+	row, err := db.New(s.pool).ProfileByDiscordSubject(ctx, subject)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Profile{}, ErrProfileNotFound
+	}
+	if err != nil {
+		return Profile{}, fmt.Errorf("read profile by Discord identity: %w", err)
+	}
+	return Profile{
+		ID: uuid.UUID(row.ID.Bytes), Handle: row.Username,
+		ShowNSFWContributionsOnProfile: row.ShowNsfwContributionsOnProfile,
+	}, nil
+}
+
 func (s *Service) ChangeUnverifiedEmail(ctx context.Context, token, rawEmail string) (Account, error) {
 	email, err := normalizeEmail(rawEmail)
 	if err != nil {

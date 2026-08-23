@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { BrowseAsset, BrowsePage } from "@/lib/api/query";
+import type { AssetListParams, BrowseAsset, BrowsePage } from "@/lib/api/query";
 import { buildSitemap } from "./sitemap";
 
 const FIRST_ID = "11111111-1111-4111-8111-111111111111";
@@ -17,7 +17,7 @@ function asset(id: string, name: string): BrowseAsset {
 }
 
 test("sitemap follows the whole browse listing", async () => {
-  const requests: Array<{ before?: string; beforeId?: string }> = [];
+  const requests: AssetListParams[] = [];
   const pages: Array<Pick<BrowsePage, "items" | "nextCursor">> = [
     {
       items: [asset(FIRST_ID, "First garden")],
@@ -33,7 +33,7 @@ test("sitemap follows the whole browse listing", async () => {
   ];
 
   const entries = await buildSitemap(async (params) => {
-    requests.push({ before: params.before, beforeId: params.beforeId });
+    requests.push(params);
     const page = pages.shift();
     if (!page) throw new Error("sitemap requested an extra page");
     return page;
@@ -45,8 +45,23 @@ test("sitemap follows the whole browse listing", async () => {
     `http://localhost:8000/a/${FIRST_ID}/first-garden`,
     `http://localhost:8000/a/${SECOND_ID}/second-garden`,
   ]);
+  expect(requests.map((request) => [request.before, request.beforeId])).toEqual(
+    [
+      [undefined, undefined],
+      ["2026-08-13T12:00:00Z", FIRST_ID],
+    ],
+  );
+});
+
+test("sitemap asks for the listing a stranger sees, adult work included", async () => {
+  const requests: AssetListParams[] = [];
+
+  await buildSitemap(async (params) => {
+    requests.push(params);
+    return { items: [], nextCursor: null };
+  });
+
   expect(requests).toEqual([
-    { before: undefined, beforeId: undefined },
-    { before: "2026-08-13T12:00:00Z", beforeId: FIRST_ID },
+    { limit: 24, nsfw: "shown", before: undefined, beforeId: undefined },
   ]);
 });

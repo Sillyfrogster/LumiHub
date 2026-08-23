@@ -472,6 +472,12 @@ returning id, username, email, email_verified_at;
 select id, username, show_nsfw_contributions_on_profile
   from users where username = $1;
 
+-- name: ProfileByDiscordSubject :one
+select u.id, u.username, u.show_nsfw_contributions_on_profile
+  from oauth_identities identity
+  join users u on u.id = identity.user_id
+ where identity.provider = 'discord' and identity.subject = $1;
+
 -- name: UpdateUnverifiedEmail :one
 update users
    set email = $2, email_source = 'creator', updated_at = now()

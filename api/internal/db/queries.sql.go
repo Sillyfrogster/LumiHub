@@ -2240,6 +2240,26 @@ func (q *Queries) NSFWVisibilityBySessionHash(ctx context.Context, tokenHash []b
 	return nsfw_visibility, err
 }
 
+const profileByDiscordSubject = `-- name: ProfileByDiscordSubject :one
+select u.id, u.username, u.show_nsfw_contributions_on_profile
+  from oauth_identities identity
+  join users u on u.id = identity.user_id
+ where identity.provider = 'discord' and identity.subject = $1
+`
+
+type ProfileByDiscordSubjectRow struct {
+	ID                             pgtype.UUID
+	Username                       string
+	ShowNsfwContributionsOnProfile bool
+}
+
+func (q *Queries) ProfileByDiscordSubject(ctx context.Context, subject string) (ProfileByDiscordSubjectRow, error) {
+	row := q.db.QueryRow(ctx, profileByDiscordSubject, subject)
+	var i ProfileByDiscordSubjectRow
+	err := row.Scan(&i.ID, &i.Username, &i.ShowNsfwContributionsOnProfile)
+	return i, err
+}
+
 const profileByHandle = `-- name: ProfileByHandle :one
 select id, username, show_nsfw_contributions_on_profile
   from users where username = $1

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { assetHref, assetRedirect, assetSlug } from "./asset-url";
+import { assetHref, assetRedirect, assetSlug, isAssetId } from "./asset-url";
 
 const ID = "0f6b7a4c-3d21-4a5e-9c8b-1f2e3d4c5b6a";
 const CHRISSY = { id: ID, name: "Christine Novak" };
@@ -77,4 +77,12 @@ test("makes the bare address canonical when there is no slug", () => {
   expect(assetRedirect({ id: ID, slug: ["something"] }, unnamed)).toBe(
     `/a/${ID}`,
   );
+});
+
+test("recognizes an asset id, and nothing else, as one", () => {
+  expect(isAssetId(ID)).toBe(true);
+  expect(isAssetId(ID.toUpperCase())).toBe(true);
+  expect(isAssetId("christine-novak")).toBe(false);
+  expect(isAssetId(`${ID}x`)).toBe(false);
+  expect(isAssetId("")).toBe(false);
 });
