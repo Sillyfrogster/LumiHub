@@ -2105,15 +2105,15 @@ func (q *Queries) MigratedAccounts(ctx context.Context) ([]MigratedAccountsRow, 
 }
 
 const migrationTargetIsEmpty = `-- name: MigrationTargetIsEmpty :one
-select not exists (select 1 from users)
-   and not exists (select 1 from retired_handles)
-   and not exists (select 1 from oauth_identities)
-   and not exists (select 1 from migration_exceptions) as empty
+select (not exists (select 1 from users)
+    and not exists (select 1 from retired_handles)
+    and not exists (select 1 from oauth_identities)
+    and not exists (select 1 from migration_exceptions))::boolean as empty
 `
 
-func (q *Queries) MigrationTargetIsEmpty(ctx context.Context) (pgtype.Bool, error) {
+func (q *Queries) MigrationTargetIsEmpty(ctx context.Context) (bool, error) {
 	row := q.db.QueryRow(ctx, migrationTargetIsEmpty)
-	var empty pgtype.Bool
+	var empty bool
 	err := row.Scan(&empty)
 	return empty, err
 }

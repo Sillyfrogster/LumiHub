@@ -94,6 +94,27 @@ type ColumnDisposition struct {
 	Reason      string
 }
 
+// MappedColumn declares a source column that reaches the destination named.
+func MappedColumn(table, column, destination string) ColumnDisposition {
+	return ColumnDisposition{
+		Table: table, Column: column, Disposition: ColumnMapped, Destination: destination,
+	}
+}
+
+// PreservedColumn declares a source column kept verbatim at the destination named.
+func PreservedColumn(table, column, destination string) ColumnDisposition {
+	return ColumnDisposition{
+		Table: table, Column: column, Disposition: ColumnPreserved, Destination: destination,
+	}
+}
+
+// DroppedColumn declares a source column that does not migrate, and why.
+func DroppedColumn(table, column, reason string) ColumnDisposition {
+	return ColumnDisposition{
+		Table: table, Column: column, Disposition: ColumnDropped, Reason: reason,
+	}
+}
+
 type AnomalyDisposition string
 
 const (

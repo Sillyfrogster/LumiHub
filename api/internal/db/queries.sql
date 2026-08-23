@@ -942,10 +942,10 @@ insert into migration_exceptions (id, kind, subject, detail, asset_id)
 values ($1, $2, $3, $4, sqlc.narg('asset_id')::uuid);
 
 -- name: MigrationTargetIsEmpty :one
-select not exists (select 1 from users)
-   and not exists (select 1 from retired_handles)
-   and not exists (select 1 from oauth_identities)
-   and not exists (select 1 from migration_exceptions) as empty;
+select (not exists (select 1 from users)
+    and not exists (select 1 from retired_handles)
+    and not exists (select 1 from oauth_identities)
+    and not exists (select 1 from migration_exceptions))::boolean as empty;
 
 -- name: InsertMigratedUser :exec
 insert into users
