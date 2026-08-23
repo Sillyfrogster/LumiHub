@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"slices"
 	"strings"
 	"sync"
 	"syscall"
@@ -19,13 +18,7 @@ import (
 	"github.com/Sillyfrogster/Illarin/api/internal/asset"
 	"github.com/Sillyfrogster/Illarin/api/internal/config"
 	"github.com/Sillyfrogster/Illarin/api/internal/discord"
-	"github.com/Sillyfrogster/Illarin/api/internal/format"
-	"github.com/Sillyfrogster/Illarin/api/internal/format/character"
-	"github.com/Sillyfrogster/Illarin/api/internal/format/lorebook"
-	"github.com/Sillyfrogster/Illarin/api/internal/format/pack"
-	"github.com/Sillyfrogster/Illarin/api/internal/format/preset"
-	"github.com/Sillyfrogster/Illarin/api/internal/format/theme"
-	"github.com/Sillyfrogster/Illarin/api/internal/format/v1"
+	"github.com/Sillyfrogster/Illarin/api/internal/format/modules"
 	apihttp "github.com/Sillyfrogster/Illarin/api/internal/http"
 	"github.com/Sillyfrogster/Illarin/api/internal/linking"
 	"github.com/Sillyfrogster/Illarin/api/internal/postgres"
@@ -64,20 +57,9 @@ func run() error {
 		return fmt.Errorf("storage: %w", err)
 	}
 
-	// Every format module is registered here and nowhere else.
-	registry := format.NewRegistry()
-	modules := make([]format.Module, 0)
-	for _, module := range slices.Concat(character.Modules(), lorebook.Modules(), preset.Modules(), theme.Modules(), pack.Modules()) {
-		modules = append(modules, module)
-	}
-	modules = append(modules, v1.Module{})
-	for _, module := range modules {
-		if err := registry.Register(module); err != nil {
-			return fmt.Errorf("format module: %w", err)
-		}
-	}
-	if err := registry.ValidateDeclarations(); err != nil {
-		return fmt.Errorf("format declarations: %w", err)
+	registry, err := modules.Registry()
+	if err != nil {
+		return err
 	}
 
 	svc := asset.NewServiceForSite(pool, registry, blob, cfg.ProbeLimits, cfg.SiteURL)
