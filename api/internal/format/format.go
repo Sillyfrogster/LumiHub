@@ -2,11 +2,9 @@ package format
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"slices"
 	"time"
 
@@ -16,63 +14,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type FailureReason string
-
-const (
-	FailureMalformedInput     FailureReason = "malformed_input"
-	FailureUnsupportedFormat  FailureReason = "unsupported_format"
-	FailureUnsupportedVersion FailureReason = "unsupported_version"
-	FailureSafetyViolation    FailureReason = "safety_violation"
-	FailureWrongKind          FailureReason = "wrong_kind"
-	FailureLimitExceeded      FailureReason = "limit_exceeded"
-	FailureInternal           FailureReason = "internal_failure"
-)
-
-type failure struct {
-	reason FailureReason
-	cause  error
-}
-
-func (f failure) Error() string { return fmt.Sprintf("%s: %v", f.reason, f.cause) }
-func (f failure) Unwrap() error { return f.cause }
-
-// UnsupportedVersion marks a format revision the module cannot safely read.
-func UnsupportedVersion(err error) error {
-	return failure{reason: FailureUnsupportedVersion, cause: err}
-}
-
-// MalformedInput marks a recognized payload the reader cannot interpret.
-func MalformedInput(err error) error {
-	return failure{reason: FailureMalformedInput, cause: err}
-}
-
-// SafetyViolation marks a bounded-resource or structural refusal found by a module.
-func SafetyViolation(err error) error {
-	return failure{reason: FailureSafetyViolation, cause: err}
-}
-
-// LimitExceeded marks valid input whose declared content is too large to import.
-func LimitExceeded(err error) error {
-	return failure{reason: FailureLimitExceeded, cause: err}
-}
-
-// InternalFailure marks infrastructure or a module bug that may succeed on retry.
-func InternalFailure(err error) error {
-	return failure{reason: FailureInternal, cause: err}
-}
-
-// FailureOf returns the creator-facing category carried by err.
-func FailureOf(err error) (FailureReason, bool) {
-	var classified failure
-	if !errors.As(err, &classified) {
-		return "", false
-	}
-	return classified.reason, true
-}
-
-// Media is one image a module found in a source file and gave a role. It names
-// an image the probe located rather than carrying bytes, so a module never
-// holds a file in memory and never writes one.
+// Media points to one image found by the probe.
 type Media struct {
 	Role        media.Role
 	ImageID     uint32
@@ -80,7 +22,7 @@ type Media struct {
 	Name        string
 }
 
-/** What a module reads out of an uploaded file */
+// Parsed is the content a module reads from a source.
 type Parsed struct {
 	Kind   string
 	Format string
@@ -94,26 +36,19 @@ type Parsed struct {
 	Remainder []Remainder
 }
 
-// Header is creator-authored identity that stays above the builder. Every
-// field here is one an asset carries in its own right, so a reader fills what
-// the file supplies and a writer puts back the fields it declares.
+// Header is creator-authored identity stored above the blocks.
 type Header struct {
-	Name string
-	// Blurb is the line a person reads while browsing. It is the same text as
-	// the file's own description where a format carries one, and reaches no
-	// file where none does.
+	Name           string
 	Blurb          string
 	AssetVersion   string
 	CreditedAuthor string
 	Nickname       string
 }
 
-// MaxBlurbRunes limits catalog copy. Bound source fields that exceed it remain
-// preserved rather than being truncated.
+// MaxBlurbRunes limits catalog copy without truncating the source.
 const MaxBlurbRunes = 400
 
-// Owner is what a preserved payload belongs to. It is one mechanism with three
-// owners, the asset, one element, and one item inside an element.
+// Owner identifies what a preserved payload belongs to.
 type Owner string
 
 const (
@@ -122,9 +57,7 @@ const (
 	OwnerItem    Owner = "item"
 )
 
-// Remainder is source data a reader could not turn into an element or header.
-// OwnerID is the element's or the item's stable id, and is unset where the
-// asset itself owns the payload.
+// Remainder is source data a reader could not model.
 type Remainder struct {
 	Owner     Owner
 	OwnerID   uuid.UUID
@@ -152,9 +85,7 @@ const (
 	ColumnDropped   ColumnDispositionKind = "dropped"
 )
 
-// ColumnDisposition makes a database reader account for every source column.
-// Destination names where mapped or preserved data goes. A dropped column
-// instead carries the reason it deliberately goes nowhere.
+// ColumnDisposition accounts for one database source column.
 type ColumnDisposition struct {
 	Table       string
 	Column      string
@@ -205,8 +136,7 @@ type Recognition struct {
 	SupersededBy []string
 }
 
-// ClaimByDeclaration applies only the recognition data beside a module. The
-// module keeps normalization code, but recognition has no hidden code path.
+// ClaimByDeclaration matches a file against declared recognition rules.
 func ClaimByDeclaration(file probe.Inspection, declaration Declaration) (Claim, bool) {
 	for _, recognition := range declaration.Recognition {
 		if supersededInFile(file, recognition) {
@@ -241,7 +171,6 @@ func ClaimByDeclaration(file probe.Inspection, declaration Declaration) (Claim, 
 	return Claim{}, false
 }
 
-// supersededInFile reports whether the file carries a value that outranks this recognition.
 func supersededInFile(file probe.Inspection, recognition Recognition) bool {
 	if len(recognition.SupersededBy) == 0 {
 		return false
@@ -322,8 +251,7 @@ const (
 	SupportNone    SupportGrade = "none"
 )
 
-// ContentCondition makes partial support executable against the element that
-// carries a role. Description is the wording shown with a loss.
+// ContentCondition decides when partial support applies.
 type ContentCondition struct {
 	Description string
 	Matches     func(block.Content) bool
@@ -332,11 +260,9 @@ type ContentCondition struct {
 type RoleSupport struct {
 	Grade     SupportGrade
 	Condition *ContentCondition
-	// DropWhen identifies content for which this format has no counterpart at
-	// all. It lets a partially compatible required role remove the target from
-	// the menu instead of pretending an empty output would still be usable.
+	// DropWhen identifies content the format cannot carry.
 	DropWhen *ContentCondition
-	// Destination names a nonstandard location for otherwise carried content.
+	// Destination names a nonstandard output location.
 	Destination string
 }
 
@@ -357,31 +283,24 @@ type ContentLimits struct {
 	ItemBytes       int
 }
 
-// Boilerplate hides empty tool-stamped namespaces from display without dropping
-// their stored data.
+// Boilerplate identifies empty tool-stamped data.
 type Boilerplate struct {
 	Namespace string
-	// Path locates the value inside the namespace. Empty means the namespace's
-	// whole payload is the value.
+	// Path is empty when the namespace itself holds the value.
 	Path []string
-	// Unchosen are values at Path that a tool writes when nobody picked
-	// anything. A blank value counts as unchosen whether or not it is listed.
+	// Unchosen lists defaults written when nobody picked a value.
 	Unchosen []string
 }
 
-// PreservationDeclaration says where in the format's own structure preserved
-// namespaces sit, so a writer knows where to put each one back.
+// PreservationDeclaration locates preserved namespaces in a format.
 type PreservationDeclaration struct {
-	// Body is the namespace holding keys left over from the format's own top
-	// level. It is Illarin's name for that place rather than a key in the file.
+	// Body names the format's leftover top-level keys.
 	Body string
-	// Container is the path to an object whose every key is a namespace of its
-	// own, which is what `extensions` is on a character card.
+	// Container locates an object whose keys are namespaces.
 	Container []string
 }
 
-// RecordsNothing reports whether a preserved payload is boilerplate the panel
-// should leave out. A namespace with no boilerplate entry always shows.
+// RecordsNothing reports whether a preserved payload is empty boilerplate.
 func (d Declaration) RecordsNothing(namespace string, payload []byte) bool {
 	for _, entry := range d.Boilerplate {
 		if entry.Namespace != namespace {
@@ -396,7 +315,6 @@ func (d Declaration) RecordsNothing(namespace string, payload []byte) bool {
 	return false
 }
 
-// valueAtPath walks into a payload. An empty path is the payload itself.
 func valueAtPath(payload []byte, path []string) (json.RawMessage, bool) {
 	value := json.RawMessage(payload)
 	for _, part := range path {
@@ -413,7 +331,6 @@ func valueAtPath(payload []byte, path []string) (json.RawMessage, bool) {
 	return value, len(value) > 0
 }
 
-// blankJSON reports whether a value is one a reader would call empty.
 func blankJSON(value json.RawMessage) bool {
 	var decoded any
 	if json.Unmarshal(value, &decoded) != nil {
@@ -437,9 +354,6 @@ func blankJSON(value json.RawMessage) bool {
 	}
 }
 
-// scalarText writes a scalar the way the declaration names it, so a
-// talkativeness of 0.5 matches whether the file wrote it as a string or a
-// number.
 func scalarText(value json.RawMessage) string {
 	var text string
 	if json.Unmarshal(value, &text) == nil {
@@ -448,11 +362,9 @@ func scalarText(value json.RawMessage) string {
 	return string(bytes.TrimSpace(value))
 }
 
-// Declaration is the complete static contract beside one format module.
+// Declaration is one format module's static contract.
 type Declaration struct {
-	ID string
-	// Label is the format's name in a download menu, where a reader picks
-	// without having to learn what the formats are.
+	ID          string
 	Label       string
 	Kind        string
 	Kinds       []string
@@ -462,9 +374,7 @@ type Declaration struct {
 	Direction   Direction
 	Recognition []Recognition
 	Roles       map[block.Role]DirectionalRoleSupport
-	// Header names the fields above the blocks that this writer puts in the
-	// file it produces. A field absent from every writer for a kind reaches
-	// no file that kind can be downloaded as.
+	// Header names the asset fields this writer puts in its output.
 	Header        []HeaderField
 	Slots         []SlotDeclaration
 	Limits        ContentLimits
@@ -472,16 +382,33 @@ type Declaration struct {
 	Boilerplate   []Boilerplate
 	Preservation  PreservationDeclaration
 	TestedOrigins []string
-	// PreservesOrigins names exceptional source modules whose remainder this
-	// writer restores despite not sharing its ordinary preservation family.
+	// PreservesOrigins names exceptional compatible source modules.
 	PreservesOrigins []string
-	// CrossPlatform requires an explicit allowance before the target is offered.
+	// CrossPlatform requires an explicit allowance.
 	CrossPlatform bool
 }
 
-// ValidateDeclaration checks the parts registry consumers rely on without
-// asking the module to parse a file.
+// ValidateDeclaration checks a module's static contract.
 func ValidateDeclaration(d Declaration) error {
+	checks := []func(Declaration) error{
+		validateDeclarationShape,
+		validateColumns,
+		validateAnomalies,
+		validateHeader,
+		validateRecognition,
+		validateRoleSupport,
+		validateSlots,
+		validateStorageContract,
+	}
+	for _, check := range checks {
+		if err := check(d); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateDeclarationShape(d Declaration) error {
 	if d.ID == "" {
 		return errors.New("identity is required")
 	}
@@ -512,6 +439,10 @@ func ValidateDeclaration(d Declaration) error {
 	if d.Direction.Read && d.Input == InputFile && len(d.Recognition) == 0 {
 		return errors.New("a reader needs declared recognition")
 	}
+	return nil
+}
+
+func validateColumns(d Declaration) error {
 	seenColumns := make(map[string]bool, len(d.Columns))
 	for _, column := range d.Columns {
 		key := column.Table + "." + column.Column
@@ -535,6 +466,10 @@ func ValidateDeclaration(d Declaration) error {
 			return fmt.Errorf("source column %s has disposition %q", key, column.Disposition)
 		}
 	}
+	return nil
+}
+
+func validateAnomalies(d Declaration) error {
 	seenAnomalies := make(map[string]bool, len(d.Anomalies))
 	for _, anomaly := range d.Anomalies {
 		if anomaly.Kind == "" || anomaly.Reason == "" {
@@ -548,11 +483,19 @@ func ValidateDeclaration(d Declaration) error {
 			return fmt.Errorf("anomaly %q has disposition %q", anomaly.Kind, anomaly.Disposition)
 		}
 	}
+	return nil
+}
+
+func validateHeader(d Declaration) error {
 	for _, field := range d.Header {
 		if !field.Known() {
 			return fmt.Errorf("header field %q is not one an asset carries", field)
 		}
 	}
+	return nil
+}
+
+func validateRecognition(d Declaration) error {
 	for _, recognition := range d.Recognition {
 		if len(recognition.Containers) == 0 {
 			return errors.New("recognition needs at least one container")
@@ -583,6 +526,10 @@ func ValidateDeclaration(d Declaration) error {
 			return fmt.Errorf("unknown recognition kind %q", recognition.Kind)
 		}
 	}
+	return nil
+}
+
+func validateRoleSupport(d Declaration) error {
 	for role, directional := range d.Roles {
 		if !role.Known() {
 			return fmt.Errorf("unknown semantic role %q", role)
@@ -600,6 +547,10 @@ func ValidateDeclaration(d Declaration) error {
 			}
 		}
 	}
+	return nil
+}
+
+func validateSlots(d Declaration) error {
 	seenSlots := make(map[string]bool)
 	for _, slot := range d.Slots {
 		if slot.Name == "" || !slot.Type.known() {
@@ -610,6 +561,10 @@ func ValidateDeclaration(d Declaration) error {
 		}
 		seenSlots[slot.Name] = true
 	}
+	return nil
+}
+
+func validateStorageContract(d Declaration) error {
 	if d.Limits.PayloadBytes <= 0 || d.Limits.CollectionItems <= 0 || d.Limits.ItemBytes <= 0 {
 		return errors.New("payload, collection and item limits are required")
 	}
@@ -633,103 +588,4 @@ func ValidateDeclaration(d Declaration) error {
 func (t ValueType) known() bool {
 	return t == ValueString || t == ValueNumber || t == ValueBoolean ||
 		t == ValueObject || t == ValueArray
-}
-
-// Module is the identity and static contract every format module implements.
-type Module interface {
-	ID() string
-	Declaration() Declaration
-}
-
-// Reader is the optional capability that claims and parses source bytes.
-type Reader interface {
-	Module
-	Claim(probe.Inspection) (Claim, bool)
-	Parse(ctx context.Context, file probe.Inspection, claim Claim) (Parsed, error)
-}
-
-// DatabaseReader is the row-input form of Reader. The source stays opaque to
-// the registry, but the result is the same role-and-header value a file reader
-// returns before catalog placement.
-type DatabaseReader interface {
-	Module
-	ReadDatabaseRow(ctx context.Context, row any) (Parsed, error)
-}
-
-/**
- * Implemented only by a module whose payloads name a standard rather than the
- * module itself. CharX is the one: a `.charx` archive holds a card declaring
- * `chara_card_v3`, because CharX is a container for a CCv3 card and has no
- * discriminator of its own.
- */
-type SpecOwner interface {
-	OwnedSpecs() []string
-}
-
-// ownsSpec reports whether an authoritative claim naming spec belongs to m.
-func ownsSpec(m Module, spec string) bool {
-	if spec == m.ID() {
-		return true
-	}
-	owner, ok := m.(SpecOwner)
-	return ok && slices.Contains(owner.OwnedSpecs(), spec)
-}
-
-type claimStrength uint8
-
-const (
-	compatibility claimStrength = iota + 1
-	authoritative
-)
-
-type Claim struct {
-	payloadID uint32
-	strength  claimStrength
-	formatID  string
-	byteSize  int64
-}
-
-const wholeFilePayloadID = ^uint32(0)
-
-// WholeFileCompatibilityClaim supports a module whose structure is the
-// container itself rather than one decoded JSON payload.
-func WholeFileCompatibilityClaim(file probe.Inspection) Claim {
-	return Claim{
-		payloadID: wholeFilePayloadID, strength: compatibility, byteSize: file.ByteSize(),
-	}
-}
-
-func AuthoritativeClaim(payload probe.Payload, discriminator string) (Claim, bool) {
-	formatID, ok := payload.String(discriminator)
-	if !ok || formatID == "" {
-		return Claim{}, false
-	}
-	return Claim{payloadID: payload.ID, strength: authoritative, formatID: formatID}, true
-}
-
-func CompatibilityClaim(payload probe.Payload) Claim {
-	return Claim{payloadID: payload.ID, strength: compatibility}
-}
-
-func (c Claim) Payload(file probe.Inspection) (probe.Payload, bool) {
-	if c.payloadID == wholeFilePayloadID {
-		return probe.Payload{ID: wholeFilePayloadID, ByteSize: c.byteSize}, true
-	}
-	for _, payload := range file.Payloads {
-		if payload.ID == c.payloadID {
-			return payload, true
-		}
-	}
-	return probe.Payload{}, false
-}
-
-/** A labelled block of plain text, for quality scoring and moderation */
-type TextSection struct {
-	Label string
-	Text  string
-}
-
-/** Implemented only by modules that can pull readable text out of a file */
-type TextExtractor interface {
-	ExtractText(ctx context.Context, src io.Reader) ([]TextSection, error)
 }

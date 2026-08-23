@@ -21,7 +21,7 @@ type Resolution struct {
 	Claim  Claim
 }
 
-/** Holds every known module and picks the right one for a file */
+// Registry holds every known format module.
 type Registry struct {
 	modules map[string]Module
 }
@@ -40,8 +40,7 @@ func (r *Registry) Register(m Module) error {
 	return nil
 }
 
-// ValidateDeclarations checks the static contract every registry consumer
-// reads without invoking module code.
+// ValidateDeclarations checks every module's static contract.
 func (r *Registry) ValidateDeclarations() error {
 	ids := make([]string, 0, len(r.modules))
 	for id := range r.modules {
@@ -88,8 +87,6 @@ func (r *Registry) ValidateDeclarations() error {
 	return nil
 }
 
-// signaturesOverlap reports whether one structural signature shadows another.
-// Distinct required keys are separable; equal-strength matches fail closed.
 func signaturesOverlap(first, second []Recognition) bool {
 	for _, a := range first {
 		if a.Kind != RecognitionSignature {
@@ -107,8 +104,6 @@ func signaturesOverlap(first, second []Recognition) bool {
 	return false
 }
 
-// shadows reports whether every key the looser signature requires is required
-// by the stricter one at the same type.
 func shadows(looser, stricter map[string]ValueType) bool {
 	for key, wanted := range looser {
 		if held, present := stricter[key]; !present || held != wanted {
@@ -135,8 +130,7 @@ func (r *Registry) ByID(id string) (Module, bool) {
 	return m, ok
 }
 
-// Declaration returns one registered module's contract, for code that needs to
-// read what a format declares without asking it to parse anything.
+// Declaration returns one registered module's contract.
 func (r *Registry) Declaration(id string) (Declaration, bool) {
 	module, ok := r.modules[id]
 	if !ok {
@@ -145,9 +139,7 @@ func (r *Registry) Declaration(id string) (Declaration, bool) {
 	return module.Declaration(), true
 }
 
-// ReadableLabels names every format the registry can read, in the order a
-// person would read them out. A refusal is built from this rather than from a
-// sentence somebody has to remember to update.
+// ReadableLabels names every readable file format.
 func (r *Registry) ReadableLabels() []string {
 	ids := make([]string, 0, len(r.modules))
 	for id := range r.modules {
