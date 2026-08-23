@@ -936,3 +936,34 @@ with revoked as (
      where instance_id in (select id from revoked)
 )
 select exists(select 1 from revoked) as revoked;
+
+-- name: InsertMigrationException :exec
+insert into migration_exceptions (id, kind, subject, detail, asset_id)
+values ($1, $2, $3, $4, sqlc.narg('asset_id')::uuid);
+
+-- name: MigrationTargetIsEmpty :one
+select not exists (select 1 from users)
+   and not exists (select 1 from retired_handles)
+   and not exists (select 1 from oauth_identities)
+   and not exists (select 1 from migration_exceptions) as empty;
+
+-- name: InsertMigratedUser :exec
+insert into users
+  (id, username, role, created_at, updated_at, display_name, custom_display_name,
+   avatar_url, banner_url, nsfw_visibility, show_nsfw_contributions_on_profile,
+   default_include_tags, default_exclude_tags)
+values ($1, $2, $3, $4, $4, $5, $6, $7, $8, $9, $10, $11, $12);
+
+-- name: InsertMigratedDiscordIdentity :exec
+insert into oauth_identities (user_id, provider, subject) values ($1, 'discord', $2);
+
+-- name: MigratedAccounts :many
+select u.id, u.username, u.role, u.created_at, u.display_name, u.custom_display_name,
+       u.avatar_url, u.banner_url, u.nsfw_visibility,
+       u.show_nsfw_contributions_on_profile,
+       u.default_include_tags, u.default_exclude_tags,
+       u.email, u.email_source, u.email_verified_at, u.password_hash,
+       identity.subject as discord_subject
+  from users u
+  left join oauth_identities identity
+    on identity.user_id = u.id and identity.provider = 'discord';

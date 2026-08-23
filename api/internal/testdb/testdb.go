@@ -42,7 +42,8 @@ func ConnectWith(t *testing.T, tune func(*postgres.Settings)) *pgxpool.Pool {
 		t.Fatalf("allow download event test reset: %v", err)
 	}
 	_, truncateErr := pool.Exec(context.Background(),
-		`truncate download_events, ingest_operations, assets, asset_revisions, asset_media,
+		`truncate migration_exceptions, download_events, ingest_operations,
+		          assets, asset_revisions, asset_media,
 		          blob_tombstones, blob_sweep_marks, blobs,
 		          link_rate_limits, instance_access_tokens, instance_refresh_history,
 		          link_authorizations, link_requests, linked_instances,

@@ -1388,6 +1388,85 @@ func (q *Queries) InsertLinkedInstance(ctx context.Context, arg InsertLinkedInst
 	return i, err
 }
 
+const insertMigratedDiscordIdentity = `-- name: InsertMigratedDiscordIdentity :exec
+insert into oauth_identities (user_id, provider, subject) values ($1, 'discord', $2)
+`
+
+type InsertMigratedDiscordIdentityParams struct {
+	UserID  pgtype.UUID
+	Subject string
+}
+
+func (q *Queries) InsertMigratedDiscordIdentity(ctx context.Context, arg InsertMigratedDiscordIdentityParams) error {
+	_, err := q.db.Exec(ctx, insertMigratedDiscordIdentity, arg.UserID, arg.Subject)
+	return err
+}
+
+const insertMigratedUser = `-- name: InsertMigratedUser :exec
+insert into users
+  (id, username, role, created_at, updated_at, display_name, custom_display_name,
+   avatar_url, banner_url, nsfw_visibility, show_nsfw_contributions_on_profile,
+   default_include_tags, default_exclude_tags)
+values ($1, $2, $3, $4, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+`
+
+type InsertMigratedUserParams struct {
+	ID                             pgtype.UUID
+	Username                       string
+	Role                           string
+	CreatedAt                      pgtype.Timestamptz
+	DisplayName                    string
+	CustomDisplayName              string
+	AvatarUrl                      string
+	BannerUrl                      string
+	NsfwVisibility                 string
+	ShowNsfwContributionsOnProfile bool
+	DefaultIncludeTags             []byte
+	DefaultExcludeTags             []byte
+}
+
+func (q *Queries) InsertMigratedUser(ctx context.Context, arg InsertMigratedUserParams) error {
+	_, err := q.db.Exec(ctx, insertMigratedUser,
+		arg.ID,
+		arg.Username,
+		arg.Role,
+		arg.CreatedAt,
+		arg.DisplayName,
+		arg.CustomDisplayName,
+		arg.AvatarUrl,
+		arg.BannerUrl,
+		arg.NsfwVisibility,
+		arg.ShowNsfwContributionsOnProfile,
+		arg.DefaultIncludeTags,
+		arg.DefaultExcludeTags,
+	)
+	return err
+}
+
+const insertMigrationException = `-- name: InsertMigrationException :exec
+insert into migration_exceptions (id, kind, subject, detail, asset_id)
+values ($1, $2, $3, $4, $5::uuid)
+`
+
+type InsertMigrationExceptionParams struct {
+	ID      pgtype.UUID
+	Kind    string
+	Subject string
+	Detail  string
+	AssetID pgtype.UUID
+}
+
+func (q *Queries) InsertMigrationException(ctx context.Context, arg InsertMigrationExceptionParams) error {
+	_, err := q.db.Exec(ctx, insertMigrationException,
+		arg.ID,
+		arg.Kind,
+		arg.Subject,
+		arg.Detail,
+		arg.AssetID,
+	)
+	return err
+}
+
 const insertOAuthIdentity = `-- name: InsertOAuthIdentity :exec
 insert into oauth_identities (user_id, provider, subject, provider_email)
 values ($1, $2, $3, $4)
@@ -1953,6 +2032,90 @@ func (q *Queries) LockOAuthUser(ctx context.Context, userID pgtype.UUID) (int32,
 	var column_1 int32
 	err := row.Scan(&column_1)
 	return column_1, err
+}
+
+const migratedAccounts = `-- name: MigratedAccounts :many
+select u.id, u.username, u.role, u.created_at, u.display_name, u.custom_display_name,
+       u.avatar_url, u.banner_url, u.nsfw_visibility,
+       u.show_nsfw_contributions_on_profile,
+       u.default_include_tags, u.default_exclude_tags,
+       u.email, u.email_source, u.email_verified_at, u.password_hash,
+       identity.subject as discord_subject
+  from users u
+  left join oauth_identities identity
+    on identity.user_id = u.id and identity.provider = 'discord'
+`
+
+type MigratedAccountsRow struct {
+	ID                             pgtype.UUID
+	Username                       string
+	Role                           string
+	CreatedAt                      pgtype.Timestamptz
+	DisplayName                    string
+	CustomDisplayName              string
+	AvatarUrl                      string
+	BannerUrl                      string
+	NsfwVisibility                 string
+	ShowNsfwContributionsOnProfile bool
+	DefaultIncludeTags             []byte
+	DefaultExcludeTags             []byte
+	Email                          pgtype.Text
+	EmailSource                    pgtype.Text
+	EmailVerifiedAt                pgtype.Timestamptz
+	PasswordHash                   pgtype.Text
+	DiscordSubject                 pgtype.Text
+}
+
+func (q *Queries) MigratedAccounts(ctx context.Context) ([]MigratedAccountsRow, error) {
+	rows, err := q.db.Query(ctx, migratedAccounts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MigratedAccountsRow
+	for rows.Next() {
+		var i MigratedAccountsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Username,
+			&i.Role,
+			&i.CreatedAt,
+			&i.DisplayName,
+			&i.CustomDisplayName,
+			&i.AvatarUrl,
+			&i.BannerUrl,
+			&i.NsfwVisibility,
+			&i.ShowNsfwContributionsOnProfile,
+			&i.DefaultIncludeTags,
+			&i.DefaultExcludeTags,
+			&i.Email,
+			&i.EmailSource,
+			&i.EmailVerifiedAt,
+			&i.PasswordHash,
+			&i.DiscordSubject,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const migrationTargetIsEmpty = `-- name: MigrationTargetIsEmpty :one
+select not exists (select 1 from users)
+   and not exists (select 1 from retired_handles)
+   and not exists (select 1 from oauth_identities)
+   and not exists (select 1 from migration_exceptions) as empty
+`
+
+func (q *Queries) MigrationTargetIsEmpty(ctx context.Context) (pgtype.Bool, error) {
+	row := q.db.QueryRow(ctx, migrationTargetIsEmpty)
+	var empty pgtype.Bool
+	err := row.Scan(&empty)
+	return empty, err
 }
 
 const nSFWVisibilityBySessionHash = `-- name: NSFWVisibilityBySessionHash :one

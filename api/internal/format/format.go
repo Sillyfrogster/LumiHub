@@ -443,8 +443,13 @@ func validateDeclarationShape(d Declaration) error {
 }
 
 func validateColumns(d Declaration) error {
-	seenColumns := make(map[string]bool, len(d.Columns))
-	for _, column := range d.Columns {
+	return ValidateColumns(d.Columns)
+}
+
+// ValidateColumns checks that every source column is accounted for once.
+func ValidateColumns(columns []ColumnDisposition) error {
+	seenColumns := make(map[string]bool, len(columns))
+	for _, column := range columns {
 		key := column.Table + "." + column.Column
 		if column.Table == "" || column.Column == "" {
 			return errors.New("a source column needs its table and name")
@@ -470,8 +475,13 @@ func validateColumns(d Declaration) error {
 }
 
 func validateAnomalies(d Declaration) error {
-	seenAnomalies := make(map[string]bool, len(d.Anomalies))
-	for _, anomaly := range d.Anomalies {
+	return ValidateAnomalies(d.Anomalies)
+}
+
+// ValidateAnomalies checks an ahead-of-run anomaly policy.
+func ValidateAnomalies(anomalies []AnomalyDeclaration) error {
+	seenAnomalies := make(map[string]bool, len(anomalies))
+	for _, anomaly := range anomalies {
 		if anomaly.Kind == "" || anomaly.Reason == "" {
 			return errors.New("an anomaly needs a kind and reason")
 		}

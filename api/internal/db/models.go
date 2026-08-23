@@ -232,6 +232,15 @@ type LinkedInstance struct {
 	AcceptedTargets    []string
 }
 
+type MigrationException struct {
+	ID         pgtype.UUID
+	Kind       string
+	Subject    string
+	Detail     string
+	AssetID    pgtype.UUID
+	RecordedAt pgtype.Timestamptz
+}
+
 type OauthIdentity struct {
 	UserID        pgtype.UUID
 	Provider      string
@@ -276,4 +285,10 @@ type User struct {
 	NsfwVisibility                 string
 	ShowNsfwContributionsOnProfile bool
 	Role                           string
+	DisplayName                    string
+	CustomDisplayName              string
+	AvatarUrl                      string
+	BannerUrl                      string
+	DefaultIncludeTags             []byte
+	DefaultExcludeTags             []byte
 }

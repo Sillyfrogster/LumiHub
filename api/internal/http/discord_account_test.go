@@ -12,6 +12,8 @@ import (
 
 	"github.com/Sillyfrogster/Illarin/api/internal/account"
 	discordapi "github.com/Sillyfrogster/Illarin/api/internal/discord"
+	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type discordStub struct {
@@ -478,6 +480,7 @@ func TestDiscordOAuthRequestsIdentifyAndEmailFromTheProvider(t *testing.T) {
 		AuthorizationEndpoint: upstream.URL + "/oauth2/authorize",
 		TokenEndpoint:         upstream.URL + "/api/v10/oauth2/token",
 		UserEndpoint:          upstream.URL + "/api/v10/users/@me",
+		CDNEndpoint:           upstream.URL + "/cdn",
 	}, upstream.Client())
 	if err != nil {
 		t.Fatalf("create Discord client: %v", err)
@@ -660,4 +663,76 @@ func hasResponseCookie(response *httptest.ResponseRecorder, name string) bool {
 		}
 	}
 	return false
+}
+
+func TestDiscordRefreshesTheAvatarBannerAndDisplayNameAtSignIn(t *testing.T) {
+	provider := &discordStub{profile: account.DiscordProfile{
+		Subject: "discord-reader-9", Username: "riverstonekeep", DisplayName: "Reed",
+		AvatarURL: "https://cdn.discordapp.com/avatars/9/first.png",
+		BannerURL: "https://cdn.discordapp.com/banners/9/first.png?size=1024",
+	}}
+	r, _, pool := newDiscordTestStack(t, provider)
+
+	signInThroughDiscord(t, r)
+	assertDiscordProfile(t, pool, "Reed",
+		"https://cdn.discordapp.com/avatars/9/first.png",
+		"https://cdn.discordapp.com/banners/9/first.png?size=1024")
+
+	provider.profile.DisplayName = "Reed Vance"
+	provider.profile.AvatarURL = "https://cdn.discordapp.com/avatars/9/second.png"
+	provider.profile.BannerURL = ""
+	signInThroughDiscord(t, r)
+
+	assertDiscordProfile(t, pool, "Reed Vance",
+		"https://cdn.discordapp.com/avatars/9/second.png", "")
+}
+
+func TestDiscordNeverTouchesTheDisplayNameACreatorSet(t *testing.T) {
+	provider := &discordStub{profile: account.DiscordProfile{
+		Subject: "discord-reader-10", Username: "tallowmoth", DisplayName: "tallowmoth",
+	}}
+	r, _, pool := newDiscordTestStack(t, provider)
+	signInThroughDiscord(t, r)
+	if _, err := pool.Exec(context.Background(),
+		`update users set custom_display_name = 'Marbleframe'`); err != nil {
+		t.Fatalf("set the creator's own display name: %v", err)
+	}
+
+	provider.profile.DisplayName = "somebody else"
+	signInThroughDiscord(t, r)
+
+	var custom string
+	if err := pool.QueryRow(context.Background(),
+		`select custom_display_name from users`).Scan(&custom); err != nil {
+		t.Fatalf("read the creator's own display name: %v", err)
+	}
+	if custom != "Marbleframe" {
+		t.Errorf("creator-set display name = %q, want it untouched", custom)
+	}
+}
+
+func signInThroughDiscord(t *testing.T, r *gin.Engine) {
+	t.Helper()
+	begin := send(t, r, httptest.NewRequest(http.MethodGet, "/v1/auth/discord", nil))
+	if begin.Code != http.StatusSeeOther {
+		t.Fatalf("begin status = %d, want 303. body: %s", begin.Code, begin.Body.String())
+	}
+	callback := send(t, r, oauthCallbackRequest(t, begin, "accepted"))
+	if callback.Code != http.StatusSeeOther {
+		t.Fatalf("callback status = %d, want 303. body: %s", callback.Code, callback.Body.String())
+	}
+}
+
+func assertDiscordProfile(t *testing.T, pool *pgxpool.Pool, name, avatar, banner string) {
+	t.Helper()
+	var storedName, storedAvatar, storedBanner string
+	if err := pool.QueryRow(context.Background(),
+		`select display_name, avatar_url, banner_url from users`,
+	).Scan(&storedName, &storedAvatar, &storedBanner); err != nil {
+		t.Fatalf("read the Discord profile: %v", err)
+	}
+	if storedName != name || storedAvatar != avatar || storedBanner != banner {
+		t.Errorf("profile = %q / %q / %q, want %q / %q / %q",
+			storedName, storedAvatar, storedBanner, name, avatar, banner)
+	}
 }
