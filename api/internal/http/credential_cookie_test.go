@@ -8,19 +8,18 @@ import (
 )
 
 func TestCredentialCookiesCarryTheProductName(t *testing.T) {
-	names := map[string]string{
-		"session":      sessionCookieName,
-		"oauth state":  oauthStateCookieName,
-		"oauth return": oauthReturnCookieName,
+	cookies := []struct {
+		role string
+		got  string
+		want string
+	}{
+		{"session", sessionCookieName, "illarin_session"},
+		{"oauth state", oauthStateCookieName, "illarin_discord_state"},
+		{"oauth return", oauthReturnCookieName, "illarin_discord_return"},
 	}
-	want := map[string]string{
-		"session":      "illarin_session",
-		"oauth state":  "illarin_discord_state",
-		"oauth return": "illarin_discord_return",
-	}
-	for role, got := range names {
-		if got != want[role] {
-			t.Errorf("%s cookie = %q, want %q", role, got, want[role])
+	for _, cookie := range cookies {
+		if cookie.got != cookie.want {
+			t.Errorf("%s cookie = %q, want %q", cookie.role, cookie.got, cookie.want)
 		}
 	}
 }
