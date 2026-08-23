@@ -1452,7 +1452,7 @@ type AssetDetail struct {
 	// Preview The composed social preview for link unfurling. Null on a draft, which nothing unfurls.
 	Preview *string `json:"preview"`
 
-	// Readiness What publication is waiting on. Present only while the owner is reading their own draft.
+	// Readiness The publish floor, present only while the owner is reading their own asset. A draft carries the whole list, because publishing waits on it. A published page carries it only where it falls short, which is how a migrated asset shows its owner what to come back and fix.
 	Readiness  *[]ReadinessItem      `json:"readiness,omitempty"`
 	Tags       []AssetTag            `json:"tags"`
 	Visibility AssetDetailVisibility `json:"visibility"`
@@ -1832,6 +1832,12 @@ type InstanceTokenGrant struct {
 
 // ItemSize How large the images inside an element are drawn. It names what it controls, and no element type declares a measurement of its own.
 type ItemSize string
+
+// LegacyAsset defines model for LegacyAsset.
+type LegacyAsset struct {
+	Id   openapi_types.UUID `json:"id"`
+	Name string             `json:"name"`
+}
 
 // LinkAuthorization defines model for LinkAuthorization.
 type LinkAuthorization struct {
@@ -2840,6 +2846,9 @@ type ServerInterface interface {
 
 	// (DELETE /v1/instances/{id})
 	RevokeInstance(c *gin.Context, id openapi_types.UUID, params RevokeInstanceParams)
+
+	// (GET /v1/legacy-assets/{author}/{name})
+	ResolveLegacyAsset(c *gin.Context, author string, name string)
 
 	// (POST /v1/link/authorizations)
 	StartLinkAuthorization(c *gin.Context)
@@ -3962,6 +3971,40 @@ func (siw *ServerInterfaceWrapper) RevokeInstance(c *gin.Context) {
 	siw.Handler.RevokeInstance(c, id, params)
 }
 
+// ResolveLegacyAsset operation middleware
+func (siw *ServerInterfaceWrapper) ResolveLegacyAsset(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "author" -------------
+	var author string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "author", c.Param("author"), &author, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter author: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", c.Param("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter name: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.ResolveLegacyAsset(c, author, name)
+}
+
 // StartLinkAuthorization operation middleware
 func (siw *ServerInterfaceWrapper) StartLinkAuthorization(c *gin.Context) {
 
@@ -4396,6 +4439,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/v1/assets", wrapper.CreateAsset)
 	router.DELETE(options.BaseURL+"/v1/assets/:id", wrapper.DeleteAsset)
 	router.GET(options.BaseURL+"/v1/assets/:id", wrapper.GetAsset)
+	router.GET(options.BaseURL+"/v1/legacy-assets/:author/:name", wrapper.ResolveLegacyAsset)
 	router.POST(options.BaseURL+"/v1/assets/:id/revisions", wrapper.AddAssetRevision)
 	router.DELETE(options.BaseURL+"/v1/assets/:id/blocks/:blockId", wrapper.RemoveAssetBlock)
 	router.PUT(options.BaseURL+"/v1/assets/:id/blocks/:blockId", wrapper.SaveAssetBlock)

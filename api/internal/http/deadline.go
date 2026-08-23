@@ -95,6 +95,7 @@ func Register(r *gin.Engine, h *Handlers, d Deadlines, readiness Readiness) erro
 		routeKey(http.MethodDelete, "/v1/assets/:id/withhold"):                      d.JSON,
 		routeKey(http.MethodPost, "/v1/assets/:id/media"):                           d.Upload,
 		routeKey(http.MethodGet, "/v1/assets/:id/media"):                            d.JSON,
+		routeKey(http.MethodGet, "/v1/legacy-assets/:author/:name"):                 d.JSON,
 		routeKey(http.MethodGet, "/v1/ingests/:id"):                                 d.JSON,
 		routeKey(http.MethodPatch, "/v1/ingests/:id"):                               d.JSON,
 		// :id is gin's way of writing "any id here".

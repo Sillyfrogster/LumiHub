@@ -879,6 +879,33 @@ paths:
           description: The asset does not belong to the creator
         '409':
           description: The asset is withheld and cannot be deleted
+  /v1/legacy-assets/{author}/{name}:
+    get:
+      operationId: resolveLegacyAsset
+      description: >-
+        The asset that answered for a v1 public address. The lookup applies the
+        same access rules the permalink does, so a withheld, deleted or
+        never-existed address answers 404 with nothing that says which.
+      parameters:
+        - name: author
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The asset the address belongs to
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LegacyAsset'
+        '404':
+          description: No asset a visitor may see
   /v1/assets/{id}/revisions:
     post:
       operationId: addAssetRevision
@@ -3375,8 +3402,10 @@ components:
             - type: 'null'
         readiness:
           description: >-
-            What publication is waiting on. Present only while the owner is
-            reading their own draft.
+            The publish floor, present only while the owner is reading their own
+            asset. A draft carries the whole list, because publishing waits on
+            it. A published page carries it only where it falls short, which is
+            how a migrated asset shows its owner what to come back and fix.
           type: array
           items:
             $ref: '#/components/schemas/ReadinessItem'
@@ -3932,4 +3961,15 @@ components:
             - wrong_kind
             - internal_failure
         message:
+          type: string
+    LegacyAsset:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
           type: string

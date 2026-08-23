@@ -67,6 +67,8 @@ paths:
     $ref: ./assets.yaml#/paths/~1v1~1assets
   /v1/assets/{id}:
     $ref: ./assets.yaml#/paths/~1v1~1assets~1{id}
+  /v1/legacy-assets/{author}/{name}:
+    $ref: ./assets.yaml#/paths/~1v1~1legacy-assets~1{author}~1{name}
   /v1/assets/{id}/revisions:
     $ref: ./assets.yaml#/paths/~1v1~1assets~1{id}~1revisions
   /v1/assets/{id}/blocks/{blockId}:

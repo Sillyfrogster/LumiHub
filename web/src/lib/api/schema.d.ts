@@ -517,6 +517,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/legacy-assets/{author}/{name}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description The asset that answered for a v1 public address. The lookup applies the same access rules the permalink does, so a withheld, deleted or never-existed address answers 404 with nothing that says which. */
+    get: operations["resolveLegacyAsset"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/assets/{id}/revisions": {
     parameters: {
       query?: never;
@@ -1524,7 +1541,7 @@ export interface components {
       media: components["schemas"]["AssetImage"][];
       /** @description The composed social preview for link unfurling. Null on a draft, which nothing unfurls. */
       preview: string | null;
-      /** @description What publication is waiting on. Present only while the owner is reading their own draft. */
+      /** @description The publish floor, present only while the owner is reading their own asset. A draft carries the whole list, because publishing waits on it. A published page carries it only where it falls short, which is how a migrated asset shows its owner what to come back and fix. */
       readiness?: components["schemas"]["ReadinessItem"][];
       /** @description The blocks this kind can still be given, in catalog order. Present only while the owner is reading their own asset. */
       addableBlocks?: components["schemas"]["AddableBlock"][];
@@ -1753,6 +1770,11 @@ export interface components {
         | "wrong_kind"
         | "internal_failure";
       message: string;
+    };
+    LegacyAsset: {
+      /** Format: uuid */
+      id: string;
+      name: string;
     };
   };
   responses: never;
@@ -3143,6 +3165,36 @@ export interface operations {
       };
       /** @description The asset is withheld and cannot be deleted */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  resolveLegacyAsset: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        author: string;
+        name: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The asset the address belongs to */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LegacyAsset"];
+        };
+      };
+      /** @description No asset a visitor may see */
+      404: {
         headers: {
           [name: string]: unknown;
         };

@@ -708,6 +708,21 @@ func ingestAsset(a *asset.Asset) *Asset {
 	return &converted
 }
 
+// ResolveLegacyAsset answers for a v1 public address. The lookup happens before
+// any redirect, so the answer never confirms an asset a visitor may not see.
+func (h *Handlers) ResolveLegacyAsset(c *gin.Context, author string, name string) {
+	found, err := h.assets.ResolveLegacyAddress(c.Request.Context(), author+"/"+name)
+	if errors.Is(err, asset.ErrNotFound) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "no such asset"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not read the asset"})
+		return
+	}
+	c.JSON(http.StatusOK, LegacyAsset{Id: types.UUID(found.ID), Name: found.Name})
+}
+
 func cursorFrom(params ListAssetsParams) (*asset.Cursor, bool) {
 	switch {
 	case params.Before == nil && params.BeforeId == nil:
