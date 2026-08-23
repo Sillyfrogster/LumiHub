@@ -628,7 +628,7 @@ function ImageEditor({
           })}
         </ol>
       ) : (
-        <p className={styles.readOnly}>No images are in this section yet.</p>
+        <p className={styles.readOnly}>No images are in this block yet.</p>
       )}
       {message ? (
         <p className={styles.imageError} role="alert">

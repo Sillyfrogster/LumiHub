@@ -30,10 +30,10 @@ import {
   WIDTH_LABELS,
 } from "@/lib/page-arrangement";
 import { useMeasuredWidth } from "@/lib/use-measured-width";
+import styles from "./ArrangeBlocks.module.css";
 import { WidthPicker } from "./ArrangementPickers";
-import styles from "./ArrangeSections.module.css";
 
-export function ArrangeSections({
+export function ArrangeBlocks({
   assetId,
   blocks,
   suggestedWidths,
@@ -70,7 +70,7 @@ export function ArrangeSections({
       setMessage(
         error instanceof Error
           ? error.message
-          : "The section order could not be saved. Try again.",
+          : "The block order could not be saved. Try again.",
       );
     } finally {
       setSaving(false);
@@ -103,15 +103,13 @@ export function ArrangeSections({
     <section
       ref={arrangeRef}
       className={styles.arrange}
-      aria-labelledby="arrange-sections-title"
+      aria-labelledby="arrange-blocks-title"
     >
       <header className={styles.topline}>
         <div>
           <p className={styles.context}>Page outline</p>
-          <h2 id="arrange-sections-title">Arrange sections</h2>
-          <p>
-            Move, resize, hide or remove sections without scrolling the page.
-          </p>
+          <h2 id="arrange-blocks-title">Arrange blocks</h2>
+          <p>Move, resize, hide or remove blocks without scrolling the page.</p>
         </div>
         <button type="button" className={styles.close} onClick={onClose}>
           <X size={17} aria-hidden="true" />
@@ -141,7 +139,7 @@ export function ArrangeSections({
       </div>
 
       <p className={styles.mobileWidthNote}>
-        Widths describe the desktop page. Every section stays full width here.
+        Widths describe the desktop page. Every block stays full width here.
       </p>
       {message ? (
         <p className={styles.message} role="alert">
@@ -149,7 +147,7 @@ export function ArrangeSections({
         </p>
       ) : null}
 
-      <ol className={styles.outline} aria-label="Sections in page order">
+      <ol className={styles.outline} aria-label="Blocks in page order">
         {blocks.map((block, index) => (
           <li
             className={styles.outlineRow}
@@ -312,7 +310,7 @@ export function ArrangeSections({
       </ol>
 
       {removing ? (
-        <RemoveSectionDialog
+        <RemoveBlockDialog
           block={removing}
           destinations={moveContentDestinations(removing, blocks)}
           pending={saving}
@@ -342,7 +340,7 @@ export function ArrangeSections({
               setMessage(
                 error instanceof Error
                   ? error.message
-                  : "The section could not be removed. Try again.",
+                  : "The block could not be removed. Try again.",
               );
             } finally {
               setSaving(false);
@@ -402,7 +400,7 @@ function moveDestinations(blocks: AssetBlock[], current: number) {
     }));
 }
 
-export function RemoveSectionDialog({
+export function RemoveBlockDialog({
   block,
   destinations,
   pending,
@@ -439,7 +437,7 @@ export function RemoveSectionDialog({
       }}
     >
       <div className={styles.dialogBody}>
-        <p className={styles.context}>Remove section</p>
+        <p className={styles.context}>Remove block</p>
         <h2>Remove “{block.title}”?</h2>
         {losses.length > 0 ? (
           <>
@@ -458,12 +456,12 @@ export function RemoveSectionDialog({
               ))}
             </ul>
             <p className={styles.noCopy}>
-              There is nowhere else this content is kept. The section is where
-              it lives.
+              There is nowhere else this content is kept. The block is where it
+              lives.
             </p>
           </>
         ) : (
-          <p>This section is empty, so nothing is lost.</p>
+          <p>This block is empty, so nothing is lost.</p>
         )}
         {error ? (
           <p className={styles.dialogError} role="alert">
@@ -471,26 +469,26 @@ export function RemoveSectionDialog({
           </p>
         ) : null}
 
-        <section className={styles.keep} aria-labelledby="keep-section-heading">
-          <h3 id="keep-section-heading">Or keep it</h3>
+        <section className={styles.keep} aria-labelledby="keep-block-heading">
+          <h3 id="keep-block-heading">Or keep it</h3>
           {block.hideable ? (
             <button type="button" disabled={pending} onClick={onHide}>
               <EyeOff size={18} aria-hidden="true" />
               <span>
-                <strong>Hide the section</strong>
+                <strong>Hide the block</strong>
                 Everything stays in downloads and leaves the public page.
               </span>
             </button>
           ) : null}
           {movable.length > 0 && destinations.length > 0 ? (
             <div className={styles.moveChoice}>
-              <label htmlFor="move-section-content">
+              <label htmlFor="move-block-content">
                 <strong>Move the content first</strong>
-                <span>Choose the section that should keep it.</span>
+                <span>Choose the block that should keep it.</span>
               </label>
               <div>
                 <select
-                  id="move-section-content"
+                  id="move-block-content"
                   value={destination}
                   onChange={(event) => setDestination(event.target.value)}
                   disabled={pending}
@@ -507,7 +505,7 @@ export function RemoveSectionDialog({
                   onClick={() => onMove(destination)}
                 >
                   <GripVertical size={18} aria-hidden="true" />
-                  Move content and remove section
+                  Move content and remove block
                 </button>
               </div>
             </div>
@@ -516,7 +514,7 @@ export function RemoveSectionDialog({
               <GripVertical size={18} aria-hidden="true" />
               <span>
                 <strong>Move the content first</strong>
-                No other section has room for these elements yet.
+                No other block has room for these elements yet.
               </span>
             </div>
           ) : null}

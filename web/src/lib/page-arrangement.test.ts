@@ -204,9 +204,9 @@ describe("page arrangement", () => {
         "Personality",
         "Scenario",
       ]),
-    ).toBe("Trio needs Full width. Widen this section first.");
+    ).toBe("Trio needs Full width. Widen this block first.");
     expect(widthChoiceIssue("trio", "half")).toBe(
-      "Trio needs Full width. Choose another layout before narrowing this section.",
+      "Trio needs Full width. Choose another layout before narrowing this block.",
     );
     expect(
       layoutChoiceIssue("stack-2", "full", [

@@ -32,7 +32,7 @@ export type PresetVariable = VariableSchemaContent["variables"][number];
 export type ScriptListContent = components["schemas"]["ScriptListContent"];
 export type RegexScript = ScriptListContent["scripts"][number];
 export type TypedValue = components["schemas"]["TypedValue"];
-export type AddableSection = components["schemas"]["AddableSection"];
+export type AddableBlock = components["schemas"]["AddableBlock"];
 export type ElementType = components["schemas"]["ElementType"];
 export type AssetTag = components["schemas"]["AssetTag"];
 export type ReadinessItem = components["schemas"]["ReadinessItem"];
@@ -157,7 +157,7 @@ export async function saveAssetDiscovery(
   if (error) throw new Error("Could not save discovery");
 }
 
-/** Saves one builder section without changing any other section on the page. */
+/** Saves one builder block without changing any other block on the page. */
 export async function saveAssetBlock(
   assetId: string,
   blockId: string,
@@ -172,13 +172,13 @@ export async function saveAssetBlock(
     const message =
       typeof detail?.error === "string"
         ? detail.error.replace(/^invalid block:\s*/i, "")
-        : "The section could not be saved. Try again.";
+        : "The block could not be saved. Try again.";
     throw new Error(message);
   }
   return data;
 }
 
-/** Adds one section to the foot of the page, holding the element chosen for it. */
+/** Adds one block to the foot of the page, holding the element chosen for it. */
 export async function addAssetBlock(
   assetId: string,
   definition: string,
@@ -193,13 +193,13 @@ export async function addAssetBlock(
     throw new Error(
       typeof detail?.error === "string"
         ? detail.error.replace(/^invalid block:\s*/i, "")
-        : "The section could not be added. Try again.",
+        : "The block could not be added. Try again.",
     );
   }
   return data;
 }
 
-/** Media is stored first, then linked when its section is saved. */
+/** Media is stored first, then linked when its block is saved. */
 export async function addAssetImage(
   assetId: string,
   file: File,
@@ -241,13 +241,13 @@ export async function arrangeAssetBlocks(
     throw new Error(
       typeof detail?.error === "string"
         ? detail.error.replace(/^invalid block:\s*/i, "")
-        : "The section order could not be saved. Try again.",
+        : "The block order could not be saved. Try again.",
     );
   }
   return data;
 }
 
-/** Removes one optional section and all of the elements it holds. */
+/** Removes one optional block and all of the elements it holds. */
 export async function removeAssetBlock(assetId: string, blockId: string) {
   const { error } = await api.DELETE("/v1/assets/{id}/blocks/{blockId}", {
     params: { path: { id: assetId, blockId } },
@@ -257,12 +257,12 @@ export async function removeAssetBlock(assetId: string, blockId: string) {
     throw new Error(
       typeof detail?.error === "string"
         ? detail.error.replace(/^invalid block:\s*/i, "")
-        : "The section could not be removed. Try again.",
+        : "The block could not be removed. Try again.",
     );
   }
 }
 
-/** Moves a section's unpinned content, then removes the emptied section. */
+/** Moves a block's unpinned content, then removes the emptied block. */
 export async function moveAssetBlockContent(
   assetId: string,
   blockId: string,

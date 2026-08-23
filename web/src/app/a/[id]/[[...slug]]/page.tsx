@@ -186,7 +186,7 @@ export default async function AssetPage({
               kind={asset.kind}
               blocks={asset.blocks}
               images={asset.media}
-              addableSections={asset.addableSections ?? []}
+              addableBlocks={asset.addableBlocks ?? []}
               isOwner={asset.isOwner}
               creatorMenu={{
                 assetId: asset.id,

@@ -65,7 +65,7 @@ export function WidthPicker({
       >
         <summary
           className={styles.trigger}
-          aria-label={`Change section width. Current width: ${WIDTH_LABELS[width]}`}
+          aria-label={`Change block width. Current width: ${WIDTH_LABELS[width]}`}
         >
           <Columns3 size={15} aria-hidden="true" />
           <span className={styles.triggerLabel}>{WIDTH_LABELS[width]}</span>
@@ -77,7 +77,7 @@ export function WidthPicker({
         </summary>
         <div className={styles.menu}>
           <div className={styles.menuHeading}>
-            <strong>Section width</strong>
+            <strong>Block width</strong>
             <span>Sizes stay exact. A short row keeps its empty space.</span>
           </div>
           <div className={styles.options}>
@@ -162,7 +162,7 @@ export function LayoutPicker({
     >
       <summary
         className={styles.trigger}
-        aria-label={`Change section layout. Current layout: ${LAYOUT_LABELS[layout]}`}
+        aria-label={`Change block layout. Current layout: ${LAYOUT_LABELS[layout]}`}
       >
         <LayoutGrid size={15} aria-hidden="true" />
         <span className={styles.triggerLabel}>{LAYOUT_LABELS[layout]}</span>

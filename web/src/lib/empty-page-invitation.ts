@@ -20,8 +20,8 @@ export function emptyPageInvitation({
   if (named) {
     const fill = `Fill in ${named} to give the page something to show.`;
     return canAdd
-      ? `${fill} Edit section opens a block, and Add block brings in anything else a ${kindLabel} can hold.`
-      : `${fill} Edit section opens a block.`;
+      ? `${fill} Edit block opens it, and Add block brings in anything else a ${kindLabel} can hold.`
+      : `${fill} Edit block opens it.`;
   }
 
   return canAdd

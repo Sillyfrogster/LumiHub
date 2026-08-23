@@ -352,7 +352,7 @@ export function CinematicLanding({
           <div className={styles.builderProof}>
             <span>
               <Boxes size={18} strokeWidth={1.3} />
-              Blocks hold the sections
+              Blocks hold the elements
             </span>
             <span>
               <Layers size={18} strokeWidth={1.3} />

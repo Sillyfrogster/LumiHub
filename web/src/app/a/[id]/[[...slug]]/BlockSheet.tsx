@@ -83,7 +83,7 @@ export function BlockSheet({
       setMessage(
         error instanceof Error
           ? error.message
-          : "The section could not be saved. Try again.",
+          : "The block could not be saved. Try again.",
       );
     } finally {
       setPending(false);
@@ -105,7 +105,7 @@ export function BlockSheet({
           <button
             type="button"
             className={styles.close}
-            aria-label="Close section editor"
+            aria-label="Close block editor"
             onClick={close}
           >
             <X size={20} aria-hidden="true" />
@@ -114,8 +114,8 @@ export function BlockSheet({
 
         <div className={styles.scroller}>
           <section className={styles.naming} aria-labelledby="section-name">
-            <div className={styles.sectionHeading}>
-              <h3 id="section-name">Section name</h3>
+            <div className={styles.blockHeading}>
+              <h3 id="block-name">Block name</h3>
               {block.required ? (
                 <span>{block.hideable ? "Required" : "Always shown"}</span>
               ) : null}
@@ -125,7 +125,7 @@ export function BlockSheet({
               id="block-title"
               value={useDefaultTitle ? "" : title}
               placeholder={
-                useDefaultTitle ? block.title : "Give this section a name"
+                useDefaultTitle ? block.title : "Give this block a name"
               }
               onChange={(event) => {
                 setUseDefaultTitle(false);
@@ -156,14 +156,14 @@ export function BlockSheet({
 
           <section
             className={styles.arrangement}
-            aria-labelledby="section-arrangement"
+            aria-labelledby="block-arrangement"
           >
             <div className={styles.arrangementHeading}>
               <div>
-                <h3 id="section-arrangement">Page arrangement</h3>
+                <h3 id="block-arrangement">Page arrangement</h3>
                 <p>
-                  Layout arranges this section’s content. Width places the
-                  section on the desktop page.
+                  Layout arranges this block’s content. Width places the block
+                  on the desktop page.
                 </p>
               </div>
               <div className={styles.arrangementActions}>
@@ -234,7 +234,7 @@ export function BlockSheet({
             aria-labelledby="block-actions"
           >
             <div>
-              <h3 id="block-actions">Section actions</h3>
+              <h3 id="block-actions">Block actions</h3>
               <p>Hide it from readers, or review what removal would lose.</p>
             </div>
             <div>
@@ -251,14 +251,14 @@ export function BlockSheet({
                         setMessage(
                           error instanceof Error
                             ? error.message
-                            : "The section could not be hidden. Try again.",
+                            : "The block could not be hidden. Try again.",
                         ),
                       )
                       .finally(() => setPending(false));
                   }}
                 >
                   <EyeOff size={16} aria-hidden="true" />
-                  Hide section
+                  Hide block
                 </button>
               ) : null}
               {!block.required ? (
@@ -272,7 +272,7 @@ export function BlockSheet({
                   }}
                 >
                   <Trash2 size={16} aria-hidden="true" />
-                  Remove section
+                  Remove block
                 </button>
               ) : null}
             </div>
@@ -280,7 +280,7 @@ export function BlockSheet({
 
           {message ? (
             <p className={styles.error} role="alert">
-              <strong>This section was not saved.</strong> {message}
+              <strong>This block was not saved.</strong> {message}
             </p>
           ) : null}
         </div>
@@ -290,7 +290,7 @@ export function BlockSheet({
             Cancel
           </button>
           <button type="submit" className={styles.save} disabled={pending}>
-            {pending ? "Saving…" : "Save section"}
+            {pending ? "Saving…" : "Save block"}
           </button>
         </footer>
       </form>
@@ -299,7 +299,7 @@ export function BlockSheet({
           assetId={assetId}
           element={expandedElement}
           images={images}
-          // The sheet stays open behind it, holding the rest of the section.
+          // The sheet stays open behind it, holding the rest of the block.
           returnLabel={`Return to ${block.title}`}
           pending={false}
           message=""

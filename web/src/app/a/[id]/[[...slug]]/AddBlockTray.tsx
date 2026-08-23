@@ -2,20 +2,20 @@
 
 import { Check, Plus, Search, X } from "lucide-react";
 import { useId, useMemo, useState } from "react";
-import type { AddableSection, AssetBlock, ElementType } from "@/lib/api/query";
-import styles from "./AddSectionTray.module.css";
+import type { AddableBlock, AssetBlock, ElementType } from "@/lib/api/query";
+import styles from "./AddBlockTray.module.css";
 
-type SectionOffer = { section: AddableSection; present: boolean };
-type SectionGroup = { key: string; title: string; offers: SectionOffer[] };
+type Offer = { addable: AddableBlock; present: boolean };
+type OfferGroup = { key: string; title: string; offers: Offer[] };
 
-export function AddSectionTray({
-  sections,
+export function AddBlockTray({
+  addable,
   blocks,
   pending,
   onAdd,
   onClose,
 }: {
-  sections: AddableSection[];
+  addable: AddableBlock[];
   blocks: AssetBlock[];
   pending: boolean;
   onAdd: (definition: string, elementType: ElementType) => void;
@@ -26,29 +26,29 @@ export function AddSectionTray({
 
   const offers = useMemo(() => {
     const present = new Set(blocks.map((block) => block.definition));
-    return sections.map((section) => ({
-      section,
-      present: !section.repeatable && present.has(section.definition),
+    return addable.map((candidate) => ({
+      addable: candidate,
+      present: !candidate.repeatable && present.has(candidate.definition),
     }));
-  }, [sections, blocks]);
+  }, [addable, blocks]);
   const wanted = search.trim().toLowerCase();
   const groups = useMemo(() => {
-    const grouped = new Map<string, SectionGroup>();
+    const grouped = new Map<string, OfferGroup>();
     for (const offer of offers) {
-      const { section } = offer;
+      const { addable: candidate } = offer;
       if (
         wanted &&
-        !section.title.toLowerCase().includes(wanted) &&
-        !section.summary.toLowerCase().includes(wanted)
+        !candidate.title.toLowerCase().includes(wanted) &&
+        !candidate.summary.toLowerCase().includes(wanted)
       ) {
         continue;
       }
-      const group = grouped.get(section.group);
+      const group = grouped.get(candidate.group);
       if (group) group.offers.push(offer);
       else {
-        grouped.set(section.group, {
-          key: section.group,
-          title: section.groupTitle,
+        grouped.set(candidate.group, {
+          key: candidate.group,
+          title: candidate.groupTitle,
           offers: [offer],
         });
       }
@@ -56,7 +56,7 @@ export function AddSectionTray({
     return [...grouped.values()];
   }, [offers, wanted]);
 
-  if (sections.length === 0) return null;
+  if (addable.length === 0) return null;
 
   return (
     <section
@@ -82,13 +82,13 @@ export function AddSectionTray({
       <div className={styles.search}>
         <Search size={16} aria-hidden="true" />
         <label className={styles.srOnly} htmlFor={searchId}>
-          Search the sections
+          Search the blocks
         </label>
         <input
           id={searchId}
           type="search"
           value={search}
-          placeholder="Search sections"
+          placeholder="Search blocks"
           onChange={(event) => setSearch(event.target.value)}
         />
       </div>
@@ -103,11 +103,14 @@ export function AddSectionTray({
         <section className={styles.group} key={group.key}>
           <h3>{group.title}</h3>
           <ul>
-            {group.offers.map(({ section, present }) => (
-              <li key={section.definition} data-present={present || undefined}>
+            {group.offers.map(({ addable: candidate, present }) => (
+              <li
+                key={candidate.definition}
+                data-present={present || undefined}
+              >
                 <div className={styles.itemText}>
-                  <strong>{section.title}</strong>
-                  <span>{section.summary}</span>
+                  <strong>{candidate.title}</strong>
+                  <span>{candidate.summary}</span>
                   {present ? (
                     <span className={styles.alreadyOn}>
                       <Check size={14} aria-hidden="true" />
@@ -117,13 +120,13 @@ export function AddSectionTray({
                 </div>
                 {present ? null : (
                   <div className={styles.itemActions}>
-                    {section.choices.length === 1 ? (
+                    {candidate.choices.length === 1 ? (
                       <button
                         type="button"
                         className={styles.add}
                         disabled={pending}
                         onClick={() =>
-                          onAdd(section.definition, section.choices[0].type)
+                          onAdd(candidate.definition, candidate.choices[0].type)
                         }
                       >
                         <Plus size={16} aria-hidden="true" />
@@ -133,13 +136,13 @@ export function AddSectionTray({
                       <>
                         <span className={styles.choiceLabel}>Start with</span>
                         <div className={styles.choices}>
-                          {section.choices.map((choice) => (
+                          {candidate.choices.map((choice) => (
                             <button
                               type="button"
                               key={choice.type}
                               disabled={pending}
                               onClick={() =>
-                                onAdd(section.definition, choice.type)
+                                onAdd(candidate.definition, choice.type)
                               }
                             >
                               {choice.label}

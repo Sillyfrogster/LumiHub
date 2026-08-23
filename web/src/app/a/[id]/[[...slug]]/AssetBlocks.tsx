@@ -11,7 +11,7 @@ import {
   useState,
 } from "react";
 import {
-  type AddableSection,
+  type AddableBlock,
   type AssetBlock,
   type AssetElement,
   type AssetImage,
@@ -42,13 +42,13 @@ import {
   suggestionCandidateWidths,
 } from "@/lib/page-arrangement";
 import { useMeasuredWidth } from "@/lib/use-measured-width";
-import { AddSectionTray } from "./AddSectionTray";
-import { WidthPicker } from "./ArrangementPickers";
+import { AddBlockTray } from "./AddBlockTray";
 import {
-  ArrangeSections,
+  ArrangeBlocks,
   moveContentDestinations,
-  RemoveSectionDialog,
-} from "./ArrangeSections";
+  RemoveBlockDialog,
+} from "./ArrangeBlocks";
+import { WidthPicker } from "./ArrangementPickers";
 import styles from "./AssetBlocks.module.css";
 import { BlockSheet } from "./BlockSheet";
 import { ContentsBar } from "./ContentsBar";
@@ -134,7 +134,7 @@ export function AssetBlocks({
   kind,
   blocks,
   images,
-  addableSections,
+  addableBlocks,
   isOwner,
   creatorMenu,
 }: {
@@ -142,7 +142,7 @@ export function AssetBlocks({
   kind: BrowseKind;
   blocks: AssetBlock[];
   images: AssetImage[];
-  addableSections: AddableSection[];
+  addableBlocks: AddableBlock[];
   isOwner: boolean;
   creatorMenu: CreatorMenuProps;
 }) {
@@ -327,13 +327,13 @@ export function AssetBlocks({
     });
   }
 
-  function addSection(definition: string, elementType: ElementType) {
+  function addBlock(definition: string, elementType: ElementType) {
     void runBlockAction(async () => {
-      const section = await addAssetBlock(assetId, definition, elementType);
-      setCurrentBlocks((current) => [...current, section]);
+      const added = await addAssetBlock(assetId, definition, elementType);
+      setCurrentBlocks((current) => [...current, added]);
       setArranging(false);
       setAdding(false);
-      setAdded(section.id);
+      setAdded(added.id);
     });
   }
 
@@ -348,7 +348,7 @@ export function AssetBlocks({
       setArrangementMessage(
         error instanceof Error
           ? error.message
-          : "The section could not be changed. Try again.",
+          : "The block could not be changed. Try again.",
       );
     } finally {
       setBlockActionPending(false);
@@ -363,7 +363,7 @@ export function AssetBlocks({
         arranging={arranging}
         adding={adding}
         readerView={readerView}
-        canAdd={addableSections.length > 0}
+        canAdd={addableBlocks.length > 0}
         creatorMenu={creatorMenu}
         onToggleArrange={() => {
           setEditing(null);
@@ -385,7 +385,7 @@ export function AssetBlocks({
       />
 
       {arranging && editingVisible ? (
-        <ArrangeSections
+        <ArrangeBlocks
           assetId={assetId}
           blocks={currentBlocks}
           suggestedWidths={suggestedWidths}
@@ -396,8 +396,8 @@ export function AssetBlocks({
         <>
           {editingVisible ? (
             <p className={styles.narrowNote}>
-              Section widths arrange the desktop page. On this screen every
-              section fills the width, and no content is lost.
+              Block widths arrange the desktop page. On this screen every block
+              fills the width, and no content is lost.
             </p>
           ) : null}
           {arrangementMessage ? (
@@ -409,7 +409,7 @@ export function AssetBlocks({
             <EmptyPageInvitation
               kind={kind}
               coreBlocks={coreBlockTitles(currentBlocks)}
-              canAdd={addableSections.length > 0}
+              canAdd={addableBlocks.length > 0}
             />
           ) : fullness === "empty" ? (
             <EmptyPage kind={kind} />
@@ -496,7 +496,7 @@ export function AssetBlocks({
                               onClick={() => setEditing(block.id)}
                             >
                               <PencilLine size={15} aria-hidden="true" />
-                              <span>Edit section</span>
+                              <span>Edit block</span>
                             </button>
                           </div>
                         ) : null}
@@ -530,7 +530,7 @@ export function AssetBlocks({
                                   setArrangementMessage(
                                     error instanceof Error
                                       ? error.message
-                                      : "The section could not be shown. Try again.",
+                                      : "The block could not be shown. Try again.",
                                   );
                                 }
                               })()
@@ -652,11 +652,11 @@ export function AssetBlocks({
             </details>
           ) : null}
           {editingVisible && adding ? (
-            <AddSectionTray
-              sections={addableSections}
+            <AddBlockTray
+              addable={addableBlocks}
               blocks={currentBlocks}
               pending={blockActionPending}
-              onAdd={addSection}
+              onAdd={addBlock}
               onClose={() => setAdding(false)}
             />
           ) : null}
@@ -707,7 +707,7 @@ export function AssetBlocks({
         />
       ) : null}
       {removing ? (
-        <RemoveSectionDialog
+        <RemoveBlockDialog
           block={removing}
           destinations={moveContentDestinations(removing, currentBlocks)}
           pending={blockActionPending}

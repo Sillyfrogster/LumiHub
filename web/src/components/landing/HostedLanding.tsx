@@ -143,7 +143,7 @@ export function HostedLanding({
           <figure
             className={styles.builderProof}
             role="img"
-            aria-label="The character block editor with section naming, page layout, width, and description controls"
+            aria-label="The character block editor with block naming, page layout, width, and description controls"
           />
 
           <div className={styles.deliveryPlane}>

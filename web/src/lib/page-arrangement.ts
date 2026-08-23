@@ -89,7 +89,7 @@ export function layoutChoiceIssue(
     return `${LAYOUT_LABELS[layout]} has no room for ${stranded.join(", ")}. Move or remove ${stranded.length === 1 ? "it" : "them"} first.`;
   }
   if (WIDTH_COLUMNS[width] < choice.minimumColumns) {
-    return `${LAYOUT_LABELS[layout]} needs ${widthLabelForColumns(choice.minimumColumns)} width. Widen this section first.`;
+    return `${LAYOUT_LABELS[layout]} needs ${widthLabelForColumns(choice.minimumColumns)} width. Widen this block first.`;
   }
   return null;
 }
@@ -100,7 +100,7 @@ export function widthChoiceIssue(
 ): string | null {
   const minimumColumns = LAYOUTS[layout].minimumColumns;
   if (WIDTH_COLUMNS[width] >= minimumColumns) return null;
-  return `${LAYOUT_LABELS[layout]} needs ${widthLabelForColumns(minimumColumns)} width. Choose another layout before narrowing this section.`;
+  return `${LAYOUT_LABELS[layout]} needs ${widthLabelForColumns(minimumColumns)} width. Choose another layout before narrowing this block.`;
 }
 
 function widthLabelForColumns(columns: number): string {

@@ -55,7 +55,7 @@ export function DeleteControl({
           {frozen
             ? "A withheld asset cannot be deleted."
             : isDraft
-              ? "Every section and image goes with it. You can restore it from your profile for 30 days."
+              ? "Every block and image goes with it. You can restore it from your profile for 30 days."
               : "Its page and downloads stop now. You can restore it from your profile for 30 days."}
         </p>
         {isDraft && !frozen ? (
