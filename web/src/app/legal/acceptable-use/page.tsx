@@ -131,7 +131,8 @@ export default function AcceptableUse() {
           No inflating your own download counts or manipulating search results.
         </li>
         <li>
-          No scraping or crawling beyond what Illarin&rsquo;s rate limits allow.
+          No scraping or crawling beyond what Illarin&rsquo;s robots.txt and
+          rate limits allow.
         </li>
         <li>
           No probing, scanning, or attacking Illarin, and no trying to get into
