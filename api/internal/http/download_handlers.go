@@ -56,7 +56,7 @@ func (h *Handlers) handOffExport(c *gin.Context, download asset.Export) {
 	}
 	c.Header("Content-Disposition", `attachment; filename="`+download.Filename+`"`)
 	c.Header("X-Content-Type-Options", "nosniff")
-	c.Header("X-LumiHub-Export-Target", download.Target)
+	c.Header("X-Illarin-Export-Target", download.Target)
 	c.Data(http.StatusOK, download.MediaType, download.Body)
 }
 

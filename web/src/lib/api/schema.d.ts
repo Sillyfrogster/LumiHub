@@ -3995,7 +3995,7 @@ export interface operations {
         headers: {
           "Content-Disposition": "attachment";
           "X-Content-Type-Options": "nosniff";
-          "X-LumiHub-Export-Target": string;
+          "X-Illarin-Export-Target": string;
           [name: string]: unknown;
         };
         content: {

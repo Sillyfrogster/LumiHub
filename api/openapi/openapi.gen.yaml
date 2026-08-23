@@ -1475,7 +1475,7 @@ paths:
                 type: string
                 enum:
                   - nosniff
-            X-LumiHub-Export-Target:
+            X-Illarin-Export-Target:
               required: true
               schema:
                 type: string

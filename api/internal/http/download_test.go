@@ -207,7 +207,7 @@ func TestExportDownloadRecordsTheFormatItHandedOver(t *testing.T) {
 	if download.Code != http.StatusOK {
 		t.Fatalf("download status = %d, want 200: %s", download.Code, download.Body.String())
 	}
-	if got := download.Header().Get("X-LumiHub-Export-Target"); got != "test_opaque" {
+	if got := download.Header().Get("X-Illarin-Export-Target"); got != "test_opaque" {
 		t.Fatalf("target header = %q, want the format handed over", got)
 	}
 	// An export is a response, not stored content, so nothing was handed to
