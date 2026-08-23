@@ -208,7 +208,7 @@ func (s *Service) ingestFailureMessage(reason string) string {
 			joinReadable(s.reg.ReadableLabels()) +
 			". If yours is not one of those, start from nothing and build it here."
 	case "unsupported_version":
-		return "The file uses a version LumiHub cannot read safely."
+		return "The file uses a version Illarin cannot read safely."
 	case "safety_violation":
 		return "The file breaks an archive safety rule."
 	case "limit_exceeded":
@@ -216,7 +216,7 @@ func (s *Service) ingestFailureMessage(reason string) string {
 	case "wrong_kind":
 		return "This file is a different kind of thing than the asset it would update."
 	default:
-		return "LumiHub could not finish this upload. Please try again."
+		return "Illarin could not finish this upload. Please try again."
 	}
 }
 
