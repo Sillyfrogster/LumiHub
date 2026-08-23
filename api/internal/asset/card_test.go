@@ -17,7 +17,7 @@ import (
 )
 
 // TestACardKeepsItsExactBytesWhileItsPictureIsExtracted is the round trip a
-// creator cares about: LumiHub reads the card, takes a copy of the picture, and
+// creator cares about: Illarin reads the card, takes a copy of the picture, and
 // hands back the file it was given.
 func TestACardKeepsItsExactBytesWhileItsPictureIsExtracted(t *testing.T) {
 	registry := format.NewRegistry()

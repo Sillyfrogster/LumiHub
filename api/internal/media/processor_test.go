@@ -149,7 +149,7 @@ func TestOGIsASeparateComposedPreview(t *testing.T) {
 		t.Fatalf("preview dimensions = %dx%d, want 1200x630", got.X, got.Y)
 	}
 	if got := color.RGBAModel.Convert(decoded.At(0, 0)).(color.RGBA); got != (color.RGBA{R: 0xf6, G: 0xf8, B: 0xfb, A: 0xff}) {
-		t.Fatalf("preview corner = %#v, want LumiHub paper", got)
+		t.Fatalf("preview corner = %#v, want Illarin paper", got)
 	}
 	if _, ordinary := VariantByName("og"); ordinary {
 		t.Fatal("composed og preview entered the ordinary variant set")
