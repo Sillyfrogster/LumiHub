@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	apihttp "github.com/Sillyfrogster/LumiHub/api/internal/http"
 	"github.com/Sillyfrogster/LumiHub/api/internal/postgres"
@@ -19,6 +20,7 @@ type Config struct {
 	Port           string
 	SiteURL        string
 	SMTP           SMTPSettings
+	Microsoft365   Microsoft365Settings
 	Discord        DiscordSettings
 	Database       postgres.Settings
 	UploadsDir     string
@@ -35,6 +37,13 @@ type SMTPSettings struct {
 	From     string
 	Username string
 	Password string
+}
+
+type Microsoft365Settings struct {
+	TenantID     string
+	ClientID     string
+	ClientSecret string
+	Mailbox      string
 }
 
 type DiscordSettings struct {
@@ -57,6 +66,11 @@ func Load() (Config, error) {
 			From:     get("SMTP_FROM", ""),
 			Username: get("SMTP_USERNAME", ""),
 			Password: get("SMTP_PASSWORD", ""),
+		},
+		Microsoft365: Microsoft365Settings{
+			TenantID: get("MICROSOFT_365_TENANT_ID", ""),
+			ClientID: get("MICROSOFT_365_CLIENT_ID", ""),
+			Mailbox:  get("MICROSOFT_365_MAILBOX", ""),
 		},
 		Discord: DiscordSettings{
 			ClientID:     get("DISCORD_CLIENT_ID", ""),
@@ -119,6 +133,35 @@ func Load() (Config, error) {
 	}
 	if cfg.SMTP.Address == "" && cfg.SMTP.Username != "" {
 		return Config{}, fmt.Errorf("SMTP credentials need SMTP_ADDR and SMTP_FROM")
+	}
+	microsoftSecretFile := get("MICROSOFT_365_CLIENT_SECRET_FILE", "")
+	microsoftValues := []string{
+		cfg.Microsoft365.TenantID,
+		cfg.Microsoft365.ClientID,
+		microsoftSecretFile,
+		cfg.Microsoft365.Mailbox,
+	}
+	microsoftSet := 0
+	for _, value := range microsoftValues {
+		if value != "" {
+			microsoftSet++
+		}
+	}
+	if microsoftSet != 0 && microsoftSet != len(microsoftValues) {
+		return Config{}, fmt.Errorf("Microsoft 365 needs tenant id, client id, client secret file and mailbox")
+	}
+	if microsoftSet > 0 && cfg.SMTP.Address != "" {
+		return Config{}, fmt.Errorf("configure either Microsoft 365 or SMTP, not both")
+	}
+	if microsoftSecretFile != "" {
+		secret, err := os.ReadFile(microsoftSecretFile)
+		if err != nil {
+			return Config{}, fmt.Errorf("read MICROSOFT_365_CLIENT_SECRET_FILE: %w", err)
+		}
+		cfg.Microsoft365.ClientSecret = strings.TrimSpace(string(secret))
+		if cfg.Microsoft365.ClientSecret == "" {
+			return Config{}, fmt.Errorf("MICROSOFT_365_CLIENT_SECRET_FILE is empty")
+		}
 	}
 	if (cfg.Discord.ClientID == "") != (cfg.Discord.ClientSecret == "") {
 		return Config{}, fmt.Errorf("DISCORD_CLIENT_ID and DISCORD_CLIENT_SECRET must be set together")

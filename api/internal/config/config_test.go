@@ -2,6 +2,8 @@ package config
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -81,6 +83,39 @@ func TestLoadRejectsIncompleteSMTPSettings(t *testing.T) {
 
 	if _, err := Load(); err == nil {
 		t.Fatal("expected an error when an SMTP server has no sender address")
+	}
+}
+
+func TestLoadReadsMicrosoft365SecretFromAFile(t *testing.T) {
+	setLinkingKey(t)
+	t.Setenv("DATABASE_URL", "postgres://localhost/lumihub_dev")
+	t.Setenv("UPLOADS_DIR", "/tmp/uploads")
+	t.Setenv("MICROSOFT_365_TENANT_ID", "tenant")
+	t.Setenv("MICROSOFT_365_CLIENT_ID", "client")
+	t.Setenv("MICROSOFT_365_MAILBOX", "mail@illarin.test")
+	secretFile := filepath.Join(t.TempDir(), "client-secret")
+	if err := os.WriteFile(secretFile, []byte("secret\n"), 0o600); err != nil {
+		t.Fatalf("write client secret: %v", err)
+	}
+	t.Setenv("MICROSOFT_365_CLIENT_SECRET_FILE", secretFile)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Microsoft365.ClientSecret != "secret" || cfg.Microsoft365.Mailbox != "mail@illarin.test" {
+		t.Fatalf("Microsoft 365 settings = %+v", cfg.Microsoft365)
+	}
+}
+
+func TestLoadRejectsIncompleteMicrosoft365Settings(t *testing.T) {
+	setLinkingKey(t)
+	t.Setenv("DATABASE_URL", "postgres://localhost/lumihub_dev")
+	t.Setenv("UPLOADS_DIR", "/tmp/uploads")
+	t.Setenv("MICROSOFT_365_TENANT_ID", "tenant")
+
+	if _, err := Load(); err == nil {
+		t.Fatal("expected incomplete Microsoft 365 settings to fail")
 	}
 }
 

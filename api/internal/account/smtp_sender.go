@@ -36,16 +36,16 @@ func NewSMTPSender(settings SMTPSettings) (*SMTPSender, error) {
 func (s *SMTPSender) SendVerification(_ context.Context, address, link string) error {
 	return s.send(
 		address,
-		"Verify your LumiHub email",
-		"Verify your LumiHub email address by opening this link:\r\n\r\n"+link+"\r\n",
+		"Verify your Illarin email",
+		"Verify your Illarin email address by opening this link:\r\n\r\n"+link+"\r\n",
 	)
 }
 
 func (s *SMTPSender) SendPasswordReset(_ context.Context, address, link string) error {
 	return s.send(
 		address,
-		"Reset your LumiHub password",
-		"Set a new LumiHub password by opening this link:\r\n\r\n"+link+"\r\n",
+		"Reset your Illarin password",
+		"Set a new Illarin password by opening this link:\r\n\r\n"+link+"\r\n",
 	)
 }
 

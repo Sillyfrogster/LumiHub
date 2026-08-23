@@ -159,7 +159,7 @@ func newTestLinkingService(pool *pgxpool.Pool) *linking.Service {
 func registerTestRouter(t *testing.T, handlers *Handlers, deadlines Deadlines) *gin.Engine {
 	t.Helper()
 	r := gin.New()
-	if err := Register(r, handlers, deadlines); err != nil {
+	if err := Register(r, handlers, deadlines, func(context.Context) error { return nil }); err != nil {
 		t.Fatalf("register: %v", err)
 	}
 	return r

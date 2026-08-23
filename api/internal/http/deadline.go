@@ -19,6 +19,8 @@ type Deadlines struct {
 	Download time.Duration
 }
 
+type Readiness func(context.Context) error
+
 // DefaultDeadlines are what the server runs with. Fifteen minutes for a file
 // still gets 32 MB through on a connection carrying 64 KB a second, which is
 // slower than anything we expect to see.
@@ -33,9 +35,13 @@ func DefaultDeadlines() Deadlines {
 // Register puts every route the service answers on the router, each under a
 // deadline. A route without one is refused rather than served with no limit at
 // all, so adding a route means saying how long it may take.
-func Register(r *gin.Engine, h *Handlers, d Deadlines) error {
+func Register(r *gin.Engine, h *Handlers, d Deadlines, readiness Readiness) error {
+	if readiness == nil {
+		return fmt.Errorf("readiness check is required")
+	}
 	limits := map[string]time.Duration{
 		routeKey(http.MethodGet, "/healthz"):                                        d.JSON,
+		routeKey(http.MethodGet, "/readyz"):                                         d.JSON,
 		routeKey(http.MethodGet, "/protocol"):                                       d.JSON,
 		routeKey(http.MethodGet, "/openapi.yaml"):                                   d.JSON,
 		routeKey(http.MethodPost, "/v1/link/requests"):                              d.JSON,
@@ -99,6 +105,7 @@ func Register(r *gin.Engine, h *Handlers, d Deadlines) error {
 
 	routes := r.Group("", deadlineByRoute(limits), noStoreLinkedInstanceResponses())
 	routes.GET("/healthz", health)
+	routes.GET("/readyz", ready(readiness))
 	routes.GET("/protocol", document("text/plain; charset=utf-8", openapi.Guide))
 	routes.GET("/openapi.yaml", document("application/yaml", openapi.Contract))
 	RegisterHandlersWithOptions(routes, h, GinServerOptions{ErrorHandler: generatedParameterError})
@@ -116,6 +123,16 @@ func Register(r *gin.Engine, h *Handlers, d Deadlines) error {
 // outage does not read as a dead service.
 func health(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+
+func ready(check Readiness) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if err := check(c.Request.Context()); err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unavailable"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	}
 }
 
 // document serves a file that ships with the binary, so what an implementer

@@ -2,9 +2,18 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
+	"syscall"
+	"time"
 
 	"github.com/Sillyfrogster/LumiHub/api/internal/account"
 	"github.com/Sillyfrogster/LumiHub/api/internal/asset"
@@ -25,20 +34,34 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run() error {
+	signalContext, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	runtimeContext, cancelRuntime := context.WithCancel(signalContext)
+	defer cancelRuntime()
+
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("config: %v", err)
+		return fmt.Errorf("config: %w", err)
 	}
 
-	pool, err := postgres.NewPool(context.Background(), cfg.Database)
+	pool, err := postgres.NewPool(runtimeContext, cfg.Database)
 	if err != nil {
-		log.Fatalf("database: %v", err)
+		return fmt.Errorf("database: %w", err)
 	}
 	defer pool.Close()
+	if err := pool.Ping(runtimeContext); err != nil {
+		return fmt.Errorf("database ping: %w", err)
+	}
 
 	blob, err := storage.NewStore(pool, cfg.UploadsDir)
 	if err != nil {
-		log.Fatalf("storage: %v", err)
+		return fmt.Errorf("storage: %w", err)
 	}
 
 	// Every format module is registered here and nowhere else.
@@ -50,38 +73,60 @@ func main() {
 	modules = append(modules, v1.Module{})
 	for _, module := range modules {
 		if err := registry.Register(module); err != nil {
-			log.Fatalf("format module: %v", err)
+			return fmt.Errorf("format module: %w", err)
 		}
 	}
 	if err := registry.ValidateDeclarations(); err != nil {
-		log.Fatalf("format declarations: %v", err)
+		return fmt.Errorf("format declarations: %w", err)
 	}
 
 	svc := asset.NewServiceForSite(pool, registry, blob, cfg.ProbeLimits, cfg.SiteURL)
 	// Changing what a format declares or what the facet catalog holds is a
 	// deploy, so the deploy is what recomputes the sections it invalidated.
-	recomputed, err := svc.RecomputeStaleExportProjections(context.Background())
+	recomputed, err := svc.RecomputeStaleExportProjections(runtimeContext)
 	if err != nil {
-		log.Fatalf("export projections: %v", err)
+		return fmt.Errorf("export projections: %w", err)
 	}
 	if recomputed > 0 {
 		log.Printf("recomputed the export projection for %d assets", recomputed)
 	}
-	remeasured, err := svc.RecomputeStaleFacetProjections(context.Background())
+	remeasured, err := svc.RecomputeStaleFacetProjections(runtimeContext)
 	if err != nil {
-		log.Fatalf("facet projections: %v", err)
+		return fmt.Errorf("facet projections: %w", err)
 	}
 	if remeasured > 0 {
 		log.Printf("recomputed the facet projection for %d assets", remeasured)
 	}
-	go svc.RunIngestWorkers(context.Background(), cfg.IngestWorkers, func(err error) {
-		log.Printf("ingest worker: %v", err)
-	})
-	go svc.RunSweeper(context.Background(), func(err error) {
-		log.Printf("blob sweeper: %v", err)
-	})
+	var background sync.WaitGroup
+	background.Add(2)
+	go func() {
+		defer background.Done()
+		svc.RunIngestWorkers(runtimeContext, cfg.IngestWorkers, func(err error) {
+			log.Printf("ingest worker: %v", err)
+		})
+	}()
+	go func() {
+		defer background.Done()
+		svc.RunSweeper(runtimeContext, func(err error) {
+			log.Printf("blob sweeper: %v", err)
+		})
+	}()
+	defer func() {
+		cancelRuntime()
+		background.Wait()
+	}()
 	var verificationSender account.EmailSender = account.NewLogVerificationSender(log.Default())
-	if cfg.SMTP.Address != "" {
+	if cfg.Microsoft365.ClientID != "" {
+		verificationSender, err = account.NewMicrosoftGraphSender(account.MicrosoftGraphSettings{
+			TenantID:     cfg.Microsoft365.TenantID,
+			ClientID:     cfg.Microsoft365.ClientID,
+			ClientSecret: cfg.Microsoft365.ClientSecret,
+			Mailbox:      cfg.Microsoft365.Mailbox,
+		})
+		if err != nil {
+			return fmt.Errorf("Microsoft 365 email: %w", err)
+		}
+	} else if cfg.SMTP.Address != "" {
 		verificationSender, err = account.NewSMTPSender(account.SMTPSettings{
 			Address:  cfg.SMTP.Address,
 			From:     cfg.SMTP.From,
@@ -89,7 +134,7 @@ func main() {
 			Password: cfg.SMTP.Password,
 		})
 		if err != nil {
-			log.Fatalf("verification email: %v", err)
+			return fmt.Errorf("verification email: %w", err)
 		}
 	}
 	var discordProvider account.DiscordProvider
@@ -100,7 +145,7 @@ func main() {
 			strings.TrimRight(cfg.SiteURL, "/")+"/api/v1/auth/discord/callback",
 		), nil)
 		if err != nil {
-			log.Fatalf("Discord sign-in: %v", err)
+			return fmt.Errorf("Discord sign-in: %w", err)
 		}
 	}
 	accounts := account.NewService(pool, verificationSender, discordProvider, cfg.SiteURL)
@@ -109,13 +154,49 @@ func main() {
 	r := gin.New()
 	r.Use(apihttp.Recovery(log.Default()))
 	handlers := apihttp.NewHandlers(svc, accounts, links, cfg.MaxUploadBytes)
-	if err := apihttp.Register(r, handlers, cfg.Deadlines); err != nil {
-		log.Fatalf("routes: %v", err)
+	readiness := func(ctx context.Context) error {
+		if err := pool.Ping(ctx); err != nil {
+			return err
+		}
+		for _, directory := range []string{"blobs", "derivatives"} {
+			info, err := os.Stat(filepath.Join(cfg.UploadsDir, directory))
+			if err != nil {
+				return err
+			}
+			if !info.IsDir() {
+				return fmt.Errorf("%s is not a directory", directory)
+			}
+		}
+		return nil
+	}
+	if err := apihttp.Register(r, handlers, cfg.Deadlines, readiness); err != nil {
+		return fmt.Errorf("routes: %w", err)
 	}
 
 	server := apihttp.NewServer(":"+cfg.Port, r, cfg.Server)
 	log.Printf("listening on %s", server.Addr)
-	if err := server.ListenAndServe(); err != nil {
-		log.Fatalf("server: %v", err)
+	serverError := make(chan error, 1)
+	go func() { serverError <- server.ListenAndServe() }()
+
+	select {
+	case err := <-serverError:
+		cancelRuntime()
+		background.Wait()
+		if errors.Is(err, http.ErrServerClosed) {
+			return nil
+		}
+		return fmt.Errorf("server: %w", err)
+	case <-signalContext.Done():
+		log.Print("shutting down")
+		shutdownContext, cancelShutdown := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancelShutdown()
+		shutdownError := server.Shutdown(shutdownContext)
+		cancelRuntime()
+		background.Wait()
+		if shutdownError != nil {
+			_ = server.Close()
+			return fmt.Errorf("server shutdown: %w", shutdownError)
+		}
+		return nil
 	}
 }

@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -40,7 +41,12 @@ func list(t *testing.T, r *gin.Engine) *httptest.ResponseRecorder {
 }
 
 func TestARouteWithNoDeadlineIsRefused(t *testing.T) {
-	err := Register(gin.New(), NewHandlers(nil, nil, nil, 1<<20), Deadlines{Upload: time.Minute, Download: time.Minute})
+	err := Register(
+		gin.New(),
+		NewHandlers(nil, nil, nil, 1<<20),
+		Deadlines{Upload: time.Minute, Download: time.Minute},
+		func(context.Context) error { return nil },
+	)
 
 	if err == nil {
 		t.Fatal("registered a listing route that may run for as long as it likes")
