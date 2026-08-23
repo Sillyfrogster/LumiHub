@@ -507,8 +507,9 @@ select u.id, u.username, u.email, u.email_verified_at, u.email_source,
  where oi.provider = $1 and oi.subject = $2;
 
 -- name: InsertDiscordUser :one
-insert into users (id, username, email, email_verified_at, email_source)
-values ($1, $2, $3, $4, case when $3::text is null then null else 'discord' end)
+insert into users
+  (id, username, email, email_verified_at, email_source, display_name, avatar_url, banner_url)
+values ($1, $2, $3, $4, case when $3::text is null then null else 'discord' end, $5, $6, $7)
 returning id, username, email, email_verified_at;
 
 -- name: InsertOAuthIdentity :exec
@@ -967,3 +968,8 @@ select u.id, u.username, u.role, u.created_at, u.display_name, u.custom_display_
   from users u
   left join oauth_identities identity
     on identity.user_id = u.id and identity.provider = 'discord';
+
+-- name: UpdateDiscordProfile :exec
+update users
+   set display_name = $2, avatar_url = $3, banner_url = $4, updated_at = now()
+ where id = $1;

@@ -1171,8 +1171,9 @@ func (q *Queries) InsertDeviceLinkRequest(ctx context.Context, arg InsertDeviceL
 }
 
 const insertDiscordUser = `-- name: InsertDiscordUser :one
-insert into users (id, username, email, email_verified_at, email_source)
-values ($1, $2, $3, $4, case when $3::text is null then null else 'discord' end)
+insert into users
+  (id, username, email, email_verified_at, email_source, display_name, avatar_url, banner_url)
+values ($1, $2, $3, $4, case when $3::text is null then null else 'discord' end, $5, $6, $7)
 returning id, username, email, email_verified_at
 `
 
@@ -1181,6 +1182,9 @@ type InsertDiscordUserParams struct {
 	Username        string
 	Email           pgtype.Text
 	EmailVerifiedAt pgtype.Timestamptz
+	DisplayName     string
+	AvatarUrl       string
+	BannerUrl       string
 }
 
 type InsertDiscordUserRow struct {
@@ -1196,6 +1200,9 @@ func (q *Queries) InsertDiscordUser(ctx context.Context, arg InsertDiscordUserPa
 		arg.Username,
 		arg.Email,
 		arg.EmailVerifiedAt,
+		arg.DisplayName,
+		arg.AvatarUrl,
+		arg.BannerUrl,
 	)
 	var i InsertDiscordUserRow
 	err := row.Scan(
@@ -2702,6 +2709,29 @@ func (q *Queries) UpdateDiscordEmail(ctx context.Context, arg UpdateDiscordEmail
 		&i.EmailSource,
 	)
 	return i, err
+}
+
+const updateDiscordProfile = `-- name: UpdateDiscordProfile :exec
+update users
+   set display_name = $2, avatar_url = $3, banner_url = $4, updated_at = now()
+ where id = $1
+`
+
+type UpdateDiscordProfileParams struct {
+	ID          pgtype.UUID
+	DisplayName string
+	AvatarUrl   string
+	BannerUrl   string
+}
+
+func (q *Queries) UpdateDiscordProfile(ctx context.Context, arg UpdateDiscordProfileParams) error {
+	_, err := q.db.Exec(ctx, updateDiscordProfile,
+		arg.ID,
+		arg.DisplayName,
+		arg.AvatarUrl,
+		arg.BannerUrl,
+	)
+	return err
 }
 
 const updateLinkedInstanceDeclaration = `-- name: UpdateLinkedInstanceDeclaration :one

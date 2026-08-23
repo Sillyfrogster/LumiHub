@@ -154,6 +154,14 @@ func syncDiscordAccount(
 	if err := syncDiscordEmail(ctx, queries, &linked, profile); err != nil {
 		return Account{}, err
 	}
+	if err := queries.UpdateDiscordProfile(ctx, db.UpdateDiscordProfileParams{
+		ID:          linked.ID,
+		DisplayName: profile.DisplayName,
+		AvatarUrl:   profile.AvatarURL,
+		BannerUrl:   profile.BannerURL,
+	}); err != nil {
+		return Account{}, fmt.Errorf("refresh the Discord profile: %w", err)
+	}
 	return accountFrom(accountRecord{
 		ID: linked.ID, Handle: linked.Username, Email: linked.Email,
 		Verified: linked.EmailVerifiedAt, HasPassword: linked.HasPassword,
@@ -227,6 +235,9 @@ func createDiscordAccount(
 		Username:        handle,
 		Email:           email,
 		EmailVerifiedAt: verifiedAt,
+		DisplayName:     profile.DisplayName,
+		AvatarUrl:       profile.AvatarURL,
+		BannerUrl:       profile.BannerURL,
 	})
 	if err != nil {
 		return Account{}, pgtype.UUID{}, fmt.Errorf("create Discord account: %w", err)

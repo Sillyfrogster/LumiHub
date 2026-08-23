@@ -42,6 +42,9 @@ type SignUpInput struct {
 type DiscordProfile struct {
 	Subject       string
 	Username      string
+	DisplayName   string
+	AvatarURL     string
+	BannerURL     string
 	Email         string
 	EmailVerified bool
 }

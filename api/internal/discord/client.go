@@ -23,6 +23,7 @@ type Config struct {
 	AuthorizationEndpoint string
 	TokenEndpoint         string
 	UserEndpoint          string
+	CDNEndpoint           string
 }
 
 func DefaultConfig(clientID, clientSecret, redirectURI string) Config {
@@ -33,6 +34,7 @@ func DefaultConfig(clientID, clientSecret, redirectURI string) Config {
 		AuthorizationEndpoint: "https://discord.com/oauth2/authorize",
 		TokenEndpoint:         "https://discord.com/api/v10/oauth2/token",
 		UserEndpoint:          "https://discord.com/api/v10/users/@me",
+		CDNEndpoint:           "https://cdn.discordapp.com",
 	}
 }
 
@@ -49,6 +51,7 @@ func NewClient(config Config, httpClient *http.Client) (*Client, error) {
 		"authorization endpoint": config.AuthorizationEndpoint,
 		"token endpoint":         config.TokenEndpoint,
 		"user endpoint":          config.UserEndpoint,
+		"CDN endpoint":           config.CDNEndpoint,
 	} {
 		if value == "" {
 			return nil, fmt.Errorf("Discord %s is required", name)
@@ -90,10 +93,13 @@ func (c *Client) ExchangeProfile(ctx context.Context, code string) (account.Disc
 		return account.DiscordProfile{}, fmt.Errorf("Discord user response status %d", response.StatusCode)
 	}
 	var user struct {
-		ID       string `json:"id"`
-		Username string `json:"username"`
-		Email    string `json:"email"`
-		Verified bool   `json:"verified"`
+		ID         string `json:"id"`
+		Username   string `json:"username"`
+		GlobalName string `json:"global_name"`
+		Avatar     string `json:"avatar"`
+		Banner     string `json:"banner"`
+		Email      string `json:"email"`
+		Verified   bool   `json:"verified"`
 	}
 	if err := decodeJSON(response.Body, &user); err != nil {
 		return account.DiscordProfile{}, fmt.Errorf("decode Discord user: %w", err)
@@ -101,12 +107,27 @@ func (c *Client) ExchangeProfile(ctx context.Context, code string) (account.Disc
 	if user.ID == "" || user.Username == "" {
 		return account.DiscordProfile{}, errors.New("Discord user response is incomplete")
 	}
+	displayName := user.GlobalName
+	if displayName == "" {
+		displayName = user.Username
+	}
 	return account.DiscordProfile{
 		Subject:       user.ID,
 		Username:      user.Username,
+		DisplayName:   displayName,
+		AvatarURL:     c.imageURL("avatars", user.ID, user.Avatar, ""),
+		BannerURL:     c.imageURL("banners", user.ID, user.Banner, "?size=1024"),
 		Email:         user.Email,
 		EmailVerified: user.Verified,
 	}, nil
+}
+
+// imageURL addresses one Discord CDN image, in the shape the migrated v1 rows already hold.
+func (c *Client) imageURL(collection, subject, hash, query string) string {
+	if hash == "" {
+		return ""
+	}
+	return c.config.CDNEndpoint + "/" + collection + "/" + subject + "/" + hash + ".png" + query
 }
 
 func (c *Client) exchangeToken(ctx context.Context, code string) (string, error) {

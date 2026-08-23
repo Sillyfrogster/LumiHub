@@ -130,7 +130,7 @@ func newTestRouterWithDiscord(
 	provider account.DiscordProvider,
 ) *gin.Engine {
 	t.Helper()
-	r, _ := newTestRouterWithDiscordAndOutbox(t, provider)
+	r, _, _ := newDiscordTestStack(t, provider)
 	return r
 }
 
@@ -138,6 +138,15 @@ func newTestRouterWithDiscordAndOutbox(
 	t *testing.T,
 	provider account.DiscordProvider,
 ) (*gin.Engine, *verificationOutbox) {
+	t.Helper()
+	r, outbox, _ := newDiscordTestStack(t, provider)
+	return r, outbox
+}
+
+func newDiscordTestStack(
+	t *testing.T,
+	provider account.DiscordProvider,
+) (*gin.Engine, *verificationOutbox, *pgxpool.Pool) {
 	t.Helper()
 	pool := testdb.Connect(t)
 	blob, err := storage.NewStore(pool, t.TempDir())
@@ -149,7 +158,7 @@ func newTestRouterWithDiscordAndOutbox(
 	accounts := account.NewService(
 		pool, outbox, provider, "http://localhost:3000",
 	)
-	return registerTestRouter(t, NewHandlers(assets, accounts, newTestLinkingService(pool), 1<<20), DefaultDeadlines()), outbox
+	return registerTestRouter(t, NewHandlers(assets, accounts, newTestLinkingService(pool), 1<<20), DefaultDeadlines()), outbox, pool
 }
 
 func newTestLinkingService(pool *pgxpool.Pool) *linking.Service {
