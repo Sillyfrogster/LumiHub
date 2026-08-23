@@ -256,6 +256,10 @@ components:
       $ref: ./blocks.yaml#/components/schemas/ItemSize
     AddAssetBlockRequest:
       $ref: ./blocks.yaml#/components/schemas/AddAssetBlockRequest
+    AddableBlock:
+      $ref: ./blocks.yaml#/components/schemas/AddableBlock
+    AddableBlockChoice:
+      $ref: ./blocks.yaml#/components/schemas/AddableBlockChoice
     AddableSection:
       $ref: ./blocks.yaml#/components/schemas/AddableSection
     AddableSectionChoice:

@@ -528,6 +528,7 @@ func toAPIDetail(found asset.Detail, visibility asset.ContentVisibility) (AssetD
 	if err != nil {
 		return AssetDetail{}, err
 	}
+	addable := toAPIAddableBlocks(found.Kind, found.IsOwner)
 	return AssetDetail{
 		Id:              types.UUID(found.ID),
 		Kind:            AssetDetailKind(found.Kind),
@@ -546,7 +547,8 @@ func toAPIDetail(found asset.Detail, visibility asset.ContentVisibility) (AssetD
 		Media:           media,
 		Preview:         found.Preview,
 		Readiness:       toAPIReadiness(found.Readiness),
-		AddableSections: toAPIAddableSections(found.Kind, found.IsOwner),
+		AddableBlocks:   addable,
+		AddableSections: addable,
 		Visibility:      AssetDetailVisibility(visibility),
 		Withhold:        toAPIWithhold(found.Withhold),
 	}, nil
@@ -607,9 +609,9 @@ func textOrNil(value string) *string {
 	return &value
 }
 
-// toAPIAddableSections serves the add tray's catalog. Only the owner can add a
-// section, so nobody else is handed the list.
-func toAPIAddableSections(kind string, isOwner bool) *[]AddableSection {
+// toAPIAddableBlocks serves the add tray's catalog. Only the owner can add a
+// block, so nobody else is handed the list.
+func toAPIAddableBlocks(kind string, isOwner bool) *[]AddableBlock {
 	if !isOwner {
 		return nil
 	}
@@ -617,25 +619,25 @@ func toAPIAddableSections(kind string, isOwner bool) *[]AddableSection {
 	if !ok {
 		return nil
 	}
-	sections := make([]AddableSection, 0, len(offers))
+	addable := make([]AddableBlock, 0, len(offers))
 	for _, offer := range offers {
-		choices := make([]AddableSectionChoice, 0, len(offer.Choices))
+		choices := make([]AddableBlockChoice, 0, len(offer.Choices))
 		for _, choice := range offer.Choices {
-			choices = append(choices, AddableSectionChoice{
+			choices = append(choices, AddableBlockChoice{
 				Label: choice.Label, Type: ElementType(choice.Type),
 			})
 		}
-		sections = append(sections, AddableSection{
+		addable = append(addable, AddableBlock{
 			Definition: string(offer.Definition),
 			Title:      offer.Title,
 			Summary:    offer.Summary,
-			Group:      AddableSectionGroup(offer.Group),
+			Group:      AddableBlockGroup(offer.Group),
 			GroupTitle: offer.Group.Title(),
 			Repeatable: offer.Repeatable,
 			Choices:    choices,
 		})
 	}
-	return &sections
+	return &addable
 }
 
 func toAPIWithhold(found *asset.Withhold) *AssetWithhold {

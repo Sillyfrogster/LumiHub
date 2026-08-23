@@ -1461,8 +1461,8 @@ export interface components {
       definition: string;
       elementType: components["schemas"]["ElementType"];
     };
-    /** @description One section the add tray offers. Where the content ends up is what the tray groups by, so a creator arrives at it by destination. */
-    AddableSection: {
+    /** @description One block the add tray offers. Where the content ends up is what the tray groups by, so a creator arrives at it by destination. */
+    AddableBlock: {
       definition: string;
       title: string;
       summary: string;
@@ -1470,13 +1470,23 @@ export interface components {
       group: "file" | "reader" | "work" | "other";
       groupTitle: string;
       repeatable: boolean;
-      /** @description The elements a creator may start the section with. One choice needs no question asking. */
-      choices: components["schemas"]["AddableSectionChoice"][];
+      /** @description The elements a creator may start the block with. One choice needs no question asking. */
+      choices: components["schemas"]["AddableBlockChoice"][];
     };
-    AddableSectionChoice: {
+    AddableBlockChoice: {
       type: components["schemas"]["ElementType"];
       label: string;
     };
+    /**
+     * @deprecated
+     * @description Superseded by AddableBlock. Removed once no caller reads it.
+     */
+    AddableSection: components["schemas"]["AddableBlock"];
+    /**
+     * @deprecated
+     * @description Superseded by AddableBlockChoice. Removed once no caller reads it.
+     */
+    AddableSectionChoice: components["schemas"]["AddableBlockChoice"];
     Asset: {
       /** Format: uuid */
       id: string;
@@ -1526,7 +1536,12 @@ export interface components {
       preview: string | null;
       /** @description What publication is waiting on. Present only while the owner is reading their own draft. */
       readiness?: components["schemas"]["ReadinessItem"][];
-      /** @description The sections this kind can still be given, in catalog order. Present only while the owner is reading their own asset. */
+      /** @description The blocks this kind can still be given, in catalog order. Present only while the owner is reading their own asset. */
+      addableBlocks?: components["schemas"]["AddableBlock"][];
+      /**
+       * @deprecated
+       * @description Superseded by addableBlocks. Removed once no caller reads it.
+       */
       addableSections?: components["schemas"]["AddableSection"][];
       /** @enum {string} */
       visibility: "hidden" | "blurred" | "shown";

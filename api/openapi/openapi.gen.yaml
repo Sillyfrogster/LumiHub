@@ -3176,10 +3176,10 @@ components:
           type: string
         elementType:
           $ref: '#/components/schemas/ElementType'
-    AddableSection:
+    AddableBlock:
       type: object
       description: >-
-        One section the add tray offers. Where the content ends up is what the
+        One block the add tray offers. Where the content ends up is what the
         tray groups by, so a creator arrives at it by destination.
       required:
         - definition
@@ -3210,11 +3210,11 @@ components:
         choices:
           type: array
           description: >-
-            The elements a creator may start the section with. One choice needs
-            no question asking.
+            The elements a creator may start the block with. One choice needs no
+            question asking.
           items:
-            $ref: '#/components/schemas/AddableSectionChoice'
-    AddableSectionChoice:
+            $ref: '#/components/schemas/AddableBlockChoice'
+    AddableBlockChoice:
       type: object
       required:
         - type
@@ -3224,6 +3224,16 @@ components:
           $ref: '#/components/schemas/ElementType'
         label:
           type: string
+    AddableSection:
+      deprecated: true
+      description: Superseded by AddableBlock. Removed once no caller reads it.
+      allOf:
+        - $ref: '#/components/schemas/AddableBlock'
+    AddableSectionChoice:
+      deprecated: true
+      description: Superseded by AddableBlockChoice. Removed once no caller reads it.
+      allOf:
+        - $ref: '#/components/schemas/AddableBlockChoice'
     Asset:
       type: object
       required:
@@ -3380,10 +3390,16 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ReadinessItem'
-        addableSections:
+        addableBlocks:
           description: >-
-            The sections this kind can still be given, in catalog order. Present
+            The blocks this kind can still be given, in catalog order. Present
             only while the owner is reading their own asset.
+          type: array
+          items:
+            $ref: '#/components/schemas/AddableBlock'
+        addableSections:
+          deprecated: true
+          description: Superseded by addableBlocks. Removed once no caller reads it.
           type: array
           items:
             $ref: '#/components/schemas/AddableSection'

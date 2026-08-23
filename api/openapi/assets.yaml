@@ -1126,10 +1126,16 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ReadinessItem'
-        addableSections:
+        addableBlocks:
           description: >-
-            The sections this kind can still be given, in catalog order. Present
+            The blocks this kind can still be given, in catalog order. Present
             only while the owner is reading their own asset.
+          type: array
+          items:
+            $ref: ./blocks.yaml#/components/schemas/AddableBlock
+        addableSections:
+          deprecated: true
+          description: Superseded by addableBlocks. Removed once no caller reads it.
           type: array
           items:
             $ref: ./blocks.yaml#/components/schemas/AddableSection

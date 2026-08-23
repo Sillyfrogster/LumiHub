@@ -917,10 +917,10 @@ components:
           type: string
         elementType:
           $ref: '#/components/schemas/ElementType'
-    AddableSection:
+    AddableBlock:
       type: object
       description: >-
-        One section the add tray offers. Where the content ends up is what the
+        One block the add tray offers. Where the content ends up is what the
         tray groups by, so a creator arrives at it by destination.
       required:
         - definition
@@ -951,11 +951,11 @@ components:
         choices:
           type: array
           description: >-
-            The elements a creator may start the section with. One choice needs
+            The elements a creator may start the block with. One choice needs
             no question asking.
           items:
-            $ref: '#/components/schemas/AddableSectionChoice'
-    AddableSectionChoice:
+            $ref: '#/components/schemas/AddableBlockChoice'
+    AddableBlockChoice:
       type: object
       required:
         - type
@@ -965,3 +965,13 @@ components:
           $ref: '#/components/schemas/ElementType'
         label:
           type: string
+    AddableSection:
+      deprecated: true
+      description: Superseded by AddableBlock. Removed once no caller reads it.
+      allOf:
+        - $ref: '#/components/schemas/AddableBlock'
+    AddableSectionChoice:
+      deprecated: true
+      description: Superseded by AddableBlockChoice. Removed once no caller reads it.
+      allOf:
+        - $ref: '#/components/schemas/AddableBlockChoice'

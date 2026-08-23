@@ -66,16 +66,16 @@ func (e AddMediaRequestRole) Valid() bool {
 	}
 }
 
-// Defines values for AddableSectionGroup.
+// Defines values for AddableBlockGroup.
 const (
-	File   AddableSectionGroup = "file"
-	Other  AddableSectionGroup = "other"
-	Reader AddableSectionGroup = "reader"
-	Work   AddableSectionGroup = "work"
+	File   AddableBlockGroup = "file"
+	Other  AddableBlockGroup = "other"
+	Reader AddableBlockGroup = "reader"
+	Work   AddableBlockGroup = "work"
 )
 
-// Valid indicates whether the value is a known member of the AddableSectionGroup enum.
-func (e AddableSectionGroup) Valid() bool {
+// Valid indicates whether the value is a known member of the AddableBlockGroup enum.
+func (e AddableBlockGroup) Valid() bool {
 	switch e {
 	case File:
 		return true
@@ -1323,28 +1323,33 @@ type AddMediaRequest struct {
 // AddMediaRequestRole defines model for AddMediaRequest.Role.
 type AddMediaRequestRole string
 
-// AddableSection One section the add tray offers. Where the content ends up is what the tray groups by, so a creator arrives at it by destination.
-type AddableSection struct {
-	// Choices The elements a creator may start the section with. One choice needs no question asking.
-	Choices    []AddableSectionChoice `json:"choices"`
-	Definition string                 `json:"definition"`
-	Group      AddableSectionGroup    `json:"group"`
-	GroupTitle string                 `json:"groupTitle"`
-	Repeatable bool                   `json:"repeatable"`
-	Summary    string                 `json:"summary"`
-	Title      string                 `json:"title"`
+// AddableBlock One block the add tray offers. Where the content ends up is what the tray groups by, so a creator arrives at it by destination.
+type AddableBlock struct {
+	// Choices The elements a creator may start the block with. One choice needs no question asking.
+	Choices    []AddableBlockChoice `json:"choices"`
+	Definition string               `json:"definition"`
+	Group      AddableBlockGroup    `json:"group"`
+	GroupTitle string               `json:"groupTitle"`
+	Repeatable bool                 `json:"repeatable"`
+	Summary    string               `json:"summary"`
+	Title      string               `json:"title"`
 }
 
-// AddableSectionGroup defines model for AddableSection.Group.
-type AddableSectionGroup string
+// AddableBlockGroup defines model for AddableBlock.Group.
+type AddableBlockGroup string
 
-// AddableSectionChoice defines model for AddableSectionChoice.
-type AddableSectionChoice struct {
+// AddableBlockChoice defines model for AddableBlockChoice.
+type AddableBlockChoice struct {
 	Label string `json:"label"`
 
 	// Type What an element's data structure is, from the global vocabulary.
 	Type ElementType `json:"type"`
 }
+
+// AddableSection Superseded by AddableBlock. Removed once no caller reads it.
+//
+// Deprecated: this type has been marked as deprecated upstream, but no `x-deprecated-reason` was set
+type AddableSection = AddableBlock
 
 // ApplicationName A self-asserted, unverified application name.
 type ApplicationName = string
@@ -1416,7 +1421,11 @@ type AssetBlockWidth string
 
 // AssetDetail defines model for AssetDetail.
 type AssetDetail struct {
-	// AddableSections The sections this kind can still be given, in catalog order. Present only while the owner is reading their own asset.
+	// AddableBlocks The blocks this kind can still be given, in catalog order. Present only while the owner is reading their own asset.
+	AddableBlocks *[]AddableBlock `json:"addableBlocks,omitempty"`
+
+	// AddableSections Superseded by addableBlocks. Removed once no caller reads it.
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
 	AddableSections *[]AddableSection `json:"addableSections,omitempty"`
 
 	// Blocks The asset's blocks in page order.
