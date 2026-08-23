@@ -551,7 +551,7 @@ func TestACharacterRowBecomesHeaderFieldsAndSemanticRoles(t *testing.T) {
 	result, err := (Module{}).Read(context.Background(), CharacterRow{
 		Common: CommonRow{
 			ID: assetID, OwnerID: ownerID, Name: "Mara", Description: "A patient archivist.",
-			Downloads: 12, Views: 34, Favorites: 5,
+			Downloads: 12, Views: 34,
 			Tags: []string{"Science Fiction", "science fiction"}, IsNSFW: true,
 			CreatedAt: created, UpdatedAt: created.Add(24 * time.Hour),
 		},
@@ -576,7 +576,7 @@ func TestACharacterRowBecomesHeaderFieldsAndSemanticRoles(t *testing.T) {
 		t.Errorf("times = %v/%v, want the row creation time", result.CreatedAt, result.ContentUpdatedAt)
 	}
 	if result.ContentGeneration != 1 || result.Legacy.Downloads != 12 ||
-		result.Legacy.Views != 34 || result.Legacy.Favorites != 5 ||
+		result.Legacy.Views != 34 ||
 		!result.Legacy.UpdatedAt.Equal(created.Add(24*time.Hour)) {
 		t.Errorf("legacy = %+v at generation %d, want the frozen row counters", result.Legacy, result.ContentGeneration)
 	}

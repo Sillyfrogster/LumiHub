@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -453,6 +454,49 @@ func TestDownloadEventsAreImmutable(t *testing.T) {
 	}
 	if _, err := pool.Exec(ctx, `truncate download_events`); err == nil {
 		t.Fatal("download events were truncated")
+	}
+}
+
+// These numbers stopped moving at the cutover, and the database is what says so rather than a convention.
+func TestLegacyCountersAreFrozenAtTheCutover(t *testing.T) {
+	pool := Connect(t)
+	assetID, _, _ := insertAssetRevision(t, pool)
+	ctx := context.Background()
+
+	var migratedAt time.Time
+	err := pool.QueryRow(ctx, `
+		insert into migration_legacy_counters
+			(asset_id, v1_downloads, v1_views, v1_updated_at)
+		values ($1, 420, 1300, now())
+		returning migrated_at
+	`, assetID).Scan(&migratedAt)
+	if err != nil {
+		t.Fatalf("insert legacy counters: %v", err)
+	}
+	if migratedAt.IsZero() {
+		t.Fatal("the legacy record carries no cutover timestamp")
+	}
+
+	if _, err := pool.Exec(ctx, `
+		update migration_legacy_counters set v1_downloads = v1_downloads + 1 where asset_id = $1
+	`, assetID); err == nil {
+		t.Fatal("a v1 download count was incremented")
+	}
+	if _, err := pool.Exec(ctx, `truncate migration_legacy_counters`); err == nil {
+		t.Fatal("the legacy counters were truncated")
+	}
+
+	if _, err := pool.Exec(ctx, `delete from assets where id = $1`, assetID); err != nil {
+		t.Fatalf("delete the asset the record belongs to: %v", err)
+	}
+	var left int
+	if err := pool.QueryRow(ctx, `
+		select count(*) from migration_legacy_counters where asset_id = $1
+	`, assetID).Scan(&left); err != nil {
+		t.Fatalf("count what the deletion left: %v", err)
+	}
+	if left != 0 {
+		t.Errorf("the deleted asset left %d legacy records behind", left)
 	}
 }
 

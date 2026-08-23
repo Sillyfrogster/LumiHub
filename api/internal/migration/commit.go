@@ -172,11 +172,10 @@ func recordShortfall(one asset.MigratedAsset, ledger *Ledger) error {
 
 func writeLegacyCounters(ctx context.Context, tx pgx.Tx, result v1.Result) error {
 	return db.New(tx).InsertLegacyCounters(ctx, db.InsertLegacyCountersParams{
-		AssetID:   pgtype.UUID{Bytes: result.AssetID, Valid: true},
-		Downloads: int32(result.Legacy.Downloads),
-		Views:     int32(result.Legacy.Views),
-		Favorites: int32(result.Legacy.Favorites),
-		UpdatedAt: pgtype.Timestamptz{Time: result.Legacy.UpdatedAt, Valid: true},
+		AssetID:     pgtype.UUID{Bytes: result.AssetID, Valid: true},
+		V1Downloads: int32(result.Legacy.Downloads),
+		V1Views:     int32(result.Legacy.Views),
+		V1UpdatedAt: pgtype.Timestamptz{Time: result.Legacy.UpdatedAt, Valid: true},
 	})
 }
 

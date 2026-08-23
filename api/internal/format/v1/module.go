@@ -29,7 +29,6 @@ type CommonRow struct {
 	ImagePath   string
 	Downloads   int
 	Views       int
-	Favorites   int
 	Tags        []string
 	IsNSFW      bool
 	CreatedAt   time.Time
@@ -157,10 +156,10 @@ type Result struct {
 	Events            []Event
 }
 
+// LegacyRecord is v1's own bookkeeping for one row, frozen, and holds no favourite count because the favourites themselves migrate as rows.
 type LegacyRecord struct {
 	Downloads int
 	Views     int
-	Favorites int
 	UpdatedAt time.Time
 }
 
@@ -328,8 +327,7 @@ func (module Module) Read(ctx context.Context, row Row) (Result, error) {
 		PreservedRecords: read.preservedRecords, SealedBlocks: read.sealedBlocks,
 		ExternalMedia: read.externalMedia,
 		Legacy: LegacyRecord{
-			Downloads: common.Downloads, Views: common.Views,
-			Favorites: common.Favorites, UpdatedAt: common.UpdatedAt,
+			Downloads: common.Downloads, Views: common.Views, UpdatedAt: common.UpdatedAt,
 		},
 		ContentGeneration: 1, Events: read.events,
 	}, nil

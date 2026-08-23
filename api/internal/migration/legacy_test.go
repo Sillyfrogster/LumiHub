@@ -1,6 +1,10 @@
 package migration
 
 import (
+	"io/fs"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -46,5 +50,40 @@ func TestTheOlderAssetKeepsAContestedAddress(t *testing.T) {
 	}
 	if len(displaced) != 1 || displaced[0].AssetID != newer.AssetID {
 		t.Fatalf("the newer asset was not left for the ledger")
+	}
+}
+
+// The legacy record has one writer, and the reason it exists is that somebody eventually reads a column named downloads and assumes it is live.
+func TestNoRuntimePathReadsTheLegacyCounters(t *testing.T) {
+	frozen := []string{"migration_legacy_counters", "v1_downloads", "v1_views"}
+	root := repositoryFile(t, "api")
+	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() || !strings.HasSuffix(path, ".go") {
+			return nil
+		}
+		relative, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		holder := filepath.ToSlash(filepath.Dir(relative))
+		if holder == "internal/migration" || holder == "internal/db" || holder == "internal/testdb" {
+			return nil
+		}
+		source, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		for _, name := range frozen {
+			if strings.Contains(string(source), name) {
+				t.Errorf("%s names %s, which stopped moving at the cutover", relative, name)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("read the api sources: %v", err)
 	}
 }

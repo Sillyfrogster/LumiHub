@@ -999,8 +999,9 @@ insert into migration_preserved_records
 values ($1, $2, $3, sqlc.narg('asset_id')::uuid, sqlc.narg('owner_id')::uuid, $4);
 
 -- name: InsertLegacyCounters :exec
-insert into migration_legacy_counters (asset_id, downloads, views, favorites, updated_at)
-values ($1, $2, $3, $4, $5);
+-- migrated_at defaults to the transaction clock, so all 152 rows share one cutover stamp.
+insert into migration_legacy_counters (asset_id, v1_downloads, v1_views, v1_updated_at)
+values ($1, $2, $3, $4);
 
 -- name: StagedMedia :many
 select source, blob_id, width, height from migration_staged_media;

@@ -107,6 +107,14 @@ func assertExpectedShape(t *testing.T, target *pgxpool.Pool, report Report) {
 	if got := countRows(t, target, "migration_legacy_counters"); got != 152 {
 		t.Errorf("legacy counter rows = %d, want 152", got)
 	}
+	var cutovers int
+	if err := target.QueryRow(context.Background(),
+		`select count(distinct migrated_at) from migration_legacy_counters`).Scan(&cutovers); err != nil {
+		t.Fatalf("read the cutover stamps: %v", err)
+	}
+	if cutovers != 1 {
+		t.Errorf("the legacy records carry %d cutover stamps, want one for the whole run", cutovers)
+	}
 	var generations int
 	if err := target.QueryRow(context.Background(),
 		`select count(*) from assets where content_generation = 1`).Scan(&generations); err != nil {

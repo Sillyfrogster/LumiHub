@@ -16,7 +16,7 @@ func v1Columns() []format.ColumnDisposition {
 			format.PreservedColumn(table, "updated_at", "legacy record"),
 			format.PreservedColumn(table, "downloads", "legacy record"),
 			format.PreservedColumn(table, "views", "legacy record"),
-			format.PreservedColumn(table, "favorites", "legacy record"),
+			format.DroppedColumn(table, "favorites", "the recomputed count is not stored beside the rows it counts"),
 			format.DroppedColumn(table, "hidden", "all migrated assets remain published"),
 			format.DroppedColumn(table, "status", "moderation is out of scope"),
 			format.DroppedColumn(table, "moderation_score", "moderation is out of scope"),

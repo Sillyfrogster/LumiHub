@@ -248,11 +248,11 @@ type MigrationException struct {
 }
 
 type MigrationLegacyCounter struct {
-	AssetID   pgtype.UUID
-	Downloads int32
-	Views     int32
-	Favorites int32
-	UpdatedAt pgtype.Timestamptz
+	AssetID     pgtype.UUID
+	V1Downloads int32
+	V1Views     int32
+	V1UpdatedAt pgtype.Timestamptz
+	MigratedAt  pgtype.Timestamptz
 }
 
 type MigrationPreservedRecord struct {

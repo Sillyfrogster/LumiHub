@@ -1269,25 +1269,24 @@ func (q *Queries) InsertInstanceAccessToken(ctx context.Context, arg InsertInsta
 }
 
 const insertLegacyCounters = `-- name: InsertLegacyCounters :exec
-insert into migration_legacy_counters (asset_id, downloads, views, favorites, updated_at)
-values ($1, $2, $3, $4, $5)
+insert into migration_legacy_counters (asset_id, v1_downloads, v1_views, v1_updated_at)
+values ($1, $2, $3, $4)
 `
 
 type InsertLegacyCountersParams struct {
-	AssetID   pgtype.UUID
-	Downloads int32
-	Views     int32
-	Favorites int32
-	UpdatedAt pgtype.Timestamptz
+	AssetID     pgtype.UUID
+	V1Downloads int32
+	V1Views     int32
+	V1UpdatedAt pgtype.Timestamptz
 }
 
+// migrated_at defaults to the transaction clock, so all 152 rows share one cutover stamp.
 func (q *Queries) InsertLegacyCounters(ctx context.Context, arg InsertLegacyCountersParams) error {
 	_, err := q.db.Exec(ctx, insertLegacyCounters,
 		arg.AssetID,
-		arg.Downloads,
-		arg.Views,
-		arg.Favorites,
-		arg.UpdatedAt,
+		arg.V1Downloads,
+		arg.V1Views,
+		arg.V1UpdatedAt,
 	)
 	return err
 }

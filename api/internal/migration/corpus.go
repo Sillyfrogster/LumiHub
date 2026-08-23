@@ -106,7 +106,7 @@ func readCharacters(
 ) ([]v1.Row, error) {
 	rows, err := source.Query(ctx, `
 		select id, owner_id, name, description, coalesce(image_path, ''),
-		       downloads, views, favorites, tags, is_nsfw, created_at, updated_at,
+		       downloads, views, tags, is_nsfw, created_at, updated_at,
 		       coalesce(nickname, ''), personality, scenario, first_mes,
 		       alternate_greetings, group_only_greetings, mes_example, creator,
 		       creator_notes, character_version, system_prompt,
@@ -125,7 +125,7 @@ func readCharacters(
 		var creationDate, modificationDate pgtype.Int8
 		if err := rows.Scan(
 			&common.ID, &common.OwnerID, &common.Name, &common.Description, &common.ImagePath,
-			&common.Downloads, &common.Views, &common.Favorites, &common.Tags, &common.IsNSFW,
+			&common.Downloads, &common.Views, &common.Tags, &common.IsNSFW,
 			&common.CreatedAt, &common.UpdatedAt, &row.Nickname, &row.Personality, &row.Scenario,
 			&row.FirstMessage, &row.AlternateGreetings, &row.GroupOnlyGreetings,
 			&row.ExampleDialogue, &row.Creator, &row.CreatorNotes, &row.CharacterVersion,
@@ -239,7 +239,7 @@ func readPresets(
 ) ([]v1.Row, error) {
 	rows, err := source.Query(ctx, `
 		select id, owner_id, name, description, coalesce(image_path, ''), downloads,
-		       views, favorites, tags, is_nsfw, created_at, updated_at,
+		       views, tags, is_nsfw, created_at, updated_at,
 		       preset, coalesce(latest_version, '')
 		  from presets
 	 order by id`)
@@ -253,7 +253,7 @@ func readPresets(
 		var row v1.PresetRow
 		if err := rows.Scan(
 			&common.ID, &common.OwnerID, &common.Name, &common.Description, &common.ImagePath,
-			&common.Downloads, &common.Views, &common.Favorites, &common.Tags, &common.IsNSFW,
+			&common.Downloads, &common.Views, &common.Tags, &common.IsNSFW,
 			&common.CreatedAt, &common.UpdatedAt, &row.Payload, &row.LatestVersion,
 		); err != nil {
 			return nil, fmt.Errorf("read a v1 preset: %w", err)
@@ -272,7 +272,7 @@ func readPresets(
 func readThemes(ctx context.Context, source *pgxpool.Pool) ([]v1.Row, error) {
 	rows, err := source.Query(ctx, `
 		select id, owner_id, name, description, coalesce(image_path, ''), downloads,
-		       views, favorites, tags, is_nsfw, created_at, updated_at,
+		       views, tags, is_nsfw, created_at, updated_at,
 		       colors, config, coalesce(custom_css, ''), coalesce(asset_bundle_id, '')
 		  from themes
 	 order by id`)
@@ -286,7 +286,7 @@ func readThemes(ctx context.Context, source *pgxpool.Pool) ([]v1.Row, error) {
 		var row v1.ThemeRow
 		if err := rows.Scan(
 			&common.ID, &common.OwnerID, &common.Name, &common.Description, &common.ImagePath,
-			&common.Downloads, &common.Views, &common.Favorites, &common.Tags, &common.IsNSFW,
+			&common.Downloads, &common.Views, &common.Tags, &common.IsNSFW,
 			&common.CreatedAt, &common.UpdatedAt, &row.Colors, &row.Config,
 			&row.CustomCSS, &row.AssetBundleID,
 		); err != nil {
@@ -304,7 +304,7 @@ func readThemes(ctx context.Context, source *pgxpool.Pool) ([]v1.Row, error) {
 func readLorebooks(ctx context.Context, source *pgxpool.Pool) ([]v1.Row, error) {
 	rows, err := source.Query(ctx, `
 		select id, owner_id, name, description, coalesce(image_path, ''), downloads,
-		       views, favorites, tags, is_nsfw, created_at, updated_at, creator, entries
+		       views, tags, is_nsfw, created_at, updated_at, creator, entries
 		  from worldbooks
 	 order by id`)
 	if err != nil {
@@ -317,7 +317,7 @@ func readLorebooks(ctx context.Context, source *pgxpool.Pool) ([]v1.Row, error) 
 		var row v1.LorebookRow
 		if err := rows.Scan(
 			&common.ID, &common.OwnerID, &common.Name, &common.Description, &common.ImagePath,
-			&common.Downloads, &common.Views, &common.Favorites, &common.Tags, &common.IsNSFW,
+			&common.Downloads, &common.Views, &common.Tags, &common.IsNSFW,
 			&common.CreatedAt, &common.UpdatedAt, &row.Creator, &row.Entries,
 		); err != nil {
 			return nil, fmt.Errorf("read a v1 lorebook: %w", err)
@@ -334,7 +334,7 @@ func readLorebooks(ctx context.Context, source *pgxpool.Pool) ([]v1.Row, error) 
 func readPacks(ctx context.Context, source *pgxpool.Pool) ([]v1.Row, error) {
 	rows, err := source.Query(ctx, `
 		select id, owner_id, name, description, coalesce(image_path, ''), downloads,
-		       views, favorites, is_nsfw, created_at, updated_at, pack_author,
+		       views, is_nsfw, created_at, updated_at, pack_author,
 		       coalesce(cover_url, ''), pack_version, pack_extras, lumia_items,
 		       loom_items, loom_tools
 		  from dlc_packs
@@ -349,7 +349,7 @@ func readPacks(ctx context.Context, source *pgxpool.Pool) ([]v1.Row, error) {
 		var row v1.PackRow
 		if err := rows.Scan(
 			&common.ID, &common.OwnerID, &common.Name, &common.Description, &common.ImagePath,
-			&common.Downloads, &common.Views, &common.Favorites, &common.IsNSFW,
+			&common.Downloads, &common.Views, &common.IsNSFW,
 			&common.CreatedAt, &common.UpdatedAt, &row.Author, &row.CoverURL, &row.Version,
 			&row.PackExtras, &row.LumiaItems, &row.LoomItems, &row.LoomTools,
 		); err != nil {
