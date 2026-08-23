@@ -407,6 +407,11 @@ content_generation)` and support both incremental reports and periodic full
 snapshots. Revocation will delete the server-side queue and mirror for only that
 installation.
 
+An install record that carries no content generation is current, not stale. Every
+asset migrated from LumiHub starts at generation 1 and none of the install
+records LumiHub kept stored a generation, so treating a missing one as out of
+date would report an update on day one for a change no creator made.
+
 Long-polling is intentional for low-volume outbound delivery: it crosses common
 proxies, needs no inbound connection, and avoids a private WebSocket protocol.
 It is not used for link authorization.

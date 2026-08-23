@@ -396,3 +396,12 @@ func sameJSON(left, right []byte) bool {
 	}
 	return reflect.DeepEqual(first, second)
 }
+
+// AccountsMigrated reports whether the accounts run has already happened.
+func AccountsMigrated(ctx context.Context, target *pgxpool.Pool) (bool, error) {
+	empty, err := db.New(target).MigrationTargetIsEmpty(ctx)
+	if err != nil {
+		return false, fmt.Errorf("check whether the accounts have migrated: %w", err)
+	}
+	return !empty, nil
+}
