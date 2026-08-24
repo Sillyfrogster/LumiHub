@@ -88,21 +88,20 @@ type revisionTarget struct {
 }
 
 type preparedIngest struct {
-	Kind             string
-	Format           string
-	Name             string
-	Blurb            string
-	Tags             []string
-	IsNSFW           bool
-	Discovery        Discovery
-	Blocks           []block.Block
-	Header           format.Header
-	Remainder        []format.Remainder
-	ProtectedPrompts []format.ProtectedPrompt
-	ProtectedApps    []string
-	Media            []preparedMedia
-	CreatedAt        *time.Time
-	MediaType        string
+	Kind      string
+	Format    string
+	Name      string
+	Blurb     string
+	Tags      []string
+	IsNSFW    bool
+	Discovery Discovery
+	Blocks    []block.Block
+	Header    format.Header
+	Remainder []format.Remainder
+	Protected format.ProtectedImport
+	Media     []preparedMedia
+	CreatedAt *time.Time
+	MediaType string
 }
 
 type preparedImport struct {
@@ -387,12 +386,11 @@ func prepareIngest(job ingestJob, parsed format.Parsed) (preparedIngest, error) 
 	return preparedIngest{
 		Kind: kind, Format: parsed.Format,
 		Name: name, Blurb: blurb, Tags: tags, IsNSFW: isNSFW,
-		Discovery:        job.Discovery,
-		Header:           parsed.Header,
-		Remainder:        parsed.Remainder,
-		ProtectedPrompts: parsed.ProtectedPrompts,
-		ProtectedApps:    parsed.ProtectedApps,
-		CreatedAt:        parsed.CreatedAt,
+		Discovery: job.Discovery,
+		Header:    parsed.Header,
+		Remainder: parsed.Remainder,
+		Protected: parsed.Protected,
+		CreatedAt: parsed.CreatedAt,
 	}, nil
 }
 
@@ -506,6 +504,24 @@ func (s *Service) finalizeIngest(ctx context.Context, job ingestJob, prepared pr
 	return nil
 }
 
+func importProtectedPrompts(
+	ctx context.Context,
+	tx pgx.Tx,
+	assetID uuid.UUID,
+	blocks []block.Block,
+	imported format.ProtectedImport,
+) error {
+	if len(imported.Prompts) == 0 {
+		return nil
+	}
+	if err := protected.ImportPromptFragments(
+		ctx, tx, assetID, blocks, imported.Prompts, imported.Apps,
+	); err != nil {
+		return fmt.Errorf("import protected prompts: %w", err)
+	}
+	return nil
+}
+
 // writeIngestResult turns a finished parse into rows. Either it publishes a new
 // catalog entry or it adds a revision to one that already exists, and both end
 // with the asset pointing at the revision just written.
@@ -536,12 +552,11 @@ func (s *Service) writeIngestResult(
 		if err := replacePreservedData(ctx, tx, job.Target.AssetID, prepared.Remainder); err != nil {
 			return uuid.Nil, err
 		}
-		if len(prepared.ProtectedPrompts) > 0 {
-			if err := protected.ImportPromptFragments(
-				ctx, tx, job.Target.AssetID, blocks,
-				prepared.ProtectedPrompts, prepared.ProtectedApps,
+		if len(prepared.Protected.Prompts) > 0 {
+			if err := importProtectedPrompts(
+				ctx, tx, job.Target.AssetID, blocks, prepared.Protected,
 			); err != nil {
-				return uuid.Nil, fmt.Errorf("import protected prompts: %w", err)
+				return uuid.Nil, err
 			}
 		} else if err := protected.SyncPromptFragments(
 			ctx, tx, job.Target.AssetID, blocks, nil,
@@ -585,12 +600,10 @@ func (s *Service) writeIngestResult(
 	if err := replacePreservedData(ctx, tx, assetID, prepared.Remainder); err != nil {
 		return uuid.Nil, err
 	}
-	if len(prepared.ProtectedPrompts) > 0 {
-		if err := protected.ImportPromptFragments(
-			ctx, tx, assetID, blocks, prepared.ProtectedPrompts, prepared.ProtectedApps,
-		); err != nil {
-			return uuid.Nil, fmt.Errorf("import protected prompts: %w", err)
-		}
+	if err := importProtectedPrompts(
+		ctx, tx, assetID, blocks, prepared.Protected,
+	); err != nil {
+		return uuid.Nil, err
 	}
 	if err := writeRevision(ctx, tx, assetID, 1, job, prepared); err != nil {
 		return uuid.Nil, err

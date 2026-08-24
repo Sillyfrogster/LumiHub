@@ -34,16 +34,18 @@ type Parsed struct {
 	Header    Header
 	Elements  []block.Element
 	Remainder []Remainder
-	// ProtectedPrompts carries private text a format separated before storage.
-	// An empty Text with ReuseExisting asks ingest to keep the private value
-	// already identified by SourceKey.
-	ProtectedPrompts []ProtectedPrompt
-	// ProtectedApps is the format adapter's initial linked-delivery policy.
-	ProtectedApps []string
+	Protected ProtectedImport
 }
 
-// ProtectedPrompt is a prompt fragment withheld by a source format. SourceKey
-// is compatibility metadata and is not required for prompts authored in Illarin.
+// ProtectedImport contains protected content that a format module separated
+// before storage.
+type ProtectedImport struct {
+	Prompts []ProtectedPrompt
+	Apps    []string
+}
+
+// ProtectedPrompt is a prompt fragment withheld by a source format. SourceKey is
+// optional compatibility metadata and is not required for prompts authored in Illarin.
 type ProtectedPrompt struct {
 	FragmentID    uuid.UUID
 	SourceKey     string

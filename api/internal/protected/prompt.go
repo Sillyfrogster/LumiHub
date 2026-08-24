@@ -22,7 +22,7 @@ const (
 
 var ErrPolicyRequired = errors.New("choose at least one allowed app before sealing a prompt")
 
-// ImportPromptFragments stores private prompt text a format adapter separated
+// ImportPromptFragments stores protected prompt text a format module separated
 // before persistence. A keyed placeholder may reuse exactly one prior payload.
 func ImportPromptFragments(
 	ctx context.Context,
@@ -73,7 +73,7 @@ func ImportPromptFragments(
 		}
 	}
 
-	texts := make(map[uuid.UUID]string, len(imports))
+	values := make(map[uuid.UUID]promptValue, len(imports))
 	for _, imported := range imports {
 		if !owners[imported.FragmentID] {
 			return format.MalformedInput(errors.New(
@@ -92,37 +92,11 @@ func ImportPromptFragments(
 				return err
 			}
 		}
-		texts[imported.FragmentID] = text
-		payload, err := json.Marshal(map[string]string{"text": text})
-		if err != nil {
-			return fmt.Errorf("encode imported protected prompt: %w", err)
-		}
-		digest := sha256.Sum256([]byte(text))
-		var sourceKey any
-		if imported.SourceKey != "" {
-			sourceKey = imported.SourceKey
-		}
-		if _, err := tx.Exec(ctx, `
-			insert into protected_content (
-				asset_id, owner_kind, owner_id, payload_type, payload, source_key, digest
-			) values ($1, $2, $3, $4, $5, $6, $7)
-			on conflict (asset_id, owner_kind, owner_id) do update
-			set payload = excluded.payload,
-				payload_type = excluded.payload_type,
-				source_key = excluded.source_key,
-				digest = excluded.digest
-		`, assetID, promptOwnerKind, imported.FragmentID, promptPayload,
-			payload, sourceKey, digest[:]); err != nil {
-			return fmt.Errorf("save imported protected prompt: %w", err)
+		values[imported.FragmentID] = promptValue{
+			text: text, sourceKey: imported.SourceKey, replaceSourceKey: true,
 		}
 	}
-	if _, err := tx.Exec(ctx, `
-		delete from protected_content
-		 where asset_id = $1 and owner_kind = $2 and not (owner_id = any($3::uuid[]))
-	`, assetID, promptOwnerKind, ids(texts)); err != nil {
-		return fmt.Errorf("replace imported protected prompts: %w", err)
-	}
-	return nil
+	return replacePromptPayloads(ctx, tx, assetID, values)
 }
 
 func promptTextBySourceKey(
@@ -160,7 +134,7 @@ func promptTextBySourceKey(
 	}
 	if len(texts) != 1 {
 		return "", format.MalformedInput(fmt.Errorf(
-			"sealed prompt key %q needs exactly one existing private value", sourceKey,
+			"sealed prompt key %q needs exactly one existing protected value", sourceKey,
 		))
 	}
 	return texts[0], nil
@@ -224,7 +198,7 @@ func SyncPromptFragments(
 	blocks []block.Block,
 	allowedApps *[]string,
 ) error {
-	sealed := make(map[uuid.UUID]string)
+	sealed := make(map[uuid.UUID]promptValue)
 	for blockIndex := range blocks {
 		for elementIndex := range blocks[blockIndex].Elements {
 			element := &blocks[blockIndex].Elements[elementIndex]
@@ -240,7 +214,7 @@ func SyncPromptFragments(
 				if fragment.Marker != "" {
 					return fmt.Errorf("a prompt marker cannot be sealed")
 				}
-				sealed[fragment.ID] = fragment.Text
+				sealed[fragment.ID] = promptValue{text: fragment.Text}
 				fragment.Text = ""
 			}
 			element.Content = list
@@ -275,25 +249,49 @@ func SyncPromptFragments(
 		}
 	}
 
-	for id, text := range sealed {
-		payload, err := json.Marshal(map[string]string{"text": text})
+	return replacePromptPayloads(ctx, tx, assetID, sealed)
+}
+
+type promptValue struct {
+	text             string
+	sourceKey        string
+	replaceSourceKey bool
+}
+
+func replacePromptPayloads(
+	ctx context.Context,
+	tx pgx.Tx,
+	assetID uuid.UUID,
+	values map[uuid.UUID]promptValue,
+) error {
+	for id, value := range values {
+		payload, err := json.Marshal(map[string]string{"text": value.text})
 		if err != nil {
 			return fmt.Errorf("encode protected prompt: %w", err)
 		}
-		digest := sha256.Sum256([]byte(text))
+		digest := sha256.Sum256([]byte(value.text))
+		var sourceKey any
+		if value.sourceKey != "" {
+			sourceKey = value.sourceKey
+		}
 		if _, err := tx.Exec(ctx, `
-			insert into protected_content (asset_id, owner_kind, owner_id, payload_type, payload, digest)
-			values ($1, $2, $3, $4, $5, $6)
+			insert into protected_content (
+				asset_id, owner_kind, owner_id, payload_type, payload, source_key, digest
+			) values ($1, $2, $3, $4, $5, $6, $7)
 			on conflict (asset_id, owner_kind, owner_id) do update
-			set payload = excluded.payload, payload_type = excluded.payload_type, digest = excluded.digest
-		`, assetID, promptOwnerKind, id, promptPayload, payload, digest[:]); err != nil {
+			set payload = excluded.payload,
+				payload_type = excluded.payload_type,
+				source_key = case when $8 then excluded.source_key else protected_content.source_key end,
+				digest = excluded.digest
+		`, assetID, promptOwnerKind, id, promptPayload, payload, sourceKey, digest[:],
+			value.replaceSourceKey); err != nil {
 			return fmt.Errorf("save protected prompt: %w", err)
 		}
 	}
 	if _, err := tx.Exec(ctx, `
 		delete from protected_content
 		 where asset_id = $1 and owner_kind = $2 and not (owner_id = any($3::uuid[]))
-	`, assetID, promptOwnerKind, ids(sealed)); err != nil {
+	`, assetID, promptOwnerKind, promptIDs(values)); err != nil {
 		return fmt.Errorf("remove unsealed prompts: %w", err)
 	}
 	return nil
@@ -402,7 +400,7 @@ func Apps(ctx context.Context, q interface {
 	return apps, rows.Err()
 }
 
-func ids(values map[uuid.UUID]string) []uuid.UUID {
+func promptIDs(values map[uuid.UUID]promptValue) []uuid.UUID {
 	result := make([]uuid.UUID, 0, len(values))
 	for id := range values {
 		result = append(result, id)

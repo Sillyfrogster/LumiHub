@@ -300,16 +300,18 @@ func (m LumiverseModule) Parse(
 			source, read.leftovers,
 			scriptLeftovers(scripts, lumiverseScriptNamespace, scriptFields),
 		),
-		ProtectedPrompts: read.protected,
-		ProtectedApps:    protectedApps(read.protected),
+		Protected: protectedImport(read.protected),
 	}, nil
 }
 
-func protectedApps(prompts []format.ProtectedPrompt) []string {
+func protectedImport(prompts []format.ProtectedPrompt) format.ProtectedImport {
 	if len(prompts) == 0 {
-		return nil
+		return format.ProtectedImport{}
 	}
-	return []string{protected.AppLumiverse}
+	return format.ProtectedImport{
+		Prompts: prompts,
+		Apps:    []string{protected.AppLumiverse},
+	}
 }
 
 // boundBlurb binds descriptions that fit the catalog. Longer text stays

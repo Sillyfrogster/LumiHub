@@ -74,7 +74,7 @@ func readLumiverseBlocks(
 		}
 		fragment.GroupID = fragmentHeading(fields, headings, above)
 		private, sealed, err := readLumiverseSealedPrompt(
-			fields, fragment.ID, fragment.Text, textPresent,
+			fields, fragment.ID, fragment.Marker, fragment.Text, textPresent,
 		)
 		if err != nil {
 			return readBlocks{}, err
@@ -121,6 +121,7 @@ func validateLumiverseHeadingSealing(fields map[string]json.RawMessage) error {
 func readLumiverseSealedPrompt(
 	fields map[string]json.RawMessage,
 	fragmentID uuid.UUID,
+	marker string,
 	text string,
 	textPresent bool,
 ) (format.ProtectedPrompt, bool, error) {
@@ -144,6 +145,11 @@ func readLumiverseSealedPrompt(
 			)
 		}
 		return format.ProtectedPrompt{}, false, nil
+	}
+	if marker != "" {
+		return format.ProtectedPrompt{}, false, fmt.Errorf(
+			"sealed prompt cannot also be a %q marker", marker,
+		)
 	}
 	if hasKey == hasLegacyKey {
 		return format.ProtectedPrompt{}, false, fmt.Errorf(
