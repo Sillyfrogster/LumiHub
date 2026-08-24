@@ -67,6 +67,45 @@ func TestSignUpStartsAnUnverifiedSessionAndSendsAVerificationLink(t *testing.T) 
 	}
 }
 
+func TestAccountEntryPointsLimitRepeatedAttemptsFromOneSource(t *testing.T) {
+	r := newTestRouter(t)
+	tests := []struct {
+		name  string
+		path  string
+		limit int
+	}{
+		{name: "sign up", path: "/v1/auth/sign-up", limit: accountSignUpLimit},
+		{name: "sign in", path: "/v1/auth/sign-in", limit: accountSignInLimit},
+		{name: "request password reset", path: "/v1/auth/password-reset", limit: accountPasswordResetLimit},
+		{name: "complete password reset", path: "/v1/auth/password-reset/complete", limit: accountPasswordResetCompleteLimit},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			for attempt := 0; attempt < test.limit; attempt++ {
+				response := accountAttempt(t, r, test.path, "198.51.100.20:4000")
+				if response.Code == http.StatusTooManyRequests {
+					t.Fatalf("attempt %d was limited early", attempt+1)
+				}
+			}
+			limited := accountAttempt(t, r, test.path, "198.51.100.20:4000")
+			if limited.Code != http.StatusTooManyRequests {
+				t.Fatalf("status = %d, want 429. body: %s", limited.Code, limited.Body.String())
+			}
+			if limited.Header().Get("Retry-After") == "" {
+				t.Error("the limited response has no Retry-After header")
+			}
+		})
+	}
+}
+
+func accountAttempt(t *testing.T, r http.Handler, path, remoteAddress string) *httptest.ResponseRecorder {
+	t.Helper()
+	request := httptest.NewRequest(http.MethodPost, path, strings.NewReader("{"))
+	request.Header.Set("Content-Type", "application/json")
+	request.RemoteAddr = remoteAddress
+	return send(t, r, request)
+}
+
 func TestSignUpAcceptsAnyNonemptyPassword(t *testing.T) {
 	r := newTestRouter(t)
 

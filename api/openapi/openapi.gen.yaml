@@ -138,6 +138,8 @@ paths:
           description: The account details are not valid
         '409':
           description: The handle or verified address is already claimed
+        '429':
+          description: Too many sign-up attempts came from this source
   /v1/auth/sign-in:
     post:
       operationId: signIn
@@ -160,6 +162,8 @@ paths:
                 $ref: '#/components/schemas/Account'
         '401':
           description: The credentials do not identify one account
+        '429':
+          description: Too many sign-in attempts came from this source
   /v1/auth/discord:
     get:
       operationId: beginDiscord
@@ -257,6 +261,8 @@ paths:
           description: A reset is sent when the verified account exists
         '400':
           description: The request is not valid JSON
+        '429':
+          description: Too many reset requests came from this source
   /v1/auth/password-reset/complete:
     post:
       operationId: completePasswordReset
@@ -271,6 +277,8 @@ paths:
           description: The password is set
         '400':
           description: The link or password is invalid
+        '429':
+          description: Too many reset attempts came from this source
   /v1/link/requests:
     post:
       operationId: startLinkRequest

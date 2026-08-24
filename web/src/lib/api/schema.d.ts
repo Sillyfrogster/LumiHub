@@ -2290,6 +2290,13 @@ export interface operations {
         };
         content?: never;
       };
+      /** @description Too many sign-up attempts came from this source */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
     };
   };
   signIn: {
@@ -2317,6 +2324,13 @@ export interface operations {
       };
       /** @description The credentials do not identify one account */
       401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Too many sign-in attempts came from this source */
+      429: {
         headers: {
           [name: string]: unknown;
         };
@@ -2492,6 +2506,13 @@ export interface operations {
         };
         content?: never;
       };
+      /** @description Too many reset requests came from this source */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
     };
   };
   completePasswordReset: {
@@ -2516,6 +2537,13 @@ export interface operations {
       };
       /** @description The link or password is invalid */
       400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Too many reset attempts came from this source */
+      429: {
         headers: {
           [name: string]: unknown;
         };

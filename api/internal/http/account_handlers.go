@@ -6,10 +6,12 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/Sillyfrogster/Illarin/api/internal/account"
+	"github.com/Sillyfrogster/Illarin/api/internal/linking"
 	"github.com/gin-gonic/gin"
 	"github.com/oapi-codegen/runtime/types"
 )
@@ -18,9 +20,17 @@ const (
 	sessionCookieName     = "illarin_session"
 	oauthStateCookieName  = "illarin_discord_state"
 	oauthReturnCookieName = "illarin_discord_return"
+
+	accountSignUpLimit                = 20
+	accountSignInLimit                = 10
+	accountPasswordResetLimit         = 5
+	accountPasswordResetCompleteLimit = 10
 )
 
 func (h *Handlers) SignUp(c *gin.Context) {
+	if !h.allowAccountAttempt(c, "account-sign-up", accountSignUpLimit, time.Hour) {
+		return
+	}
 	var request SignUpRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Send an email, password and handle as JSON."})
@@ -41,6 +51,9 @@ func (h *Handlers) SignUp(c *gin.Context) {
 }
 
 func (h *Handlers) SignIn(c *gin.Context) {
+	if !h.allowAccountAttempt(c, "account-sign-in", accountSignInLimit, 15*time.Minute) {
+		return
+	}
 	var request SignInRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Email or password is not correct."})
@@ -195,6 +208,9 @@ func (h *Handlers) VerifyEmail(c *gin.Context) {
 }
 
 func (h *Handlers) RequestPasswordReset(c *gin.Context) {
+	if !h.allowAccountAttempt(c, "account-password-reset", accountPasswordResetLimit, time.Hour) {
+		return
+	}
 	var request PasswordResetRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Send the account email as JSON."})
@@ -208,6 +224,14 @@ func (h *Handlers) RequestPasswordReset(c *gin.Context) {
 }
 
 func (h *Handlers) CompletePasswordReset(c *gin.Context) {
+	if !h.allowAccountAttempt(
+		c,
+		"account-password-reset-complete",
+		accountPasswordResetCompleteLimit,
+		time.Hour,
+	) {
+		return
+	}
 	var request CompletePasswordResetRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Send the reset token and new password as JSON."})
@@ -229,6 +253,27 @@ func (h *Handlers) CompletePasswordReset(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusNoContent)
+}
+
+func (h *Handlers) allowAccountAttempt(
+	c *gin.Context,
+	action string,
+	limit int32,
+	window time.Duration,
+) bool {
+	err := h.links.Throttle(c.Request.Context(), action, linkRequestSource(c), limit, window)
+	if err == nil {
+		return true
+	}
+	var limited *linking.RateLimitError
+	if errors.As(err, &limited) {
+		seconds := int((limited.After + time.Second - 1) / time.Second)
+		c.Header("Retry-After", strconv.Itoa(seconds))
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": "Too many attempts. Try again later."})
+		return false
+	}
+	c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not check the request limit."})
+	return false
 }
 
 func (h *Handlers) RenameHandle(c *gin.Context) {
