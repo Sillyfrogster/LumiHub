@@ -85,10 +85,10 @@
 }
 
 .arrangementHeading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
+  display: grid;
+  gap: 16px 24px;
+  align-items: start;
+  grid-template-columns: minmax(30ch, 1fr) auto;
 }
 
 .arrangementHeading p {
@@ -101,9 +101,13 @@
 
 .arrangementActions {
   display: flex;
-  flex: 0 0 auto;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+/* An open inline picker takes the whole row so its menu is not squeezed. */
+.arrangementHeading:has(.arrangementActions [open]) {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .arrangementError {
@@ -493,11 +497,7 @@ button.defaultTitle:hover:not(:disabled),
   }
 
   .arrangementHeading {
-    flex-direction: column;
-  }
-
-  .arrangementActions {
-    width: 100%;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .blockActions,

@@ -61,6 +61,7 @@ export function WidthPicker({
     <div className={styles.widthControl}>
       <details
         className={`${styles.picker} ${styles.widthPicker} ${inline ? styles.inline : ""}`}
+        name={inline ? "block-arrangement" : undefined}
         ref={disclosure}
       >
         <summary
@@ -158,6 +159,7 @@ export function LayoutPicker({
   return (
     <details
       className={`${styles.picker} ${inline ? styles.inline : ""}`}
+      name={inline ? "block-arrangement" : undefined}
       ref={disclosure}
     >
       <summary
