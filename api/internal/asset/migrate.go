@@ -42,6 +42,7 @@ type MigratedAsset struct {
 	CreatedAt time.Time
 	Blocks    []block.Block
 	Remainder []format.Remainder
+	Protected format.ProtectedImport
 	Images    []MigratedImage
 	CoverID   *uuid.UUID
 }
@@ -78,6 +79,9 @@ func (s *Service) WriteMigratedAsset(ctx context.Context, tx pgx.Tx, one Migrate
 		return err
 	}
 	if err := replacePreservedData(ctx, tx, one.ID, one.Remainder); err != nil {
+		return err
+	}
+	if err := importProtectedPrompts(ctx, tx, one.ID, one.Blocks, one.Protected); err != nil {
 		return err
 	}
 	for _, image := range one.Images {

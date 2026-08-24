@@ -1,9 +1,11 @@
 package migration
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -56,8 +58,70 @@ func TestTheRealCorpusBecomesTheIllarinCatalog(t *testing.T) {
 	assertShortfallIsPublishedAndMarked(t, target, report)
 	assertRowTextWon(t, source, target)
 	assertNoDisplayNamespacesSurvive(t, target)
+	assertReturningPresetActivated(t, source, target, settings.Assets)
 	assertLedgerNamesEveryDiscrepancy(t, target, report)
 	assertOldAddressesResolve(t, target, report)
+}
+
+func TestAChangedCurrentSealedSourceAbortsBeforeCommit(t *testing.T) {
+	ctx := context.Background()
+	source := restoredV1Dump(t)
+	target := testdb.Connect(t)
+	settings := migrationSettings(t, source, target)
+	if _, err := source.Exec(ctx, `create table sealed_source_backup as table preset_sealed_blocks`); err != nil {
+		t.Fatal("copy the sealed source rows inside the scratch database")
+	}
+
+	matchingRow := `
+		select sealed.id
+		  from preset_sealed_blocks sealed
+		  join presets preset on preset.id = sealed.preset_id
+		 where sealed.version = preset.latest_version
+		   and position('{{presetBlock::' || sealed.block_key || '}}' in preset.preset::text) > 0
+		 order by sealed.id
+		 limit 1`
+	for _, test := range []struct {
+		name   string
+		change string
+	}{
+		{name: "missing row", change: `delete from preset_sealed_blocks where id = (` + matchingRow + `)`},
+		{name: "duplicate key", change: `
+			update presets preset
+			   set preset = jsonb_set(
+			       preset.preset,
+			       '{blocks}',
+			       preset.preset -> 'blocks' || jsonb_build_array((
+			           select block
+			             from jsonb_array_elements(preset.preset -> 'blocks') block
+			            where block ->> 'content' like '{{presetBlock::%}}'
+			            limit 1
+			       ))
+			   )
+			 where preset.preset::text like '%{{presetBlock::%'
+			   and preset.id = (select preset_id from preset_sealed_blocks where id = (` + matchingRow + `))`},
+		{name: "mismatched key", change: `
+			update preset_sealed_blocks set block_key = block_key || '-mismatch'
+			 where id = (` + matchingRow + `)`},
+		{name: "mismatched digest", change: `
+			update preset_sealed_blocks set content_sha256 = repeat('0', 64)
+			 where id = (` + matchingRow + `)`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if _, err := source.Exec(ctx, `
+				truncate preset_sealed_blocks;
+				insert into preset_sealed_blocks select * from sealed_source_backup;
+			`); err != nil {
+				t.Fatal("restore the sealed source rows inside the scratch database")
+			}
+			if _, err := source.Exec(ctx, test.change); err != nil {
+				t.Fatal("change one sealed source row inside the scratch database")
+			}
+			if _, err := Run(ctx, settings); err == nil || !strings.Contains(err.Error(), "current sealed prompt") {
+				t.Fatal("migration did not reject the changed sealed source before commit")
+			}
+			assertNothingCommitted(t, target)
+		})
+	}
 }
 
 func assertExpectedShape(t *testing.T, target *pgxpool.Pool, report Report) {
@@ -349,6 +413,167 @@ func assertNoDisplayNamespacesSurvive(t *testing.T, target *pgxpool.Pool) {
 	}
 }
 
+func assertReturningPresetActivated(
+	t *testing.T,
+	source, target *pgxpool.Pool,
+	assets *asset.Service,
+) {
+	t.Helper()
+	const activePrompts = 85
+	current := map[string]string{}
+	rows, err := source.Query(context.Background(), `
+		select sealed.block_key, sealed.content_sha256
+		  from preset_sealed_blocks sealed
+		  join presets preset on preset.id = sealed.preset_id
+		 where sealed.version = preset.latest_version`)
+	if err != nil {
+		t.Fatal("read the current sealed source rows")
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var key, digest string
+		if err := rows.Scan(&key, &digest); err != nil {
+			t.Fatal("read a current sealed source row")
+		}
+		if _, duplicate := current[key]; duplicate {
+			t.Fatal("a current sealed source key is not unique")
+		}
+		current[key] = digest
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal("the current sealed source rows did not finish")
+	}
+	if len(current) < activePrompts {
+		t.Fatalf("current sealed source rows = %d, want at least %d", len(current), activePrompts)
+	}
+
+	var assetID uuid.UUID
+	if err := target.QueryRow(context.Background(), `
+		select asset_id
+		  from protected_content
+		 group by asset_id
+		having count(*) = $1`, activePrompts).Scan(&assetID); err != nil {
+		t.Fatalf("find the activated preset: %v", err)
+	}
+	stubs := map[uuid.UUID]bool{}
+	for _, holder := range blocksOf(t, target, assetID) {
+		for _, element := range holder.Elements {
+			list, ok := element.Content.(block.PromptList)
+			if !ok {
+				continue
+			}
+			for _, fragment := range list.Fragments {
+				if !fragment.Protected {
+					continue
+				}
+				if fragment.Text != "" {
+					t.Fatal("an activated prompt left private text in its public fragment")
+				}
+				stubs[fragment.ID] = true
+			}
+		}
+	}
+	if len(stubs) != activePrompts {
+		t.Fatalf("protected stubs = %d, want %d", len(stubs), activePrompts)
+	}
+
+	rows, err = target.Query(context.Background(), `
+		select owner_id, source_key, encode(digest, 'hex'), payload ->> 'text'
+		  from protected_content
+		 where asset_id = $1`, assetID)
+	if err != nil {
+		t.Fatalf("read the activated prompts: %v", err)
+	}
+	defer rows.Close()
+	activated := 0
+	privateTexts := make([]string, 0, activePrompts)
+	for rows.Next() {
+		var ownerID uuid.UUID
+		var key, digest, text string
+		if err := rows.Scan(&ownerID, &key, &digest, &text); err != nil {
+			t.Fatal("read an activated prompt")
+		}
+		wantDigest, found := current[key]
+		if !found || wantDigest != digest {
+			t.Fatal("an activated prompt does not match its current source digest")
+		}
+		if !stubs[ownerID] {
+			t.Fatal("an activated prompt is not owned by its public fragment")
+		}
+		if strings.HasPrefix(strings.TrimSpace(text), "{{presetBlock::") {
+			t.Fatal("an activated prompt stored its placeholder as private text")
+		}
+		privateTexts = append(privateTexts, text)
+		activated++
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal("the activated prompts did not finish")
+	}
+	if activated != activePrompts {
+		t.Fatalf("activated prompts = %d, want %d", activated, activePrompts)
+	}
+
+	var apps []string
+	if err := target.QueryRow(context.Background(), `
+		select array_agg(app order by app)
+		  from protected_delivery_apps
+		 where asset_id = $1`, assetID).Scan(&apps); err != nil {
+		t.Fatalf("read the activated preset policy: %v", err)
+	}
+	if len(apps) != 1 || apps[0] != "lumiverse" {
+		t.Errorf("initial allowed apps = %v, want Lumiverse", apps)
+	}
+	if _, err := assets.OpenExport(
+		context.Background(), assetID, nil, "preset_lumiverse",
+	); !errors.Is(err, asset.ErrLinkedInstallOnly) {
+		t.Errorf("ordinary export error = %v, want linked-install-only", err)
+	}
+	linked, err := assets.OpenExportForLinkedInstance(
+		context.Background(), assetID, "preset_lumiverse",
+	)
+	if err != nil {
+		t.Fatalf("write the activated preset for a linked instance: %v", err)
+	}
+	if bytes.Contains(linked.Body, []byte("{{presetBlock::")) {
+		t.Fatal("the linked artifact retained a sealed placeholder")
+	}
+	for _, privateText := range privateTexts {
+		encoded, err := json.Marshal(privateText)
+		if err != nil {
+			t.Fatal("encode an activated prompt for comparison")
+		}
+		if !bytes.Contains(linked.Body, encoded) {
+			t.Fatal("the linked artifact omitted an activated prompt")
+		}
+	}
+
+	var sourceRows, archivedRows int
+	if err := source.QueryRow(context.Background(),
+		`select count(*) from preset_sealed_blocks`).Scan(&sourceRows); err != nil {
+		t.Fatal("count the sealed source archive")
+	}
+	if err := target.QueryRow(context.Background(), `
+		select count(*) from migration_preserved_records
+		 where source_table = 'preset_sealed_blocks'`).Scan(&archivedRows); err != nil {
+		t.Fatal("count the preserved sealed archive")
+	}
+	if archivedRows != sourceRows {
+		t.Fatalf("archived sealed rows = %d, want all %d source rows", archivedRows, sourceRows)
+	}
+	var ownerID uuid.UUID
+	if err := target.QueryRow(context.Background(),
+		`select owner_id from assets where id = $1`, assetID).Scan(&ownerID); err != nil {
+		t.Fatal("read the activated preset owner")
+	}
+	exported, err := assets.OpenSealedContent(context.Background(), ownerID, assetID)
+	if err != nil {
+		t.Fatalf("open the preserved sealed archive: %v", err)
+	}
+	if exported.Blocks != sourceRows {
+		t.Errorf("archival export rows = %d, want %d", exported.Blocks, sourceRows)
+	}
+}
+
 func assertLedgerNamesEveryDiscrepancy(t *testing.T, target *pgxpool.Pool, report Report) {
 	t.Helper()
 	counted := map[string]int{}
@@ -429,7 +654,8 @@ func assertNothingCommitted(t *testing.T, target *pgxpool.Pool) {
 	t.Helper()
 	for _, table := range []string{
 		"assets", "asset_blocks", "asset_media", "asset_legacy_paths",
-		"migration_legacy_counters", "migration_preserved_records", "migration_exceptions",
+		"protected_content", "protected_delivery_apps", "migration_legacy_counters",
+		"migration_preserved_records", "migration_exceptions",
 	} {
 		if got := countRows(t, target, table); got != 0 {
 			t.Errorf("%s holds %d rows after an aborted run, want none", table, got)

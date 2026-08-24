@@ -393,6 +393,94 @@ func TestAPresetRowUsesTheRowHeaderAndKeepsVersionsAndSealedBlocks(t *testing.T)
 	}
 }
 
+func TestAPresetRowActivatesCurrentSealedPlaceholders(t *testing.T) {
+	assetID := uuid.MustParse("00000000-0000-0000-0000-000000000115")
+	ownerID := uuid.MustParse("00000000-0000-0000-0000-000000000215")
+	result, err := (Module{}).Read(context.Background(), PresetRow{
+		Common: CommonRow{
+			ID: assetID, OwnerID: ownerID, Name: "Sealed preset", CreatedAt: time.Now(),
+		},
+		LatestVersion: "2",
+		Payload: json.RawMessage(`{
+			"schemaVersion":1,
+			"blocks":[{
+				"id":"fragment-1","name":"Rules","role":"system",
+				"content":"{{presetBlock::private-rule}}","enabled":true,
+				"position":"pre_history","sealed":true,"sealedKey":"private-rule"
+			}]
+		}`),
+		SealedBlocks: []SealedBlockRow{
+			{Version: pointerTo("1"), Key: "private-rule", Content: "older", SHA256: "not-current"},
+			{Version: pointerTo("2"), Key: "private-rule", Content: "hello", SHA256: "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("read preset row: %v", err)
+	}
+	fragments := contentFor(t, result.Parsed.Elements, block.RolePromptFragments).(block.PromptList)
+	if len(fragments.Fragments) != 1 || !fragments.Fragments[0].Protected || fragments.Fragments[0].Text != "" {
+		t.Errorf("public fragments = %+v, want one protected stub", fragments.Fragments)
+	}
+	if len(result.Parsed.Protected.Prompts) != 1 {
+		t.Fatalf("protected prompts = %d, want one", len(result.Parsed.Protected.Prompts))
+	}
+	private := result.Parsed.Protected.Prompts[0]
+	if private.FragmentID != fragments.Fragments[0].ID || private.SourceKey != "private-rule" ||
+		private.Text != "hello" || private.ReuseExisting {
+		t.Errorf("protected prompt = %+v, want the exact current source value", private)
+	}
+	if !reflect.DeepEqual(result.Parsed.Protected.Apps, []string{"lumiverse"}) {
+		t.Errorf("allowed apps = %v, want Lumiverse", result.Parsed.Protected.Apps)
+	}
+}
+
+func TestAPresetRowRefusesAnUnaccountedCurrentPlaceholder(t *testing.T) {
+	valid := SealedBlockRow{
+		Version: pointerTo("2"), Key: "private-rule", Content: "hello",
+		SHA256: "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+	}
+	for _, test := range []struct {
+		name   string
+		sealed []SealedBlockRow
+	}{
+		{name: "missing source row"},
+		{name: "mismatched source key", sealed: []SealedBlockRow{{
+			Version: pointerTo("2"), Key: "other-rule", Content: "hello", SHA256: valid.SHA256,
+		}}},
+		{name: "duplicate source key", sealed: []SealedBlockRow{valid, valid}},
+		{name: "mismatched source digest", sealed: []SealedBlockRow{{
+			Version: pointerTo("2"), Key: "private-rule", Content: "hello", SHA256: strings.Repeat("0", 64),
+		}}},
+		{name: "placeholder source value", sealed: []SealedBlockRow{{
+			Version: pointerTo("2"), Key: "private-rule", Content: "{{presetBlock::private-rule}}",
+			SHA256: strings.Repeat("0", 64),
+		}}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := (Module{}).Read(context.Background(), PresetRow{
+				Common: CommonRow{
+					ID: uuid.New(), OwnerID: uuid.New(), Name: "Sealed preset", CreatedAt: time.Now(),
+				},
+				LatestVersion: "2",
+				Payload: json.RawMessage(`{
+					"schemaVersion":1,
+					"blocks":[{
+						"id":"fragment-1","content":"{{presetBlock::private-rule}}",
+						"enabled":true,"sealed":true,"sealedKey":"private-rule"
+					}]
+				}`),
+				SealedBlocks: test.sealed,
+			})
+			if err == nil {
+				t.Fatal("read a current placeholder without one exact preserved value")
+			}
+			if strings.Contains(err.Error(), "private-rule") {
+				t.Errorf("migration error exposed a source key: %v", err)
+			}
+		})
+	}
+}
+
 func TestAThemeRowRecoversOnlyFontsFromItsGeneratedBundle(t *testing.T) {
 	result, err := (Module{}).Read(context.Background(), ThemeRow{
 		Common: CommonRow{

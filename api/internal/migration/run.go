@@ -142,7 +142,8 @@ func placeAsset(
 		ID: result.AssetID, OwnerID: result.OwnerID, Kind: result.Parsed.Kind,
 		Origin: result.OriginFormat, Header: result.Parsed.Header, Tags: tags,
 		IsNSFW: isNSFW, CreatedAt: result.CreatedAt, Blocks: blocks,
-		Remainder: result.Parsed.Remainder, Images: images, CoverID: cover,
+		Remainder: result.Parsed.Remainder, Protected: result.Parsed.Protected,
+		Images: images, CoverID: cover,
 	}, nil
 }
 

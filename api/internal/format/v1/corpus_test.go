@@ -95,6 +95,9 @@ func TestTheRealCorpusCrossesTheV1Reader(t *testing.T) {
 			stats.presetVersions, stats.changelogEntries, stats.sealedBlocks,
 		)
 	}
+	if stats.protectedPrompts != 85 {
+		t.Errorf("activated %d current sealed prompts, want 85", stats.protectedPrompts)
+	}
 	if stats.oversizedPresetBlurbs != 2 || stats.usageBlocks != 2 {
 		t.Errorf(
 			"moved %d oversized preset blurbs into %d usage blocks, want 2 and 2",
@@ -175,6 +178,7 @@ type corpusStats struct {
 	presetVersions          int
 	changelogEntries        int
 	sealedBlocks            int
+	protectedPrompts        int
 	oversizedPresetBlurbs   int
 	usageBlocks             int
 	characterTaglines       int
@@ -211,6 +215,8 @@ func corpusWriterRegistry(t *testing.T) *format.Registry {
 
 func writeCorpusResult(t *testing.T, registry *format.Registry, result Result, stats *corpusStats) {
 	t.Helper()
+	complete := result
+	complete.Parsed.Elements = restoreCorpusPrompts(result.Parsed.Elements, result.Parsed.Protected.Prompts)
 	targets := registry.OfferedTargets(format.CapabilitySubject{
 		Kind: result.Parsed.Kind, Origin: ID, Elements: result.Parsed.Elements,
 	})
@@ -241,12 +247,12 @@ func writeCorpusResult(t *testing.T, registry *format.Registry, result Result, s
 		}
 		artifact, err := module.(format.Writer).Write(context.Background(), format.ExportAsset{
 			Kind: result.Parsed.Kind, Header: result.Parsed.Header,
-			Elements: result.Parsed.Elements, Preserved: preserved, Cover: cover, Images: images,
+			Elements: complete.Parsed.Elements, Preserved: preserved, Cover: cover, Images: images,
 		})
 		if err != nil || len(artifact.Body) == 0 {
 			t.Fatalf("a %s writer did not serialize a v1-origin asset", result.Parsed.Kind)
 		}
-		rereadCorpusArtifact(t, registry, written, result, artifact, preservesOrigin)
+		rereadCorpusArtifact(t, registry, written, complete, artifact, preservesOrigin)
 		stats.writerArtifacts++
 		if result.Parsed.Kind == CharacterKind {
 			stats.writerMediaInputs += len(images)
@@ -255,6 +261,30 @@ func writeCorpusResult(t *testing.T, registry *format.Registry, result Result, s
 			}
 		}
 	}
+}
+
+func restoreCorpusPrompts(elements []block.Element, prompts []format.ProtectedPrompt) []block.Element {
+	texts := make(map[uuid.UUID]string, len(prompts))
+	for _, prompt := range prompts {
+		texts[prompt.FragmentID] = prompt.Text
+	}
+	restored := append([]block.Element(nil), elements...)
+	for elementIndex := range restored {
+		list, ok := restored[elementIndex].Content.(block.PromptList)
+		if !ok {
+			continue
+		}
+		list.Fragments = append([]block.PromptFragment(nil), list.Fragments...)
+		for fragmentIndex := range list.Fragments {
+			fragment := &list.Fragments[fragmentIndex]
+			if text, found := texts[fragment.ID]; found {
+				fragment.Text = text
+				fragment.Protected = false
+			}
+		}
+		restored[elementIndex].Content = list
+	}
+	return restored
 }
 
 func rereadCorpusArtifact(
@@ -885,6 +915,7 @@ func measureCorpusResult(t *testing.T, row Row, result Result, stats *corpusStat
 	case PresetRow:
 		stats.presetVersions += len(result.PreservedRecords)
 		stats.sealedBlocks += len(result.SealedBlocks)
+		stats.protectedPrompts += len(result.Parsed.Protected.Prompts)
 		for _, record := range result.PreservedRecords {
 			if record.AssetID != source.Common.ID || record.OwnerID != source.Common.OwnerID ||
 				record.Table != "preset_versions" || !json.Valid(record.Payload) {

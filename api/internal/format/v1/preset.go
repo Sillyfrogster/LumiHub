@@ -1,15 +1,20 @@
 package v1
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/Sillyfrogster/Illarin/api/internal/block"
 	"github.com/Sillyfrogster/Illarin/api/internal/format"
 	"github.com/Sillyfrogster/Illarin/api/internal/format/preset"
 	"github.com/Sillyfrogster/Illarin/api/internal/probe"
+	"github.com/Sillyfrogster/Illarin/api/internal/protected"
 	"github.com/google/uuid"
 )
 
@@ -17,6 +22,9 @@ func readPreset(ctx context.Context, row PresetRow) (readResult, error) {
 	parsed, err := parseJSON(ctx, preset.LumiverseModule{}, row.Payload)
 	if err != nil {
 		return readResult{}, fmt.Errorf("v1 preset payload: %w", err)
+	}
+	if err := activateCurrentSealedPrompts(&parsed, row); err != nil {
+		return readResult{}, err
 	}
 	parsed.Format = ID
 	parsed.Tags = append([]string(nil), row.Common.Tags...)
@@ -67,6 +75,87 @@ func readPreset(ctx context.Context, row PresetRow) (readResult, error) {
 		}
 	}
 	return readResult{parsed: parsed, preservedRecords: records, sealedBlocks: sealed}, nil
+}
+
+func activateCurrentSealedPrompts(parsed *format.Parsed, row PresetRow) error {
+	keys := map[string]bool{}
+	for elementIndex := range parsed.Elements {
+		element := &parsed.Elements[elementIndex]
+		list, ok := element.Content.(block.PromptList)
+		if !ok {
+			continue
+		}
+		for fragmentIndex := range list.Fragments {
+			fragment := &list.Fragments[fragmentIndex]
+			key, placeholder := v1SealedPlaceholder(fragment.Text)
+			if !placeholder {
+				continue
+			}
+			if key == "" || key != strings.TrimSpace(key) || len([]rune(key)) > 256 {
+				return fmt.Errorf("current sealed prompt has an invalid source key")
+			}
+			if keys[key] {
+				return fmt.Errorf("current sealed prompt source key appears more than once")
+			}
+			keys[key] = true
+			fragment.Protected = true
+			fragment.Text = ""
+			parsed.Protected.Prompts = append(parsed.Protected.Prompts, format.ProtectedPrompt{
+				FragmentID: fragment.ID, SourceKey: key, ReuseExisting: true,
+			})
+		}
+		element.Content = list
+	}
+	if len(parsed.Protected.Prompts) > 0 {
+		parsed.Protected.Apps = []string{protected.AppLumiverse}
+	}
+
+	current := make(map[string][]SealedBlockRow)
+	for _, sealed := range row.SealedBlocks {
+		if sealed.Version == nil {
+			if row.LatestVersion != "" {
+				continue
+			}
+		} else if *sealed.Version != row.LatestVersion {
+			continue
+		}
+		current[sealed.Key] = append(current[sealed.Key], sealed)
+	}
+
+	for index := range parsed.Protected.Prompts {
+		prompt := &parsed.Protected.Prompts[index]
+		if !prompt.ReuseExisting {
+			continue
+		}
+		matches := current[prompt.SourceKey]
+		if len(matches) != 1 {
+			return fmt.Errorf("current sealed prompt needs exactly one preserved source row")
+		}
+		sealed := matches[0]
+		if strings.TrimSpace(sealed.Content) == "{{presetBlock::"+prompt.SourceKey+"}}" {
+			return fmt.Errorf("current sealed prompt source contains its placeholder")
+		}
+		storedDigest, err := hex.DecodeString(sealed.SHA256)
+		if err != nil || len(storedDigest) != sha256.Size {
+			return fmt.Errorf("current sealed prompt source has an invalid digest")
+		}
+		digest := sha256.Sum256([]byte(sealed.Content))
+		if !bytes.Equal(storedDigest, digest[:]) {
+			return fmt.Errorf("current sealed prompt source does not match its digest")
+		}
+		prompt.Text = sealed.Content
+		prompt.ReuseExisting = false
+	}
+	return nil
+}
+
+func v1SealedPlaceholder(text string) (string, bool) {
+	trimmed := strings.TrimSpace(text)
+	const opening = "{{presetBlock::"
+	if !strings.HasPrefix(trimmed, opening) || !strings.HasSuffix(trimmed, "}}") {
+		return "", false
+	}
+	return strings.TrimSuffix(strings.TrimPrefix(trimmed, opening), "}}"), true
 }
 
 func parseJSON(ctx context.Context, reader format.Reader, body json.RawMessage) (format.Parsed, error) {
