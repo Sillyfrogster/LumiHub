@@ -11,9 +11,12 @@ import (
 	"time"
 
 	"github.com/Sillyfrogster/Illarin/api/internal/asset"
+	"github.com/Sillyfrogster/Illarin/api/internal/db"
 	"github.com/Sillyfrogster/Illarin/api/internal/delivery"
 	"github.com/Sillyfrogster/Illarin/api/internal/format"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -631,4 +634,74 @@ func changeTheAsset(t *testing.T, r *gin.Engine, session *http.Cookie, assetID s
 	if saved := saveBlock(t, r, session, assetID, core.ID, edited); saved.Code != http.StatusOK {
 		t.Fatalf("change the asset: %d %s", saved.Code, saved.Body.String())
 	}
+}
+
+func TestAnInstanceThatLostTheReceiveScopeReleasesNothing(t *testing.T) {
+	router, session, pool := newLinkingRouter(t)
+	grant := linkDeviceInstance(t, router, session, "Paper Lantern", "desk",
+		[]string{receiveScope, "library:sync"})
+	declareTargets(t, router, grant.AccessToken, []string{"test_opaque"})
+	assetID := publishedTestAsset(t, router, session)
+	sendToInstance(t, router, session, assetID, grant.Instance.ID)
+	if before := claimable(t, pool, grant.Instance.ID); before != 1 {
+		t.Fatalf("%d deliveries were claimable before the scope went, want 1", before)
+	}
+
+	if _, err := pool.Exec(context.Background(),
+		`update linked_instances set scopes = array['library:sync'] where id = $1`,
+		grant.Instance.ID,
+	); err != nil {
+		t.Fatalf("narrow the instance scopes: %v", err)
+	}
+
+	if after := claimable(t, pool, grant.Instance.ID); after != 0 {
+		t.Fatalf("%d deliveries were released to an instance that cannot receive them", after)
+	}
+}
+
+func TestARevokedInstanceReleasesNothingEvenWithRowsLeftBehind(t *testing.T) {
+	router, session, pool := newLinkingRouter(t)
+	grant := linkDeviceInstance(t, router, session, "Paper Lantern", "desk", []string{receiveScope})
+	declareTargets(t, router, grant.AccessToken, []string{"test_opaque"})
+	assetID := publishedTestAsset(t, router, session)
+	sendToInstance(t, router, session, assetID, grant.Instance.ID)
+
+	if _, err := pool.Exec(context.Background(),
+		`update linked_instances
+		    set revoked_at = now(), refresh_token_hash = null, legacy_token_hash = null,
+		        application_version = null, protocol_version = null,
+		        capabilities = '{}', accepted_targets = '{}'
+		  where id = $1`,
+		grant.Instance.ID,
+	); err != nil {
+		t.Fatalf("revoke the instance without clearing its queue: %v", err)
+	}
+
+	if after := claimable(t, pool, grant.Instance.ID); after != 0 {
+		t.Fatalf("%d deliveries were released to a revoked instance", after)
+	}
+}
+
+// claimable runs the claim the delivery wait runs, which is where an instance is authorised.
+func claimable(t *testing.T, pool *pgxpool.Pool, instanceID string) int {
+	t.Helper()
+	parsed, err := uuid.Parse(instanceID)
+	if err != nil {
+		t.Fatalf("parse the instance id: %v", err)
+	}
+	tx, err := pool.Begin(context.Background())
+	if err != nil {
+		t.Fatalf("begin a claim: %v", err)
+	}
+	defer tx.Rollback(context.Background())
+	claimed, err := db.New(tx).ClaimDeliveries(context.Background(), db.ClaimDeliveriesParams{
+		LeaseExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(time.Minute), Valid: true},
+		InstanceID:     pgtype.UUID{Bytes: parsed, Valid: true},
+		MaxAttempts:    5,
+		BatchSize:      10,
+	})
+	if err != nil {
+		t.Fatalf("claim deliveries: %v", err)
+	}
+	return len(claimed)
 }

@@ -26,8 +26,7 @@ type AbandonExhaustedDeliveriesParams struct {
 	MaxAttempts int32
 }
 
-// A delivery the instance keeps taking and never acknowledging stops rather
-// than being handed out forever.
+// A delivery an instance keeps taking and never acknowledging stops rather than being handed out forever.
 func (q *Queries) AbandonExhaustedDeliveries(ctx context.Context, arg AbandonExhaustedDeliveriesParams) (int64, error) {
 	result, err := q.db.Exec(ctx, abandonExhaustedDeliveries, arg.InstanceID, arg.MaxAttempts)
 	if err != nil {
@@ -666,6 +665,10 @@ const claimDeliveries = `-- name: ClaimDeliveries :many
 with candidates as (
     select waiting.id
       from instance_deliveries as waiting
+      join linked_instances as instance
+        on instance.id = waiting.instance_id
+       and instance.revoked_at is null
+       and instance.scopes @> array['asset:receive']
      where waiting.instance_id = $2
        and waiting.expires_at > now()
        and waiting.attempts < $3
@@ -673,7 +676,7 @@ with candidates as (
             or (waiting.state = 'released' and waiting.lease_expires_at <= now()))
      order by waiting.queued_at, waiting.id
      limit $4
-     for update skip locked
+     for update of waiting skip locked
 )
 update instance_deliveries as delivery
    set state = 'released',
@@ -699,8 +702,8 @@ type ClaimDeliveriesRow struct {
 	LeaseExpiresAt pgtype.Timestamptz
 }
 
-// One claim takes the waiting work and the work whose lease ran out, so a
-// delivery an instance took but never acknowledged comes back around.
+// One claim takes both the waiting work and the work whose lease ran out.
+// The instance is authorised here, at the moment work leaves the queue, so a link cut since the wait opened releases nothing.
 func (q *Queries) ClaimDeliveries(ctx context.Context, arg ClaimDeliveriesParams) ([]ClaimDeliveriesRow, error) {
 	rows, err := q.db.Query(ctx, claimDeliveries,
 		arg.LeaseExpiresAt,
@@ -2965,8 +2968,7 @@ type ReportLibraryEntriesParams struct {
 	Generations []int32
 }
 
-// An instance that cannot say which version it holds has not told us it is
-// behind, so a missing generation is recorded as the one the asset has now.
+// An instance that cannot say which version it holds has not told us it is behind.
 func (q *Queries) ReportLibraryEntries(ctx context.Context, arg ReportLibraryEntriesParams) (int64, error) {
 	result, err := q.db.Exec(ctx, reportLibraryEntries, arg.InstanceID, arg.AssetIds, arg.Generations)
 	if err != nil {

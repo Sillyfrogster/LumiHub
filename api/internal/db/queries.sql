@@ -1081,9 +1081,14 @@ update instance_deliveries
 
 -- name: ClaimDeliveries :many
 -- One claim takes both the waiting work and the work whose lease ran out.
+-- The instance is authorised here, at the moment work leaves the queue, so a link cut since the wait opened releases nothing.
 with candidates as (
     select waiting.id
       from instance_deliveries as waiting
+      join linked_instances as instance
+        on instance.id = waiting.instance_id
+       and instance.revoked_at is null
+       and instance.scopes @> array['asset:receive']
      where waiting.instance_id = sqlc.arg('instance_id')
        and waiting.expires_at > now()
        and waiting.attempts < sqlc.arg('max_attempts')
@@ -1091,7 +1096,7 @@ with candidates as (
             or (waiting.state = 'released' and waiting.lease_expires_at <= now()))
      order by waiting.queued_at, waiting.id
      limit sqlc.arg('batch_size')
-     for update skip locked
+     for update of waiting skip locked
 )
 update instance_deliveries as delivery
    set state = 'released',
