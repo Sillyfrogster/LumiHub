@@ -1969,7 +1969,7 @@ paths:
         '404':
           description: No such media variant
         '503':
-          description: The derivative yields because storage is low
+          description: The image is temporarily unavailable because storage is low
   /v1/ingests/{id}:
     get:
       operationId: getIngest

@@ -4895,7 +4895,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description The derivative yields because storage is low */
+      /** @description The image is temporarily unavailable because storage is low */
       503: {
         headers: {
           [name: string]: unknown;
