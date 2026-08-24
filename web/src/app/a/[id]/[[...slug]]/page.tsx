@@ -13,6 +13,7 @@ import { assetDisplayName } from "@/lib/asset-name";
 import { assetHoldsNothing } from "@/lib/asset-page-content";
 import { assetRedirect, isAssetId } from "@/lib/asset-url";
 import { KIND_LABELS } from "@/lib/kinds";
+import { protectedAppLabel } from "@/lib/protected-apps";
 import { formattingWasRemoved } from "@/lib/rich-text";
 import { AssetBlocks } from "./AssetBlocks";
 import { AssetMedia } from "./AssetMedia";
@@ -181,7 +182,7 @@ export default async function AssetPage({
                 {asset.linkedInstallOnly ? (
                   <p className={styles.noBlurb}>
                     Linked install only. Allowed apps:{" "}
-                    {asset.allowedApps.map(appLabel).join(", ")}.
+                    {asset.allowedApps.map(protectedAppLabel).join(", ")}.
                   </p>
                 ) : null}
 
@@ -224,9 +225,4 @@ export default async function AssetPage({
       </article>
     </div>
   );
-}
-
-function appLabel(app: string) {
-  if (app === "lumiverse") return "Lumiverse";
-  return app;
 }

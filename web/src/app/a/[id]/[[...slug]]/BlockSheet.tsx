@@ -10,6 +10,7 @@ import {
   saveAssetBlock,
 } from "@/lib/api/query";
 import { LAYOUTS } from "@/lib/page-arrangement";
+import { protectedAppLabel } from "@/lib/protected-apps";
 import { LayoutPicker, WidthPicker } from "./ArrangementPickers";
 import styles from "./BlockSheet.module.css";
 import { ElementEditor } from "./ElementEditors";
@@ -53,8 +54,10 @@ export function BlockSheet({
   const [arrangementMessage, setArrangementMessage] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [allowedApps, setAllowedApps] = useState(initialAllowedApps);
+  const [finalUnseal, setFinalUnseal] = useState<AssetElement | null>(null);
 
   const expandedElement = elements.find((element) => element.id === expanded);
+  const editingIsLocked = pending || finalUnseal !== null;
 
   useEffect(() => {
     dialog.current?.showModal();
@@ -65,16 +68,39 @@ export function BlockSheet({
   }
 
   function replaceElement(next: AssetElement) {
-    setElements((current) =>
-      current.map((element) => (element.id === next.id ? next : element)),
+    const previous = elements.find((element) => element.id === next.id);
+    const after = elements.map((element) =>
+      element.id === next.id ? next : element,
     );
+    if (previous && finalPromptWasUnsealed(previous, next, elements, after)) {
+      setFinalUnseal(next);
+      return;
+    }
+    setElements(after);
+  }
+
+  function confirmFinalUnseal() {
+    if (!finalUnseal) return;
+    setElements((current) =>
+      current.map((element) =>
+        element.id === finalUnseal.id ? finalUnseal : element,
+      ),
+    );
+    setAllowedApps([]);
+    setFinalUnseal(null);
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending) return;
-    setPending(true);
     setMessage("");
+    if (hasSealedPrompts(elements) && allowedApps.length === 0) {
+      setMessage(
+        "Choose at least one allowed app before saving a sealed prompt.",
+      );
+      return;
+    }
+    setPending(true);
     try {
       const saved = await saveAssetBlock(assetId, block.id, {
         title: useDefaultTitle ? null : title,
@@ -140,7 +166,7 @@ export function BlockSheet({
                 setUseDefaultTitle(false);
                 setTitle(event.target.value);
               }}
-              disabled={pending}
+              disabled={editingIsLocked}
             />
             {useDefaultTitle ? (
               <p className={styles.defaultTitle}>
@@ -155,7 +181,7 @@ export function BlockSheet({
                   setUseDefaultTitle(true);
                   setTitle("");
                 }}
-                disabled={pending}
+                disabled={editingIsLocked}
               >
                 <RotateCcw size={15} aria-hidden="true" />
                 Use default name
@@ -183,7 +209,7 @@ export function BlockSheet({
                   elementLabels={elements.map(
                     (element) => element.label || "Content",
                   )}
-                  pending={pending}
+                  pending={editingIsLocked}
                   inline
                   onIssue={setArrangementMessage}
                   onSelect={(choice) => {
@@ -201,7 +227,7 @@ export function BlockSheet({
                   width={width}
                   layout={layout}
                   suggestedWidth={suggestedWidth}
-                  pending={pending}
+                  pending={editingIsLocked}
                   inline
                   onIssue={setArrangementMessage}
                   onSelect={setWidth}
@@ -222,7 +248,7 @@ export function BlockSheet({
                 assetId={assetId}
                 element={element}
                 images={images}
-                pending={pending}
+                pending={editingIsLocked}
                 onChange={replaceElement}
                 onImageAdded={onImageAdded}
                 onExpand={() => setExpanded(element.id)}
@@ -242,33 +268,66 @@ export function BlockSheet({
             <fieldset className={styles.protectedDelivery}>
               <legend>Allowed apps</legend>
               <p>
-                A linked application receives the prompt text. Sealing is not
-                encryption.
+                An allowed linked application receives the prompt text in
+                plaintext. Sealing is not encryption.
               </p>
-              {eligibleApps.includes("lumiverse") ? (
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={allowedApps.includes("lumiverse")}
-                    onChange={(event) =>
-                      setAllowedApps((current) =>
-                        event.target.checked
-                          ? current.includes("lumiverse")
-                            ? current
-                            : ["lumiverse", ...current]
-                          : current.filter((app) => app !== "lumiverse"),
-                      )
-                    }
-                    disabled={pending}
-                  />
-                  Lumiverse
-                </label>
+              {eligibleApps.length > 0 ? (
+                eligibleApps.map((app) => (
+                  <label key={app}>
+                    <input
+                      type="checkbox"
+                      checked={allowedApps.includes(app)}
+                      onChange={(event) =>
+                        setAllowedApps((current) =>
+                          event.target.checked
+                            ? current.includes(app)
+                              ? current
+                              : [app, ...current]
+                            : current.filter(
+                                (currentApp) => currentApp !== app,
+                              ),
+                        )
+                      }
+                      disabled={editingIsLocked}
+                    />
+                    {protectedAppLabel(app)}
+                  </label>
+                ))
               ) : (
                 <p>
                   No linked app can receive this preset in its current form.
                 </p>
               )}
             </fieldset>
+          ) : null}
+
+          {finalUnseal ? (
+            <section className={styles.finalUnseal} aria-live="polite">
+              <div>
+                <h3>Make this prompt public?</h3>
+                <p>
+                  This is the final sealed prompt. Saving will restore public
+                  prompt text and ordinary downloads.
+                </p>
+              </div>
+              <div>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => setFinalUnseal(null)}
+                >
+                  Keep sealed
+                </button>
+                <button
+                  type="button"
+                  className={styles.confirmUnseal}
+                  disabled={pending}
+                  onClick={confirmFinalUnseal}
+                >
+                  Make prompt public
+                </button>
+              </div>
+            </section>
           ) : null}
 
           <section
@@ -283,7 +342,7 @@ export function BlockSheet({
               {block.hideable ? (
                 <button
                   type="button"
-                  disabled={pending}
+                  disabled={editingIsLocked}
                   onClick={() => {
                     setPending(true);
                     setMessage("");
@@ -328,10 +387,19 @@ export function BlockSheet({
         </div>
 
         <footer className={styles.footer}>
-          <button type="button" className={styles.cancel} onClick={close}>
+          <button
+            type="button"
+            className={styles.cancel}
+            disabled={editingIsLocked}
+            onClick={close}
+          >
             Cancel
           </button>
-          <button type="submit" className={styles.save} disabled={pending}>
+          <button
+            type="submit"
+            className={styles.save}
+            disabled={editingIsLocked}
+          >
             {pending ? "Saving…" : "Save block"}
           </button>
         </footer>
@@ -343,7 +411,7 @@ export function BlockSheet({
           images={images}
           // The sheet stays open behind it, holding the rest of the block.
           returnLabel={`Return to ${block.title}`}
-          pending={false}
+          pending={editingIsLocked}
           message=""
           onChange={replaceElement}
           onLeave={() => setExpanded(null)}
@@ -360,6 +428,32 @@ function hasSealedPrompts(elements: AssetElement[]): boolean {
       element.type === "prompt_list" &&
       "fragments" in element.content &&
       element.content.fragments.some((fragment) => fragment.protected),
+  );
+}
+
+function finalPromptWasUnsealed(
+  previous: AssetElement,
+  next: AssetElement,
+  before: AssetElement[],
+  after: AssetElement[],
+): boolean {
+  if (
+    previous.type !== "prompt_list" ||
+    next.type !== "prompt_list" ||
+    !("fragments" in previous.content) ||
+    !("fragments" in next.content) ||
+    !hasSealedPrompts(before) ||
+    hasSealedPrompts(after)
+  ) {
+    return false;
+  }
+  const wasProtected = new Set(
+    previous.content.fragments
+      .filter((fragment) => fragment.protected)
+      .map((fragment) => fragment.id),
+  );
+  return next.content.fragments.some(
+    (fragment) => wasProtected.has(fragment.id) && !fragment.protected,
   );
 }
 

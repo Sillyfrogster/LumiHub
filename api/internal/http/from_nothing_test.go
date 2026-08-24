@@ -50,12 +50,14 @@ type startedAsset struct {
 		DetailURL string `json:"detailUrl"`
 		ThumbURL  string `json:"thumbUrl"`
 	} `json:"media"`
-	Readiness     []readinessItem  `json:"readiness"`
-	Blocks        []startedBlock   `json:"blocks"`
-	AddableBlocks []addableBlock   `json:"addableBlocks"`
-	Downloads     []downloadTarget `json:"downloads"`
-	EligibleApps  []string         `json:"eligibleApps"`
-	Original      *originalUpload  `json:"original"`
+	Readiness         []readinessItem  `json:"readiness"`
+	Blocks            []startedBlock   `json:"blocks"`
+	AddableBlocks     []addableBlock   `json:"addableBlocks"`
+	Downloads         []downloadTarget `json:"downloads"`
+	LinkedInstallOnly bool             `json:"linkedInstallOnly"`
+	AllowedApps       []string         `json:"allowedApps"`
+	EligibleApps      []string         `json:"eligibleApps"`
+	Original          *originalUpload  `json:"original"`
 }
 
 type downloadTarget struct {

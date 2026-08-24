@@ -69,6 +69,81 @@ func TestASealedPromptKeepsItsTextForTheOwnerAndNotAReader(t *testing.T) {
 	}
 }
 
+func TestSeveralSealedPromptsCanReturnToPublicContent(t *testing.T) {
+	r, session := newVerifiedTestRouter(t)
+	started := startPreset(t, r, session, "lumiverse")
+	core := editableBlock(blockNamed(t, started.Blocks, "preset_core"))
+	const publicText = "Readers can use this instruction."
+	const firstSecret = "Only allowed applications receive this first instruction."
+	const secondSecret = "Only allowed applications receive this second instruction."
+	groupID := uuid.NewString()
+	core.Elements[0].Content = json.RawMessage(`{
+		"groups":[{"id":"` + groupID + `","name":"Private guidance"}],
+		"fragments":[
+			{"name":"Visible","role":"system","text":"` + publicText + `","enabled":true},
+			{"name":"First sealed","role":"user","placement":"pre_history","text":"` + firstSecret + `","protected":true,"enabled":false,"groupId":"` + groupID + `"},
+			{"name":"Second sealed","role":"assistant","placement":"post_history","text":"` + secondSecret + `","protected":true,"enabled":true,"groupId":"` + groupID + `"}
+		]
+	}`)
+	apps := []string{"lumiverse"}
+	core.AllowedApps = &apps
+	if got := saveBlock(t, r, session, started.ID, started.Blocks[0].ID, core); got.Code != http.StatusOK {
+		t.Fatalf("save several sealed prompts status = %d, want 200: %s", got.Code, got.Body.String())
+	}
+
+	owner := fetchStartedAsset(t, r, session, started.ID)
+	if !owner.LinkedInstallOnly || len(owner.AllowedApps) != 1 || owner.AllowedApps[0] != "lumiverse" {
+		t.Fatalf("sealed prompt policy = linked install only %t, allowed apps %v", owner.LinkedInstallOnly, owner.AllowedApps)
+	}
+	ownerContent := string(owner.Blocks[0].Elements[0].Content)
+	for _, want := range []string{publicText, firstSecret, secondSecret, "First sealed", "pre_history", "Private guidance"} {
+		if !strings.Contains(ownerContent, want) {
+			t.Errorf("owner response does not contain %q: %s", want, ownerContent)
+		}
+	}
+	if got := saveIdentity(t, r, session, started.ID, `{"name":"Several sealed prompts","isNsfw":false}`); got.Code != http.StatusNoContent {
+		t.Fatalf("save identity status = %d, want 204: %s", got.Code, got.Body.String())
+	}
+	if got := publishAsset(t, r, session, started.ID); got.Code != http.StatusOK {
+		t.Fatalf("publish sealed preset status = %d, want 200: %s", got.Code, got.Body.String())
+	}
+
+	reader := send(t, r, httptest.NewRequest(http.MethodGet, "/v1/assets/"+started.ID, nil))
+	if reader.Code != http.StatusOK {
+		t.Fatalf("reader status = %d, want 200: %s", reader.Code, reader.Body.String())
+	}
+	if !strings.Contains(reader.Body.String(), publicText) {
+		t.Fatal("a reader did not receive the ordinary prompt")
+	}
+	for _, secret := range []string{firstSecret, secondSecret} {
+		if strings.Contains(reader.Body.String(), secret) {
+			t.Fatalf("a reader response contained %q", secret)
+		}
+	}
+
+	core = editableBlock(blockNamed(t, owner.Blocks, "preset_core"))
+	content := strings.ReplaceAll(string(core.Elements[0].Content), `"protected":true`, `"protected":false`)
+	core.Elements[0].Content = json.RawMessage(content)
+	core.AllowedApps = &[]string{}
+	if got := saveBlock(t, r, session, started.ID, started.Blocks[0].ID, core); got.Code != http.StatusOK {
+		t.Fatalf("unseal final prompts status = %d, want 200: %s", got.Code, got.Body.String())
+	}
+	owner = fetchStartedAsset(t, r, session, started.ID)
+	if owner.LinkedInstallOnly || len(owner.AllowedApps) != 0 {
+		t.Fatalf("unsealed prompt policy = linked install only %t, allowed apps %v", owner.LinkedInstallOnly, owner.AllowedApps)
+	}
+
+	reader = send(t, r, httptest.NewRequest(http.MethodGet, "/v1/assets/"+started.ID, nil))
+	if reader.Code != http.StatusOK {
+		t.Fatalf("reader after unsealing status = %d, want 200: %s", reader.Code, reader.Body.String())
+	}
+	for _, want := range []string{publicText, firstSecret, secondSecret} {
+		if !strings.Contains(reader.Body.String(), want) {
+			t.Errorf("reader response after unsealing does not contain %q", want)
+		}
+	}
+}
+
 func editableBlock(block startedBlock) saveBlockBody {
 	elements := make([]saveBlockElement, len(block.Elements))
 	for i, element := range block.Elements {
