@@ -132,6 +132,7 @@ vet: ## Report suspicious Go code
 .PHONY: lint
 lint: ## Check the site with Biome and the TypeScript compiler
 	cd web && bun run lint
+	cd web && bunx next typegen
 	cd web && bunx tsc --noEmit
 
 .PHONY: fmt
