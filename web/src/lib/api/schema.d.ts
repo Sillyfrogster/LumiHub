@@ -3688,8 +3688,22 @@ export interface operations {
         };
         content?: never;
       };
+      /** @description The file exceeds an upload limit or the account storage cap */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
       /** @description The uploaded bytes have been purged and cannot return */
       422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The storage reserve cannot accept the upload */
+      503: {
         headers: {
           [name: string]: unknown;
         };
@@ -3858,6 +3872,20 @@ export interface operations {
       };
       /** @description The asset is withheld and cannot be changed */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The file exceeds an upload limit or the account storage cap */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The storage reserve cannot accept the revision */
+      503: {
         headers: {
           [name: string]: unknown;
         };
@@ -4807,6 +4835,20 @@ export interface operations {
         };
         content?: never;
       };
+      /** @description The image exceeds an upload limit or the account storage cap */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The storage reserve cannot accept the image */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
     };
   };
   getMediaVariant: {
@@ -4848,6 +4890,13 @@ export interface operations {
       };
       /** @description No such media variant */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The derivative yields because storage is low */
+      503: {
         headers: {
           [name: string]: unknown;
         };

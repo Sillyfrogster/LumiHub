@@ -29,6 +29,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/sys/unix"
 )
 
 type parseFailureModule struct{}
@@ -166,6 +167,121 @@ func TestUploadReturnsAPendingOperation(t *testing.T) {
 	}
 }
 
+func TestUploadWaitsWhenItsMaximumWriteWouldCrossTheStorageReserve(t *testing.T) {
+	root := t.TempDir()
+	var filesystem unix.Statfs_t
+	if err := unix.Statfs(root, &filesystem); err != nil {
+		t.Fatalf("read free space: %v", err)
+	}
+	available := int64(filesystem.Bavail) * filesystem.Bsize
+	const headroom = int64(8 << 20)
+	if available <= headroom {
+		t.Skip("test filesystem has less than 8 MB free")
+	}
+
+	r, session, _, pool := newVerifiedIngestRouterWithStoreFactory(
+		t, format.NewRegistry(), asset.DefaultIngestSettings(),
+		func(pool *pgxpool.Pool) (storage.Store, error) {
+			return storage.NewStoreWithCapacity(pool, root, storage.Capacity{
+				FreeSpaceReserveBytes: available - headroom,
+				MaximumBlobWriteBytes: 32 << 20,
+			})
+		},
+	)
+
+	response := send(t, r, authorized(
+		uploadRequest(t, exampleMetadata("Waiting theme"), []byte("small upload")),
+		session,
+	))
+
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want 503: %s", response.Code, response.Body.String())
+	}
+	if response.Header().Get("Location") != "" {
+		t.Fatalf("refused upload has Location %q", response.Header().Get("Location"))
+	}
+	var operations int
+	if err := pool.QueryRow(context.Background(), `select count(*) from ingest_operations`).Scan(&operations); err != nil {
+		t.Fatalf("count ingest operations: %v", err)
+	}
+	if operations != 0 {
+		t.Fatalf("refused upload recorded %d ingest operations", operations)
+	}
+}
+
+func TestAccountStorageCapChargesSharedBytesPerAccountButNotRepeatedUse(t *testing.T) {
+	shared := []byte("shared canonical bytes")
+	root := t.TempDir()
+	var blobs storage.Store
+	r, firstSession, assets, pool := newVerifiedIngestRouterWithStoreFactory(
+		t, format.NewRegistry(), asset.DefaultIngestSettings(),
+		func(pool *pgxpool.Pool) (storage.Store, error) {
+			var err error
+			blobs, err = storage.NewStore(pool, root)
+			return blobs, err
+		},
+	)
+	seed := send(t, r, authorized(
+		uploadRequest(t, exampleMetadata("First use"), shared), firstSession,
+	))
+	if seed.Code != http.StatusAccepted {
+		t.Fatalf("seed upload status = %d, want 202: %s", seed.Code, seed.Body.String())
+	}
+	if processed, err := assets.ProcessNextIngest(context.Background()); err != nil || !processed {
+		t.Fatalf("process seed ingest = %v, %v; want true, nil", processed, err)
+	}
+	created := pollIngestAsset(t, r, firstSession, seed.Header().Get("Location"))
+
+	settings := asset.DefaultIngestSettings()
+	settings.AccountStorageCapBytes = int64(len(shared) - 1)
+	limitedAssets := asset.NewServiceWithIngestSettings(
+		pool, format.NewRegistry(), blobs, settings,
+	)
+	outbox := &verificationOutbox{}
+	accounts := account.NewService(pool, outbox, nil, "http://localhost:3000")
+	links := newTestLinkingService(pool)
+	handlers := NewHandlers(
+		limitedAssets, accounts, links, newTestDeliveryService(pool, limitedAssets, links), 1<<20,
+	)
+	limitedRouter := registerTestRouter(t, handlers, DefaultDeadlines())
+
+	repeated := send(t, limitedRouter, authorized(
+		uploadRequest(t, exampleMetadata("Repeated use"), shared), firstSession,
+	))
+	if repeated.Code != http.StatusAccepted {
+		t.Fatalf("repeated upload status = %d, want 202: %s", repeated.Code, repeated.Body.String())
+	}
+	repeatedRevision := send(t, limitedRouter, authorized(
+		revisionRequest(t, created.ID, "same.bin", shared), firstSession,
+	))
+	if repeatedRevision.Code != http.StatusAccepted {
+		t.Fatalf("repeated revision status = %d, want 202: %s", repeatedRevision.Code, repeatedRevision.Body.String())
+	}
+	distinctRevision := send(t, limitedRouter, authorized(
+		revisionRequest(t, created.ID, "different.bin", []byte("different canonical bytes")), firstSession,
+	))
+	if distinctRevision.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("distinct revision status = %d, want 413: %s", distinctRevision.Code, distinctRevision.Body.String())
+	}
+
+	secondSession := signUp(t, limitedRouter, "second@example.com", "second.creator")
+	verificationURL, err := url.Parse(outbox.messages[0].link)
+	if err != nil {
+		t.Fatalf("parse second verification link: %v", err)
+	}
+	verified := sendJSON(t, limitedRouter, http.MethodPost, "/v1/auth/verify-email",
+		`{"token":"`+verificationURL.Query().Get("token")+`"}`)
+	if verified.Code != http.StatusOK {
+		t.Fatalf("verify second account: %d %s", verified.Code, verified.Body.String())
+	}
+	charged := send(t, limitedRouter, authorized(
+		uploadRequest(t, exampleMetadata("Somebody else's use"), shared), secondSession,
+	))
+	if charged.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("cross-account upload status = %d, want 413: %s", charged.Code, charged.Body.String())
+	}
+}
+
 func authorizedJSONRequest(
 	t *testing.T,
 	method string,
@@ -253,14 +369,29 @@ func newVerifiedIngestRouterWithStore(
 	decorate func(storage.Store) storage.Store,
 ) (*gin.Engine, *http.Cookie, *asset.Service, *pgxpool.Pool) {
 	t.Helper()
+	return newVerifiedIngestRouterWithStoreFactory(t, registry, settings,
+		func(pool *pgxpool.Pool) (storage.Store, error) {
+			blobs, err := storage.NewStore(pool, t.TempDir())
+			if err == nil && decorate != nil {
+				blobs = decorate(blobs)
+			}
+			return blobs, err
+		},
+	)
+}
+
+func newVerifiedIngestRouterWithStoreFactory(
+	t *testing.T,
+	registry *format.Registry,
+	settings asset.IngestSettings,
+	storeFactory func(*pgxpool.Pool) (storage.Store, error),
+) (*gin.Engine, *http.Cookie, *asset.Service, *pgxpool.Pool) {
+	t.Helper()
 	gin.SetMode(gin.TestMode)
 	pool := testdb.Connect(t)
-	blobs, err := storage.NewStore(pool, t.TempDir())
+	blobs, err := storeFactory(pool)
 	if err != nil {
 		t.Fatalf("storage: %v", err)
-	}
-	if decorate != nil {
-		blobs = decorate(blobs)
 	}
 	if registry.Empty() {
 		if err := registry.Register(opaqueTestModule{}); err != nil {
@@ -500,6 +631,57 @@ func TestAnUnreadableOptionalCharXImageDoesNotRejectTheCharacter(t *testing.T) {
 	assetsRemainder, ok := cardRemainder["assets"]
 	if !ok || !bytes.Contains(assetsRemainder, []byte("bad.png")) {
 		t.Fatalf("preserved card data = %s", preserved)
+	}
+}
+
+func TestExtractedMediaCannotTakeTheAccountPastItsStorageCap(t *testing.T) {
+	registry := format.NewRegistry()
+	for _, module := range character.Modules() {
+		if err := registry.Register(module); err != nil {
+			t.Fatalf("register %s: %v", module.ID(), err)
+		}
+	}
+	image := httpTestPNG(t, 120, 60)
+	card := []byte(`{
+		"spec":"chara_card_v3","spec_version":"3.0",
+		"data":{"name":"Ana","description":"Quiet","first_mes":"Hello",
+			"assets":[{"type":"emotion","uri":"embeded://assets/happy.png","name":"happy","ext":"png"}]}
+	}`)
+	file := zipCharacterCardWithFiles(t, card, map[string][]byte{"assets/happy.png": image})
+	settings := asset.DefaultIngestSettings()
+	settings.AccountStorageCapBytes = int64(len(file) + len(image) - 1)
+	r, session, assets, pool := newVerifiedIngestRouterWithSettings(t, registry, settings)
+	metadata := exampleMetadata("Ana")
+	metadata["filename"] = "ana.charx"
+	upload := send(t, r, authorized(uploadRequest(t, metadata, file), session))
+	if upload.Code != http.StatusAccepted {
+		t.Fatalf("upload status = %d, want 202: %s", upload.Code, upload.Body.String())
+	}
+
+	if processed, err := assets.ProcessNextIngest(context.Background()); err != nil || !processed {
+		t.Fatalf("process ingest = %v, %v; want true, nil", processed, err)
+	}
+	poll := send(t, r, authorized(
+		httptest.NewRequest(http.MethodGet, upload.Header().Get("Location"), nil), session,
+	))
+	var operation struct {
+		Status  string `json:"status"`
+		Failure *struct {
+			Reason string `json:"reason"`
+		} `json:"failure"`
+	}
+	if err := json.Unmarshal(poll.Body.Bytes(), &operation); err != nil {
+		t.Fatalf("decode ingest: %v", err)
+	}
+	if operation.Status != "failed" || operation.Failure == nil || operation.Failure.Reason != "limit_exceeded" {
+		t.Fatalf("operation = %#v, want a storage-limit failure", operation)
+	}
+	var assetCount int
+	if err := pool.QueryRow(context.Background(), `select count(*) from assets`).Scan(&assetCount); err != nil {
+		t.Fatalf("count assets: %v", err)
+	}
+	if assetCount != 0 {
+		t.Fatalf("over-cap ingest recorded %d assets", assetCount)
 	}
 }
 

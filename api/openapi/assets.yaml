@@ -135,8 +135,12 @@ paths:
           description: No account is signed in
         '403':
           description: The signed-in account has not verified its email
+        '413':
+          description: The file exceeds an upload limit or the account storage cap
         '422':
           description: The uploaded bytes have been purged and cannot return
+        '503':
+          description: The storage reserve cannot accept the upload
   /v1/assets/{id}:
     get:
       operationId: getAsset
@@ -267,6 +271,10 @@ paths:
           description: The asset does not belong to the creator
         '409':
           description: The asset is withheld and cannot be changed
+        '413':
+          description: The file exceeds an upload limit or the account storage cap
+        '503':
+          description: The storage reserve cannot accept the revision
   /v1/assets/{id}/blocks/{blockId}:
     put:
       operationId: saveAssetBlock
@@ -934,6 +942,10 @@ paths:
           description: The asset does not belong to the creator
         '409':
           description: The asset is withheld and cannot be changed
+        '413':
+          description: The image exceeds an upload limit or the account storage cap
+        '503':
+          description: The storage reserve cannot accept the image
   /media/{media_id}/{variant}/{derivative_version}:
     get:
       operationId: getMediaVariant
@@ -1002,6 +1014,8 @@ paths:
                 format: binary
         '404':
           description: No such media variant
+        '503':
+          description: The derivative yields because storage is low
   /v1/ingests/{id}:
     get:
       operationId: getIngest

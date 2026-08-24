@@ -55,7 +55,10 @@ func run() error {
 	}
 	defer from.Close()
 
-	blob, err := storage.NewStore(target, cfg.UploadsDir)
+	blob, err := storage.NewStoreWithCapacity(target, cfg.UploadsDir, storage.Capacity{
+		FreeSpaceReserveBytes: cfg.StorageFreeSpaceReserveBytes,
+		MaximumBlobWriteBytes: max(cfg.MaxUploadBytes, int64(cfg.ProbeLimits.MaxEntryBytes)),
+	})
 	if err != nil {
 		return fmt.Errorf("storage: %w", err)
 	}
@@ -88,7 +91,9 @@ func run() error {
 
 	report, err := migration.Run(ctx, migration.Settings{
 		Source: from, Target: target, Backup: archive,
-		Assets:  asset.NewServiceForSite(target, registry, blob, cfg.ProbeLimits, cfg.SiteURL),
+		Assets: asset.NewServiceForSite(
+			target, registry, blob, cfg.ProbeLimits, cfg.SiteURL, cfg.AccountStorageCapBytes,
+		),
 		Fetcher: migration.NewAllowlistedFetcher(allowed, migration.DefaultFetchLimits()),
 	})
 	if err != nil {

@@ -8,10 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/Sillyfrogster/Illarin/api/internal/db"
 	"github.com/Sillyfrogster/Illarin/api/internal/postgres"
@@ -19,12 +21,15 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/sys/unix"
 )
 
 type contentStore struct {
-	queries *db.Queries
-	pool    *pgxpool.Pool
-	root    string
+	queries  *db.Queries
+	pool     *pgxpool.Pool
+	root     string
+	capacity Capacity
+	writes   sync.Mutex
 }
 
 const (
@@ -34,15 +39,30 @@ const (
 
 // NewStore opens a content-addressed store rooted at root.
 func NewStore(pool *pgxpool.Pool, root string) (Store, error) {
+	return NewStoreWithCapacity(pool, root, Capacity{})
+}
+
+// NewStoreWithCapacity opens a content-addressed store with disk safeguards.
+func NewStoreWithCapacity(pool *pgxpool.Pool, root string, capacity Capacity) (Store, error) {
+	if capacity.FreeSpaceReserveBytes < 0 || capacity.MaximumBlobWriteBytes < 0 {
+		return nil, fmt.Errorf("storage capacity values cannot be negative")
+	}
 	for _, directory := range []string{filepath.Join(root, "blobs"), filepath.Join(root, "derivatives")} {
 		if err := os.MkdirAll(directory, 0o755); err != nil {
 			return nil, fmt.Errorf("create storage directory: %w", err)
 		}
 	}
-	return &contentStore{queries: db.New(pool), pool: pool, root: root}, nil
+	return &contentStore{
+		queries: db.New(pool), pool: pool, root: root, capacity: capacity,
+	}, nil
 }
 
 func (s *contentStore) Put(ctx context.Context, r io.Reader) (StoredBlob, error) {
+	s.writes.Lock()
+	defer s.writes.Unlock()
+	if err := s.makeSpace(ctx, s.capacity.MaximumBlobWriteBytes); err != nil {
+		return StoredBlob{}, err
+	}
 	hash := sha256.New()
 	temporaryName, byteSize, err := stage(filepath.Join(s.root, "blobs"), r, hash)
 	if err != nil {
@@ -104,6 +124,40 @@ func (s *contentStore) Put(ctx context.Context, r io.Reader) (StoredBlob, error)
 		return StoredBlob{}, fmt.Errorf("commit blob write: %w", err)
 	}
 	return stored, nil
+}
+
+func (s *contentStore) makeSpace(ctx context.Context, maximumWriteBytes int64) error {
+	err := s.ensureSpace(ctx, maximumWriteBytes)
+	if !errors.Is(err, ErrInsufficientSpace) {
+		return err
+	}
+	if err := s.clearDerivatives(ctx); err != nil {
+		return err
+	}
+	return s.ensureSpace(ctx, maximumWriteBytes)
+}
+
+func (s *contentStore) ensureSpace(ctx context.Context, maximumWriteBytes int64) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if s.capacity.FreeSpaceReserveBytes == 0 && maximumWriteBytes == 0 {
+		return nil
+	}
+	var filesystem unix.Statfs_t
+	if err := unix.Statfs(s.root, &filesystem); err != nil {
+		return fmt.Errorf("read storage free space: %w", err)
+	}
+	blockSize := uint64(filesystem.Bsize)
+	available := int64(math.MaxInt64)
+	if blockSize == 0 || filesystem.Bavail <= uint64(math.MaxInt64)/blockSize {
+		available = int64(filesystem.Bavail * blockSize)
+	}
+	reserve := s.capacity.FreeSpaceReserveBytes
+	if maximumWriteBytes > math.MaxInt64-reserve || available < reserve+maximumWriteBytes {
+		return ErrInsufficientSpace
+	}
+	return nil
 }
 
 func (s *contentStore) RecordOrphans(ctx context.Context) (int, error) {
@@ -311,8 +365,13 @@ func pgUUID(id uuid.UUID) pgtype.UUID {
 	return pgtype.UUID{Bytes: id, Valid: true}
 }
 
-func (s *contentStore) PutDerivative(ctx context.Context, id DerivativeID, r io.Reader) error {
+func (s *contentStore) PutDerivative(ctx context.Context, id DerivativeID, body []byte) error {
+	s.writes.Lock()
+	defer s.writes.Unlock()
 	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := s.makeSpace(ctx, int64(len(body))); err != nil {
 		return err
 	}
 	path, err := s.derivativePath(id)
@@ -322,7 +381,7 @@ func (s *contentStore) PutDerivative(ctx context.Context, id DerivativeID, r io.
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("create derivative directory: %w", err)
 	}
-	temporaryName, _, err := stage(filepath.Dir(path), r, nil)
+	temporaryName, _, err := stage(filepath.Dir(path), bytes.NewReader(body), nil)
 	if err != nil {
 		return fmt.Errorf("stage derivative: %w", err)
 	}
@@ -375,6 +434,12 @@ func (s *contentStore) InternalDerivativeRedirect(ctx context.Context, id Deriva
 }
 
 func (s *contentStore) ClearDerivatives(ctx context.Context) error {
+	s.writes.Lock()
+	defer s.writes.Unlock()
+	return s.clearDerivatives(ctx)
+}
+
+func (s *contentStore) clearDerivatives(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}

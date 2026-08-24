@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/Sillyfrogster/Illarin/api/internal/asset"
+	"github.com/Sillyfrogster/Illarin/api/internal/storage"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/oapi-codegen/runtime/types"
@@ -103,6 +104,10 @@ func (h *Handlers) GetMediaVariant(
 	})
 	if errors.Is(err, asset.ErrMediaNotFound) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "no such media variant"})
+		return
+	}
+	if errors.Is(err, storage.ErrInsufficientSpace) {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "The image is temporarily unavailable."})
 		return
 	}
 	if err != nil {

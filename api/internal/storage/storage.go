@@ -14,7 +14,15 @@ var (
 	ErrTombstoned         = errors.New("blob digest is tombstoned")
 	ErrInvalidRange       = errors.New("invalid blob range")
 	ErrDerivativeNotFound = errors.New("derivative not found")
+	ErrInsufficientSpace  = errors.New("storage reserve would be crossed")
 )
+
+// Capacity protects room for the largest canonical write while keeping a
+// free-space reserve.
+type Capacity struct {
+	FreeSpaceReserveBytes int64
+	MaximumBlobWriteBytes int64
+}
 
 // StoredBlob identifies one distinct byte sequence.
 type StoredBlob struct {
@@ -39,7 +47,7 @@ type Store interface {
 	InternalRedirect(ctx context.Context, id uuid.UUID) (string, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 	DeleteDerivatives(ctx context.Context, digest [sha256.Size]byte) error
-	PutDerivative(ctx context.Context, id DerivativeID, r io.Reader) error
+	PutDerivative(ctx context.Context, id DerivativeID, body []byte) error
 	OpenDerivative(ctx context.Context, id DerivativeID) (io.ReadCloser, error)
 	InternalDerivativeRedirect(ctx context.Context, id DerivativeID) (string, error)
 	ClearDerivatives(ctx context.Context) error

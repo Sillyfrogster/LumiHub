@@ -27,6 +27,7 @@ var (
 	ErrInvalidDiscovery = errors.New("invalid discovery state")
 	ErrAssetFrozen      = errors.New("asset is frozen")
 	ErrInvalidBlock     = errors.New("invalid block")
+	ErrStorageCap       = errors.New("account storage cap exceeded")
 	// ErrAssetIsDraft is an operation only a published asset has. Discovery
 	// is the one a creator meets.
 	ErrAssetIsDraft = errors.New("the asset is still a draft")
@@ -54,11 +55,12 @@ type Service struct {
 }
 
 type IngestSettings struct {
-	ProbeLimits   probe.Limits
-	LeaseDuration time.Duration
-	RetryBase     time.Duration
-	MaxAttempts   int
-	MediaWorkers  int
+	ProbeLimits            probe.Limits
+	LeaseDuration          time.Duration
+	RetryBase              time.Duration
+	MaxAttempts            int
+	MediaWorkers           int
+	AccountStorageCapBytes int64
 }
 
 type MediaProcessor interface {
@@ -99,8 +101,12 @@ func NewServiceForSite(
 	store storage.Store,
 	limits probe.Limits,
 	siteURL string,
+	accountStorageCapBytes int64,
 ) *Service {
-	service := NewServiceWithProbeLimits(pool, reg, store, limits)
+	settings := DefaultIngestSettings()
+	settings.ProbeLimits = limits
+	settings.AccountStorageCapBytes = accountStorageCapBytes
+	service := NewServiceWithIngestSettings(pool, reg, store, settings)
 	service.siteURL = strings.TrimRight(siteURL, "/")
 	return service
 }
@@ -151,7 +157,15 @@ func (s *Service) AcceptIngest(ctx context.Context, in IngestInput) (IngestOpera
 	if discovery == "" {
 		discovery = DiscoveryListed
 	}
-	_, err = s.pool.Exec(ctx, `
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return IngestOperation{}, fmt.Errorf("begin ingest acceptance: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	if err := s.ensureAccountStorage(ctx, tx, in.OwnerID, []uuid.UUID{stored.ID}); err != nil {
+		return IngestOperation{}, err
+	}
+	_, err = tx.Exec(ctx, `
 		insert into ingest_operations
 			(id, owner_id, blob_id, filename, status, name, blurb, tags, is_nsfw, discovery)
 		values ($1, $2, $3, $4, 'pending', $5, $6, $7, $8, $9)
@@ -159,7 +173,74 @@ func (s *Service) AcceptIngest(ctx context.Context, in IngestInput) (IngestOpera
 	if err != nil {
 		return IngestOperation{}, fmt.Errorf("record ingest: %w", err)
 	}
+	if err := tx.Commit(ctx); err != nil {
+		return IngestOperation{}, fmt.Errorf("commit ingest acceptance: %w", err)
+	}
 	return IngestOperation{ID: id, Status: IngestPending}, nil
+}
+
+func (s *Service) ensureAccountStorage(
+	ctx context.Context,
+	tx pgx.Tx,
+	ownerID uuid.UUID,
+	candidates []uuid.UUID,
+) error {
+	capBytes := s.ingest.AccountStorageCapBytes
+	if capBytes <= 0 || len(candidates) == 0 {
+		return nil
+	}
+	var locked uuid.UUID
+	if err := tx.QueryRow(ctx, `select id from users where id = $1 for update`, ownerID).Scan(&locked); err != nil {
+		return fmt.Errorf("lock account storage: %w", err)
+	}
+	var usedBytes, additionalBytes int64
+	err := tx.QueryRow(ctx, `
+		with account_blobs as (
+			select operation.blob_id
+			  from ingest_operations operation
+			 where operation.owner_id = $1
+			   and operation.blob_id is not null
+			   and operation.status in ('pending', 'processing')
+			union
+			select revision.blob_id
+			  from asset_revisions revision
+			  join assets asset on asset.id = revision.asset_id
+			 where asset.owner_id = $1
+			   and revision.blob_id is not null
+			   and (asset.deleted_at is null or asset.recoverable_until > $3)
+			union
+			select media.blob_id
+			  from asset_media media
+			  join assets asset on asset.id = media.asset_id
+			 where asset.owner_id = $1
+			   and media.blob_id is not null
+			   and (asset.deleted_at is null or asset.recoverable_until > $3)
+		), candidate_blobs as (
+			select distinct unnest($2::uuid[]) as blob_id
+		)
+		select
+			coalesce((
+				select sum(blob.byte_size)
+				  from account_blobs account_blob
+				  join blobs blob on blob.id = account_blob.blob_id
+			), 0),
+			coalesce((
+				select sum(blob.byte_size)
+				  from candidate_blobs candidate
+				  join blobs blob on blob.id = candidate.blob_id
+				 where not exists (
+					select 1 from account_blobs account_blob
+					 where account_blob.blob_id = candidate.blob_id
+				 )
+			), 0)
+	`, ownerID, candidates, s.now()).Scan(&usedBytes, &additionalBytes)
+	if err != nil {
+		return fmt.Errorf("measure account storage: %w", err)
+	}
+	if additionalBytes > 0 && (additionalBytes > capBytes || usedBytes > capBytes-additionalBytes) {
+		return ErrStorageCap
+	}
+	return nil
 }
 
 // GetIngest returns one operation only to the creator who started it.

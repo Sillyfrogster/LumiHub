@@ -130,6 +130,8 @@ func TestLoadUsesSettledIngestLimits(t *testing.T) {
 		"MAX_ARCHIVE_BYTES",
 		"MAX_ARCHIVE_COMPRESSION_RATIO",
 		"INGEST_WORKERS",
+		"STORAGE_FREE_SPACE_RESERVE_BYTES",
+		"ACCOUNT_STORAGE_CAP_BYTES",
 	} {
 		t.Setenv(name, "")
 	}
@@ -156,6 +158,12 @@ func TestLoadUsesSettledIngestLimits(t *testing.T) {
 	if cfg.IngestWorkers != 2 {
 		t.Errorf("ingest workers = %d, want 2", cfg.IngestWorkers)
 	}
+	if cfg.StorageFreeSpaceReserveBytes != 5<<30 {
+		t.Errorf("storage reserve = %d, want 5 GB", cfg.StorageFreeSpaceReserveBytes)
+	}
+	if cfg.AccountStorageCapBytes != 1<<30 {
+		t.Errorf("account storage cap = %d, want 1 GB", cfg.AccountStorageCapBytes)
+	}
 }
 
 func TestLoadReadsIngestLimitOverrides(t *testing.T) {
@@ -168,6 +176,8 @@ func TestLoadReadsIngestLimitOverrides(t *testing.T) {
 	t.Setenv("MAX_ARCHIVE_BYTES", "104")
 	t.Setenv("MAX_ARCHIVE_COMPRESSION_RATIO", "10.5")
 	t.Setenv("INGEST_WORKERS", "3")
+	t.Setenv("STORAGE_FREE_SPACE_RESERVE_BYTES", "105")
+	t.Setenv("ACCOUNT_STORAGE_CAP_BYTES", "106")
 
 	cfg, err := Load()
 	if err != nil {
@@ -175,7 +185,8 @@ func TestLoadReadsIngestLimitOverrides(t *testing.T) {
 	}
 	if cfg.MaxUploadBytes != 101 || cfg.ProbeLimits.MaxArchiveEntries != 102 ||
 		cfg.ProbeLimits.MaxEntryBytes != 103 || cfg.ProbeLimits.MaxArchiveBytes != 104 ||
-		cfg.ProbeLimits.MaxCompressionRatio != 10.5 || cfg.IngestWorkers != 3 {
+		cfg.ProbeLimits.MaxCompressionRatio != 10.5 || cfg.IngestWorkers != 3 ||
+		cfg.StorageFreeSpaceReserveBytes != 105 || cfg.AccountStorageCapBytes != 106 {
 		t.Fatalf("overridden ingest settings = %+v", cfg)
 	}
 }

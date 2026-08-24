@@ -59,14 +59,41 @@ func (s *Service) AcceptRevision(ctx context.Context, in RevisionInput) (IngestO
 	if err != nil {
 		return IngestOperation{}, fmt.Errorf("store revision: %w", err)
 	}
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return IngestOperation{}, fmt.Errorf("begin revision acceptance: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	if err := s.ensureAccountStorage(ctx, tx, in.OwnerID, []uuid.UUID{stored.ID}); err != nil {
+		return IngestOperation{}, err
+	}
+	withheldAt = pgtype.Timestamptz{}
+	err = tx.QueryRow(ctx, `
+		select withheld_at
+		  from assets
+		 where id = $1 and owner_id = $2 and deleted_at is null
+		 for update
+	`, in.AssetID, in.OwnerID).Scan(&withheldAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return IngestOperation{}, ErrNotFound
+	}
+	if err != nil {
+		return IngestOperation{}, fmt.Errorf("lock revision owner: %w", err)
+	}
+	if withheldAt.Valid {
+		return IngestOperation{}, ErrAssetFrozen
+	}
 	id := uuid.New()
-	_, err = s.pool.Exec(ctx, `
+	_, err = tx.Exec(ctx, `
 		insert into ingest_operations
 			(id, owner_id, blob_id, filename, status, target_asset_id)
 		values ($1, $2, $3, $4, 'pending', $5)
 	`, id, in.OwnerID, stored.ID, in.Filename, in.AssetID)
 	if err != nil {
 		return IngestOperation{}, fmt.Errorf("record revision ingest: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return IngestOperation{}, fmt.Errorf("commit revision acceptance: %w", err)
 	}
 	return IngestOperation{ID: id, Status: IngestPending}, nil
 }

@@ -1,7 +1,6 @@
 package asset
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"errors"
@@ -99,18 +98,11 @@ func (s *Service) AddMedia(ctx context.Context, in AddMediaInput) (Media, error)
 	if !in.Role.Valid() {
 		return Media{}, ErrInvalidMediaRole
 	}
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return Media{}, fmt.Errorf("begin media addition: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
 	var withheldAt pgtype.Timestamptz
-	err = tx.QueryRow(ctx, `
+	err := s.pool.QueryRow(ctx, `
 		select withheld_at
 		  from assets
 		 where id = $1 and owner_id = $2 and deleted_at is null
-		 for update
 	`, in.AssetID, in.OwnerID).Scan(&withheldAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Media{}, ErrMediaNotFound
@@ -121,16 +113,41 @@ func (s *Service) AddMedia(ctx context.Context, in AddMediaInput) (Media, error)
 	if withheldAt.Valid {
 		return Media{}, ErrAssetFrozen
 	}
-	fingerprint, err := s.contentFingerprint(ctx, tx, in.AssetID)
-	if err != nil {
-		return Media{}, err
-	}
 
 	stored, err := s.store.Put(ctx, in.File)
 	if err != nil {
 		return Media{}, fmt.Errorf("store media: %w", err)
 	}
 	prepared, err := s.prepareMedia(ctx, stored)
+	if err != nil {
+		return Media{}, err
+	}
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return Media{}, fmt.Errorf("begin media addition: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	if err := s.ensureAccountStorage(ctx, tx, in.OwnerID, []uuid.UUID{stored.ID}); err != nil {
+		return Media{}, err
+	}
+	withheldAt = pgtype.Timestamptz{}
+	err = tx.QueryRow(ctx, `
+		select withheld_at
+		  from assets
+		 where id = $1 and owner_id = $2 and deleted_at is null
+		 for update
+	`, in.AssetID, in.OwnerID).Scan(&withheldAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Media{}, ErrMediaNotFound
+	}
+	if err != nil {
+		return Media{}, fmt.Errorf("lock media owner: %w", err)
+	}
+	if withheldAt.Valid {
+		return Media{}, ErrAssetFrozen
+	}
+	fingerprint, err := s.contentFingerprint(ctx, tx, in.AssetID)
 	if err != nil {
 		return Media{}, err
 	}
@@ -242,7 +259,10 @@ func (s *Service) prepareMedia(ctx context.Context, stored storage.StoredBlob) (
 			Variant:      derivative.Variant,
 			Version:      mediaproc.DerivativeVersion,
 		}
-		if err := s.store.PutDerivative(ctx, id, bytes.NewReader(derivative.Bytes)); err != nil {
+		if err := s.store.PutDerivative(ctx, id, derivative.Bytes); err != nil {
+			if errors.Is(err, storage.ErrInsufficientSpace) {
+				break
+			}
 			return mediaproc.Prepared{}, fmt.Errorf("store %s media variant: %w", derivative.Variant, err)
 		}
 	}
@@ -465,7 +485,7 @@ func (s *Service) regenerateMediaVariant(
 	if closeErr != nil {
 		return fmt.Errorf("close media after regeneration: %w", closeErr)
 	}
-	if err := s.store.PutDerivative(ctx, id, bytes.NewReader(derivative.Bytes)); err != nil {
+	if err := s.store.PutDerivative(ctx, id, derivative.Bytes); err != nil {
 		return fmt.Errorf("store regenerated media variant: %w", err)
 	}
 	return nil

@@ -10,6 +10,7 @@ import (
 
 	"github.com/Sillyfrogster/Illarin/api/internal/asset"
 	"github.com/Sillyfrogster/Illarin/api/internal/format"
+	"github.com/Sillyfrogster/Illarin/api/internal/storage"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -126,6 +127,18 @@ func (r refusal) Error() string { return r.reason }
 func (r refusal) Unwrap() error { return r.cause }
 
 func (h *Handlers) refuse(c *gin.Context, err error) {
+	if errors.Is(err, asset.ErrStorageCap) {
+		c.JSON(http.StatusRequestEntityTooLarge, gin.H{
+			"error": "Your account does not have enough storage left for this file.",
+		})
+		return
+	}
+	if errors.Is(err, storage.ErrInsufficientSpace) {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": "Uploads are temporarily unavailable because storage is low.",
+		})
+		return
+	}
 	if errors.Is(err, format.ErrInvariant) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not create the asset"})
 		return

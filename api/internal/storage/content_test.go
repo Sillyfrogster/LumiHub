@@ -174,7 +174,7 @@ func TestDerivativesAreDisposableWithoutTouchingSourceBlobs(t *testing.T) {
 		t.Fatalf("Put: %v", err)
 	}
 	derivative := DerivativeID{SourceDigest: stored.Digest, Variant: "detail", Version: 2}
-	if err := store.PutDerivative(context.Background(), derivative, bytes.NewReader([]byte("rendered"))); err != nil {
+	if err := store.PutDerivative(context.Background(), derivative, []byte("rendered")); err != nil {
 		t.Fatalf("PutDerivative: %v", err)
 	}
 
@@ -226,7 +226,7 @@ func TestDerivativeIdentityIncludesSourceVariantAndVersion(t *testing.T) {
 	}
 	for _, derivative := range derivatives {
 		if err := store.PutDerivative(context.Background(), derivative.id,
-			bytes.NewReader([]byte(derivative.want))); err != nil {
+			[]byte(derivative.want)); err != nil {
 			t.Fatalf("PutDerivative: %v", err)
 		}
 	}
@@ -254,7 +254,7 @@ func TestDerivativeCanBeHandedToTheInternalByteServer(t *testing.T) {
 		t.Fatalf("Put: %v", err)
 	}
 	id := DerivativeID{SourceDigest: stored.Digest, Variant: "grid", Version: 1}
-	if err := store.PutDerivative(context.Background(), id, bytes.NewReader([]byte("rendered"))); err != nil {
+	if err := store.PutDerivative(context.Background(), id, []byte("rendered")); err != nil {
 		t.Fatalf("PutDerivative: %v", err)
 	}
 

@@ -53,7 +53,10 @@ func run() error {
 		return fmt.Errorf("database ping: %w", err)
 	}
 
-	blob, err := storage.NewStore(pool, cfg.UploadsDir)
+	blob, err := storage.NewStoreWithCapacity(pool, cfg.UploadsDir, storage.Capacity{
+		FreeSpaceReserveBytes: cfg.StorageFreeSpaceReserveBytes,
+		MaximumBlobWriteBytes: max(cfg.MaxUploadBytes, int64(cfg.ProbeLimits.MaxEntryBytes)),
+	})
 	if err != nil {
 		return fmt.Errorf("storage: %w", err)
 	}
@@ -63,7 +66,9 @@ func run() error {
 		return err
 	}
 
-	svc := asset.NewServiceForSite(pool, registry, blob, cfg.ProbeLimits, cfg.SiteURL)
+	svc := asset.NewServiceForSite(
+		pool, registry, blob, cfg.ProbeLimits, cfg.SiteURL, cfg.AccountStorageCapBytes,
+	)
 	// Changing what a format declares or what the facet catalog holds is a
 	// deploy, so the deploy is what recomputes the projections it invalidated.
 	recomputed, err := svc.RecomputeStaleExportProjections(runtimeContext)

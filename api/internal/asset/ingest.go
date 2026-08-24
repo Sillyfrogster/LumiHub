@@ -272,6 +272,12 @@ func (s *Service) ProcessNextIngest(ctx context.Context) (bool, error) {
 		if errors.Is(err, errIngestLeaseLost) {
 			return true, nil
 		}
+		if errors.Is(err, ErrStorageCap) {
+			return true, s.finishIngestFailure(
+				ctx, job, format.FailureLimitExceeded,
+				"The imported file would take this account past its storage cap.",
+			)
+		}
 		return true, s.finishIngestFailure(ctx, job, format.FailureInternal)
 	}
 	return true, nil
@@ -458,6 +464,14 @@ func (s *Service) finalizeIngest(ctx context.Context, job ingestJob, prepared pr
 	}
 	if status != IngestProcessing || !lease.Valid || uuidFromPgtype(lease) != job.LeaseToken {
 		return errIngestLeaseLost
+	}
+	candidates := make([]uuid.UUID, 1, len(prepared.Media)+1)
+	candidates[0] = job.BlobID
+	for _, media := range prepared.Media {
+		candidates = append(candidates, media.BlobID)
+	}
+	if err := s.ensureAccountStorage(ctx, tx, job.OwnerID, candidates); err != nil {
+		return err
 	}
 
 	assetID, err := s.writeIngestResult(ctx, tx, job, prepared)

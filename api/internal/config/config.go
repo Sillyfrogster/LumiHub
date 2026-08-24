@@ -12,24 +12,30 @@ import (
 	"github.com/Sillyfrogster/Illarin/api/internal/probe"
 )
 
-const defaultMaxUploadBytes = 32 << 20
+const (
+	defaultMaxUploadBytes               = 32 << 20
+	defaultStorageFreeSpaceReserveBytes = 5 << 30
+	defaultAccountStorageCapBytes       = 1 << 30
+)
 
 // Config holds every setting the service runs on. They are gathered here and
 // handed down, so nothing reaches for a setting on its own.
 type Config struct {
-	Port           string
-	SiteURL        string
-	SMTP           SMTPSettings
-	Microsoft365   Microsoft365Settings
-	Discord        DiscordSettings
-	Database       postgres.Settings
-	UploadsDir     string
-	MaxUploadBytes int64
-	LinkingHMACKey []byte
-	ProbeLimits    probe.Limits
-	IngestWorkers  int
-	Server         apihttp.Timeouts
-	Deadlines      apihttp.Deadlines
+	Port                         string
+	SiteURL                      string
+	SMTP                         SMTPSettings
+	Microsoft365                 Microsoft365Settings
+	Discord                      DiscordSettings
+	Database                     postgres.Settings
+	UploadsDir                   string
+	MaxUploadBytes               int64
+	StorageFreeSpaceReserveBytes int64
+	AccountStorageCapBytes       int64
+	LinkingHMACKey               []byte
+	ProbeLimits                  probe.Limits
+	IngestWorkers                int
+	Server                       apihttp.Timeouts
+	Deadlines                    apihttp.Deadlines
 }
 
 type SMTPSettings struct {
@@ -92,6 +98,18 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	cfg.MaxUploadBytes = max
+	reserve, err := bytesOrDefault(
+		"STORAGE_FREE_SPACE_RESERVE_BYTES", defaultStorageFreeSpaceReserveBytes,
+	)
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.StorageFreeSpaceReserveBytes = reserve
+	accountCap, err := bytesOrDefault("ACCOUNT_STORAGE_CAP_BYTES", defaultAccountStorageCapBytes)
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.AccountStorageCapBytes = accountCap
 	linkingKey, err := base64.RawURLEncoding.DecodeString(get("LINKING_HMAC_KEY", ""))
 	if err != nil || len(linkingKey) != 32 {
 		return Config{}, fmt.Errorf("LINKING_HMAC_KEY must be 32 bytes encoded as unpadded base64url")

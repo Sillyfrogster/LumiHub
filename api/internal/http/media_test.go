@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"image"
 	"image/color"
 	"image/png"
@@ -13,7 +14,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Sillyfrogster/Illarin/api/internal/account"
+	"github.com/Sillyfrogster/Illarin/api/internal/asset"
 	"github.com/Sillyfrogster/Illarin/api/internal/format"
+	"github.com/Sillyfrogster/Illarin/api/internal/storage"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func TestCreatorAddsMediaAndAnyoneFetchesAnImmutableVariant(t *testing.T) {
@@ -122,6 +127,129 @@ func TestMediaRouteRefusesArbitraryVariantsAndVersions(t *testing.T) {
 		if response.Code != http.StatusNotFound {
 			t.Errorf("GET %s status = %d, want 404", path, response.Code)
 		}
+	}
+}
+
+func TestMissingDerivativeYieldsToTheStorageReserveAndEvictsTheCache(t *testing.T) {
+	root := t.TempDir()
+	r, session, assets, pool := newVerifiedIngestRouterWithStoreFactory(
+		t, format.NewRegistry(), asset.DefaultIngestSettings(),
+		func(pool *pgxpool.Pool) (storage.Store, error) {
+			return storage.NewStore(pool, root)
+		},
+	)
+	created := uploadAndFinish(
+		t, r, session, assets, exampleMetadata("Theme with one image"), []byte("theme"),
+	)
+	assetID := assetIDFromIngest(t, created)
+	added := send(t, r, authorized(mediaUploadRequest(
+		t, assetID, "gallery", httpTestPNG(t, 120, 60),
+	), session))
+	if added.Code != http.StatusCreated {
+		t.Fatalf("add media status = %d, want 201: %s", added.Code, added.Body.String())
+	}
+	var media struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(added.Body.Bytes(), &media); err != nil {
+		t.Fatalf("decode media: %v", err)
+	}
+
+	unlimited, err := storage.NewStore(pool, root)
+	if err != nil {
+		t.Fatalf("open unlimited store: %v", err)
+	}
+	if err := unlimited.ClearDerivatives(context.Background()); err != nil {
+		t.Fatalf("clear generated derivatives: %v", err)
+	}
+	var digestBytes []byte
+	if err := pool.QueryRow(context.Background(), `
+		select blob.sha256
+		  from asset_media media
+		  join blobs blob on blob.id = media.blob_id
+		 where media.id = $1
+	`, media.ID).Scan(&digestBytes); err != nil {
+		t.Fatalf("read media digest: %v", err)
+	}
+	var digest [32]byte
+	copy(digest[:], digestBytes)
+	disposable := storage.DerivativeID{SourceDigest: digest, Variant: "old", Version: 1}
+	if err := unlimited.PutDerivative(context.Background(), disposable, []byte("old cache")); err != nil {
+		t.Fatalf("seed disposable derivative: %v", err)
+	}
+
+	limited, err := storage.NewStoreWithCapacity(pool, root, storage.Capacity{
+		FreeSpaceReserveBytes: int64(^uint64(0) >> 1),
+		MaximumBlobWriteBytes: 1,
+	})
+	if err != nil {
+		t.Fatalf("open limited store: %v", err)
+	}
+	limitedAssets := asset.NewServiceWithIngestSettings(
+		pool, format.NewRegistry(), limited, asset.DefaultIngestSettings(),
+	)
+	accounts := account.NewService(pool, &verificationOutbox{}, nil, "http://localhost:3000")
+	links := newTestLinkingService(pool)
+	handlers := NewHandlers(
+		limitedAssets, accounts, links, newTestDeliveryService(pool, limitedAssets, links), 1<<20,
+	)
+	limitedRouter := registerTestRouter(t, handlers, DefaultDeadlines())
+
+	response := send(t, limitedRouter, httptest.NewRequest(
+		http.MethodGet, "/media/"+media.ID+"/grid/1", nil,
+	))
+
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("media status = %d, want 503: %s", response.Code, response.Body.String())
+	}
+	if _, err := limited.OpenDerivative(context.Background(), disposable); !errors.Is(err, storage.ErrDerivativeNotFound) {
+		t.Fatalf("disposable derivative survived low space: %v", err)
+	}
+}
+
+func TestCreatorMediaCannotTakeTheAccountPastItsStorageCap(t *testing.T) {
+	root := t.TempDir()
+	var blobs storage.Store
+	r, session, assets, pool := newVerifiedIngestRouterWithStoreFactory(
+		t, format.NewRegistry(), asset.DefaultIngestSettings(),
+		func(pool *pgxpool.Pool) (storage.Store, error) {
+			var err error
+			blobs, err = storage.NewStore(pool, root)
+			return blobs, err
+		},
+	)
+	source := []byte("theme")
+	created := uploadAndFinish(
+		t, r, session, assets, exampleMetadata("Theme at its cap"), source,
+	)
+	assetID := assetIDFromIngest(t, created)
+	mediaBytes := httpTestPNG(t, 120, 60)
+
+	settings := asset.DefaultIngestSettings()
+	settings.AccountStorageCapBytes = int64(len(source) + len(mediaBytes) - 1)
+	limitedAssets := asset.NewServiceWithIngestSettings(
+		pool, format.NewRegistry(), blobs, settings,
+	)
+	accounts := account.NewService(pool, &verificationOutbox{}, nil, "http://localhost:3000")
+	links := newTestLinkingService(pool)
+	handlers := NewHandlers(
+		limitedAssets, accounts, links, newTestDeliveryService(pool, limitedAssets, links), 1<<20,
+	)
+	limitedRouter := registerTestRouter(t, handlers, DefaultDeadlines())
+
+	response := send(t, limitedRouter, authorized(
+		mediaUploadRequest(t, assetID, "gallery", mediaBytes), session,
+	))
+
+	if response.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("add media status = %d, want 413: %s", response.Code, response.Body.String())
+	}
+	var mediaCount int
+	if err := pool.QueryRow(context.Background(), `select count(*) from asset_media`).Scan(&mediaCount); err != nil {
+		t.Fatalf("count media: %v", err)
+	}
+	if mediaCount != 0 {
+		t.Fatalf("over-cap upload recorded %d media rows", mediaCount)
 	}
 }
 
