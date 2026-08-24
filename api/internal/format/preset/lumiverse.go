@@ -10,6 +10,7 @@ import (
 	"github.com/Sillyfrogster/Illarin/api/internal/format"
 	"github.com/Sillyfrogster/Illarin/api/internal/format/keys"
 	"github.com/Sillyfrogster/Illarin/api/internal/probe"
+	"github.com/Sillyfrogster/Illarin/api/internal/protected"
 	"github.com/google/uuid"
 )
 
@@ -56,17 +57,20 @@ const (
 // One block's own keys. A block is either a heading or a prompt fragment, and
 // the marker is what says which.
 const (
-	lvBlockID       = "id"
-	lvBlockName     = "name"
-	lvBlockRole     = "role"
-	lvBlockText     = "content"
-	lvBlockMarker   = "marker"
-	lvBlockEnabled  = "enabled"
-	lvBlockPosition = "position"
-	lvBlockDepth    = "depth"
-	lvBlockGroup    = "group"
-	lvBlockVars     = "variables"
-	lvHeadingMarker = "category"
+	lvBlockID            = "id"
+	lvBlockName          = "name"
+	lvBlockRole          = "role"
+	lvBlockText          = "content"
+	lvBlockMarker        = "marker"
+	lvBlockEnabled       = "enabled"
+	lvBlockPosition      = "position"
+	lvBlockDepth         = "depth"
+	lvBlockGroup         = "group"
+	lvBlockVars          = "variables"
+	lvBlockSealed        = "sealed"
+	lvBlockSealKey       = "sealedKey"
+	lvBlockSealKeyLegacy = "sealed_key"
+	lvHeadingMarker      = "category"
 )
 
 // One variable definition's own keys, and one choice's.
@@ -235,7 +239,10 @@ func (m LumiverseModule) Parse(
 	delete(source, lvBlocks)
 
 	saved := savedValues(source)
-	read := readLumiverseBlocks(blocks, saved)
+	read, err := readLumiverseBlocks(blocks, saved)
+	if err != nil {
+		return format.Parsed{}, format.MalformedInput(err)
+	}
 
 	elements := []block.Element{{
 		ID: uuid.New(), Type: block.TypePromptList, Role: block.RolePromptFragments,
@@ -293,7 +300,16 @@ func (m LumiverseModule) Parse(
 			source, read.leftovers,
 			scriptLeftovers(scripts, lumiverseScriptNamespace, scriptFields),
 		),
+		ProtectedPrompts: read.protected,
+		ProtectedApps:    protectedApps(read.protected),
 	}, nil
+}
+
+func protectedApps(prompts []format.ProtectedPrompt) []string {
+	if len(prompts) == 0 {
+		return nil
+	}
+	return []string{protected.AppLumiverse}
 }
 
 // boundBlurb binds descriptions that fit the catalog. Longer text stays

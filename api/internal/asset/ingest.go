@@ -88,19 +88,21 @@ type revisionTarget struct {
 }
 
 type preparedIngest struct {
-	Kind      string
-	Format    string
-	Name      string
-	Blurb     string
-	Tags      []string
-	IsNSFW    bool
-	Discovery Discovery
-	Blocks    []block.Block
-	Header    format.Header
-	Remainder []format.Remainder
-	Media     []preparedMedia
-	CreatedAt *time.Time
-	MediaType string
+	Kind             string
+	Format           string
+	Name             string
+	Blurb            string
+	Tags             []string
+	IsNSFW           bool
+	Discovery        Discovery
+	Blocks           []block.Block
+	Header           format.Header
+	Remainder        []format.Remainder
+	ProtectedPrompts []format.ProtectedPrompt
+	ProtectedApps    []string
+	Media            []preparedMedia
+	CreatedAt        *time.Time
+	MediaType        string
 }
 
 type preparedImport struct {
@@ -279,6 +281,9 @@ func (s *Service) ProcessNextIngest(ctx context.Context) (bool, error) {
 				"The imported file would take this account past its storage cap.",
 			)
 		}
+		if classified, ok := format.FailureOf(err); ok {
+			return true, s.finishIngestFailure(ctx, job, classified, err.Error())
+		}
 		return true, s.finishIngestFailure(ctx, job, format.FailureInternal)
 	}
 	return true, nil
@@ -382,8 +387,12 @@ func prepareIngest(job ingestJob, parsed format.Parsed) (preparedIngest, error) 
 	return preparedIngest{
 		Kind: kind, Format: parsed.Format,
 		Name: name, Blurb: blurb, Tags: tags, IsNSFW: isNSFW,
-		Discovery: job.Discovery,
-		Header:    parsed.Header, Remainder: parsed.Remainder, CreatedAt: parsed.CreatedAt,
+		Discovery:        job.Discovery,
+		Header:           parsed.Header,
+		Remainder:        parsed.Remainder,
+		ProtectedPrompts: parsed.ProtectedPrompts,
+		ProtectedApps:    parsed.ProtectedApps,
+		CreatedAt:        parsed.CreatedAt,
 	}, nil
 }
 
@@ -527,7 +536,16 @@ func (s *Service) writeIngestResult(
 		if err := replacePreservedData(ctx, tx, job.Target.AssetID, prepared.Remainder); err != nil {
 			return uuid.Nil, err
 		}
-		if err := protected.SyncPromptFragments(ctx, tx, job.Target.AssetID, blocks, nil); err != nil {
+		if len(prepared.ProtectedPrompts) > 0 {
+			if err := protected.ImportPromptFragments(
+				ctx, tx, job.Target.AssetID, blocks,
+				prepared.ProtectedPrompts, prepared.ProtectedApps,
+			); err != nil {
+				return uuid.Nil, fmt.Errorf("import protected prompts: %w", err)
+			}
+		} else if err := protected.SyncPromptFragments(
+			ctx, tx, job.Target.AssetID, blocks, nil,
+		); err != nil {
 			return uuid.Nil, fmt.Errorf("reconcile protected prompts: %w", err)
 		}
 		if _, err := tx.Exec(ctx, `
@@ -566,6 +584,13 @@ func (s *Service) writeIngestResult(
 	}
 	if err := replacePreservedData(ctx, tx, assetID, prepared.Remainder); err != nil {
 		return uuid.Nil, err
+	}
+	if len(prepared.ProtectedPrompts) > 0 {
+		if err := protected.ImportPromptFragments(
+			ctx, tx, assetID, blocks, prepared.ProtectedPrompts, prepared.ProtectedApps,
+		); err != nil {
+			return uuid.Nil, fmt.Errorf("import protected prompts: %w", err)
+		}
 	}
 	if err := writeRevision(ctx, tx, assetID, 1, job, prepared); err != nil {
 		return uuid.Nil, err

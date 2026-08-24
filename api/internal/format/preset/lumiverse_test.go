@@ -207,6 +207,150 @@ func TestWritingARestoredPromptHasNoProtectedContentProtocol(t *testing.T) {
 	}
 }
 
+func TestReadingAKeyedSealedPromptSeparatesItsText(t *testing.T) {
+	const privateText = "Private publisher prompt\nwith exact whitespace. "
+	parsed := parse(t, `{
+		"schemaVersion": 1,
+		"name": "Sealed preset",
+		"blocks": [
+			{
+				"id": "public",
+				"name": "Public",
+				"role": "system",
+				"content": "Visible text.",
+				"enabled": true
+			},
+			{
+				"id": "private",
+				"name": "Private",
+				"role": "system",
+				"content": "Private publisher prompt\nwith exact whitespace. ",
+				"enabled": true,
+				"sealed": true,
+				"sealedKey": "dialogue.frame"
+			}
+		]
+	}`)
+
+	list := promptList(t, parsed.Elements)
+	if len(list.Fragments) != 2 {
+		t.Fatalf("read %d fragments, want 2", len(list.Fragments))
+	}
+	public, sealed := list.Fragments[0], list.Fragments[1]
+	if public.Protected || public.Text != "Visible text." {
+		t.Errorf("public fragment = %+v", public)
+	}
+	if !sealed.Protected || sealed.Text != "" {
+		t.Errorf("sealed stub = %+v, want a protected fragment with no public text", sealed)
+	}
+	if len(parsed.ProtectedPrompts) != 1 {
+		t.Fatalf("protected prompts = %d, want 1", len(parsed.ProtectedPrompts))
+	}
+	private := parsed.ProtectedPrompts[0]
+	if private.FragmentID != sealed.ID || private.SourceKey != "dialogue.frame" ||
+		private.Text != privateText || private.ReuseExisting {
+		t.Errorf("protected prompt = %+v", private)
+	}
+
+	list.Fragments[1].Text = private.Text
+	for index := range parsed.Elements {
+		if parsed.Elements[index].Role == block.RolePromptFragments {
+			parsed.Elements[index].Content = list
+			break
+		}
+	}
+	written := write(t, LumiverseModule{}, parsed)
+	var ordinary struct {
+		Blocks []struct {
+			Content string `json:"content"`
+		} `json:"blocks"`
+	}
+	if err := json.Unmarshal(written.Body, &ordinary); err != nil {
+		t.Fatalf("read the ordinary preset: %v", err)
+	}
+	if len(ordinary.Blocks) != 2 || ordinary.Blocks[1].Content != privateText {
+		t.Errorf("written blocks = %+v, want the exact restored private text", ordinary.Blocks)
+	}
+	for _, privateMarker := range []string{"presetBlock", `"sealed"`, "sealedKey", "sealed_key"} {
+		if strings.Contains(string(written.Body), privateMarker) {
+			t.Errorf("the ordinary artifact retained %q", privateMarker)
+		}
+	}
+}
+
+func TestReadingAKeyedPlaceholderMarksItForReuse(t *testing.T) {
+	parsed := parse(t, `{
+		"schemaVersion": 1,
+		"name": "Re-uploaded preset",
+		"blocks": [{
+			"id": "private",
+			"content": "{{presetBlock::dialogue.frame}}",
+			"enabled": true,
+			"sealed": true,
+			"sealed_key": "dialogue.frame"
+		}]
+	}`)
+
+	fragment := promptList(t, parsed.Elements).Fragments[0]
+	if !fragment.Protected || fragment.Text != "" {
+		t.Errorf("placeholder stub = %+v", fragment)
+	}
+	if len(parsed.ProtectedPrompts) != 1 {
+		t.Fatalf("protected prompts = %d, want 1", len(parsed.ProtectedPrompts))
+	}
+	private := parsed.ProtectedPrompts[0]
+	if private.FragmentID != fragment.ID || private.SourceKey != "dialogue.frame" ||
+		private.Text != "" || !private.ReuseExisting {
+		t.Errorf("protected prompt = %+v", private)
+	}
+}
+
+func TestMalformedKeyedSealingMetadataIsRefused(t *testing.T) {
+	tests := []struct {
+		name   string
+		blocks string
+	}{
+		{
+			name: "duplicate key",
+			blocks: `[
+				{"id":"one","content":"First","enabled":true,"sealed":true,"sealedKey":"same"},
+				{"id":"two","content":"Second","enabled":true,"sealed":true,"sealedKey":"same"}
+			]`,
+		},
+		{
+			name:   "missing key",
+			blocks: `[{"id":"one","content":"Private","enabled":true,"sealed":true}]`,
+		},
+		{
+			name:   "key without sealing",
+			blocks: `[{"id":"one","content":"Private","enabled":true,"sealedKey":"orphan"}]`,
+		},
+		{
+			name: "mismatched placeholder",
+			blocks: `[{"id":"one","content":"{{presetBlock::other}}","enabled":true,` +
+				`"sealed":true,"sealedKey":"expected"}]`,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			file := document(t, `{"schemaVersion":1,"blocks":`+test.blocks+`}`)
+			claim, claimed := (LumiverseModule{}).Claim(file)
+			if !claimed {
+				t.Fatal("the Lumiverse marker was not claimed")
+			}
+			_, err := (LumiverseModule{}).Parse(context.Background(), file, claim)
+			if reason, classified := format.FailureOf(err); !classified ||
+				reason != format.FailureMalformedInput {
+				t.Fatalf("parse error = %v, want a malformed input refusal", err)
+			}
+			if !strings.Contains(err.Error(), "sealed") {
+				t.Errorf("parse error = %v, want useful sealing detail", err)
+			}
+		})
+	}
+}
+
 func TestASillyTavernOriginDoesNotOfferLumiverseForProtectedDelivery(t *testing.T) {
 	parsed := parse(t, sillyTavernPreset)
 	offered := testRegistry(t).OfferedTargets(format.CapabilitySubject{

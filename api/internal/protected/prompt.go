@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/Sillyfrogster/Illarin/api/internal/block"
+	"github.com/Sillyfrogster/Illarin/api/internal/format"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -20,6 +21,150 @@ const (
 )
 
 var ErrPolicyRequired = errors.New("choose at least one allowed app before sealing a prompt")
+
+// ImportPromptFragments stores private prompt text a format adapter separated
+// before persistence. A keyed placeholder may reuse exactly one prior payload.
+func ImportPromptFragments(
+	ctx context.Context,
+	tx pgx.Tx,
+	assetID uuid.UUID,
+	blocks []block.Block,
+	imports []format.ProtectedPrompt,
+	initialApps []string,
+) error {
+	owners := make(map[uuid.UUID]bool, len(imports))
+	for _, holder := range blocks {
+		for _, element := range holder.Elements {
+			list, ok := element.Content.(block.PromptList)
+			if !ok {
+				continue
+			}
+			for _, fragment := range list.Fragments {
+				if fragment.Protected && fragment.Text == "" {
+					owners[fragment.ID] = true
+				}
+			}
+		}
+	}
+	if len(owners) != len(imports) {
+		return format.MalformedInput(errors.New(
+			"sealed prompt metadata does not match the imported prompt fragments",
+		))
+	}
+
+	apps, err := policy(ctx, tx, assetID, nil)
+	if err != nil {
+		return err
+	}
+	if len(apps) == 0 {
+		apps, err = policy(ctx, tx, assetID, &initialApps)
+		if err != nil {
+			return err
+		}
+		if len(apps) == 0 {
+			return ErrPolicyRequired
+		}
+		for _, app := range apps {
+			if _, err := tx.Exec(ctx, `
+				insert into protected_delivery_apps (asset_id, app) values ($1, $2)
+			`, assetID, app); err != nil {
+				return fmt.Errorf("save imported protected delivery policy: %w", err)
+			}
+		}
+	}
+
+	texts := make(map[uuid.UUID]string, len(imports))
+	for _, imported := range imports {
+		if !owners[imported.FragmentID] {
+			return format.MalformedInput(errors.New(
+				"sealed prompt metadata does not identify an imported prompt fragment",
+			))
+		}
+		text := imported.Text
+		if imported.ReuseExisting {
+			if imported.SourceKey == "" {
+				return format.MalformedInput(errors.New(
+					"a reusable sealed prompt needs a source key",
+				))
+			}
+			text, err = promptTextBySourceKey(ctx, tx, assetID, imported.SourceKey)
+			if err != nil {
+				return err
+			}
+		}
+		texts[imported.FragmentID] = text
+		payload, err := json.Marshal(map[string]string{"text": text})
+		if err != nil {
+			return fmt.Errorf("encode imported protected prompt: %w", err)
+		}
+		digest := sha256.Sum256([]byte(text))
+		var sourceKey any
+		if imported.SourceKey != "" {
+			sourceKey = imported.SourceKey
+		}
+		if _, err := tx.Exec(ctx, `
+			insert into protected_content (
+				asset_id, owner_kind, owner_id, payload_type, payload, source_key, digest
+			) values ($1, $2, $3, $4, $5, $6, $7)
+			on conflict (asset_id, owner_kind, owner_id) do update
+			set payload = excluded.payload,
+				payload_type = excluded.payload_type,
+				source_key = excluded.source_key,
+				digest = excluded.digest
+		`, assetID, promptOwnerKind, imported.FragmentID, promptPayload,
+			payload, sourceKey, digest[:]); err != nil {
+			return fmt.Errorf("save imported protected prompt: %w", err)
+		}
+	}
+	if _, err := tx.Exec(ctx, `
+		delete from protected_content
+		 where asset_id = $1 and owner_kind = $2 and not (owner_id = any($3::uuid[]))
+	`, assetID, promptOwnerKind, ids(texts)); err != nil {
+		return fmt.Errorf("replace imported protected prompts: %w", err)
+	}
+	return nil
+}
+
+func promptTextBySourceKey(
+	ctx context.Context,
+	tx pgx.Tx,
+	assetID uuid.UUID,
+	sourceKey string,
+) (string, error) {
+	rows, err := tx.Query(ctx, `
+		select payload
+		  from protected_content
+		 where asset_id = $1 and owner_kind = $2 and payload_type = $3 and source_key = $4
+		 for update
+	`, assetID, promptOwnerKind, promptPayload, sourceKey)
+	if err != nil {
+		return "", fmt.Errorf("read existing sealed prompt: %w", err)
+	}
+	defer rows.Close()
+	var texts []string
+	for rows.Next() {
+		var payload []byte
+		if err := rows.Scan(&payload); err != nil {
+			return "", fmt.Errorf("read existing sealed prompt: %w", err)
+		}
+		var item struct {
+			Text string `json:"text"`
+		}
+		if err := json.Unmarshal(payload, &item); err != nil {
+			return "", fmt.Errorf("decode existing sealed prompt: %w", err)
+		}
+		texts = append(texts, item.Text)
+	}
+	if err := rows.Err(); err != nil {
+		return "", fmt.Errorf("read existing sealed prompt: %w", err)
+	}
+	if len(texts) != 1 {
+		return "", format.MalformedInput(fmt.Errorf(
+			"sealed prompt key %q needs exactly one existing private value", sourceKey,
+		))
+	}
+	return texts[0], nil
+}
 
 // AppTargets names the code-owned export targets each allowed app can receive.
 func AppTargets(kind, app string) []string {
