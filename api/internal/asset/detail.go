@@ -88,9 +88,7 @@ func (s *Service) Detail(
 	viewerID *uuid.UUID,
 	visibility ContentVisibility,
 ) (Detail, error) {
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{
-		IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly,
-	})
+	tx, err := s.beginReadSnapshot(ctx)
 	if err != nil {
 		return Detail{}, fmt.Errorf("begin asset page snapshot: %w", err)
 	}

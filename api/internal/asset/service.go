@@ -55,6 +55,12 @@ type Service struct {
 	siteURL     string
 }
 
+func (s *Service) beginReadSnapshot(ctx context.Context) (pgx.Tx, error) {
+	return s.pool.BeginTx(ctx, pgx.TxOptions{
+		IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly,
+	})
+}
+
 type IngestSettings struct {
 	ProbeLimits            probe.Limits
 	LeaseDuration          time.Duration

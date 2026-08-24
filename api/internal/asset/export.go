@@ -58,9 +58,7 @@ func (s *Service) OpenExport(
 	viewerID *uuid.UUID,
 	target string,
 ) (Export, error) {
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{
-		IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly,
-	})
+	tx, err := s.beginReadSnapshot(ctx)
 	if err != nil {
 		return Export{}, fmt.Errorf("begin export snapshot: %w", err)
 	}
@@ -114,9 +112,7 @@ func (s *Service) OpenExportForLinkedInstance(
 	assetID uuid.UUID,
 	target string,
 ) (Export, error) {
-	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{
-		IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly,
-	})
+	tx, err := s.beginReadSnapshot(ctx)
 	if err != nil {
 		return Export{}, fmt.Errorf("begin linked export snapshot: %w", err)
 	}
