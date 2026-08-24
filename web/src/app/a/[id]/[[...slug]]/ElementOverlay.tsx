@@ -3,8 +3,23 @@
 import { CornerUpLeft, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import type { AssetElement, AssetImage } from "@/lib/api/query";
+import { FullHeightEditingProvider } from "./CollectionEditor";
 import { ElementFields } from "./ElementEditors";
 import styles from "./ElementOverlay.module.css";
+import {
+  elementSealsAPrompt,
+  NO_ALLOWED_APP,
+  SealedPolicy,
+  type SealedPolicyState,
+} from "./SealedPolicy";
+
+// These element types edit a collection, which fills the height rather than scrolling the page.
+const COLLECTION_ELEMENTS = new Set([
+  "entry_table",
+  "prompt_list",
+  "record_list",
+  "setting_group",
+]);
 
 /** The full-screen surface edits large collection elements. */
 export function ElementOverlay({
@@ -14,6 +29,7 @@ export function ElementOverlay({
   returnLabel,
   pending,
   message,
+  policy,
   onChange,
   onLeave,
   onImageAdded,
@@ -24,15 +40,30 @@ export function ElementOverlay({
   returnLabel: string;
   pending: boolean;
   message: string;
+  policy?: SealedPolicyState;
   onChange: (element: AssetElement) => void;
   onLeave: () => void;
   onImageAdded: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const sealed = elementSealsAPrompt(element);
+  const fills = COLLECTION_ELEMENTS.has(element.type);
+  const unanswered = message === NO_ALLOWED_APP;
 
   useEffect(() => {
     dialog.current?.showModal();
   }, []);
+
+  const fields = (
+    <ElementFields
+      assetId={assetId}
+      element={element}
+      images={images}
+      pending={pending}
+      onChange={onChange}
+      onImageAdded={onImageAdded}
+    />
+  );
 
   return (
     <dialog
@@ -76,20 +107,24 @@ export function ElementOverlay({
           </div>
         </header>
 
-        <div className={styles.scroller}>
-          {message ? (
+        <div className={fills ? styles.workspace : styles.scroller}>
+          {message && !unanswered ? (
             <p className={styles.error} role="alert">
               {message}
             </p>
           ) : null}
-          <ElementFields
-            assetId={assetId}
-            element={element}
-            images={images}
-            pending={pending}
-            onChange={onChange}
-            onImageAdded={onImageAdded}
-          />
+          {policy && sealed ? (
+            <SealedPolicy
+              policy={policy}
+              pending={pending}
+              unanswered={unanswered}
+            />
+          ) : null}
+          {fills ? (
+            <FullHeightEditingProvider>{fields}</FullHeightEditingProvider>
+          ) : (
+            fields
+          )}
         </div>
 
         <footer className={styles.footer}>

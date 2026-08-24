@@ -103,6 +103,31 @@
   padding: 26px clamp(18px, 4vw, 40px) 40px;
 }
 
+.workspace {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 20px;
+  overflow: hidden;
+  padding: 26px clamp(18px, 4vw, 40px) 30px;
+}
+
+.workspace > :last-child {
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+@media (max-width: 860px) {
+  .workspace {
+    overflow-y: auto;
+    padding-bottom: 40px;
+  }
+
+  .workspace > :last-child {
+    flex: 0 0 auto;
+  }
+}
+
 .footer {
   border-top: 1px solid var(--color-border);
 }

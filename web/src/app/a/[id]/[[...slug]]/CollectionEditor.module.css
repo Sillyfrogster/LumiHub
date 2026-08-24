@@ -1,9 +1,27 @@
+.stack {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.stack.roomy {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
 .editor {
   display: grid;
   min-height: 0;
   grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
   gap: 24px;
   align-items: start;
+}
+
+.editor.roomy {
+  grid-template-columns: minmax(260px, 22vw) minmax(0, 1fr);
+  gap: 32px;
+  align-items: stretch;
 }
 
 .list {
@@ -16,6 +34,11 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-muted);
+}
+
+.roomy .list {
+  min-height: 0;
+  max-height: none;
 }
 
 .search input {
@@ -148,6 +171,13 @@
 .detail {
   min-width: 0;
   scroll-margin-top: 12px;
+}
+
+.roomy .detail {
+  min-height: 0;
+  padding-right: 6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .fields {
@@ -288,12 +318,23 @@
 }
 
 @media (max-width: 860px) {
-  .editor {
+  .editor,
+  .editor.roomy {
     grid-template-columns: minmax(0, 1fr);
+    align-items: start;
   }
 
-  .list {
+  .stack.roomy {
+    display: flex;
+  }
+
+  .list,
+  .roomy .list {
     max-height: 46vh;
+  }
+
+  .roomy .detail {
+    overflow-y: visible;
   }
 
   .pair {

@@ -10,11 +10,16 @@ import {
   saveAssetBlock,
 } from "@/lib/api/query";
 import { LAYOUTS } from "@/lib/page-arrangement";
-import { protectedAppLabel } from "@/lib/protected-apps";
 import { LayoutPicker, WidthPicker } from "./ArrangementPickers";
 import styles from "./BlockSheet.module.css";
 import { ElementEditor } from "./ElementEditors";
 import { ElementOverlay } from "./ElementOverlay";
+import {
+  type AllowedApp,
+  hasSealedPrompts,
+  NO_ALLOWED_APP,
+  SealedPolicy,
+} from "./SealedPolicy";
 
 export function BlockSheet({
   assetId,
@@ -38,10 +43,11 @@ export function BlockSheet({
   onHide: () => Promise<void>;
   onRemove: () => void;
   onImageAdded: () => void;
-  allowedApps: "lumiverse"[];
-  eligibleApps: "lumiverse"[];
+  allowedApps: AllowedApp[];
+  eligibleApps: AllowedApp[];
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const policyFields = useRef<HTMLFieldSetElement>(null);
   const [title, setTitle] = useState(block.titleIsDefault ? "" : block.title);
   const [useDefaultTitle, setUseDefaultTitle] = useState(block.titleIsDefault);
   const [elements, setElements] = useState(() =>
@@ -95,9 +101,9 @@ export function BlockSheet({
     if (pending) return;
     setMessage("");
     if (hasSealedPrompts(elements) && allowedApps.length === 0) {
-      setMessage(
-        "Choose at least one allowed app before saving a sealed prompt.",
-      );
+      setMessage(NO_ALLOWED_APP);
+      policyFields.current?.scrollIntoView({ block: "center" });
+      policyFields.current?.querySelector("input")?.focus();
       return;
     }
     setPending(true);
@@ -265,40 +271,18 @@ export function BlockSheet({
           </div>
 
           {hasSealedPrompts(elements) ? (
-            <fieldset className={styles.protectedDelivery}>
-              <legend>Allowed apps</legend>
-              <p>
-                An allowed linked application receives the prompt text in
-                plaintext. Sealing is not encryption.
-              </p>
-              {eligibleApps.length > 0 ? (
-                eligibleApps.map((app) => (
-                  <label key={app}>
-                    <input
-                      type="checkbox"
-                      checked={allowedApps.includes(app)}
-                      onChange={(event) =>
-                        setAllowedApps((current) =>
-                          event.target.checked
-                            ? current.includes(app)
-                              ? current
-                              : [app, ...current]
-                            : current.filter(
-                                (currentApp) => currentApp !== app,
-                              ),
-                        )
-                      }
-                      disabled={editingIsLocked}
-                    />
-                    {protectedAppLabel(app)}
-                  </label>
-                ))
-              ) : (
-                <p>
-                  No linked app can receive this preset in its current form.
-                </p>
-              )}
-            </fieldset>
+            <div className={styles.sealedPolicy}>
+              <SealedPolicy
+                innerRef={policyFields}
+                policy={{
+                  allowedApps,
+                  eligibleApps,
+                  onChange: setAllowedApps,
+                }}
+                pending={editingIsLocked}
+                unanswered={message === NO_ALLOWED_APP}
+              />
+            </div>
           ) : null}
 
           {finalUnseal ? (
@@ -413,21 +397,13 @@ export function BlockSheet({
           returnLabel={`Return to ${block.title}`}
           pending={editingIsLocked}
           message=""
+          policy={{ allowedApps, eligibleApps, onChange: setAllowedApps }}
           onChange={replaceElement}
           onLeave={() => setExpanded(null)}
           onImageAdded={onImageAdded}
         />
       ) : null}
     </dialog>
-  );
-}
-
-function hasSealedPrompts(elements: AssetElement[]): boolean {
-  return elements.some(
-    (element) =>
-      element.type === "prompt_list" &&
-      "fragments" in element.content &&
-      element.content.fragments.some((fragment) => fragment.protected),
   );
 }
 

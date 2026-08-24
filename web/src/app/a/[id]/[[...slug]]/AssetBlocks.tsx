@@ -62,6 +62,11 @@ import {
   EmptyPageInvitation,
   QuietPageArt,
 } from "./QuietPage";
+import {
+  type AllowedApp,
+  hasSealedPrompts,
+  NO_ALLOWED_APP,
+} from "./SealedPolicy";
 
 function measureCandidateHeights(
   source: HTMLElement,
@@ -171,6 +176,7 @@ export function AssetBlocks({
   } | null>(null);
   const [expandPending, setExpandPending] = useState(false);
   const [expandMessage, setExpandMessage] = useState("");
+  const [expandApps, setExpandApps] = useState<AllowedApp[]>(allowedApps);
   const [suggestedWidths, setSuggestedWidths] = useState<
     Record<string, BlockWidth>
   >({});
@@ -292,6 +298,14 @@ export function AssetBlocks({
   /** A save that fails keeps the overlay open rather than closing over a loss. */
   async function leaveOverlay() {
     if (!expanding || !expandedBlock || expandPending) return;
+    const elements = expandedBlock.elements.map((element) =>
+      element.id === expanding.element.id ? expanding.element : element,
+    );
+    const sealed = hasSealedPrompts(elements);
+    if (sealed && expandApps.length === 0) {
+      setExpandMessage(NO_ALLOWED_APP);
+      return;
+    }
     setExpandPending(true);
     setExpandMessage("");
     try {
@@ -299,9 +313,9 @@ export function AssetBlocks({
         assetId,
         expandedBlock.id,
         blockSaveRequest(expandedBlock, {
-          elements: expandedBlock.elements.map((element) =>
-            element.id === expanding.element.id ? expanding.element : element,
-          ),
+          elements,
+          allowedApps:
+            sealed || allowedApps.length > 0 ? expandApps : undefined,
         }),
       );
       setCurrentBlocks((current) =>
@@ -568,12 +582,14 @@ export function AssetBlocks({
                               blockTitle={block.title}
                               blockElements={block.elements.length}
                               markEmpty={!invited}
-                              onExpand={() =>
+                              onExpand={() => {
+                                setExpandApps(allowedApps);
+                                setExpandMessage("");
                                 setExpanding({
                                   blockId: block.id,
                                   element: structuredClone(element),
-                                })
-                              }
+                                });
+                              }}
                               onReadMore={() =>
                                 setReading({
                                   blockId: block.id,
@@ -703,6 +719,11 @@ export function AssetBlocks({
           returnLabel={`Return to ${expandedBlock.title}`}
           pending={expandPending}
           message={expandMessage}
+          policy={{
+            allowedApps: expandApps,
+            eligibleApps,
+            onChange: setExpandApps,
+          }}
           onChange={(element) =>
             setExpanding((current) =>
               current ? { ...current, element } : current,
@@ -817,12 +838,17 @@ function sameWidthSuggestions(
 
 function blockSaveRequest(
   block: AssetBlock,
-  changes: { width?: AssetBlock["width"]; elements?: AssetElement[] },
+  changes: {
+    width?: AssetBlock["width"];
+    elements?: AssetElement[];
+    allowedApps?: AllowedApp[];
+  },
 ): SaveAssetBlockRequest {
   return {
     title: block.titleIsDefault ? null : block.title,
     layout: block.layout,
     width: changes.width ?? block.width,
+    allowedApps: changes.allowedApps,
     elements: (changes.elements ?? block.elements).map((element) => ({
       id: element.id,
       type: element.type,

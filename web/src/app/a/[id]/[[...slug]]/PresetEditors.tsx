@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import type {
   PresetSetting,
@@ -14,6 +14,7 @@ import type {
 import { nameSlot } from "@/lib/preset-slots";
 import {
   CollectionEditor,
+  CollectionStack,
   Field,
   FieldGroup,
   FieldPair,
@@ -108,13 +109,16 @@ export function PromptListEditor({
   }
 
   return (
-    <div className={styles.stack}>
-      <GroupEditor
-        groups={groups}
-        fragments={fragments}
-        pending={pending}
-        onChange={onChange}
-      />
+    <CollectionStack
+      above={
+        <GroupEditor
+          groups={groups}
+          fragments={fragments}
+          pending={pending}
+          onChange={onChange}
+        />
+      }
+    >
       <CollectionEditor
         noun="fragment"
         emptyMessage="This preset has no prompt fragments yet."
@@ -166,7 +170,7 @@ export function PromptListEditor({
           </NothingChosen>
         )}
       </CollectionEditor>
-    </div>
+    </CollectionStack>
   );
 }
 
@@ -182,6 +186,16 @@ function GroupEditor({
   onChange: (content: PromptListContent) => void;
 }) {
   const [adding, setAdding] = useState("");
+
+  // Fragments can reference a new heading before the next save.
+  function addGroup() {
+    if (adding.trim() === "") return;
+    onChange({
+      groups: [...groups, { id: crypto.randomUUID(), name: adding.trim() }],
+      fragments,
+    });
+    setAdding("");
+  }
 
   function removeGroup(index: number) {
     const gone = groups[index].id;
@@ -204,9 +218,10 @@ function GroupEditor({
       ) : (
         <ul className={styles.groups}>
           {groups.map((group, index) => (
-            <li key={group.id ?? index}>
+            <li key={group.id ?? index} className={styles.group}>
               <input
                 aria-label={`Heading ${index + 1}`}
+                size={Math.max(8, Math.min(28, group.name.length + 1))}
                 value={group.name}
                 onChange={(event) =>
                   onChange({
@@ -221,11 +236,11 @@ function GroupEditor({
               <button
                 type="button"
                 className={styles.removeGroup}
+                aria-label={`Remove the heading ${group.name}`}
                 onClick={() => removeGroup(index)}
                 disabled={pending}
               >
-                <Trash2 size={14} aria-hidden="true" />
-                Remove
+                <X size={14} aria-hidden="true" />
               </button>
             </li>
           ))}
@@ -237,22 +252,16 @@ function GroupEditor({
           placeholder="A new heading"
           value={adding}
           onChange={(event) => setAdding(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter") return;
+            event.preventDefault();
+            addGroup();
+          }}
           disabled={pending}
         />
         <button
           type="button"
-          onClick={() => {
-            if (adding.trim() === "") return;
-            /** Fragments can reference this group before the next save. */
-            onChange({
-              groups: [
-                ...groups,
-                { id: crypto.randomUUID(), name: adding.trim() },
-              ],
-              fragments,
-            });
-            setAdding("");
-          }}
+          onClick={addGroup}
           disabled={pending || adding.trim() === ""}
         >
           <Plus size={16} aria-hidden="true" />

@@ -1,9 +1,3 @@
-.stack {
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-}
-
 .quiet {
   color: var(--color-text-secondary);
   font-size: 0.85rem;
@@ -17,18 +11,56 @@
 
 .groups {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 8px;
   list-style: none;
 }
 
-.groups > li {
-  display: flex;
+.group {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 2px;
+  padding-right: 4px;
+  border: 1px solid var(--color-accent-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
 }
 
-.groups input,
+.group input {
+  min-height: 40px;
+  min-width: 0;
+  padding: 8px 4px 8px 12px;
+  border: 0;
+  background: none;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.group input:focus {
+  outline: none;
+}
+
+.group:focus-within {
+  border-color: var(--color-accent);
+}
+
+.removeGroup {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+}
+
+.removeGroup:hover:not(:disabled) {
+  background: var(--color-muted);
+  color: var(--color-critical-strong);
+}
+
 .addGroup input,
 .addSetting input,
 .addSetting select,
@@ -36,6 +68,7 @@
   min-height: 44px;
   flex: 1 1 auto;
   min-width: 0;
+  max-width: 34ch;
   padding: 10px 13px;
   border: 1px solid var(--color-accent-border);
   border-radius: var(--radius-md);
@@ -44,7 +77,6 @@
   font: inherit;
 }
 
-.groups input:focus,
 .addGroup input:focus,
 .addSetting input:focus,
 .addSetting select:focus,
@@ -82,7 +114,6 @@
   align-self: flex-start;
 }
 
-.removeGroup,
 .removeSetting {
   display: inline-flex;
   min-height: 40px;
@@ -207,7 +238,7 @@
   font-family: var(--font-mono);
 }
 
-.groups input:disabled,
+.group input:disabled,
 .addGroup input:disabled,
 .addGroup button:disabled,
 .addSetting input:disabled,
