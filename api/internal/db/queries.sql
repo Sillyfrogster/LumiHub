@@ -908,7 +908,7 @@ returning id, application_name, instance_name, application_version,
 
 -- name: RevokeLinkedInstance :one
 with revoked as (
-    update linked_instances
+    update linked_instances as instance
        set refresh_token_hash = null,
            legacy_token_hash = null,
            application_version = null,
@@ -916,19 +916,25 @@ with revoked as (
            capabilities = '{}',
            accepted_targets = '{}',
            revoked_at = now()
-     where id = sqlc.arg('instance_id')
-       and user_id = sqlc.arg('user_id')
-       and revoked_at is null
-    returning id
+     where instance.id = sqlc.arg('instance_id')
+       and instance.user_id = sqlc.arg('user_id')
+       and instance.revoked_at is null
+    returning instance.id
 ), deleted_access as (
-    delete from instance_access_tokens
-     where instance_id in (select id from revoked)
+    delete from instance_access_tokens as token
+     where token.instance_id in (select revoked.id from revoked)
+), deleted_deliveries as (
+    delete from instance_deliveries as delivery
+     where delivery.instance_id in (select revoked.id from revoked)
+), deleted_library as (
+    delete from instance_library_entries as entry
+     where entry.instance_id in (select revoked.id from revoked)
 )
 select exists(select 1 from revoked) as revoked;
 
 -- name: RevokeLinkedInstanceByID :one
 with revoked as (
-    update linked_instances
+    update linked_instances as instance
        set refresh_token_hash = null,
            legacy_token_hash = null,
            application_version = null,
@@ -936,11 +942,17 @@ with revoked as (
            capabilities = '{}',
            accepted_targets = '{}',
            revoked_at = now()
-     where id = sqlc.arg('instance_id') and revoked_at is null
-    returning id
+     where instance.id = sqlc.arg('instance_id') and instance.revoked_at is null
+    returning instance.id
 ), deleted_access as (
-    delete from instance_access_tokens
-     where instance_id in (select id from revoked)
+    delete from instance_access_tokens as token
+     where token.instance_id in (select revoked.id from revoked)
+), deleted_deliveries as (
+    delete from instance_deliveries as delivery
+     where delivery.instance_id in (select revoked.id from revoked)
+), deleted_library as (
+    delete from instance_library_entries as entry
+     where entry.instance_id in (select revoked.id from revoked)
 )
 select exists(select 1 from revoked) as revoked;
 
@@ -1018,3 +1030,197 @@ values ($1, $2, $3, $4)
 on conflict (source) do update
    set blob_id = excluded.blob_id, width = excluded.width,
        height = excluded.height, staged_at = now();
+
+-- name: LiveLinkedInstances :many
+select id, user_id, application_name, instance_name, application_version,
+       protocol_version, capabilities, accepted_targets,
+       refresh_token_prefix, scopes, linked_at, last_seen_at
+  from linked_instances
+ where user_id = sqlc.arg('user_id') and revoked_at is null
+ order by coalesce(last_seen_at, linked_at) desc, linked_at desc;
+
+-- name: LiveLinkedInstance :one
+select id, user_id, application_name, instance_name, application_version,
+       protocol_version, capabilities, accepted_targets,
+       refresh_token_prefix, scopes, linked_at, last_seen_at
+  from linked_instances
+ where id = sqlc.arg('instance_id')
+   and user_id = sqlc.arg('user_id')
+   and revoked_at is null;
+
+-- name: QueueDelivery :one
+insert into instance_deliveries (id, instance_id, asset_id, expires_at)
+values (
+    sqlc.arg('id'), sqlc.arg('instance_id'), sqlc.arg('asset_id'),
+    sqlc.arg('expires_at')
+)
+on conflict (instance_id, asset_id) where state in ('queued', 'released') do nothing
+returning id, instance_id, asset_id, state, settled_reason, queued_at, expires_at;
+
+-- name: LiveDeliveryForAsset :one
+select id, instance_id, asset_id, state, settled_reason, queued_at, expires_at
+  from instance_deliveries
+ where instance_id = sqlc.arg('instance_id')
+   and asset_id = sqlc.arg('asset_id')
+   and state in ('queued', 'released');
+
+-- name: CountLiveDeliveries :one
+select count(*)::bigint
+  from instance_deliveries
+ where instance_id = sqlc.arg('instance_id') and state in ('queued', 'released');
+
+-- name: AbandonExhaustedDeliveries :execrows
+-- A delivery an instance keeps taking and never acknowledging stops rather than being handed out forever.
+update instance_deliveries
+   set state = 'failed', settled_at = now(), settled_reason = 'abandoned',
+       lease_expires_at = null
+ where instance_id = sqlc.arg('instance_id')
+   and state = 'released'
+   and lease_expires_at <= now()
+   and attempts >= sqlc.arg('max_attempts');
+
+-- name: ClaimDeliveries :many
+-- One claim takes both the waiting work and the work whose lease ran out.
+with candidates as (
+    select waiting.id
+      from instance_deliveries as waiting
+     where waiting.instance_id = sqlc.arg('instance_id')
+       and waiting.expires_at > now()
+       and waiting.attempts < sqlc.arg('max_attempts')
+       and (waiting.state = 'queued'
+            or (waiting.state = 'released' and waiting.lease_expires_at <= now()))
+     order by waiting.queued_at, waiting.id
+     limit sqlc.arg('batch_size')
+     for update skip locked
+)
+update instance_deliveries as delivery
+   set state = 'released',
+       attempts = delivery.attempts + 1,
+       lease_expires_at = sqlc.arg('lease_expires_at')
+  from candidates
+ where delivery.id = candidates.id
+returning delivery.id, delivery.asset_id, delivery.queued_at,
+          delivery.lease_expires_at;
+
+-- name: SetDeliveryTarget :exec
+update instance_deliveries
+   set chosen_target = sqlc.arg('chosen_target')
+ where id = sqlc.arg('id');
+
+-- name: FailDelivery :exec
+update instance_deliveries
+   set state = 'failed', settled_at = now(),
+       settled_reason = sqlc.arg('settled_reason'), lease_expires_at = null
+ where id = sqlc.arg('id');
+
+-- name: AcknowledgeDeliveries :execrows
+delete from instance_deliveries
+ where instance_id = sqlc.arg('instance_id')
+   and id = any(sqlc.arg('delivery_ids')::uuid[])
+   and state = 'released';
+
+-- name: DiscardDelivery :execrows
+delete from instance_deliveries as delivery
+ using linked_instances as instance
+ where delivery.id = sqlc.arg('delivery_id')
+   and delivery.instance_id = instance.id
+   and instance.user_id = sqlc.arg('user_id');
+
+-- name: DeliveryForArtifact :one
+select delivery.asset_id, delivery.chosen_target, instance.id as instance_id
+  from instance_deliveries as delivery
+  join linked_instances as instance on instance.id = delivery.instance_id
+ where delivery.id = sqlc.arg('delivery_id')
+   and delivery.state = 'released'
+   and delivery.lease_expires_at > now()
+   and delivery.expires_at > now()
+   and delivery.chosen_target is not null
+   and instance.revoked_at is null
+   and instance.scopes @> array['asset:receive'];
+
+-- name: DeleteExpiredDeliveries :execrows
+with expired as (
+    select id
+      from instance_deliveries
+     where expires_at <= now()
+     order by expires_at
+     limit sqlc.arg('batch_size')
+     for update skip locked
+)
+delete from instance_deliveries as delivery
+ using expired
+ where delivery.id = expired.id;
+
+-- name: SendableAssetGeneration :one
+select content_generation
+  from assets
+ where id = sqlc.arg('asset_id')
+   and deleted_at is null
+   and withheld_at is null
+   and lifecycle = 'published';
+
+-- name: AssetInstanceStates :many
+select instance.id, instance.application_name, instance.instance_name,
+       instance.last_seen_at, instance.scopes,
+       delivery.id as delivery_id,
+       coalesce(delivery.state, '')::text as delivery_state,
+       delivery.settled_reason, delivery.queued_at, delivery.expires_at,
+       entry.content_generation as installed_generation
+  from linked_instances as instance
+  left join lateral (
+      select waiting.id, waiting.state, waiting.settled_reason,
+             waiting.queued_at, waiting.expires_at
+        from instance_deliveries as waiting
+       where waiting.instance_id = instance.id
+         and waiting.asset_id = sqlc.arg('asset_id')
+       order by (waiting.state <> 'failed') desc, waiting.queued_at desc
+       limit 1
+  ) as delivery on true
+  left join instance_library_entries as entry
+    on entry.instance_id = instance.id and entry.asset_id = sqlc.arg('asset_id')
+ where instance.user_id = sqlc.arg('user_id') and instance.revoked_at is null
+ order by coalesce(instance.last_seen_at, instance.linked_at) desc,
+          instance.linked_at desc;
+
+-- name: InstanceLibraryCounts :many
+select entry.instance_id,
+       count(*)::bigint as installed,
+       count(*) filter (
+           where asset.content_generation > entry.content_generation
+       )::bigint as updates_available
+  from instance_library_entries as entry
+  join assets as asset on asset.id = entry.asset_id
+  join linked_instances as instance on instance.id = entry.instance_id
+ where instance.user_id = sqlc.arg('user_id')
+   and instance.revoked_at is null
+   and asset.deleted_at is null
+   and asset.withheld_at is null
+   and asset.lifecycle = 'published'
+ group by entry.instance_id;
+
+-- name: ReportLibraryEntries :execrows
+-- An instance that cannot say which version it holds has not told us it is behind.
+insert into instance_library_entries (instance_id, asset_id, content_generation, reported_at)
+select sqlc.arg('instance_id'), asset.id,
+       coalesce(nullif(reported.generation, 0), asset.content_generation), now()
+  from (
+      select unnest(sqlc.arg('asset_ids')::uuid[]) as asset_id,
+             unnest(sqlc.arg('generations')::integer[]) as generation
+  ) as reported
+  join assets as asset
+    on asset.id = reported.asset_id
+   and asset.deleted_at is null
+   and asset.lifecycle = 'published'
+on conflict (instance_id, asset_id) do update
+   set content_generation = excluded.content_generation,
+       reported_at = excluded.reported_at;
+
+-- name: RemoveLibraryEntries :execrows
+delete from instance_library_entries
+ where instance_id = sqlc.arg('instance_id')
+   and asset_id = any(sqlc.arg('asset_ids')::uuid[]);
+
+-- name: PruneLibraryToSnapshot :execrows
+delete from instance_library_entries
+ where instance_id = sqlc.arg('instance_id')
+   and not (asset_id = any(sqlc.arg('asset_ids')::uuid[]));

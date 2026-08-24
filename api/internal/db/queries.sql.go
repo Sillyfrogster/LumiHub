@@ -11,6 +11,51 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const abandonExhaustedDeliveries = `-- name: AbandonExhaustedDeliveries :execrows
+update instance_deliveries
+   set state = 'failed', settled_at = now(), settled_reason = 'abandoned',
+       lease_expires_at = null
+ where instance_id = $1
+   and state = 'released'
+   and lease_expires_at <= now()
+   and attempts >= $2
+`
+
+type AbandonExhaustedDeliveriesParams struct {
+	InstanceID  pgtype.UUID
+	MaxAttempts int32
+}
+
+// A delivery the instance keeps taking and never acknowledging stops rather
+// than being handed out forever.
+func (q *Queries) AbandonExhaustedDeliveries(ctx context.Context, arg AbandonExhaustedDeliveriesParams) (int64, error) {
+	result, err := q.db.Exec(ctx, abandonExhaustedDeliveries, arg.InstanceID, arg.MaxAttempts)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const acknowledgeDeliveries = `-- name: AcknowledgeDeliveries :execrows
+delete from instance_deliveries
+ where instance_id = $1
+   and id = any($2::uuid[])
+   and state = 'released'
+`
+
+type AcknowledgeDeliveriesParams struct {
+	InstanceID  pgtype.UUID
+	DeliveryIds []pgtype.UUID
+}
+
+func (q *Queries) AcknowledgeDeliveries(ctx context.Context, arg AcknowledgeDeliveriesParams) (int64, error) {
+	result, err := q.db.Exec(ctx, acknowledgeDeliveries, arg.InstanceID, arg.DeliveryIds)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const approveDeviceLinkRequest = `-- name: ApproveDeviceLinkRequest :one
 update link_requests
    set review_token_hash = $1,
@@ -216,6 +261,81 @@ func (q *Queries) AssetDeletionState(ctx context.Context, arg AssetDeletionState
 	var i AssetDeletionStateRow
 	err := row.Scan(&i.WithheldAt, &i.DeletedAt)
 	return i, err
+}
+
+const assetInstanceStates = `-- name: AssetInstanceStates :many
+select instance.id, instance.application_name, instance.instance_name,
+       instance.last_seen_at, instance.scopes,
+       delivery.id as delivery_id,
+       coalesce(delivery.state, '')::text as delivery_state,
+       delivery.settled_reason, delivery.queued_at, delivery.expires_at,
+       entry.content_generation as installed_generation
+  from linked_instances as instance
+  left join lateral (
+      select waiting.id, waiting.state, waiting.settled_reason,
+             waiting.queued_at, waiting.expires_at
+        from instance_deliveries as waiting
+       where waiting.instance_id = instance.id
+         and waiting.asset_id = $1
+       order by (waiting.state <> 'failed') desc, waiting.queued_at desc
+       limit 1
+  ) as delivery on true
+  left join instance_library_entries as entry
+    on entry.instance_id = instance.id and entry.asset_id = $1
+ where instance.user_id = $2 and instance.revoked_at is null
+ order by coalesce(instance.last_seen_at, instance.linked_at) desc,
+          instance.linked_at desc
+`
+
+type AssetInstanceStatesParams struct {
+	AssetID pgtype.UUID
+	UserID  pgtype.UUID
+}
+
+type AssetInstanceStatesRow struct {
+	ID                  pgtype.UUID
+	ApplicationName     string
+	InstanceName        string
+	LastSeenAt          pgtype.Timestamptz
+	Scopes              []string
+	DeliveryID          pgtype.UUID
+	DeliveryState       string
+	SettledReason       pgtype.Text
+	QueuedAt            pgtype.Timestamptz
+	ExpiresAt           pgtype.Timestamptz
+	InstalledGeneration pgtype.Int4
+}
+
+func (q *Queries) AssetInstanceStates(ctx context.Context, arg AssetInstanceStatesParams) ([]AssetInstanceStatesRow, error) {
+	rows, err := q.db.Query(ctx, assetInstanceStates, arg.AssetID, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AssetInstanceStatesRow
+	for rows.Next() {
+		var i AssetInstanceStatesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ApplicationName,
+			&i.InstanceName,
+			&i.LastSeenAt,
+			&i.Scopes,
+			&i.DeliveryID,
+			&i.DeliveryState,
+			&i.SettledReason,
+			&i.QueuedAt,
+			&i.ExpiresAt,
+			&i.InstalledGeneration,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const assetPage = `-- name: AssetPage :one
@@ -542,6 +662,75 @@ func (q *Queries) BrowseAssets(ctx context.Context, arg BrowseAssetsParams) ([]B
 	return items, nil
 }
 
+const claimDeliveries = `-- name: ClaimDeliveries :many
+with candidates as (
+    select waiting.id
+      from instance_deliveries as waiting
+     where waiting.instance_id = $2
+       and waiting.expires_at > now()
+       and waiting.attempts < $3
+       and (waiting.state = 'queued'
+            or (waiting.state = 'released' and waiting.lease_expires_at <= now()))
+     order by waiting.queued_at, waiting.id
+     limit $4
+     for update skip locked
+)
+update instance_deliveries as delivery
+   set state = 'released',
+       attempts = delivery.attempts + 1,
+       lease_expires_at = $1
+  from candidates
+ where delivery.id = candidates.id
+returning delivery.id, delivery.asset_id, delivery.queued_at,
+          delivery.lease_expires_at
+`
+
+type ClaimDeliveriesParams struct {
+	LeaseExpiresAt pgtype.Timestamptz
+	InstanceID     pgtype.UUID
+	MaxAttempts    int32
+	BatchSize      int32
+}
+
+type ClaimDeliveriesRow struct {
+	ID             pgtype.UUID
+	AssetID        pgtype.UUID
+	QueuedAt       pgtype.Timestamptz
+	LeaseExpiresAt pgtype.Timestamptz
+}
+
+// One claim takes the waiting work and the work whose lease ran out, so a
+// delivery an instance took but never acknowledged comes back around.
+func (q *Queries) ClaimDeliveries(ctx context.Context, arg ClaimDeliveriesParams) ([]ClaimDeliveriesRow, error) {
+	rows, err := q.db.Query(ctx, claimDeliveries,
+		arg.LeaseExpiresAt,
+		arg.InstanceID,
+		arg.MaxAttempts,
+		arg.BatchSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ClaimDeliveriesRow
+	for rows.Next() {
+		var i ClaimDeliveriesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.AssetID,
+			&i.QueuedAt,
+			&i.LeaseExpiresAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const clearAssetWithhold = `-- name: ClearAssetWithhold :execrows
 update assets
    set withheld_at = null, withheld_by = null, withheld_reason = null,
@@ -664,6 +853,19 @@ func (q *Queries) CountBrowseAssets(ctx context.Context, arg CountBrowseAssetsPa
 	return count, err
 }
 
+const countLiveDeliveries = `-- name: CountLiveDeliveries :one
+select count(*)::bigint
+  from instance_deliveries
+ where instance_id = $1 and state in ('queued', 'released')
+`
+
+func (q *Queries) CountLiveDeliveries(ctx context.Context, instanceID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countLiveDeliveries, instanceID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const countSuppressedBrowseAssets = `-- name: CountSuppressedBrowseAssets :one
 select count(*)
   from assets a
@@ -779,6 +981,28 @@ func (q *Queries) CurrentRevisionLocation(ctx context.Context, arg CurrentRevisi
 		&i.OwnerID,
 	)
 	return i, err
+}
+
+const deleteExpiredDeliveries = `-- name: DeleteExpiredDeliveries :execrows
+with expired as (
+    select id
+      from instance_deliveries
+     where expires_at <= now()
+     order by expires_at
+     limit $1
+     for update skip locked
+)
+delete from instance_deliveries as delivery
+ using expired
+ where delivery.id = expired.id
+`
+
+func (q *Queries) DeleteExpiredDeliveries(ctx context.Context, batchSize int32) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteExpiredDeliveries, batchSize)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const deleteExpiredDeviceLinkRequests = `-- name: DeleteExpiredDeviceLinkRequests :execrows
@@ -942,6 +1166,32 @@ func (q *Queries) DeleteVerificationTokensForUser(ctx context.Context, userID pg
 	return err
 }
 
+const deliveryForArtifact = `-- name: DeliveryForArtifact :one
+select delivery.asset_id, delivery.chosen_target, instance.id as instance_id
+  from instance_deliveries as delivery
+  join linked_instances as instance on instance.id = delivery.instance_id
+ where delivery.id = $1
+   and delivery.state = 'released'
+   and delivery.lease_expires_at > now()
+   and delivery.expires_at > now()
+   and delivery.chosen_target is not null
+   and instance.revoked_at is null
+   and instance.scopes @> array['asset:receive']
+`
+
+type DeliveryForArtifactRow struct {
+	AssetID      pgtype.UUID
+	ChosenTarget pgtype.Text
+	InstanceID   pgtype.UUID
+}
+
+func (q *Queries) DeliveryForArtifact(ctx context.Context, deliveryID pgtype.UUID) (DeliveryForArtifactRow, error) {
+	row := q.db.QueryRow(ctx, deliveryForArtifact, deliveryID)
+	var i DeliveryForArtifactRow
+	err := row.Scan(&i.AssetID, &i.ChosenTarget, &i.InstanceID)
+	return i, err
+}
+
 const denyDeviceLinkRequest = `-- name: DenyDeviceLinkRequest :execrows
 update link_requests
    set review_token_hash = $1,
@@ -1001,6 +1251,27 @@ func (q *Queries) DenyLinkAuthorization(ctx context.Context, arg DenyLinkAuthori
 	return i, err
 }
 
+const discardDelivery = `-- name: DiscardDelivery :execrows
+delete from instance_deliveries as delivery
+ using linked_instances as instance
+ where delivery.id = $1
+   and delivery.instance_id = instance.id
+   and instance.user_id = $2
+`
+
+type DiscardDeliveryParams struct {
+	DeliveryID pgtype.UUID
+	UserID     pgtype.UUID
+}
+
+func (q *Queries) DiscardDelivery(ctx context.Context, arg DiscardDeliveryParams) (int64, error) {
+	result, err := q.db.Exec(ctx, discardDelivery, arg.DeliveryID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const discordSubjectsForUser = `-- name: DiscordSubjectsForUser :many
 select subject
   from oauth_identities
@@ -1026,6 +1297,23 @@ func (q *Queries) DiscordSubjectsForUser(ctx context.Context, userID pgtype.UUID
 		return nil, err
 	}
 	return items, nil
+}
+
+const failDelivery = `-- name: FailDelivery :exec
+update instance_deliveries
+   set state = 'failed', settled_at = now(),
+       settled_reason = $1, lease_expires_at = null
+ where id = $2
+`
+
+type FailDeliveryParams struct {
+	SettledReason pgtype.Text
+	ID            pgtype.UUID
+}
+
+func (q *Queries) FailDelivery(ctx context.Context, arg FailDeliveryParams) error {
+	_, err := q.db.Exec(ctx, failDelivery, arg.SettledReason, arg.ID)
+	return err
 }
 
 const handleUnavailable = `-- name: HandleUnavailable :one
@@ -1707,6 +1995,49 @@ func (q *Queries) InstanceForUsedRefreshToken(ctx context.Context, refreshTokenH
 	return i, err
 }
 
+const instanceLibraryCounts = `-- name: InstanceLibraryCounts :many
+select entry.instance_id,
+       count(*)::bigint as installed,
+       count(*) filter (
+           where asset.content_generation > entry.content_generation
+       )::bigint as updates_available
+  from instance_library_entries as entry
+  join assets as asset on asset.id = entry.asset_id
+  join linked_instances as instance on instance.id = entry.instance_id
+ where instance.user_id = $1
+   and instance.revoked_at is null
+   and asset.deleted_at is null
+   and asset.withheld_at is null
+   and asset.lifecycle = 'published'
+ group by entry.instance_id
+`
+
+type InstanceLibraryCountsRow struct {
+	InstanceID       pgtype.UUID
+	Installed        int64
+	UpdatesAvailable int64
+}
+
+func (q *Queries) InstanceLibraryCounts(ctx context.Context, userID pgtype.UUID) ([]InstanceLibraryCountsRow, error) {
+	rows, err := q.db.Query(ctx, instanceLibraryCounts, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []InstanceLibraryCountsRow
+	for rows.Next() {
+		var i InstanceLibraryCountsRow
+		if err := rows.Scan(&i.InstanceID, &i.Installed, &i.UpdatesAvailable); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const legacyPathTarget = `-- name: LegacyPathTarget :one
 select asset.id, asset.name
   from asset_legacy_paths legacy
@@ -1920,6 +2251,151 @@ func (q *Queries) ListLinkedInstances(ctx context.Context, userID pgtype.UUID) (
 			&i.LinkedAt,
 			&i.LastSeenAt,
 			&i.RevokedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const liveDeliveryForAsset = `-- name: LiveDeliveryForAsset :one
+select id, instance_id, asset_id, state, settled_reason, queued_at, expires_at
+  from instance_deliveries
+ where instance_id = $1
+   and asset_id = $2
+   and state in ('queued', 'released')
+`
+
+type LiveDeliveryForAssetParams struct {
+	InstanceID pgtype.UUID
+	AssetID    pgtype.UUID
+}
+
+type LiveDeliveryForAssetRow struct {
+	ID            pgtype.UUID
+	InstanceID    pgtype.UUID
+	AssetID       pgtype.UUID
+	State         string
+	SettledReason pgtype.Text
+	QueuedAt      pgtype.Timestamptz
+	ExpiresAt     pgtype.Timestamptz
+}
+
+func (q *Queries) LiveDeliveryForAsset(ctx context.Context, arg LiveDeliveryForAssetParams) (LiveDeliveryForAssetRow, error) {
+	row := q.db.QueryRow(ctx, liveDeliveryForAsset, arg.InstanceID, arg.AssetID)
+	var i LiveDeliveryForAssetRow
+	err := row.Scan(
+		&i.ID,
+		&i.InstanceID,
+		&i.AssetID,
+		&i.State,
+		&i.SettledReason,
+		&i.QueuedAt,
+		&i.ExpiresAt,
+	)
+	return i, err
+}
+
+const liveLinkedInstance = `-- name: LiveLinkedInstance :one
+select id, user_id, application_name, instance_name, application_version,
+       protocol_version, capabilities, accepted_targets,
+       refresh_token_prefix, scopes, linked_at, last_seen_at
+  from linked_instances
+ where id = $1
+   and user_id = $2
+   and revoked_at is null
+`
+
+type LiveLinkedInstanceParams struct {
+	InstanceID pgtype.UUID
+	UserID     pgtype.UUID
+}
+
+type LiveLinkedInstanceRow struct {
+	ID                 pgtype.UUID
+	UserID             pgtype.UUID
+	ApplicationName    string
+	InstanceName       string
+	ApplicationVersion pgtype.Text
+	ProtocolVersion    pgtype.Int4
+	Capabilities       []string
+	AcceptedTargets    []string
+	RefreshTokenPrefix string
+	Scopes             []string
+	LinkedAt           pgtype.Timestamptz
+	LastSeenAt         pgtype.Timestamptz
+}
+
+func (q *Queries) LiveLinkedInstance(ctx context.Context, arg LiveLinkedInstanceParams) (LiveLinkedInstanceRow, error) {
+	row := q.db.QueryRow(ctx, liveLinkedInstance, arg.InstanceID, arg.UserID)
+	var i LiveLinkedInstanceRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.ApplicationName,
+		&i.InstanceName,
+		&i.ApplicationVersion,
+		&i.ProtocolVersion,
+		&i.Capabilities,
+		&i.AcceptedTargets,
+		&i.RefreshTokenPrefix,
+		&i.Scopes,
+		&i.LinkedAt,
+		&i.LastSeenAt,
+	)
+	return i, err
+}
+
+const liveLinkedInstances = `-- name: LiveLinkedInstances :many
+select id, user_id, application_name, instance_name, application_version,
+       protocol_version, capabilities, accepted_targets,
+       refresh_token_prefix, scopes, linked_at, last_seen_at
+  from linked_instances
+ where user_id = $1 and revoked_at is null
+ order by coalesce(last_seen_at, linked_at) desc, linked_at desc
+`
+
+type LiveLinkedInstancesRow struct {
+	ID                 pgtype.UUID
+	UserID             pgtype.UUID
+	ApplicationName    string
+	InstanceName       string
+	ApplicationVersion pgtype.Text
+	ProtocolVersion    pgtype.Int4
+	Capabilities       []string
+	AcceptedTargets    []string
+	RefreshTokenPrefix string
+	Scopes             []string
+	LinkedAt           pgtype.Timestamptz
+	LastSeenAt         pgtype.Timestamptz
+}
+
+func (q *Queries) LiveLinkedInstances(ctx context.Context, userID pgtype.UUID) ([]LiveLinkedInstancesRow, error) {
+	rows, err := q.db.Query(ctx, liveLinkedInstances, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LiveLinkedInstancesRow
+	for rows.Next() {
+		var i LiveLinkedInstancesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.ApplicationName,
+			&i.InstanceName,
+			&i.ApplicationVersion,
+			&i.ProtocolVersion,
+			&i.Capabilities,
+			&i.AcceptedTargets,
+			&i.RefreshTokenPrefix,
+			&i.Scopes,
+			&i.LinkedAt,
+			&i.LastSeenAt,
 		); err != nil {
 			return nil, err
 		}
@@ -2278,6 +2754,72 @@ func (q *Queries) ProfileByHandle(ctx context.Context, username string) (Profile
 	return i, err
 }
 
+const pruneLibraryToSnapshot = `-- name: PruneLibraryToSnapshot :execrows
+delete from instance_library_entries
+ where instance_id = $1
+   and not (asset_id = any($2::uuid[]))
+`
+
+type PruneLibraryToSnapshotParams struct {
+	InstanceID pgtype.UUID
+	AssetIds   []pgtype.UUID
+}
+
+func (q *Queries) PruneLibraryToSnapshot(ctx context.Context, arg PruneLibraryToSnapshotParams) (int64, error) {
+	result, err := q.db.Exec(ctx, pruneLibraryToSnapshot, arg.InstanceID, arg.AssetIds)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const queueDelivery = `-- name: QueueDelivery :one
+insert into instance_deliveries (id, instance_id, asset_id, expires_at)
+values (
+    $1, $2, $3,
+    $4
+)
+on conflict (instance_id, asset_id) where state in ('queued', 'released') do nothing
+returning id, instance_id, asset_id, state, settled_reason, queued_at, expires_at
+`
+
+type QueueDeliveryParams struct {
+	ID         pgtype.UUID
+	InstanceID pgtype.UUID
+	AssetID    pgtype.UUID
+	ExpiresAt  pgtype.Timestamptz
+}
+
+type QueueDeliveryRow struct {
+	ID            pgtype.UUID
+	InstanceID    pgtype.UUID
+	AssetID       pgtype.UUID
+	State         string
+	SettledReason pgtype.Text
+	QueuedAt      pgtype.Timestamptz
+	ExpiresAt     pgtype.Timestamptz
+}
+
+func (q *Queries) QueueDelivery(ctx context.Context, arg QueueDeliveryParams) (QueueDeliveryRow, error) {
+	row := q.db.QueryRow(ctx, queueDelivery,
+		arg.ID,
+		arg.InstanceID,
+		arg.AssetID,
+		arg.ExpiresAt,
+	)
+	var i QueueDeliveryRow
+	err := row.Scan(
+		&i.ID,
+		&i.InstanceID,
+		&i.AssetID,
+		&i.State,
+		&i.SettledReason,
+		&i.QueuedAt,
+		&i.ExpiresAt,
+	)
+	return i, err
+}
+
 const recordDeviceLinkPoll = `-- name: RecordDeviceLinkPoll :one
 update link_requests
    set last_polled_at = now(),
@@ -2365,6 +2907,25 @@ func (q *Queries) RedeemLinkAuthorization(ctx context.Context, authorizationCode
 	return result.RowsAffected(), nil
 }
 
+const removeLibraryEntries = `-- name: RemoveLibraryEntries :execrows
+delete from instance_library_entries
+ where instance_id = $1
+   and asset_id = any($2::uuid[])
+`
+
+type RemoveLibraryEntriesParams struct {
+	InstanceID pgtype.UUID
+	AssetIds   []pgtype.UUID
+}
+
+func (q *Queries) RemoveLibraryEntries(ctx context.Context, arg RemoveLibraryEntriesParams) (int64, error) {
+	result, err := q.db.Exec(ctx, removeLibraryEntries, arg.InstanceID, arg.AssetIds)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const replacePassword = `-- name: ReplacePassword :exec
 update users
    set password_hash = $2, updated_at = now()
@@ -2379,6 +2940,39 @@ type ReplacePasswordParams struct {
 func (q *Queries) ReplacePassword(ctx context.Context, arg ReplacePasswordParams) error {
 	_, err := q.db.Exec(ctx, replacePassword, arg.ID, arg.PasswordHash)
 	return err
+}
+
+const reportLibraryEntries = `-- name: ReportLibraryEntries :execrows
+insert into instance_library_entries (instance_id, asset_id, content_generation, reported_at)
+select $1, asset.id,
+       coalesce(nullif(reported.generation, 0), asset.content_generation), now()
+  from (
+      select unnest($2::uuid[]) as asset_id,
+             unnest($3::integer[]) as generation
+  ) as reported
+  join assets as asset
+    on asset.id = reported.asset_id
+   and asset.deleted_at is null
+   and asset.lifecycle = 'published'
+on conflict (instance_id, asset_id) do update
+   set content_generation = excluded.content_generation,
+       reported_at = excluded.reported_at
+`
+
+type ReportLibraryEntriesParams struct {
+	InstanceID  pgtype.UUID
+	AssetIds    []pgtype.UUID
+	Generations []int32
+}
+
+// An instance that cannot say which version it holds has not told us it is
+// behind, so a missing generation is recorded as the one the asset has now.
+func (q *Queries) ReportLibraryEntries(ctx context.Context, arg ReportLibraryEntriesParams) (int64, error) {
+	result, err := q.db.Exec(ctx, reportLibraryEntries, arg.InstanceID, arg.AssetIds, arg.Generations)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const restoreAsset = `-- name: RestoreAsset :execrows
@@ -2497,7 +3091,7 @@ func (q *Queries) ReviewLinkAuthorization(ctx context.Context, arg ReviewLinkAut
 
 const revokeLinkedInstance = `-- name: RevokeLinkedInstance :one
 with revoked as (
-    update linked_instances
+    update linked_instances as instance
        set refresh_token_hash = null,
            legacy_token_hash = null,
            application_version = null,
@@ -2505,13 +3099,19 @@ with revoked as (
            capabilities = '{}',
            accepted_targets = '{}',
            revoked_at = now()
-     where id = $1
-       and user_id = $2
-       and revoked_at is null
-    returning id
+     where instance.id = $1
+       and instance.user_id = $2
+       and instance.revoked_at is null
+    returning instance.id
 ), deleted_access as (
-    delete from instance_access_tokens
-     where instance_id in (select id from revoked)
+    delete from instance_access_tokens as token
+     where token.instance_id in (select revoked.id from revoked)
+), deleted_deliveries as (
+    delete from instance_deliveries as delivery
+     where delivery.instance_id in (select revoked.id from revoked)
+), deleted_library as (
+    delete from instance_library_entries as entry
+     where entry.instance_id in (select revoked.id from revoked)
 )
 select exists(select 1 from revoked) as revoked
 `
@@ -2530,7 +3130,7 @@ func (q *Queries) RevokeLinkedInstance(ctx context.Context, arg RevokeLinkedInst
 
 const revokeLinkedInstanceByID = `-- name: RevokeLinkedInstanceByID :one
 with revoked as (
-    update linked_instances
+    update linked_instances as instance
        set refresh_token_hash = null,
            legacy_token_hash = null,
            application_version = null,
@@ -2538,11 +3138,17 @@ with revoked as (
            capabilities = '{}',
            accepted_targets = '{}',
            revoked_at = now()
-     where id = $1 and revoked_at is null
-    returning id
+     where instance.id = $1 and instance.revoked_at is null
+    returning instance.id
 ), deleted_access as (
-    delete from instance_access_tokens
-     where instance_id in (select id from revoked)
+    delete from instance_access_tokens as token
+     where token.instance_id in (select revoked.id from revoked)
+), deleted_deliveries as (
+    delete from instance_deliveries as delivery
+     where delivery.instance_id in (select revoked.id from revoked)
+), deleted_library as (
+    delete from instance_library_entries as entry
+     where entry.instance_id in (select revoked.id from revoked)
 )
 select exists(select 1 from revoked) as revoked
 `
@@ -2592,6 +3198,22 @@ func (q *Queries) RotateInstanceRefreshToken(ctx context.Context, arg RotateInst
 	return instance_id, err
 }
 
+const sendableAssetGeneration = `-- name: SendableAssetGeneration :one
+select content_generation
+  from assets
+ where id = $1
+   and deleted_at is null
+   and withheld_at is null
+   and lifecycle = 'published'
+`
+
+func (q *Queries) SendableAssetGeneration(ctx context.Context, assetID pgtype.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, sendableAssetGeneration, assetID)
+	var content_generation int32
+	err := row.Scan(&content_generation)
+	return content_generation, err
+}
+
 const setAssetDiscovery = `-- name: SetAssetDiscovery :execrows
 update assets
    set discovery = $3, updated_at = now()
@@ -2624,6 +3246,22 @@ type SetCurrentRevisionParams struct {
 
 func (q *Queries) SetCurrentRevision(ctx context.Context, arg SetCurrentRevisionParams) error {
 	_, err := q.db.Exec(ctx, setCurrentRevision, arg.ID, arg.CurrentRevisionID)
+	return err
+}
+
+const setDeliveryTarget = `-- name: SetDeliveryTarget :exec
+update instance_deliveries
+   set chosen_target = $1
+ where id = $2
+`
+
+type SetDeliveryTargetParams struct {
+	ChosenTarget pgtype.Text
+	ID           pgtype.UUID
+}
+
+func (q *Queries) SetDeliveryTarget(ctx context.Context, arg SetDeliveryTargetParams) error {
+	_, err := q.db.Exec(ctx, setDeliveryTarget, arg.ChosenTarget, arg.ID)
 	return err
 }
 

@@ -160,6 +160,27 @@ type InstanceAccessToken struct {
 	ExpiresAt  pgtype.Timestamptz
 }
 
+type InstanceDelivery struct {
+	ID             pgtype.UUID
+	InstanceID     pgtype.UUID
+	AssetID        pgtype.UUID
+	State          string
+	Attempts       int32
+	QueuedAt       pgtype.Timestamptz
+	LeaseExpiresAt pgtype.Timestamptz
+	ChosenTarget   pgtype.Text
+	SettledAt      pgtype.Timestamptz
+	SettledReason  pgtype.Text
+	ExpiresAt      pgtype.Timestamptz
+}
+
+type InstanceLibraryEntry struct {
+	InstanceID        pgtype.UUID
+	AssetID           pgtype.UUID
+	ContentGeneration int32
+	ReportedAt        pgtype.Timestamptz
+}
+
 type InstanceRefreshHistory struct {
 	TokenHash       []byte
 	InstanceID      pgtype.UUID
