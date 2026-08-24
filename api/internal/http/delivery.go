@@ -153,13 +153,13 @@ func (h *Handlers) DownloadDeliveryExport(
 	h.handOffExport(c, download)
 }
 
+// deliveryArtifactError answers a signed address the way an ordinary download answers.
 func (h *Handlers) deliveryArtifactError(c *gin.Context, err error) {
-	if errors.Is(err, delivery.ErrArtifactNotFound) || errors.Is(err, asset.ErrNotFound) ||
-		errors.Is(err, asset.ErrTargetNotOffered) {
+	if errors.Is(err, delivery.ErrArtifactNotFound) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "no such download"})
 		return
 	}
-	c.JSON(http.StatusInternalServerError, gin.H{"error": "could not read the file"})
+	h.downloadError(c, err)
 }
 
 func (h *Handlers) deliveryError(c *gin.Context, err error) {
