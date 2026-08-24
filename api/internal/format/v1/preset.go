@@ -78,7 +78,7 @@ func readPreset(ctx context.Context, row PresetRow) (readResult, error) {
 }
 
 func activateCurrentSealedPrompts(parsed *format.Parsed, row PresetRow) error {
-	keys := map[string]bool{}
+	seenPlaceholderKeys := map[string]bool{}
 	for elementIndex := range parsed.Elements {
 		element := &parsed.Elements[elementIndex]
 		list, ok := element.Content.(block.PromptList)
@@ -94,10 +94,10 @@ func activateCurrentSealedPrompts(parsed *format.Parsed, row PresetRow) error {
 			if key == "" || key != strings.TrimSpace(key) || len([]rune(key)) > 256 {
 				return fmt.Errorf("current sealed prompt has an invalid source key")
 			}
-			if keys[key] {
+			if seenPlaceholderKeys[key] {
 				return fmt.Errorf("current sealed prompt source key appears more than once")
 			}
-			keys[key] = true
+			seenPlaceholderKeys[key] = true
 			fragment.Protected = true
 			fragment.Text = ""
 			parsed.Protected.Prompts = append(parsed.Protected.Prompts, format.ProtectedPrompt{
@@ -110,7 +110,7 @@ func activateCurrentSealedPrompts(parsed *format.Parsed, row PresetRow) error {
 		parsed.Protected.Apps = []string{protected.AppLumiverse}
 	}
 
-	current := make(map[string][]SealedBlockRow)
+	latestVersionSealedRows := make(map[string][]SealedBlockRow)
 	for _, sealed := range row.SealedBlocks {
 		if sealed.Version == nil {
 			if row.LatestVersion != "" {
@@ -119,19 +119,19 @@ func activateCurrentSealedPrompts(parsed *format.Parsed, row PresetRow) error {
 		} else if *sealed.Version != row.LatestVersion {
 			continue
 		}
-		current[sealed.Key] = append(current[sealed.Key], sealed)
+		latestVersionSealedRows[sealed.Key] = append(latestVersionSealedRows[sealed.Key], sealed)
 	}
 
 	for index := range parsed.Protected.Prompts {
 		prompt := &parsed.Protected.Prompts[index]
-		if !prompt.ReuseExisting {
-			continue
-		}
-		matches := current[prompt.SourceKey]
+		matches := latestVersionSealedRows[prompt.SourceKey]
 		if len(matches) != 1 {
 			return fmt.Errorf("current sealed prompt needs exactly one preserved source row")
 		}
 		sealed := matches[0]
+		if !prompt.ReuseExisting && prompt.Text != sealed.Content {
+			return fmt.Errorf("current sealed prompt does not match its preserved source row")
+		}
 		if strings.TrimSpace(sealed.Content) == "{{presetBlock::"+prompt.SourceKey+"}}" {
 			return fmt.Errorf("current sealed prompt source contains its placeholder")
 		}

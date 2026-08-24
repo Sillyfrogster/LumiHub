@@ -406,7 +406,7 @@ func TestAPresetRowActivatesCurrentSealedPlaceholders(t *testing.T) {
 			"blocks":[{
 				"id":"fragment-1","name":"Rules","role":"system",
 				"content":"{{presetBlock::private-rule}}","enabled":true,
-				"position":"pre_history","sealed":true,"sealedKey":"private-rule"
+				"position":"pre_history"
 			}]
 		}`),
 		SealedBlocks: []SealedBlockRow{
@@ -466,7 +466,7 @@ func TestAPresetRowRefusesAnUnaccountedCurrentPlaceholder(t *testing.T) {
 					"schemaVersion":1,
 					"blocks":[{
 						"id":"fragment-1","content":"{{presetBlock::private-rule}}",
-						"enabled":true,"sealed":true,"sealedKey":"private-rule"
+						"enabled":true
 					}]
 				}`),
 				SealedBlocks: test.sealed,
@@ -478,6 +478,25 @@ func TestAPresetRowRefusesAnUnaccountedCurrentPlaceholder(t *testing.T) {
 				t.Errorf("migration error exposed a source key: %v", err)
 			}
 		})
+	}
+}
+
+func TestAPresetRowDoesNotActivateInlineTextWithoutAPreservedSource(t *testing.T) {
+	_, err := (Module{}).Read(context.Background(), PresetRow{
+		Common: CommonRow{
+			ID: uuid.New(), OwnerID: uuid.New(), Name: "Sealed preset", CreatedAt: time.Now(),
+		},
+		LatestVersion: "2",
+		Payload: json.RawMessage(`{
+			"schemaVersion":1,
+			"blocks":[{
+				"id":"fragment-1","content":"Inline private text","enabled":true,
+				"sealed":true,"sealedKey":"private-rule"
+			}]
+		}`),
+	})
+	if err == nil {
+		t.Fatal("activated inline sealed text without a preserved source row")
 	}
 }
 

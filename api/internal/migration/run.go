@@ -52,7 +52,7 @@ func Run(ctx context.Context, settings Settings) (Report, error) {
 	for _, row := range corpus.Rows {
 		result, err := reader.Read(ctx, row)
 		if err != nil {
-			return Report{}, fmt.Errorf("read v1 asset %s: %w", v1.Common(row).ID, err)
+			return Report{}, fmt.Errorf("read a v1 asset: %w", err)
 		}
 		if err := recordReadEvents(result, ledger); err != nil {
 			return Report{}, err

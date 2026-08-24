@@ -3,7 +3,9 @@ package migration
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -29,7 +31,7 @@ func TestTheRealCorpusBecomesTheIllarinCatalog(t *testing.T) {
 	if err == nil {
 		t.Fatal("the migration committed with no accounts to own the assets")
 	}
-	if aborted.Staging.Stored == 0 {
+	if aborted.Staging.Stored+aborted.Staging.Reused == 0 {
 		t.Fatal("the aborted run reports staging nothing")
 	}
 	assertNothingCommitted(t, target)
@@ -68,6 +70,11 @@ func TestAChangedCurrentSealedSourceAbortsBeforeCommit(t *testing.T) {
 	source := restoredV1Dump(t)
 	target := testdb.Connect(t)
 	settings := migrationSettings(t, source, target)
+	var sourceAssetID uuid.UUID
+	if err := source.QueryRow(ctx, `
+		select id from presets where preset::text like '%{{presetBlock::%'`).Scan(&sourceAssetID); err != nil {
+		t.Fatal("find the source preset with current sealed placeholders")
+	}
 	if _, err := source.Exec(ctx, `create table sealed_source_backup as table preset_sealed_blocks`); err != nil {
 		t.Fatal("copy the sealed source rows inside the scratch database")
 	}
@@ -116,8 +123,12 @@ func TestAChangedCurrentSealedSourceAbortsBeforeCommit(t *testing.T) {
 			if _, err := source.Exec(ctx, test.change); err != nil {
 				t.Fatal("change one sealed source row inside the scratch database")
 			}
-			if _, err := Run(ctx, settings); err == nil || !strings.Contains(err.Error(), "current sealed prompt") {
+			_, err := Run(ctx, settings)
+			if err == nil || !strings.Contains(err.Error(), "current sealed prompt") {
 				t.Fatal("migration did not reject the changed sealed source before commit")
+			}
+			if strings.Contains(err.Error(), sourceAssetID.String()) {
+				t.Fatal("migration error exposed a source identity")
 			}
 			assertNothingCommitted(t, target)
 		})
@@ -419,13 +430,21 @@ func assertReturningPresetActivated(
 	assets *asset.Service,
 ) {
 	t.Helper()
-	const activePrompts = 85
+	var assetID, ownerID uuid.UUID
+	if err := source.QueryRow(context.Background(), `
+		select id, owner_id
+		  from presets
+		 where preset::text like '%{{presetBlock::%'`).Scan(&assetID, &ownerID); err != nil {
+		t.Fatal("find the source preset with current sealed placeholders")
+	}
 	current := map[string]string{}
 	rows, err := source.Query(context.Background(), `
 		select sealed.block_key, sealed.content_sha256
 		  from preset_sealed_blocks sealed
 		  join presets preset on preset.id = sealed.preset_id
-		 where sealed.version = preset.latest_version`)
+		 where preset.id = $1
+		   and sealed.version = preset.latest_version
+		   and position('{{presetBlock::' || sealed.block_key || '}}' in preset.preset::text) > 0`, assetID)
 	if err != nil {
 		t.Fatal("read the current sealed source rows")
 	}
@@ -443,20 +462,17 @@ func assertReturningPresetActivated(
 	if err := rows.Err(); err != nil {
 		t.Fatal("the current sealed source rows did not finish")
 	}
-	if len(current) < activePrompts {
-		t.Fatalf("current sealed source rows = %d, want at least %d", len(current), activePrompts)
+	activePrompts := len(current)
+	if activePrompts == 0 {
+		t.Fatal("the source preset has no current sealed rows for its placeholders")
 	}
 
-	var assetID uuid.UUID
-	if err := target.QueryRow(context.Background(), `
-		select asset_id
-		  from protected_content
-		 group by asset_id
-		having count(*) = $1`, activePrompts).Scan(&assetID); err != nil {
-		t.Fatalf("find the activated preset: %v", err)
+	reader, err := assets.Detail(context.Background(), assetID, nil, asset.ContentShown)
+	if err != nil {
+		t.Fatalf("open the migrated reader page: %v", err)
 	}
 	stubs := map[uuid.UUID]bool{}
-	for _, holder := range blocksOf(t, target, assetID) {
+	for _, holder := range reader.Blocks {
 		for _, element := range holder.Elements {
 			list, ok := element.Content.(block.PromptList)
 			if !ok {
@@ -477,51 +493,49 @@ func assertReturningPresetActivated(
 		t.Fatalf("protected stubs = %d, want %d", len(stubs), activePrompts)
 	}
 
-	rows, err = target.Query(context.Background(), `
-		select owner_id, source_key, encode(digest, 'hex'), payload ->> 'text'
-		  from protected_content
-		 where asset_id = $1`, assetID)
+	owner, err := assets.Detail(context.Background(), assetID, &ownerID, asset.ContentShown)
 	if err != nil {
-		t.Fatalf("read the activated prompts: %v", err)
+		t.Fatalf("open the migrated owner page: %v", err)
 	}
-	defer rows.Close()
+	sourceDigests := make(map[string]int, len(current))
+	for _, digest := range current {
+		sourceDigests[digest]++
+	}
 	activated := 0
 	privateTexts := make([]string, 0, activePrompts)
-	for rows.Next() {
-		var ownerID uuid.UUID
-		var key, digest, text string
-		if err := rows.Scan(&ownerID, &key, &digest, &text); err != nil {
-			t.Fatal("read an activated prompt")
+	for _, holder := range owner.Blocks {
+		for _, element := range holder.Elements {
+			list, ok := element.Content.(block.PromptList)
+			if !ok {
+				continue
+			}
+			for _, fragment := range list.Fragments {
+				if !fragment.Protected {
+					continue
+				}
+				if !stubs[fragment.ID] {
+					t.Fatal("an activated prompt is not owned by its public fragment")
+				}
+				if strings.HasPrefix(strings.TrimSpace(fragment.Text), "{{presetBlock::") {
+					t.Fatal("an activated prompt restored its placeholder as private text")
+				}
+				digest := sha256.Sum256([]byte(fragment.Text))
+				encoded := hex.EncodeToString(digest[:])
+				if sourceDigests[encoded] == 0 {
+					t.Fatal("an activated prompt does not match a current source digest")
+				}
+				sourceDigests[encoded]--
+				privateTexts = append(privateTexts, fragment.Text)
+				activated++
+			}
 		}
-		wantDigest, found := current[key]
-		if !found || wantDigest != digest {
-			t.Fatal("an activated prompt does not match its current source digest")
-		}
-		if !stubs[ownerID] {
-			t.Fatal("an activated prompt is not owned by its public fragment")
-		}
-		if strings.HasPrefix(strings.TrimSpace(text), "{{presetBlock::") {
-			t.Fatal("an activated prompt stored its placeholder as private text")
-		}
-		privateTexts = append(privateTexts, text)
-		activated++
-	}
-	if err := rows.Err(); err != nil {
-		t.Fatal("the activated prompts did not finish")
 	}
 	if activated != activePrompts {
 		t.Fatalf("activated prompts = %d, want %d", activated, activePrompts)
 	}
 
-	var apps []string
-	if err := target.QueryRow(context.Background(), `
-		select array_agg(app order by app)
-		  from protected_delivery_apps
-		 where asset_id = $1`, assetID).Scan(&apps); err != nil {
-		t.Fatalf("read the activated preset policy: %v", err)
-	}
-	if len(apps) != 1 || apps[0] != "lumiverse" {
-		t.Errorf("initial allowed apps = %v, want Lumiverse", apps)
+	if len(reader.AllowedApps) != 1 || reader.AllowedApps[0] != "lumiverse" {
+		t.Errorf("initial allowed apps = %v, want Lumiverse", reader.AllowedApps)
 	}
 	if _, err := assets.OpenExport(
 		context.Background(), assetID, nil, "preset_lumiverse",
@@ -559,11 +573,6 @@ func assertReturningPresetActivated(
 	}
 	if archivedRows != sourceRows {
 		t.Fatalf("archived sealed rows = %d, want all %d source rows", archivedRows, sourceRows)
-	}
-	var ownerID uuid.UUID
-	if err := target.QueryRow(context.Background(),
-		`select owner_id from assets where id = $1`, assetID).Scan(&ownerID); err != nil {
-		t.Fatal("read the activated preset owner")
 	}
 	exported, err := assets.OpenSealedContent(context.Background(), ownerID, assetID)
 	if err != nil {

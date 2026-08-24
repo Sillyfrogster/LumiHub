@@ -95,8 +95,11 @@ func TestTheRealCorpusCrossesTheV1Reader(t *testing.T) {
 			stats.presetVersions, stats.changelogEntries, stats.sealedBlocks,
 		)
 	}
-	if stats.protectedPrompts != 85 {
-		t.Errorf("activated %d current sealed prompts, want 85", stats.protectedPrompts)
+	if stats.sealedPlaceholders == 0 || stats.protectedPrompts != stats.sealedPlaceholders {
+		t.Errorf(
+			"activated %d current sealed prompts, want all %d current placeholders",
+			stats.protectedPrompts, stats.sealedPlaceholders,
+		)
 	}
 	if stats.oversizedPresetBlurbs != 2 || stats.usageBlocks != 2 {
 		t.Errorf(
@@ -178,6 +181,7 @@ type corpusStats struct {
 	presetVersions          int
 	changelogEntries        int
 	sealedBlocks            int
+	sealedPlaceholders      int
 	protectedPrompts        int
 	oversizedPresetBlurbs   int
 	usageBlocks             int
@@ -915,6 +919,7 @@ func measureCorpusResult(t *testing.T, row Row, result Result, stats *corpusStat
 	case PresetRow:
 		stats.presetVersions += len(result.PreservedRecords)
 		stats.sealedBlocks += len(result.SealedBlocks)
+		stats.sealedPlaceholders += strings.Count(string(source.Payload), "{{presetBlock::")
 		stats.protectedPrompts += len(result.Parsed.Protected.Prompts)
 		for _, record := range result.PreservedRecords {
 			if record.AssetID != source.Common.ID || record.OwnerID != source.Common.OwnerID ||
