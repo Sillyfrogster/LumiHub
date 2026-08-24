@@ -910,7 +910,6 @@ returning id, application_name, instance_name, application_version,
 with revoked as (
     update linked_instances as instance
        set refresh_token_hash = null,
-           legacy_token_hash = null,
            application_version = null,
            protocol_version = null,
            capabilities = '{}',
@@ -936,7 +935,6 @@ select exists(select 1 from revoked) as revoked;
 with revoked as (
     update linked_instances as instance
        set refresh_token_hash = null,
-           legacy_token_hash = null,
            application_version = null,
            protocol_version = null,
            capabilities = '{}',

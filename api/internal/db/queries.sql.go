@@ -3095,7 +3095,6 @@ const revokeLinkedInstance = `-- name: RevokeLinkedInstance :one
 with revoked as (
     update linked_instances as instance
        set refresh_token_hash = null,
-           legacy_token_hash = null,
            application_version = null,
            protocol_version = null,
            capabilities = '{}',
@@ -3134,7 +3133,6 @@ const revokeLinkedInstanceByID = `-- name: RevokeLinkedInstanceByID :one
 with revoked as (
     update linked_instances as instance
        set refresh_token_hash = null,
-           legacy_token_hash = null,
            application_version = null,
            protocol_version = null,
            capabilities = '{}',

@@ -668,7 +668,7 @@ func TestARevokedInstanceReleasesNothingEvenWithRowsLeftBehind(t *testing.T) {
 
 	if _, err := pool.Exec(context.Background(),
 		`update linked_instances
-		    set revoked_at = now(), refresh_token_hash = null, legacy_token_hash = null,
+		    set revoked_at = now(), refresh_token_hash = null,
 		        application_version = null, protocol_version = null,
 		        capabilities = '{}', accepted_targets = '{}'
 		  where id = $1`,

@@ -245,7 +245,6 @@ type LinkedInstance struct {
 	ID                 pgtype.UUID
 	UserID             pgtype.UUID
 	InstanceName       string
-	LegacyTokenHash    []byte
 	RefreshTokenPrefix string
 	Scopes             []string
 	LinkedAt           pgtype.Timestamptz

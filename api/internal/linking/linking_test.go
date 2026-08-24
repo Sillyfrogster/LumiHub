@@ -230,42 +230,6 @@ func TestAnInstanceIsRefusedAScopeItWasNotGranted(t *testing.T) {
 	}
 }
 
-func TestRevokingALegacyInstanceErasesItsExchangeHash(t *testing.T) {
-	ctx := context.Background()
-	pool := testdb.Connect(t)
-	service := NewService(
-		pool,
-		"http://localhost:3000",
-		[]byte("01234567890123456789012345678901"),
-	)
-	creator := insertCreator(t, pool)
-	instanceID := uuid.New()
-	legacyHash := sha256.Sum256([]byte("old-permanent-token"))
-	if _, err := pool.Exec(ctx,
-		`insert into linked_instances (
-			id, user_id, application_name, instance_name,
-			legacy_token_hash, refresh_token_prefix, scopes
-		) values ($1, $2, 'Old application', 'old workstation', $3, 'BCDF2345', $4)`,
-		instanceID, creator, legacyHash[:], []string{"asset:receive"}); err != nil {
-		t.Fatalf("create legacy instance: %v", err)
-	}
-
-	if err := service.Revoke(ctx, creator, instanceID); err != nil {
-		t.Fatalf("revoke legacy instance: %v", err)
-	}
-	var storedHash []byte
-	var revoked bool
-	if err := pool.QueryRow(ctx,
-		`select legacy_token_hash, revoked_at is not null
-		   from linked_instances where id = $1`, instanceID,
-	).Scan(&storedHash, &revoked); err != nil {
-		t.Fatalf("read revoked legacy instance: %v", err)
-	}
-	if storedHash != nil || !revoked {
-		t.Errorf("revoked legacy hash = %x, revoked = %v", storedHash, revoked)
-	}
-}
-
 func testDeclaration() Declaration {
 	return Declaration{
 		ApplicationName: "Paper Lantern", InstanceName: "studio workstation",
