@@ -534,11 +534,12 @@ func (s *Service) DownloadSource(
 	if err != nil {
 		return SourceDownload{}, fmt.Errorf("resolve stored file: %w", err)
 	}
+	revisionID := location.RevisionID
 	return SourceDownload{
 		InternalRedirect: redirect, MediaType: location.MediaType,
 		Inline: probe.IsInlineMediaType(location.MediaType),
 		Event: downloadEvent(
-			location.AssetID, location.RevisionID, RawDownloadTarget,
+			location.AssetID, &revisionID, RawDownloadTarget,
 			location.OwnerID, viewerID,
 		),
 	}, nil

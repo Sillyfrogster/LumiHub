@@ -134,6 +134,36 @@ func TestAnonymousSourceDownloadRecordsTheAuthorizedHandoff(t *testing.T) {
 	}
 }
 
+func TestExportFromAnAssetMadeInIllarinRecordsTheHandoff(t *testing.T) {
+	router, session, _, pool := newCharacterIngestRouterWithPool(t)
+	started := startCharacter(t, router, session)
+	writeCharacterFloor(t, router, session, started)
+	if published := publishAsset(t, router, session, started.ID); published.Code != http.StatusOK {
+		t.Fatalf("publish status = %d, want 200: %s", published.Code, published.Body.String())
+	}
+
+	download := send(t, router, httptest.NewRequest(
+		http.MethodGet, "/download/"+started.ID+"/chara_card_v3", nil,
+	))
+	if download.Code != http.StatusOK {
+		t.Fatalf("download status = %d, want 200: %s", download.Code, download.Body.String())
+	}
+
+	var revisionMissing bool
+	var target, authorizationClass string
+	if err := pool.QueryRow(context.Background(), `
+		select revision_id is null, export_target, authorization_class
+		  from download_events
+		 where asset_id = $1
+	`, started.ID).Scan(&revisionMissing, &target, &authorizationClass); err != nil {
+		t.Fatalf("read download event: %v", err)
+	}
+	if !revisionMissing || target != "chara_card_v3" || authorizationClass != "anonymous" {
+		t.Fatalf("event = revision missing %t, target %q, class %q",
+			revisionMissing, target, authorizationClass)
+	}
+}
+
 type blockingRedirectStore struct {
 	storage.Store
 	reached chan struct{}

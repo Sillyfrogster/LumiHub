@@ -99,8 +99,8 @@ func (s *Service) OpenExport(
 		Body: written.Body, MediaType: written.MediaType, Target: target,
 		Filename: downloadFilename(subject.name, declaration.Label, written.Extension),
 	}
-	if subject.lifecycle == LifecyclePublished && subject.revisionID != nil {
-		event := downloadEvent(assetID, *subject.revisionID, target, subject.ownerID, viewerID)
+	if subject.lifecycle == LifecyclePublished {
+		event := downloadEvent(assetID, subject.revisionID, target, subject.ownerID, viewerID)
 		export.Event = &event
 	}
 	return export, nil
@@ -154,8 +154,8 @@ func (s *Service) OpenExportForLinkedInstance(
 		Body: written.Body, MediaType: written.MediaType, Target: target,
 		Filename: downloadFilename(subject.name, module.Declaration().Label, written.Extension),
 	}
-	if subject.lifecycle == LifecyclePublished && subject.revisionID != nil {
-		event := downloadEvent(assetID, *subject.revisionID, target, subject.ownerID, nil)
+	if subject.lifecycle == LifecyclePublished {
+		event := downloadEvent(assetID, subject.revisionID, target, subject.ownerID, nil)
 		event.AuthorizationClass = AuthorizationLinkedInstance
 		export.Event = &event
 	}

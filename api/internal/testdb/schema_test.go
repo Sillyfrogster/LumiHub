@@ -428,6 +428,26 @@ func TestDownloadEventCarriesOnlyAuthorizedHandoffFacts(t *testing.T) {
 	}
 }
 
+func TestDownloadEventMayOmitASourceRevision(t *testing.T) {
+	pool := Connect(t)
+	assetID := uuid.New()
+	ctx := context.Background()
+
+	if _, err := pool.Exec(ctx, `
+		insert into assets (id, kind, name, lifecycle)
+		values ($1, 'character', 'Made here', 'published')
+	`, assetID); err != nil {
+		t.Fatalf("insert asset without a source revision: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		insert into download_events
+			(asset_id, revision_id, export_target, authorization_class, discovery)
+		values ($1, null, 'chara_card_v3', 'anonymous', 'listed')
+	`, assetID); err != nil {
+		t.Fatalf("insert download event without a source revision: %v", err)
+	}
+}
+
 func TestDownloadEventsAreImmutable(t *testing.T) {
 	pool := Connect(t)
 	assetID, revisionID, _ := insertAssetRevision(t, pool)

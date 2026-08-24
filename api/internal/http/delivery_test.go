@@ -161,7 +161,7 @@ func TestAWaitWithNothingQueuedAnswersWithNoContent(t *testing.T) {
 }
 
 func TestSendingAnAssetReleasesItInTheFormatTheInstanceAccepts(t *testing.T) {
-	router, session, _ := newLinkingRouter(t)
+	router, session, pool := newLinkingRouter(t)
 	grant := linkDeviceInstance(t, router, session, "Paper Lantern", "desk", []string{receiveScope})
 	declareTargets(t, router, grant.AccessToken, []string{"test_opaque"})
 	assetID := publishedTestAsset(t, router, session)
@@ -193,6 +193,21 @@ func TestSendingAnAssetReleasesItInTheFormatTheInstanceAccepts(t *testing.T) {
 	}
 	if !strings.Contains(work.Artifacts[0].URL, "signature=") {
 		t.Fatalf("export address %q carries no signature", work.Artifacts[0].URL)
+	}
+	fetched := fetchSigned(t, router, work.Artifacts[0].URL)
+	if fetched.Code != http.StatusOK {
+		t.Fatalf("fetch status = %d, want 200: %s", fetched.Code, fetched.Body.String())
+	}
+	var revisionMissing bool
+	if err := pool.QueryRow(context.Background(), `
+		select revision_id is null
+		  from download_events
+		 where asset_id = $1 and authorization_class = 'linked_instance'
+	`, assetID).Scan(&revisionMissing); err != nil {
+		t.Fatalf("read linked-instance download event: %v", err)
+	}
+	if !revisionMissing {
+		t.Fatal("asset made in Illarin recorded a source revision")
 	}
 }
 

@@ -23,14 +23,14 @@ const (
 
 type DownloadEvent struct {
 	AssetID            uuid.UUID
-	RevisionID         uuid.UUID
+	RevisionID         *uuid.UUID
 	ExportTarget       string
 	AuthorizationClass AuthorizationClass
 }
 
 func downloadEvent(
 	assetID uuid.UUID,
-	revisionID uuid.UUID,
+	revisionID *uuid.UUID,
 	target string,
 	ownerID *uuid.UUID,
 	viewerID *uuid.UUID,
