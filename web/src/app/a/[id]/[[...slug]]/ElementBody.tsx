@@ -98,6 +98,7 @@ export function ElementBody({
           <ExcerptedElementContent
             element={element}
             images={images}
+            isOwner={isOwner}
             onReadMore={onReadMore}
           />
           {formattingWasRemoved(richTextsOf(element)) ? (
@@ -112,10 +113,12 @@ export function ElementBody({
 function ExcerptedElementContent({
   element,
   images,
+  isOwner,
   onReadMore,
 }: {
   element: AssetElement;
   images: AssetImage[];
+  isOwner: boolean;
   onReadMore?: () => void;
 }) {
   const definition = excerptDefinition(element.type);
@@ -143,7 +146,9 @@ function ExcerptedElementContent({
   const itemLimit = definition.unit === "items" ? definition.limit : undefined;
 
   if (definition.unit === "self") {
-    return <ElementContent element={element} images={images} />;
+    return (
+      <ElementContent element={element} images={images} isOwner={isOwner} />
+    );
   }
 
   return (
@@ -167,6 +172,7 @@ function ExcerptedElementContent({
         <ElementContent
           element={element}
           images={images}
+          isOwner={isOwner}
           itemLimit={itemLimit}
         />
       </div>
@@ -236,10 +242,12 @@ function excerptNoun(element: AssetElement): string {
 export function ElementContent({
   element,
   images,
+  isOwner = false,
   itemLimit,
 }: {
   element: AssetElement;
   images: AssetImage[];
+  isOwner?: boolean;
   itemLimit?: number;
 }) {
   const { content } = element;
@@ -366,7 +374,9 @@ export function ElementContent({
   }
 
   if (element.type === "prompt_list" && "fragments" in content) {
-    return <PromptList content={content} itemLimit={itemLimit} />;
+    return (
+      <PromptList content={content} isOwner={isOwner} itemLimit={itemLimit} />
+    );
   }
 
   if (element.type === "setting_group" && "settings" in content) {
@@ -566,9 +576,11 @@ const PLACEMENT_LABELS: Record<string, string> = {
 
 function PromptList({
   content,
+  isOwner,
   itemLimit,
 }: {
   content: PromptListContent;
+  isOwner: boolean;
   itemLimit?: number;
 }) {
   const groups = content.groups ?? [];
@@ -590,7 +602,7 @@ function PromptList({
         // biome-ignore lint/suspicious/noArrayIndexKey: Runs hold no local state.
         <section className={styles.promptGroup} key={index}>
           {run.group ? <h4>{run.group}</h4> : null}
-          <Fragments fragments={run.fragments} />
+          <Fragments fragments={run.fragments} isOwner={isOwner} />
         </section>
       ))}
     </div>
@@ -599,8 +611,10 @@ function PromptList({
 
 function Fragments({
   fragments,
+  isOwner,
 }: {
   fragments: PromptListContent["fragments"];
+  isOwner: boolean;
 }) {
   return (
     <ol className={styles.fragments}>
@@ -619,9 +633,12 @@ function Fragments({
                 ? ` · ${PLACEMENT_LABELS[fragment.placement]}`
                 : null}
               {fragment.enabled ? null : " · Off"}
+              {fragment.protected ? " · Sealed prompt" : null}
             </span>
           </div>
-          {fragment.marker ? (
+          {fragment.protected && !isOwner ? (
+            <p className={styles.fragmentMarker}>Sealed prompt</p>
+          ) : fragment.marker ? (
             <p className={styles.fragmentMarker}>
               The app splices its own content in here.
             </p>

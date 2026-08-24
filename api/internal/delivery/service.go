@@ -208,6 +208,13 @@ func (s *Service) AssetInstances(
 	if err != nil {
 		return AssetInstances{}, fmt.Errorf("read the asset to send: %w", err)
 	}
+	sendable, err := s.catalog.DeliverableAsset(ctx, s.pool, assetID)
+	if errors.Is(err, asset.ErrNotDeliverable) {
+		return AssetInstances{}, ErrAssetNotFound
+	}
+	if err != nil {
+		return AssetInstances{}, fmt.Errorf("read available delivery formats: %w", err)
+	}
 	rows, err := queries.AssetInstanceStates(ctx, db.AssetInstanceStatesParams{
 		AssetID: uuidValue(assetID), UserID: uuidValue(userID),
 	})
@@ -216,12 +223,15 @@ func (s *Service) AssetInstances(
 	}
 	found := AssetInstances{ContentGeneration: int(generation), Items: []InstanceState{}}
 	for _, row := range rows {
+		_, _, canReceive := chooseTarget(
+			row.AcceptedTargets, sendable.Targets, sendable.HasOriginal,
+		)
 		state := InstanceState{
 			InstanceID:      uuid.UUID(row.ID.Bytes),
 			ApplicationName: row.ApplicationName,
 			InstanceName:    row.InstanceName,
 			LastSeenAt:      optionalTime(row.LastSeenAt),
-			CanReceive:      holdsScope(row.Scopes, linking.ScopeReceiveAssets),
+			CanReceive:      holdsScope(row.Scopes, linking.ScopeReceiveAssets) && canReceive,
 			ReportsLibrary:  holdsScope(row.Scopes, linking.ScopeSyncLibrary),
 		}
 		if row.DeliveryID.Valid {

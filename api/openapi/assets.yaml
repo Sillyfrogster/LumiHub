@@ -1107,6 +1107,9 @@ components:
         - discovery
         - lifecycle
         - isOwner
+        - linkedInstallOnly
+        - allowedApps
+        - eligibleApps
         - downloads
         - original
         - createdAt
@@ -1164,6 +1167,25 @@ components:
           description: >-
             Whether the reader owns the asset. The owner's page is the reader's
             page with its editing affordances, not a second visual state.
+        linkedInstallOnly:
+          type: boolean
+          description: >-
+            Whether protected content keeps ordinary downloads unavailable.
+        allowedApps:
+          type: array
+          description: The applications the creator allows to receive protected content.
+          items:
+            type: string
+            enum:
+              - lumiverse
+        eligibleApps:
+          type: array
+          description: >-
+            The applications with a target this asset can currently export to.
+          items:
+            type: string
+            enum:
+              - lumiverse
         downloads:
           type: array
           description: >-

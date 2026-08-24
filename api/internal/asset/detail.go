@@ -10,6 +10,7 @@ import (
 	"github.com/Sillyfrogster/Illarin/api/internal/db"
 	"github.com/Sillyfrogster/Illarin/api/internal/format"
 	mediaproc "github.com/Sillyfrogster/Illarin/api/internal/media"
+	"github.com/Sillyfrogster/Illarin/api/internal/protected"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -64,9 +65,12 @@ type Detail struct {
 	// Preview is the composed social preview a link unfurler fetches.
 	Preview *string
 	// Readiness is the whole publish floor on a draft and only the shortfall on a published page, and stands only for the owner.
-	Readiness    []ReadinessItem
-	SealedBlocks int
-	Withhold     *Withhold
+	Readiness         []ReadinessItem
+	SealedBlocks      int
+	LinkedInstallOnly bool
+	AllowedApps       []string
+	EligibleApps      []string
+	Withhold          *Withhold
 }
 
 type Withhold struct {
@@ -146,6 +150,9 @@ func (s *Service) Detail(
 		})
 	}
 	if found.IsOwner {
+		if err := protected.RestorePromptFragments(ctx, s.pool, id, found.Blocks); err != nil {
+			return Detail{}, err
+		}
 		if draft {
 			found.Readiness = readiness(found.Kind, found.Name, found.IsNSFW, found.Blocks)
 		} else {
@@ -158,6 +165,19 @@ func (s *Service) Detail(
 			}
 			found.SealedBlocks = sealed
 		}
+	}
+	found.AllowedApps, err = protected.Apps(ctx, s.pool, id)
+	if err != nil {
+		return Detail{}, err
+	}
+	found.LinkedInstallOnly = len(found.AllowedApps) > 0
+	offered := make([]string, len(found.Downloads))
+	for i, target := range found.Downloads {
+		offered[i] = target.Format
+	}
+	found.EligibleApps = protected.EligibleApps(found.Kind, offered)
+	if found.LinkedInstallOnly {
+		found.Downloads = []format.Target{}
 	}
 	if draft {
 		return found, nil

@@ -14,6 +14,7 @@ import (
 	"github.com/Sillyfrogster/Illarin/api/internal/asset"
 	"github.com/Sillyfrogster/Illarin/api/internal/delivery"
 	"github.com/Sillyfrogster/Illarin/api/internal/format"
+	"github.com/Sillyfrogster/Illarin/api/internal/format/preset"
 	"github.com/Sillyfrogster/Illarin/api/internal/linking"
 	"github.com/Sillyfrogster/Illarin/api/internal/storage"
 	"github.com/Sillyfrogster/Illarin/api/internal/testdb"
@@ -26,6 +27,9 @@ func testRegistry(t *testing.T) *format.Registry {
 	registry := format.NewRegistry()
 	if err := registry.Register(opaqueTestModule{}); err != nil {
 		t.Fatalf("register test format: %v", err)
+	}
+	if err := registry.Register(preset.LumiverseModule{}); err != nil {
+		t.Fatalf("register Lumiverse preset format: %v", err)
 	}
 	return registry
 }

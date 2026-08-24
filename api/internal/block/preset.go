@@ -29,6 +29,8 @@ type PromptFragment struct {
 	GroupID *uuid.UUID `json:"groupId,omitempty"`
 	Role    PromptRole `json:"role"`
 	Text    string     `json:"text"`
+	// Protected keeps the prompt text outside the public block row.
+	Protected bool `json:"protected,omitempty"`
 	// Marker names content an app splices into this position.
 	Marker  string `json:"marker,omitempty"`
 	Enabled bool   `json:"enabled"`
@@ -325,6 +327,7 @@ func decodePromptList(raw json.RawMessage) (Content, error) {
 			GroupID   *uuid.UUID      `json:"groupId,omitempty"`
 			Role      PromptRole      `json:"role"`
 			Text      *string         `json:"text"`
+			Protected bool            `json:"protected,omitempty"`
 			Marker    string          `json:"marker,omitempty"`
 			Enabled   *bool           `json:"enabled"`
 			Placement PromptPlacement `json:"placement,omitempty"`
@@ -379,6 +382,7 @@ func decodePromptList(raw json.RawMessage) (Content, error) {
 			GroupID:   item.GroupID,
 			Role:      item.Role,
 			Text:      *item.Text,
+			Protected: item.Protected,
 			Marker:    item.Marker,
 			Enabled:   *item.Enabled,
 			Placement: item.Placement,

@@ -54,6 +54,7 @@ type startedAsset struct {
 	Blocks        []startedBlock   `json:"blocks"`
 	AddableBlocks []addableBlock   `json:"addableBlocks"`
 	Downloads     []downloadTarget `json:"downloads"`
+	EligibleApps  []string         `json:"eligibleApps"`
 	Original      *originalUpload  `json:"original"`
 }
 

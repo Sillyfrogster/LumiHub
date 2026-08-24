@@ -1164,7 +1164,7 @@ select content_generation
 
 -- name: AssetInstanceStates :many
 select instance.id, instance.application_name, instance.instance_name,
-       instance.last_seen_at, instance.scopes,
+       instance.last_seen_at, instance.scopes, instance.accepted_targets,
        delivery.id as delivery_id,
        coalesce(delivery.state, '')::text as delivery_state,
        delivery.settled_reason, delivery.queued_at, delivery.expires_at,

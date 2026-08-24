@@ -133,6 +133,15 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SaveAssetElement'
+        allowedApps:
+          description: >-
+            The applications that may receive a sealed prompt in this save.
+            Send an empty list only when no fragment remains sealed.
+          type: array
+          items:
+            type: string
+            enum:
+              - lumiverse
     ArrangeAssetBlocksRequest:
       type: object
       additionalProperties: false
@@ -555,6 +564,11 @@ components:
                   carries no text of its own and the name is taken at face
                   value.
                 type: string
+              protected:
+                description: >-
+                  Whether this prompt's text is sealed. Readers receive the
+                  marker and metadata but never the text.
+                type: boolean
               enabled:
                 type: boolean
               placement:

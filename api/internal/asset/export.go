@@ -11,6 +11,7 @@ import (
 
 	"github.com/Sillyfrogster/Illarin/api/internal/block"
 	"github.com/Sillyfrogster/Illarin/api/internal/format"
+	"github.com/Sillyfrogster/Illarin/api/internal/protected"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -19,6 +20,9 @@ import (
 // ErrTargetNotOffered is a format this asset is not offered in. The menu is a
 // list of choices and a target outside it was never one of them.
 var ErrTargetNotOffered = errors.New("that download is not offered for this asset")
+
+// ErrLinkedInstallOnly is a file that may leave only through an allowed linked instance.
+var ErrLinkedInstallOnly = errors.New("this asset is linked-install-only")
 
 // Export is one finished file on its way to a reader. It is a response rather
 // than stored content, so no blob is created and nothing enters a quota.
@@ -57,6 +61,13 @@ func (s *Service) OpenExport(
 	if err != nil {
 		return Export{}, err
 	}
+	apps, err := protected.Apps(ctx, s.pool, assetID)
+	if err != nil {
+		return Export{}, err
+	}
+	if len(apps) > 0 {
+		return Export{}, ErrLinkedInstallOnly
+	}
 	offered := s.reg.OfferedTargets(subject.capability())
 	if !offersTarget(offered, target) {
 		return Export{}, ErrTargetNotOffered
@@ -83,6 +94,64 @@ func (s *Service) OpenExport(
 		export.Event = &event
 	}
 	return export, nil
+}
+
+// OpenExportForLinkedInstance restores protected fields at the delivery boundary.
+func (s *Service) OpenExportForLinkedInstance(
+	ctx context.Context,
+	assetID uuid.UUID,
+	target string,
+) (Export, error) {
+	subject, err := s.exportSubject(ctx, assetID, nil)
+	if err != nil {
+		return Export{}, err
+	}
+	apps, err := protected.Apps(ctx, s.pool, assetID)
+	if err != nil {
+		return Export{}, err
+	}
+	if len(apps) > 0 && !targetAllowed(apps, subject.kind, target) {
+		return Export{}, ErrTargetNotOffered
+	}
+	if err := protected.RestorePromptFragments(ctx, s.pool, assetID, subject.blocks); err != nil {
+		return Export{}, err
+	}
+	if !offersTarget(s.reg.OfferedTargets(subject.capability()), target) {
+		return Export{}, ErrTargetNotOffered
+	}
+	module, known := s.reg.ByID(target)
+	if !known {
+		return Export{}, ErrTargetNotOffered
+	}
+	writer, writes := module.(format.Writer)
+	if !writes {
+		return Export{}, ErrTargetNotOffered
+	}
+	written, err := s.writeExport(ctx, subject, writer)
+	if err != nil {
+		return Export{}, err
+	}
+	export := Export{
+		Body: written.Body, MediaType: written.MediaType, Target: target,
+		Filename: downloadFilename(subject.name, module.Declaration().Label, written.Extension),
+	}
+	if subject.lifecycle == LifecyclePublished && subject.revisionID != nil {
+		event := downloadEvent(assetID, *subject.revisionID, target, subject.ownerID, nil)
+		event.AuthorizationClass = AuthorizationLinkedInstance
+		export.Event = &event
+	}
+	return export, nil
+}
+
+func targetAllowed(apps []string, kind, target string) bool {
+	for _, app := range apps {
+		for _, accepted := range protected.AppTargets(kind, app) {
+			if target == accepted {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (s *Service) writeExport(

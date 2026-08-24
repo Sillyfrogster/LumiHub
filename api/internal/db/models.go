@@ -314,6 +314,21 @@ type PasswordResetToken struct {
 	ExpiresAt pgtype.Timestamptz
 }
 
+type ProtectedContent struct {
+	AssetID     pgtype.UUID
+	OwnerKind   string
+	OwnerID     pgtype.UUID
+	PayloadType string
+	Payload     []byte
+	SourceKey   pgtype.Text
+	Digest      []byte
+}
+
+type ProtectedDeliveryApp struct {
+	AssetID pgtype.UUID
+	App     string
+}
+
 type RetiredHandle struct {
 	Handle string
 }

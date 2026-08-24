@@ -22,10 +22,51 @@ type saveBlockElement struct {
 }
 
 type saveBlockBody struct {
-	Title    *string            `json:"title"`
-	Layout   string             `json:"layout"`
-	Width    string             `json:"width"`
-	Elements []saveBlockElement `json:"elements"`
+	Title       *string            `json:"title"`
+	Layout      string             `json:"layout"`
+	Width       string             `json:"width"`
+	Elements    []saveBlockElement `json:"elements"`
+	AllowedApps *[]string          `json:"allowedApps,omitempty"`
+}
+
+func TestASealedPromptKeepsItsTextForTheOwnerAndNotAReader(t *testing.T) {
+	r, session := newVerifiedTestRouter(t)
+	started := startPreset(t, r, session, "lumiverse")
+	core := editableBlock(blockNamed(t, started.Blocks, "preset_core"))
+	const privateText = "The reader must never receive these words."
+	core.Elements[0].Content = json.RawMessage(`{"groups":[],"fragments":[{"name":"Private instructions","role":"system","text":"` + privateText + `","protected":true,"enabled":true}]}`)
+	apps := []string{"lumiverse"}
+	core.AllowedApps = &apps
+
+	if got := saveBlock(t, r, session, started.ID, started.Blocks[0].ID, core); got.Code != http.StatusOK {
+		t.Fatalf("save sealed prompt status = %d, want 200: %s", got.Code, got.Body.String())
+	}
+	owner := fetchStartedAsset(t, r, session, started.ID)
+	if !strings.Contains(string(owner.Blocks[0].Elements[0].Content), privateText) {
+		t.Fatal("the owner did not receive the restored sealed prompt")
+	}
+	if got := saveIdentity(t, r, session, started.ID, `{"name":"Sealed preset","isNsfw":false}`); got.Code != http.StatusNoContent {
+		t.Fatalf("save identity status = %d, want 204: %s", got.Code, got.Body.String())
+	}
+	if got := publishAsset(t, r, session, started.ID); got.Code != http.StatusOK {
+		t.Fatalf("publish sealed preset status = %d, want 200: %s", got.Code, got.Body.String())
+	}
+
+	reader := send(t, r, httptest.NewRequest(http.MethodGet, "/v1/assets/"+started.ID, nil))
+	if reader.Code != http.StatusOK {
+		t.Fatalf("reader status = %d, want 200: %s", reader.Code, reader.Body.String())
+	}
+	if strings.Contains(reader.Body.String(), privateText) {
+		t.Fatal("a reader response contained the sealed prompt")
+	}
+
+	missingPolicy := editableBlock(blockNamed(t, started.Blocks, "preset_core"))
+	missingPolicy.Elements[0].Content = json.RawMessage(`{"groups":[],"fragments":[{"role":"system","text":"new private text","protected":true,"enabled":true}]}`)
+	missingPolicy.AllowedApps = &[]string{}
+	refused := saveBlock(t, r, session, started.ID, started.Blocks[0].ID, missingPolicy)
+	if refused.Code != http.StatusBadRequest {
+		t.Fatalf("seal without allowed app status = %d, want 400: %s", refused.Code, refused.Body.String())
+	}
 }
 
 func editableBlock(block startedBlock) saveBlockBody {

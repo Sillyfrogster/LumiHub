@@ -1222,6 +1222,8 @@ export interface components {
       /** @enum {string} */
       width: "full" | "two_thirds" | "half" | "third";
       elements: components["schemas"]["SaveAssetElement"][];
+      /** @description The applications that may receive a sealed prompt in this save. Send an empty list only when no fragment remains sealed. */
+      allowedApps?: "lumiverse"[];
     };
     ArrangeAssetBlocksRequest: {
       blocks: {
@@ -1430,6 +1432,8 @@ export interface components {
         text: string;
         /** @description What an app splices in where this fragment sits. A marker carries no text of its own and the name is taken at face value. */
         marker?: string;
+        /** @description Whether this prompt's text is sealed. Readers receive the marker and metadata but never the text. */
+        protected?: boolean;
         enabled: boolean;
         /**
          * @description Unset where the preset leaves the choice to whatever reads it.
@@ -1665,6 +1669,12 @@ export interface components {
       lifecycle: "draft" | "published";
       /** @description Whether the reader owns the asset. The owner's page is the reader's page with its editing affordances, not a second visual state. */
       isOwner: boolean;
+      /** @description Whether protected content keeps ordinary downloads unavailable. */
+      linkedInstallOnly: boolean;
+      /** @description The applications the creator allows to receive protected content. */
+      allowedApps: "lumiverse"[];
+      /** @description The applications with a target this asset can currently export to. */
+      eligibleApps: "lumiverse"[];
       /** @description The formats this asset is offered in, read from its projection. A format Illarin cannot produce for the asset is absent rather than listed as unavailable, so this is a list of choices and not a capability report. */
       downloads: components["schemas"]["DownloadTarget"][];
       /** @description The creator's own upload. Null for an asset built from nothing, which gets no group saying so. */

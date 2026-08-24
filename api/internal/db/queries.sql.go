@@ -264,7 +264,7 @@ func (q *Queries) AssetDeletionState(ctx context.Context, arg AssetDeletionState
 
 const assetInstanceStates = `-- name: AssetInstanceStates :many
 select instance.id, instance.application_name, instance.instance_name,
-       instance.last_seen_at, instance.scopes,
+       instance.last_seen_at, instance.scopes, instance.accepted_targets,
        delivery.id as delivery_id,
        coalesce(delivery.state, '')::text as delivery_state,
        delivery.settled_reason, delivery.queued_at, delivery.expires_at,
@@ -297,6 +297,7 @@ type AssetInstanceStatesRow struct {
 	InstanceName        string
 	LastSeenAt          pgtype.Timestamptz
 	Scopes              []string
+	AcceptedTargets     []string
 	DeliveryID          pgtype.UUID
 	DeliveryState       string
 	SettledReason       pgtype.Text
@@ -320,6 +321,7 @@ func (q *Queries) AssetInstanceStates(ctx context.Context, arg AssetInstanceStat
 			&i.InstanceName,
 			&i.LastSeenAt,
 			&i.Scopes,
+			&i.AcceptedTargets,
 			&i.DeliveryID,
 			&i.DeliveryState,
 			&i.SettledReason,

@@ -12,6 +12,7 @@ import (
 
 	"github.com/Sillyfrogster/Illarin/api/internal/block"
 	"github.com/Sillyfrogster/Illarin/api/internal/format"
+	"github.com/Sillyfrogster/Illarin/api/internal/protected"
 )
 
 func TestASchemaVersionIsAMarkerAndNeverAnUnsupportedVersion(t *testing.T) {
@@ -181,6 +182,42 @@ func TestReadingALumiversePresetFillsTheRolesAndKeepsTheRest(t *testing.T) {
 	}
 	if _, held := preserved(parsed.Remainder, format.OwnerAsset, "risuai"); !held {
 		t.Error("the extensions namespace was not preserved as its own namespace")
+	}
+}
+
+func TestWritingARestoredPromptHasNoProtectedContentProtocol(t *testing.T) {
+	parsed := parse(t, lumiversePreset)
+	list := promptList(t, parsed.Elements)
+	const restored = "Delivered only to the linked application."
+	list.Fragments[0].Text = restored
+	list.Fragments[0].Protected = true
+	for index := range parsed.Elements {
+		if parsed.Elements[index].Role == block.RolePromptFragments {
+			parsed.Elements[index].Content = list
+			break
+		}
+	}
+
+	written := write(t, LumiverseModule{}, parsed)
+	if !strings.Contains(string(written.Body), restored) {
+		t.Fatal("the writer did not receive the restored prompt text")
+	}
+	if strings.Contains(string(written.Body), `"protected"`) {
+		t.Fatal("the artifact contained Illarin's protected-content marker")
+	}
+}
+
+func TestASillyTavernOriginDoesNotOfferLumiverseForProtectedDelivery(t *testing.T) {
+	parsed := parse(t, sillyTavernPreset)
+	offered := testRegistry(t).OfferedTargets(format.CapabilitySubject{
+		Kind: Kind, Origin: SillyTavernID, Elements: parsed.Elements,
+	})
+	targets := make([]string, len(offered))
+	for i, target := range offered {
+		targets[i] = target.Format
+	}
+	if apps := protected.EligibleApps(Kind, targets); len(apps) != 0 {
+		t.Fatalf("SillyTavern protected-delivery apps = %v, want none", apps)
 	}
 }
 

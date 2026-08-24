@@ -39,7 +39,7 @@ func (h *Handlers) DownloadExport(c *gin.Context, id types.UUID, target string) 
 }
 
 func (h *Handlers) downloadError(c *gin.Context, err error) {
-	if errors.Is(err, asset.ErrNotFound) || errors.Is(err, asset.ErrTargetNotOffered) {
+	if errors.Is(err, asset.ErrNotFound) || errors.Is(err, asset.ErrTargetNotOffered) || errors.Is(err, asset.ErrLinkedInstallOnly) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "no such download"})
 		return
 	}

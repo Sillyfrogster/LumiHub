@@ -297,6 +297,18 @@ function FragmentFields({
         />
       </Field>
 
+      {!isMarker ? (
+        <Switch
+          label="Sealed prompt"
+          hint="Its text is sent only to an allowed linked application."
+          checked={fragment.protected ?? false}
+          pending={pending}
+          onChange={(protectedPrompt) =>
+            onChange({ protected: protectedPrompt })
+          }
+        />
+      ) : null}
+
       {isMarker ? (
         <p className={styles.quiet}>
           This fragment is a marker. The app splices its own content in here,

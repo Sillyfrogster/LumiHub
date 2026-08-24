@@ -12,6 +12,7 @@ import (
 	"github.com/Sillyfrogster/Illarin/api/internal/format"
 	mediaproc "github.com/Sillyfrogster/Illarin/api/internal/media"
 	"github.com/Sillyfrogster/Illarin/api/internal/probe"
+	"github.com/Sillyfrogster/Illarin/api/internal/protected"
 	"github.com/Sillyfrogster/Illarin/api/internal/signing"
 	"github.com/Sillyfrogster/Illarin/api/internal/storage"
 	"github.com/google/uuid"
@@ -516,6 +517,13 @@ func (s *Service) DownloadSource(
 		}
 		return SourceDownload{}, fmt.Errorf("find current revision: %w", err)
 	}
+	apps, err := protected.Apps(ctx, s.pool, assetID)
+	if err != nil {
+		return SourceDownload{}, err
+	}
+	if len(apps) > 0 && (viewerID == nil || location.OwnerID == nil || *viewerID != *location.OwnerID) {
+		return SourceDownload{}, ErrLinkedInstallOnly
+	}
 	redirect, err := s.store.InternalRedirect(ctx, location.BlobID)
 	if err != nil {
 		return SourceDownload{}, fmt.Errorf("resolve stored file: %w", err)
@@ -547,7 +555,7 @@ func (s *Service) DownloadExportForLinkedInstance(
 	assetID uuid.UUID,
 	target string,
 ) (Export, error) {
-	download, err := s.OpenExport(ctx, assetID, nil, target)
+	download, err := s.OpenExportForLinkedInstance(ctx, assetID, target)
 	if err != nil {
 		return Export{}, err
 	}

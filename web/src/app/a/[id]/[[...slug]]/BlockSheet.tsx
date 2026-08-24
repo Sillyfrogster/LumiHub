@@ -25,6 +25,8 @@ export function BlockSheet({
   onHide,
   onRemove,
   onImageAdded,
+  allowedApps: initialAllowedApps,
+  eligibleApps,
 }: {
   assetId: string;
   block: AssetBlock;
@@ -35,6 +37,8 @@ export function BlockSheet({
   onHide: () => Promise<void>;
   onRemove: () => void;
   onImageAdded: () => void;
+  allowedApps: "lumiverse"[];
+  eligibleApps: "lumiverse"[];
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [title, setTitle] = useState(block.titleIsDefault ? "" : block.title);
@@ -48,6 +52,7 @@ export function BlockSheet({
   const [message, setMessage] = useState("");
   const [arrangementMessage, setArrangementMessage] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [allowedApps, setAllowedApps] = useState(initialAllowedApps);
 
   const expandedElement = elements.find((element) => element.id === expanded);
 
@@ -76,6 +81,10 @@ export function BlockSheet({
         layout,
         width,
         elements: elements.map(toSaveElement),
+        allowedApps:
+          hasSealedPrompts(elements) || initialAllowedApps.length > 0
+            ? allowedApps
+            : undefined,
       });
       onSaved(saved);
       close();
@@ -229,6 +238,39 @@ export function BlockSheet({
             ))}
           </div>
 
+          {hasSealedPrompts(elements) ? (
+            <fieldset className={styles.protectedDelivery}>
+              <legend>Allowed apps</legend>
+              <p>
+                A linked application receives the prompt text. Sealing is not
+                encryption.
+              </p>
+              {eligibleApps.includes("lumiverse") ? (
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={allowedApps.includes("lumiverse")}
+                    onChange={(event) =>
+                      setAllowedApps((current) =>
+                        event.target.checked
+                          ? current.includes("lumiverse")
+                            ? current
+                            : ["lumiverse", ...current]
+                          : current.filter((app) => app !== "lumiverse"),
+                      )
+                    }
+                    disabled={pending}
+                  />
+                  Lumiverse
+                </label>
+              ) : (
+                <p>
+                  No linked app can receive this preset in its current form.
+                </p>
+              )}
+            </fieldset>
+          ) : null}
+
           <section
             className={styles.blockActions}
             aria-labelledby="block-actions"
@@ -309,6 +351,15 @@ export function BlockSheet({
         />
       ) : null}
     </dialog>
+  );
+}
+
+function hasSealedPrompts(elements: AssetElement[]): boolean {
+  return elements.some(
+    (element) =>
+      element.type === "prompt_list" &&
+      "fragments" in element.content &&
+      element.content.fragments.some((fragment) => fragment.protected),
   );
 }
 

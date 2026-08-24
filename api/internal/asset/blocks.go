@@ -8,16 +8,19 @@ import (
 
 	"github.com/Sillyfrogster/Illarin/api/internal/block"
 	"github.com/Sillyfrogster/Illarin/api/internal/db"
+	"github.com/Sillyfrogster/Illarin/api/internal/format"
+	"github.com/Sillyfrogster/Illarin/api/internal/protected"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
 // BlockUpdate is everything one block sheet can save at once.
 type BlockUpdate struct {
-	Title    *string
-	Layout   block.Layout
-	Width    block.Width
-	Elements []block.Element
+	Title       *string
+	Layout      block.Layout
+	Width       block.Width
+	Elements    []block.Element
+	AllowedApps *[]string
 }
 
 // SavedBlock is the saved row and the kind catalog that describes it.
@@ -66,6 +69,9 @@ func (s *Service) SaveBlock(
 	if err != nil {
 		return SavedBlock{}, err
 	}
+	if err := protected.RestorePromptFragments(ctx, tx, assetID, blocks); err != nil {
+		return SavedBlock{}, err
+	}
 	before := append([]block.Block(nil), blocks...)
 	var saved *block.Block
 	for i := range blocks {
@@ -87,6 +93,18 @@ func (s *Service) SaveBlock(
 	}
 	if err := block.ValidateBuilderConstraints(kind, before, blocks); err != nil {
 		return SavedBlock{}, fmt.Errorf("%w: %v", ErrInvalidBlock, err)
+	}
+	if err := s.validateProtectedApps(ctx, tx, assetID, kind, blocks, update.AllowedApps); err != nil {
+		return SavedBlock{}, fmt.Errorf("%w: %v", ErrInvalidBlock, err)
+	}
+	if err := protected.SyncPromptFragments(ctx, tx, assetID, blocks, update.AllowedApps); err != nil {
+		return SavedBlock{}, fmt.Errorf("%w: %v", ErrInvalidBlock, err)
+	}
+	for i := range blocks {
+		if blocks[i].ID == blockID {
+			saved = &blocks[i]
+			break
+		}
 	}
 	elements, err := json.Marshal(saved.Elements)
 	if err != nil {
@@ -115,7 +133,53 @@ func (s *Service) SaveBlock(
 	if err := tx.Commit(ctx); err != nil {
 		return SavedBlock{}, err
 	}
+	if err := protected.RestorePromptFragments(ctx, s.pool, assetID, blocks); err != nil {
+		return SavedBlock{}, err
+	}
+	for i := range blocks {
+		if blocks[i].ID == blockID {
+			saved = &blocks[i]
+			break
+		}
+	}
 	return SavedBlock{Kind: kind, Block: *saved}, nil
+}
+
+func (s *Service) validateProtectedApps(
+	ctx context.Context,
+	q db.DBTX,
+	assetID uuid.UUID,
+	kind string,
+	blocks []block.Block,
+	allowedApps *[]string,
+) error {
+	if allowedApps == nil || !protected.HasPromptFragments(blocks) {
+		return nil
+	}
+	var origin string
+	if err := q.QueryRow(ctx, `select coalesce(origin_format, '') from assets where id = $1`, assetID).Scan(&origin); err != nil {
+		return fmt.Errorf("read the asset origin for protected delivery: %w", err)
+	}
+	elements := make([]block.Element, 0)
+	for _, holder := range blocks {
+		elements = append(elements, holder.Elements...)
+	}
+	offered := s.reg.OfferedTargets(format.CapabilitySubject{
+		Kind: kind, Origin: origin, Elements: elements,
+	})
+	for _, app := range *allowedApps {
+		available := false
+		for _, wanted := range protected.AppTargets(kind, app) {
+			if offersTarget(offered, wanted) {
+				available = true
+				break
+			}
+		}
+		if !available {
+			return fmt.Errorf("%q has no usable export target for this asset", app)
+		}
+	}
+	return nil
 }
 
 // AddBlock puts one optional block at the foot of the page, holding the
@@ -267,6 +331,9 @@ func (s *Service) RemoveBlock(
 	if err != nil {
 		return err
 	}
+	if err := protected.RestorePromptFragments(ctx, tx, assetID, blocks); err != nil {
+		return err
+	}
 	remaining := make([]block.Block, 0, len(blocks)-1)
 	found := false
 	for _, holder := range blocks {
@@ -284,6 +351,9 @@ func (s *Service) RemoveBlock(
 		return ErrNotFound
 	}
 	if err := block.ValidateBuilderConstraints(kind, blocks, remaining); err != nil {
+		return fmt.Errorf("%w: %v", ErrInvalidBlock, err)
+	}
+	if err := protected.SyncPromptFragments(ctx, tx, assetID, remaining, nil); err != nil {
 		return fmt.Errorf("%w: %v", ErrInvalidBlock, err)
 	}
 	if err := deleteBlockAndClosePositions(ctx, tx, assetID, blockID, remaining); err != nil {
@@ -325,6 +395,9 @@ func (s *Service) MoveBlockContent(
 	}
 	before, err := readBlocks(ctx, tx, assetID)
 	if err != nil {
+		return SavedBlocks{}, err
+	}
+	if err := protected.RestorePromptFragments(ctx, tx, assetID, before); err != nil {
 		return SavedBlocks{}, err
 	}
 	var source *block.Block
@@ -381,6 +454,9 @@ func (s *Service) MoveBlockContent(
 		return SavedBlocks{}, fmt.Errorf("%w: %v", ErrInvalidBlock, err)
 	}
 	if err := block.ValidateBuilderConstraints(kind, before, after); err != nil {
+		return SavedBlocks{}, fmt.Errorf("%w: %v", ErrInvalidBlock, err)
+	}
+	if err := protected.SyncPromptFragments(ctx, tx, assetID, after, nil); err != nil {
 		return SavedBlocks{}, fmt.Errorf("%w: %v", ErrInvalidBlock, err)
 	}
 	elements, err := json.Marshal(destination.Elements)

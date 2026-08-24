@@ -530,28 +530,47 @@ func toAPIDetail(found asset.Detail, visibility asset.ContentVisibility) (AssetD
 	}
 	addable := toAPIAddableBlocks(found.Kind, found.IsOwner)
 	return AssetDetail{
-		Id:            types.UUID(found.ID),
-		Kind:          AssetDetailKind(found.Kind),
-		Name:          found.Name,
-		Blurb:         found.Blurb,
-		Tags:          tags,
-		Creator:       found.Creator,
-		IsNsfw:        found.IsNSFW,
-		Discovery:     AssetDetailDiscovery(found.Discovery),
-		Lifecycle:     AssetDetailLifecycle(found.Lifecycle),
-		IsOwner:       found.IsOwner,
-		Downloads:     toAPIDownloads(found.Downloads),
-		Original:      toAPIOriginalUpload(found.Original),
-		CreatedAt:     found.CreatedAt,
-		Blocks:        blocks,
-		Media:         media,
-		Preview:       found.Preview,
-		Readiness:     toAPIReadiness(found.Readiness),
-		SealedBlocks:  countOrAbsent(found.SealedBlocks),
-		AddableBlocks: addable,
-		Visibility:    AssetDetailVisibility(visibility),
-		Withhold:      toAPIWithhold(found.Withhold),
+		Id:                types.UUID(found.ID),
+		Kind:              AssetDetailKind(found.Kind),
+		Name:              found.Name,
+		Blurb:             found.Blurb,
+		Tags:              tags,
+		Creator:           found.Creator,
+		IsNsfw:            found.IsNSFW,
+		Discovery:         AssetDetailDiscovery(found.Discovery),
+		Lifecycle:         AssetDetailLifecycle(found.Lifecycle),
+		IsOwner:           found.IsOwner,
+		LinkedInstallOnly: found.LinkedInstallOnly,
+		AllowedApps:       apiAllowedApps(found.AllowedApps),
+		EligibleApps:      apiEligibleApps(found.EligibleApps),
+		Downloads:         toAPIDownloads(found.Downloads),
+		Original:          toAPIOriginalUpload(found.Original),
+		CreatedAt:         found.CreatedAt,
+		Blocks:            blocks,
+		Media:             media,
+		Preview:           found.Preview,
+		Readiness:         toAPIReadiness(found.Readiness),
+		SealedBlocks:      countOrAbsent(found.SealedBlocks),
+		AddableBlocks:     addable,
+		Visibility:        AssetDetailVisibility(visibility),
+		Withhold:          toAPIWithhold(found.Withhold),
 	}, nil
+}
+
+func apiAllowedApps(apps []string) []AssetDetailAllowedApps {
+	result := make([]AssetDetailAllowedApps, len(apps))
+	for i, app := range apps {
+		result[i] = AssetDetailAllowedApps(app)
+	}
+	return result
+}
+
+func apiEligibleApps(apps []string) []AssetDetailEligibleApps {
+	result := make([]AssetDetailEligibleApps, len(apps))
+	for i, app := range apps {
+		result[i] = AssetDetailEligibleApps(app)
+	}
+	return result
 }
 
 // toAPIDownloads serves the download menu: one line per format, each already

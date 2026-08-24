@@ -8,6 +8,7 @@ import (
 
 	"github.com/Sillyfrogster/Illarin/api/internal/db"
 	"github.com/Sillyfrogster/Illarin/api/internal/format"
+	"github.com/Sillyfrogster/Illarin/api/internal/protected"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -71,6 +72,20 @@ func (s *Service) DeliverableAsset(
 		return Deliverable{}, err
 	}
 	found.Targets = offered
+	apps, err := protected.Apps(ctx, q, assetID)
+	if err != nil {
+		return Deliverable{}, err
+	}
+	if len(apps) > 0 {
+		found.HasOriginal = false
+		filtered := make([]DeliveryTarget, 0, len(found.Targets))
+		for _, target := range found.Targets {
+			if targetAllowed(apps, found.Kind, target.Format) {
+				filtered = append(filtered, target)
+			}
+		}
+		found.Targets = filtered
+	}
 	found.Pictures, err = s.deliveryPictures(ctx, q, assetID, uuidOrNil(coverID))
 	if err != nil {
 		return Deliverable{}, err

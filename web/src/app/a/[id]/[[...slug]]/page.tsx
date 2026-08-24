@@ -84,8 +84,9 @@ export default async function AssetPage({
   const holdsNothing = assetHoldsNothing(asset.blocks);
   const hasHeaderActions = Boolean(
     (isDraft && asset.isOwner && asset.readiness) ||
+      asset.linkedInstallOnly ||
       asset.downloads.length > 0 ||
-      asset.original,
+      (!asset.linkedInstallOnly && asset.original),
   );
 
   return (
@@ -109,6 +110,9 @@ export default async function AssetPage({
                   <span className={styles.rating}>
                     {ratingLabel(asset.isNsfw)}
                   </span>
+                  {asset.linkedInstallOnly ? (
+                    <span className={styles.rating}>Linked install only</span>
+                  ) : null}
                 </div>
                 <h1 className={asset.name ? undefined : styles.unnamed}>
                   {assetDisplayName(asset.name)}
@@ -132,13 +136,15 @@ export default async function AssetPage({
                     <DraftHeaderActions />
                   ) : null}
 
-                  <DownloadPanel
-                    assetId={asset.id}
-                    downloads={asset.downloads}
-                    original={asset.original}
-                    images={asset.media}
-                    holdsNothing={holdsNothing}
-                  />
+                  {!asset.linkedInstallOnly ? (
+                    <DownloadPanel
+                      assetId={asset.id}
+                      downloads={asset.downloads}
+                      original={asset.original}
+                      images={asset.media}
+                      holdsNothing={holdsNothing}
+                    />
+                  ) : null}
 
                   {isDraft ? null : <SendToInstance assetId={asset.id} />}
                 </div>
@@ -172,6 +178,13 @@ export default async function AssetPage({
 
                 {asset.tags.length > 0 ? <TagShelf tags={asset.tags} /> : null}
 
+                {asset.linkedInstallOnly ? (
+                  <p className={styles.noBlurb}>
+                    Linked install only. Allowed apps:{" "}
+                    {asset.allowedApps.map(appLabel).join(", ")}.
+                  </p>
+                ) : null}
+
                 {asset.withhold ? (
                   <WithholdNotice withhold={asset.withhold} />
                 ) : null}
@@ -189,6 +202,8 @@ export default async function AssetPage({
               images={asset.media}
               addableBlocks={asset.addableBlocks ?? []}
               isOwner={asset.isOwner}
+              allowedApps={asset.allowedApps}
+              eligibleApps={asset.eligibleApps}
               creatorMenu={{
                 assetId: asset.id,
                 creator: asset.creator,
@@ -209,4 +224,9 @@ export default async function AssetPage({
       </article>
     </div>
   );
+}
+
+function appLabel(app: string) {
+  if (app === "lumiverse") return "Lumiverse";
+  return app;
 }

@@ -82,10 +82,19 @@ func blockUpdate(request SaveAssetBlockRequest) (asset.BlockUpdate, error) {
 			Content: content,
 		}
 	}
+	var allowedApps *[]string
+	if request.AllowedApps != nil {
+		apps := make([]string, len(*request.AllowedApps))
+		for i, app := range *request.AllowedApps {
+			apps[i] = string(app)
+		}
+		allowedApps = &apps
+	}
 	return asset.BlockUpdate{
-		Title:    request.Title,
-		Layout:   block.Layout(request.Layout),
-		Width:    block.Width(request.Width),
-		Elements: elements,
+		Title:       request.Title,
+		Layout:      block.Layout(request.Layout),
+		Width:       block.Width(request.Width),
+		Elements:    elements,
+		AllowedApps: allowedApps,
 	}, nil
 }

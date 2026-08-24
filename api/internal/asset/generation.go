@@ -13,6 +13,7 @@ import (
 	"github.com/Sillyfrogster/Illarin/api/internal/block"
 	"github.com/Sillyfrogster/Illarin/api/internal/db"
 	"github.com/Sillyfrogster/Illarin/api/internal/format"
+	"github.com/Sillyfrogster/Illarin/api/internal/protected"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -61,6 +62,9 @@ func (s *Service) contentFingerprint(
 
 	blocks, err := readBlocks(ctx, q, assetID)
 	if err != nil {
+		return "", err
+	}
+	if err := protected.RestorePromptFragments(ctx, q, assetID, blocks); err != nil {
 		return "", err
 	}
 	elements := make([]block.Element, 0)

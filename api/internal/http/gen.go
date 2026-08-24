@@ -216,6 +216,21 @@ func (e AssetBlockWidth) Valid() bool {
 	}
 }
 
+// Defines values for AssetDetailAllowedApps.
+const (
+	AssetDetailAllowedAppsLumiverse AssetDetailAllowedApps = "lumiverse"
+)
+
+// Valid indicates whether the value is a known member of the AssetDetailAllowedApps enum.
+func (e AssetDetailAllowedApps) Valid() bool {
+	switch e {
+	case AssetDetailAllowedAppsLumiverse:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AssetDetailDiscovery.
 const (
 	AssetDetailDiscoveryListed   AssetDetailDiscovery = "listed"
@@ -228,6 +243,21 @@ func (e AssetDetailDiscovery) Valid() bool {
 	case AssetDetailDiscoveryListed:
 		return true
 	case AssetDetailDiscoveryUnlisted:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AssetDetailEligibleApps.
+const (
+	AssetDetailEligibleAppsLumiverse AssetDetailEligibleApps = "lumiverse"
+)
+
+// Valid indicates whether the value is a known member of the AssetDetailEligibleApps enum.
+func (e AssetDetailEligibleApps) Valid() bool {
+	switch e {
+	case AssetDetailEligibleAppsLumiverse:
 		return true
 	default:
 		return false
@@ -915,6 +945,21 @@ func (e RecordListContentSchema) Valid() bool {
 	}
 }
 
+// Defines values for SaveAssetBlockRequestAllowedApps.
+const (
+	SaveAssetBlockRequestAllowedAppsLumiverse SaveAssetBlockRequestAllowedApps = "lumiverse"
+)
+
+// Valid indicates whether the value is a known member of the SaveAssetBlockRequestAllowedApps enum.
+func (e SaveAssetBlockRequestAllowedApps) Valid() bool {
+	switch e {
+	case SaveAssetBlockRequestAllowedAppsLumiverse:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SaveAssetBlockRequestLayout.
 const (
 	SaveAssetBlockRequestLayoutDuo       SaveAssetBlockRequestLayout = "duo"
@@ -1073,16 +1118,16 @@ func (e SettingGroupContentSettingsType) Valid() bool {
 
 // Defines values for StartAssetRequestApp.
 const (
-	Lumiverse   StartAssetRequestApp = "lumiverse"
-	Sillytavern StartAssetRequestApp = "sillytavern"
+	StartAssetRequestAppLumiverse   StartAssetRequestApp = "lumiverse"
+	StartAssetRequestAppSillytavern StartAssetRequestApp = "sillytavern"
 )
 
 // Valid indicates whether the value is a known member of the StartAssetRequestApp enum.
 func (e StartAssetRequestApp) Valid() bool {
 	switch e {
-	case Lumiverse:
+	case StartAssetRequestAppLumiverse:
 		return true
-	case Sillytavern:
+	case StartAssetRequestAppSillytavern:
 		return true
 	default:
 		return false
@@ -1512,6 +1557,9 @@ type AssetDetail struct {
 	// AddableBlocks The blocks this kind can still be given, in catalog order. Present only while the owner is reading their own asset.
 	AddableBlocks *[]AddableBlock `json:"addableBlocks,omitempty"`
 
+	// AllowedApps The applications the creator allows to receive protected content.
+	AllowedApps []AssetDetailAllowedApps `json:"allowedApps"`
+
 	// Blocks The asset's blocks in page order.
 	Blocks []AssetBlock `json:"blocks"`
 
@@ -1522,8 +1570,11 @@ type AssetDetail struct {
 	Discovery AssetDetailDiscovery `json:"discovery"`
 
 	// Downloads The formats this asset is offered in, read from its projection. A format Illarin cannot produce for the asset is absent rather than listed as unavailable, so this is a list of choices and not a capability report.
-	Downloads []DownloadTarget   `json:"downloads"`
-	Id        openapi_types.UUID `json:"id"`
+	Downloads []DownloadTarget `json:"downloads"`
+
+	// EligibleApps The applications with a target this asset can currently export to.
+	EligibleApps []AssetDetailEligibleApps `json:"eligibleApps"`
+	Id           openapi_types.UUID        `json:"id"`
 
 	// IsNsfw Null while a draft has not been asked the adult content question. Nothing answers it on the creator's behalf.
 	IsNsfw *bool `json:"isNsfw"`
@@ -1534,6 +1585,9 @@ type AssetDetail struct {
 
 	// Lifecycle A draft resolves for its owner alone. Discovery applies to a published asset only.
 	Lifecycle AssetDetailLifecycle `json:"lifecycle"`
+
+	// LinkedInstallOnly Whether protected content keeps ordinary downloads unavailable.
+	LinkedInstallOnly bool `json:"linkedInstallOnly"`
 
 	// Media The asset's images, cover first. Variant URLs already reflect the reader's preference, so a blurred reader is never handed a clear one.
 	Media []AssetImage `json:"media"`
@@ -1555,8 +1609,14 @@ type AssetDetail struct {
 	Withhold     *AssetWithhold        `json:"withhold,omitempty"`
 }
 
+// AssetDetailAllowedApps defines model for AssetDetail.AllowedApps.
+type AssetDetailAllowedApps string
+
 // AssetDetailDiscovery defines model for AssetDetail.Discovery.
 type AssetDetailDiscovery string
+
+// AssetDetailEligibleApps defines model for AssetDetail.EligibleApps.
+type AssetDetailEligibleApps string
 
 // AssetDetailKind defines model for AssetDetail.Kind.
 type AssetDetailKind string
@@ -2267,6 +2327,9 @@ type PromptListContent struct {
 		// Placement Unset where the preset leaves the choice to whatever reads it.
 		Placement *PromptListContentFragmentsPlacement `json:"placement,omitempty"`
 
+		// Protected Whether this prompt's text is sealed. Readers receive the marker and metadata but never the text.
+		Protected *bool `json:"protected,omitempty"`
+
 		// Role Who the fragment speaks as. The two appending roles add to the message before them rather than starting one.
 		Role *PromptListContentFragmentsRole `json:"role,omitempty"`
 		Text string                          `json:"text"`
@@ -2368,13 +2431,18 @@ type RequestCode = string
 
 // SaveAssetBlockRequest defines model for SaveAssetBlockRequest.
 type SaveAssetBlockRequest struct {
-	Elements []SaveAssetElement          `json:"elements"`
-	Layout   SaveAssetBlockRequestLayout `json:"layout"`
+	// AllowedApps The applications that may receive a sealed prompt in this save. Send an empty list only when no fragment remains sealed.
+	AllowedApps *[]SaveAssetBlockRequestAllowedApps `json:"allowedApps,omitempty"`
+	Elements    []SaveAssetElement                  `json:"elements"`
+	Layout      SaveAssetBlockRequestLayout         `json:"layout"`
 
 	// Title Null keeps the definition's current default wording.
 	Title *string                    `json:"title"`
 	Width SaveAssetBlockRequestWidth `json:"width"`
 }
+
+// SaveAssetBlockRequestAllowedApps defines model for SaveAssetBlockRequest.AllowedApps.
+type SaveAssetBlockRequestAllowedApps string
 
 // SaveAssetBlockRequestLayout defines model for SaveAssetBlockRequest.Layout.
 type SaveAssetBlockRequestLayout string

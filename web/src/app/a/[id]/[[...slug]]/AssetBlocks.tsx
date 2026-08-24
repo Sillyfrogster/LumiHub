@@ -137,6 +137,8 @@ export function AssetBlocks({
   addableBlocks,
   isOwner,
   creatorMenu,
+  allowedApps,
+  eligibleApps,
 }: {
   assetId: string;
   kind: BrowseKind;
@@ -145,6 +147,8 @@ export function AssetBlocks({
   addableBlocks: AddableBlock[];
   isOwner: boolean;
   creatorMenu: CreatorMenuProps;
+  allowedApps: "lumiverse"[];
+  eligibleApps: "lumiverse"[];
 }) {
   const router = useRouter();
   const [currentBlocks, setCurrentBlocks] = useState(blocks);
@@ -668,6 +672,8 @@ export function AssetBlocks({
           block={editedBlock}
           suggestedWidth={suggestedWidths[editedBlock.id]}
           images={images}
+          allowedApps={allowedApps}
+          eligibleApps={eligibleApps}
           onDismiss={() => setEditing(null)}
           onImageAdded={() => router.refresh()}
           onSaved={(saved) => {
