@@ -3,7 +3,6 @@ import { Bodoni_Moda, Manrope } from "next/font/google";
 import { ArtFilters } from "@/components/art/ArtFilters";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { SiteHeader } from "@/components/layout/SiteHeader";
-import { ScrollReveal } from "@/components/motion/ScrollReveal";
 import { THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme";
 import { Providers } from "./providers";
 import "./globals.css";
@@ -46,7 +45,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <SiteHeader />
           <main>{children}</main>
           <SiteFooter />
-          <ScrollReveal />
         </Providers>
       </body>
     </html>

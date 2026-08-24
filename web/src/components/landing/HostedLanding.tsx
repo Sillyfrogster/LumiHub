@@ -1,6 +1,7 @@
 import { ArrowRight, Cable, Download, FileCheck2 } from "lucide-react";
 import Link from "next/link";
 import { Shell } from "@/components/layout/Shell";
+import { ScrollReveal } from "@/components/motion/ScrollReveal";
 import { Button } from "@/components/ui/Button";
 import type { BrowseAsset, BrowsePage, NsfwVisibility } from "@/lib/api/query";
 import { assetHref } from "@/lib/asset-url";
@@ -31,6 +32,8 @@ export function HostedLanding({
 }: HostedLandingProps) {
   return (
     <div className={styles.page}>
+      <ScrollReveal />
+
       <section className={styles.hero}>
         <div className={styles.environment} aria-hidden="true" />
 

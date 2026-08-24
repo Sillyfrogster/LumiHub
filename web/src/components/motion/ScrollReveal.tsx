@@ -2,22 +2,15 @@
 
 import { useEffect } from "react";
 
-/**
- * Reveals [data-reveal] sections as they enter the viewport by adding
- * [data-revealed]. Purely additive: it touches nothing else on the page,
- * and readers with reduced motion never see hidden content because the
- * CSS keeps those elements visible without this script running.
- */
+/** Fades a page's [data-reveal] sections in as they reach the viewport */
 export function ScrollReveal() {
   useEffect(() => {
+    const root = document.documentElement;
     const targets = Array.from(
       document.querySelectorAll<HTMLElement>("[data-reveal]"),
     );
-    if (targets.length === 0) return;
 
-    // Announce that revealing is active, so the CSS only hides sections
-    // when this script is actually running.
-    document.documentElement.setAttribute("data-reveal-ready", "");
+    root.setAttribute("data-reveal-ready", "");
 
     const reveal = (element: HTMLElement) => {
       element.setAttribute("data-revealed", "");
@@ -25,7 +18,7 @@ export function ScrollReveal() {
 
     if (!("IntersectionObserver" in window)) {
       targets.forEach(reveal);
-      return;
+      return () => root.removeAttribute("data-reveal-ready");
     }
 
     const observer = new IntersectionObserver(
@@ -40,7 +33,11 @@ export function ScrollReveal() {
     );
 
     for (const element of targets) observer.observe(element);
-    return () => observer.disconnect();
+
+    return () => {
+      observer.disconnect();
+      root.removeAttribute("data-reveal-ready");
+    };
   }, []);
 
   return null;
