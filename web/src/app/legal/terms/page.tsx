@@ -168,9 +168,10 @@ export default function Terms() {
 
       <h2>11. Illarin itself</h2>
       <p>
-        The Illarin name, artwork, design, and code belong to us or to the
-        people who licensed them to us. Your licence to use Illarin does not let
-        you copy or rebuild it.
+        The Illarin name, artwork, and design belong to us or to the people who
+        licensed them to us. The source code is available under the licence in
+        its repository. Nothing in these Terms takes away rights that licence
+        grants you.
       </p>
 
       <h2>12. Copyright</h2>
@@ -200,8 +201,8 @@ export default function Terms() {
         what other people publish on it is accurate, safe, or to your taste.
       </p>
       <p>
-        Keep your own copies of work that matters to you. Illarin takes backups,
-        but it is not a backup service.
+        Keep your own copies of work that matters to you. Illarin is not a
+        backup service and does not promise that lost work can be recovered.
       </p>
 
       <h2>15. Limit of liability</h2>

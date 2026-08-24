@@ -27,26 +27,24 @@ is hard to act on. Show the problem happening.
 
 ## What happens next
 
-1. We confirm we received the report, usually within three days.
-2. We tell you whether we can reproduce it and what we intend to do, usually
-   within a week.
-3. We fix it, deploy the fix, and tell you when it is live.
+1. We confirm we received the report.
+2. We tell you whether we can reproduce it and what we intend to do.
+3. We fix it and tell you when the fix is available.
 4. We credit you by whatever name you ask for, or leave you out if you prefer.
 
-If a report goes quiet for more than two weeks, send a reminder. It means the
-message was missed, not ignored.
+If a report goes quiet, send a reminder.
 
 ## Testing rules
 
 You are welcome to look for problems. These are the limits.
 
-- Test against your own accounts and your own uploads only.
-- Do not read, change, or download anyone else's account details or files. The
-  live site holds real people's data.
+- Test local copies with data you own or made for testing.
+- Do not test a hosted Illarin instance without the operator's permission.
+- Do not read, change, or download anyone else's account details or files.
 - Stop as soon as you have confirmed a problem. Do not go further to see how far
   it reaches.
-- Do not run denial of service, load, or brute force tests against the live
-  site.
+- Do not run denial of service, load, or brute force tests against a hosted
+  instance.
 - Do not use social engineering, phishing, or physical access against anyone
   working on the project.
 - Prefer a local copy where you can. Run `make setup` on a fresh clone.
@@ -59,7 +57,6 @@ attack.
 In scope:
 
 - The code in this repository, both the Go API and the Next.js site.
-- The hosted Illarin service and its API.
 - Deployment and container configuration in this repository.
 
 Out of scope:
@@ -81,5 +78,5 @@ one. Credit is offered, and it is offered gladly.
 
 ## Disclosure
 
-Please hold public details until a fix is deployed. If a fix is taking a long
+Please hold public details until a fix is available. If a fix is taking a long
 time, talk to us about a date rather than setting one on your own.
