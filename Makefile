@@ -38,7 +38,7 @@ setup: ## Get a fresh clone ready to run
 	$(MAKE) migrate migrate-test
 
 .PHONY: production-setup
-production-setup: ## Walk through Microsoft 365, VPS, GitHub, NPMPlus and Datadog setup
+production-setup: ## Walk through the reference production integrations
 	@ENV_FILE="$(CURDIR)/ops/.env" ./ops/setup-production.sh
 
 .PHONY: web-install
@@ -102,7 +102,7 @@ prod-backup-check: ## Verify the configured off-box backup repository
 	@ILLARIN_ENV_FILE="$(PROD_ENV)" ./ops/backup.sh check
 
 .PHONY: release-package
-release-package: ## Package the production control files for the VPS
+release-package: ## Package the production control files for a host
 	@test "$(VERSION)" != "" || { echo "Set VERSION to a full Git commit SHA."; exit 1; }
 	@git archive --format=tar.gz --output="$(OUTPUT)" "$(VERSION)" \
 		Makefile compose.prod.yaml compose.npmplus.yaml nginx/production.conf ops

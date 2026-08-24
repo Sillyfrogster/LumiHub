@@ -20,7 +20,7 @@ jobs:
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
-      github.event.workflow_run.head_branch == 'master'
+      github.event.workflow_run.head_branch == github.event.repository.default_branch
     name: Publish ${{ matrix.name }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -43,6 +43,10 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Set the image namespace
+        id: image
+        run: echo "registry=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
       - name: Sign in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -57,7 +61,7 @@ jobs:
           file: ${{ matrix.dockerfile }}
           build-args: ILLARIN_VERSION=${{ github.event.workflow_run.head_sha }}
           push: true
-          tags: ghcr.io/sillyfrogster/${{ matrix.image }}:${{ github.event.workflow_run.head_sha }}
+          tags: ${{ steps.image.outputs.registry }}/${{ matrix.image }}:${{ github.event.workflow_run.head_sha }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.event.workflow_run.head_sha }}

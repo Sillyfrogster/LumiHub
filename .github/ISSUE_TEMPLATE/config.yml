@@ -1,7 +1,7 @@
 blank_issues_enabled: true
 contact_links:
   - name: How contributing works
-    url: https://github.com/Sillyfrogster/Illarin/blob/master/CONTRIBUTORS.md
+    url: https://github.com/Sillyfrogster/Illarin/blob/HEAD/CONTRIBUTORS.md
     about: Issues are open to everyone. Pull requests are limited to the maintainers.
   - name: Report a security problem
     url: https://github.com/Sillyfrogster/Illarin/security/advisories/new

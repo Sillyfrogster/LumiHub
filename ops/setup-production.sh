@@ -133,7 +133,7 @@ write_env() {
 set_secret() {
   local name="$1" value="$2"
   if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
-    if printf '%s' "$value" | gh secret set "$name" >/dev/null 2>&1; then
+    if printf '%s' "$value" | gh secret set "$name" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
       WRITTEN_SECRET+=("$name")
       printf '  %s✓ set%s GitHub secret %s\n' "$GREEN" "$RESET" "$name"
       return
@@ -147,7 +147,7 @@ set_secret() {
 set_var() {
   local name="$1" value="$2"
   if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
-    if gh variable set "$name" --body "$value" >/dev/null 2>&1; then
+    if gh variable set "$name" --repo "$GITHUB_REPOSITORY" --body "$value" >/dev/null 2>&1; then
       printf '  %s✓ set%s GitHub variable %s\n' "$GREEN" "$RESET" "$name"
       return
     fi
@@ -182,17 +182,41 @@ umask 077
 
 banner "Illarin production setup"
 
-stage "Illarin: domain and VPS values"
-say "These values become the VPS production settings. The local copy stays gitignored."
+stage "Illarin: repository, domain, and host"
+say "These values select the images and production host. The local copy stays gitignored."
+detected_repository=""
+if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+  detected_repository="$(gh repo view --json nameWithOwner --jq .nameWithOwner 2>/dev/null || true)"
+fi
+ask GITHUB_REPOSITORY "GitHub repository, as owner/name${detected_repository:+ [$detected_repository]}:"
+GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-$detected_repository}"
+while [[ "$GITHUB_REPOSITORY" != */* ]]; do
+  warn "Enter the GitHub repository as owner/name."
+  ask GITHUB_REPOSITORY "GitHub repository:"
+done
+
+detected_default_branch=""
+if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+  detected_default_branch="$(gh repo view "$GITHUB_REPOSITORY" --json defaultBranchRef --jq .defaultBranchRef.name 2>/dev/null || true)"
+fi
+ask GITHUB_DEFAULT_BRANCH "GitHub default branch${detected_default_branch:+ [$detected_default_branch]}:"
+GITHUB_DEFAULT_BRANCH="${GITHUB_DEFAULT_BRANCH:-$detected_default_branch}"
+GITHUB_DEFAULT_BRANCH="${GITHUB_DEFAULT_BRANCH:-main}"
+
+registry_owner="$(printf '%s' "${GITHUB_REPOSITORY%%/*}" | tr '[:upper:]' '[:lower:]')"
+default_image_registry="ghcr.io/$registry_owner"
+ask ILLARIN_IMAGE_REGISTRY "Container image namespace [$default_image_registry]:"
+ILLARIN_IMAGE_REGISTRY="${ILLARIN_IMAGE_REGISTRY:-$default_image_registry}"
 ask ILLARIN_DOMAIN "Public hostname, without https://:"
 ILLARIN_DOMAIN="${ILLARIN_DOMAIN#https://}"
 ILLARIN_DOMAIN="${ILLARIN_DOMAIN%/}"
-ask PRODUCTION_HOST "OVH VPS hostname or IP address:"
-ask PRODUCTION_USER "Existing sudo-capable VPS user [deploy]:"
+ask PRODUCTION_HOST "Production host name or IP address:"
+ask PRODUCTION_USER "Existing sudo-capable deployment user [deploy]:"
 PRODUCTION_USER="${PRODUCTION_USER:-deploy}"
-ask PRODUCTION_SSH_PORT "VPS SSH port [22]:"
+ask PRODUCTION_SSH_PORT "Production SSH port [22]:"
 PRODUCTION_SSH_PORT="${PRODUCTION_SSH_PORT:-22}"
-ask NPMPLUS_DASHBOARD_URL "Your existing NPMPlus dashboard URL:"
+ask NPMPLUS_DASHBOARD_URL "NPMPlus dashboard URL, or Enter to configure the edge manually:"
+ask DNS_DASHBOARD_URL "DNS provider dashboard URL, or Enter to open it yourself:"
 ask DISCORD_CLIENT_ID "Discord application client ID, or Enter to leave it disabled:"
 ask_secret DISCORD_CLIENT_SECRET "Discord application client secret, or Enter to leave it disabled:"
 
@@ -205,7 +229,7 @@ if [[ -z "$LINKING_HMAC_KEY" ]]; then
   LINKING_HMAC_KEY="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n')"
 fi
 
-write_env ILLARIN_IMAGE_REGISTRY "ghcr.io/sillyfrogster"
+write_env ILLARIN_IMAGE_REGISTRY "$ILLARIN_IMAGE_REGISTRY"
 write_env ILLARIN_DATA_DIR "/srv/illarin"
 write_env ILLARIN_SECRETS_DIR "/etc/illarin/secrets"
 write_env ILLARIN_GATEWAY_BIND "127.0.0.1"
@@ -285,14 +309,14 @@ DEPLOY_KEY="$SECRET_DIR/github-deploy-ed25519"
 if [[ ! -f "$DEPLOY_KEY" ]]; then
   ssh-keygen -q -t ed25519 -N "" -C "illarin-github-deploy" -f "$DEPLOY_KEY"
 fi
-step "Verify the VPS SSH host fingerprint against the fingerprint shown in the OVH console or on the VPS."
+step "Verify the SSH host fingerprint against the value shown by the hosting provider or on the host."
 PRODUCTION_HOST_KEYS="$(ssh-keyscan -p "$PRODUCTION_SSH_PORT" -H -t ed25519 "$PRODUCTION_HOST" 2>/dev/null || true)"
 if [[ -z "$PRODUCTION_HOST_KEYS" ]]; then
   ask PRODUCTION_HOST_KEYS "Paste the verified ssh-keyscan known_hosts line:"
 else
   printf '%s\n' "$PRODUCTION_HOST_KEYS" >"$SECRET_DIR/production-known-hosts"
   ssh-keygen -lf "$SECRET_DIR/production-known-hosts" || true
-  if ! confirm "Does this fingerprint match the VPS host key?"; then
+  if ! confirm "Does this fingerprint match the production host key?"; then
     ask PRODUCTION_HOST_KEYS "Paste the verified known_hosts line instead:"
   fi
 fi
@@ -303,40 +327,47 @@ set_secret PRODUCTION_SSH_PORT "$PRODUCTION_SSH_PORT"
 set_secret PRODUCTION_SSH_KEY "$(<"$DEPLOY_KEY")"
 set_secret PRODUCTION_HOST_KEYS "$PRODUCTION_HOST_KEYS"
 set_var PRODUCTION_URL "https://$ILLARIN_DOMAIN"
-open_url "https://github.com/Sillyfrogster/Illarin/settings/environments"
-step "Create an environment named production and restrict its deployment branch to master."
+open_url "https://github.com/$GITHUB_REPOSITORY/settings/environments"
+step "Create an environment named production and restrict it to $GITHUB_DEFAULT_BRANCH."
 step "Add a required reviewer if your GitHub plan exposes that control."
 
-stage "OVH VPS: install the generated production settings"
-say "Copy four generated files to the VPS, then let the bootstrap install them safely."
+stage "Production host: install the generated settings"
+say "Copy four generated files to the host, then let the bootstrap install them safely."
 note "scp -P $PRODUCTION_SSH_PORT '$ENV_FILE' '$MICROSOFT_SECRET_FILE' '$DEPLOY_KEY.pub' '$SCRIPT_DIR/bootstrap-vps.sh' '$PRODUCTION_USER@$PRODUCTION_HOST:/tmp/'"
 step "Run that scp command from this project on your computer."
 note "ssh -p $PRODUCTION_SSH_PORT '$PRODUCTION_USER@$PRODUCTION_HOST' \"sudo /tmp/bootstrap-vps.sh '$PRODUCTION_USER' '/tmp/$(basename "$ENV_FILE")' '/tmp/$(basename "$MICROSOFT_SECRET_FILE")' '/tmp/$(basename "$DEPLOY_KEY").pub'\""
 step "Run that ssh command, then sign out and back in so Docker group membership applies."
 step "Remove the copied environment and Microsoft secret files from /tmp after bootstrap succeeds."
-if ! confirm "Did the VPS bootstrap finish successfully?"; then
-  SKIPPED+=("VPS bootstrap")
+if ! confirm "Did the production host bootstrap finish successfully?"; then
+  SKIPPED+=("production host bootstrap")
 fi
 
-stage "NPMPlus and Gcore: connect the public hostname"
-say "NPMPlus remains the TLS edge. Illarin's nginx remains an internal application gateway."
-step "Read the detected target with: cat /etc/illarin/npmplus-target"
-ask NPMPLUS_FORWARD_HOST "Detected forward host:"
-ask NPMPLUS_FORWARD_PORT "Detected forward port:"
-open_url "$NPMPLUS_DASHBOARD_URL"
-step "Create one Proxy Host for $ILLARIN_DOMAIN using HTTP to $NPMPLUS_FORWARD_HOST:$NPMPLUS_FORWARD_PORT."
-step "Request or select its certificate, then enable Force SSL and HTTP/2."
-step "In Gcore DNS, keep the record DNS-only and point its A record to $PRODUCTION_HOST."
-note "NPMPlus owns certificates. The repo nginx owns /api, /media, /download, and private blob routing."
+stage "TLS proxy and DNS: connect the public hostname"
+say "The reference path uses NPMPlus for TLS. Illarin's nginx remains an internal application gateway."
+if [[ -n "$NPMPLUS_DASHBOARD_URL" ]]; then
+  step "Read the detected target with: cat /etc/illarin/npmplus-target"
+  ask NPMPLUS_FORWARD_HOST "Detected forward host:"
+  ask NPMPLUS_FORWARD_PORT "Detected forward port:"
+  open_url "$NPMPLUS_DASHBOARD_URL"
+  step "Create one Proxy Host for $ILLARIN_DOMAIN using HTTP to $NPMPLUS_FORWARD_HOST:$NPMPLUS_FORWARD_PORT."
+  step "Request or select its certificate, then enable Force SSL and HTTP/2."
+else
+  step "Configure the TLS proxy to forward $ILLARIN_DOMAIN to the gateway address in the production environment."
+fi
+if [[ -n "$DNS_DASHBOARD_URL" ]]; then
+  open_url "$DNS_DASHBOARD_URL"
+fi
+step "In the DNS provider, point the hostname at $PRODUCTION_HOST and choose the provider's appropriate proxy mode."
+note "The edge proxy owns certificates. The repo nginx owns /api, /media, /download, and private blob routing."
 
 stage "First deployment and verification"
-say "Merge this work to master first. CI must pass and Publish images must finish before deployment."
-open_url "https://github.com/Sillyfrogster/Illarin/actions/workflows/deploy-production.yml"
-step "Choose Run workflow on master. Approve the production environment if GitHub asks."
+say "Push to $GITHUB_DEFAULT_BRANCH first. CI must pass and Publish images must finish before deployment."
+open_url "https://github.com/$GITHUB_REPOSITORY/actions/workflows/deploy-production.yml"
+step "Choose Run workflow on $GITHUB_DEFAULT_BRANCH. Approve the production environment if GitHub asks."
 step "After it finishes, open https://$ILLARIN_DOMAIN/api/healthz and expect ok."
 step "Create a test account and confirm the Microsoft 365 mailbox sends its verification email."
 step "In Datadog, confirm the illarin-production host and the API, web, gateway, and Postgres containers appear."
-warn "Off-box backups are disabled because no backup storage exists yet. This is recorded work, not a completed safeguard."
-SKIPPED+=("off-box backups: purchase storage, configure restic, rehearse a restore, then set BACKUPS_ENABLED=true")
+warn "Off-box backups remain disabled until a restic repository is configured and a restore succeeds."
+SKIPPED+=("off-box backups: configure restic, rehearse a restore, then set BACKUPS_ENABLED=true")
 
 finish

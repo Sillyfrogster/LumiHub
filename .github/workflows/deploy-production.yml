@@ -13,8 +13,8 @@ concurrency:
 
 jobs:
   deploy:
-    if: github.ref == 'refs/heads/master'
-    name: Deploy verified images to the OVH VPS
+    if: github.ref_name == github.event.repository.default_branch
+    name: Deploy verified images to the production host
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment:
@@ -28,7 +28,7 @@ jobs:
       PRODUCTION_SSH_PORT: ${{ secrets.PRODUCTION_SSH_PORT }}
       GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - name: Check out the selected master commit
+      - name: Check out the selected default-branch commit
         uses: actions/checkout@v4
 
       - name: Prepare the production SSH identity
@@ -42,7 +42,7 @@ jobs:
       - name: Package the production control files
         run: make release-package VERSION="$GITHUB_SHA" OUTPUT=illarin-release.tar.gz
 
-      - name: Copy the control files to the VPS
+      - name: Copy the control files to the production host
         run: |
           set -euo pipefail
           scp -P "$PRODUCTION_SSH_PORT" \
@@ -50,7 +50,7 @@ jobs:
             illarin-release.tar.gz \
             "$PRODUCTION_USER@$PRODUCTION_HOST:/tmp/illarin-${GITHUB_SHA}.tar.gz"
 
-      - name: Deploy the selected master commit
+      - name: Deploy the selected default-branch commit
         run: |
           set -euo pipefail
           printf '%s' "$GHCR_TOKEN" | ssh -p "$PRODUCTION_SSH_PORT" \

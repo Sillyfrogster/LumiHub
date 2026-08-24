@@ -147,8 +147,8 @@ if [[ -n "$npmplus_target" ]]; then
   chmod 0640 /etc/illarin/npmplus-target
   echo "NPMPlus should forward HTTP traffic to $npmplus_target."
 else
-  echo "NPMPlus was not detected. Set its network in /etc/illarin/production.env before deployment." >&2
+  echo "NPMPlus was not detected. Configure an edge proxy before exposing the gateway." >&2
 fi
 
-echo "The VPS directories, production settings, Microsoft secret, and deployment key are ready."
+echo "The host directories, production settings, Microsoft secret, and deployment key are ready."
 echo "Sign out and back in before deploying so Docker group membership takes effect."
