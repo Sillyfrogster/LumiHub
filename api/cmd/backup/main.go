@@ -222,7 +222,8 @@ func takeBackup(ctx context.Context, cfg settings, locker lockSession, runner co
 		"--no-owner",
 		"--no-privileges",
 		"--file=" + dumpPath,
-	}, []string{"PGDATABASE=" + cfg.databaseURL}); err != nil {
+		"--dbname=" + cfg.databaseURL,
+	}, nil); err != nil {
 		return fmt.Errorf("dump database: %w", err)
 	}
 

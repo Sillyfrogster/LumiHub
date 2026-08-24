@@ -81,6 +81,9 @@ func TestTakeBackupKeepsDeletionLockedThroughDumpAndBlobCopy(t *testing.T) {
 			t.Errorf("command %d = %q, want prefix %q", i, runner.commands[i], prefix)
 		}
 	}
+	if !strings.Contains(runner.commands[1], "--dbname=postgres://db/illarin") {
+		t.Fatalf("database dump has no connection string: %q", runner.commands[1])
+	}
 }
 
 func TestTakeBackupReleasesLockAfterDumpFailure(t *testing.T) {
