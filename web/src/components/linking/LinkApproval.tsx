@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { browserFetch } from "@/lib/api/browser-mutation";
 import type { components } from "@/lib/api/schema";
 import { useAuth } from "@/lib/auth";
 import { describeScope } from "@/lib/scopes";
@@ -42,7 +43,6 @@ type Stage =
 
 const UNREACHABLE =
   "We could not reach Illarin. Check your connection and try again.";
-const BROWSER_MUTATION_HEADER = { "X-Illarin-Request": "1" } as const;
 
 export function LinkApproval() {
   const search = useSearchParams();
@@ -655,18 +655,15 @@ async function decide(
     method: "POST",
     credentials: "same-origin",
     headers: isAuthorization
-      ? BROWSER_MUTATION_HEADER
-      : {
-          ...BROWSER_MUTATION_HEADER,
-          "Content-Type": "application/json",
-        },
+      ? undefined
+      : { "Content-Type": "application/json" },
     body: isAuthorization
       ? undefined
       : JSON.stringify({ approvalToken: source.approvalToken }),
   };
 
   try {
-    const response = await fetch(endpoint, options);
+    const response = await browserFetch(endpoint, options);
     const answer: unknown = await readJSON(response);
     if (!response.ok) {
       setNotice(

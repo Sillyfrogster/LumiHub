@@ -292,8 +292,7 @@ func authorizedJSONRequest(
 	t.Helper()
 	req := httptest.NewRequest(method, path, bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
-	req.AddCookie(session)
-	return req
+	return authorized(req, session)
 }
 
 func uploadAndFinish(

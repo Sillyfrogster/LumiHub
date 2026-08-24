@@ -116,7 +116,12 @@ func Register(r *gin.Engine, h *Handlers, d Deadlines, readiness Readiness) erro
 		routeKey(http.MethodGet, "/delivery/:id/export"):                            d.Download,
 	}
 
-	routes := r.Group("", deadlineByRoute(limits), noStoreLinkedInstanceResponses())
+	routes := r.Group(
+		"",
+		deadlineByRoute(limits),
+		noStoreLinkedInstanceResponses(),
+		h.guardBrowserMutations(),
+	)
 	routes.GET("/healthz", health)
 	routes.GET("/readyz", ready(readiness))
 	routes.GET("/protocol", document("text/plain; charset=utf-8", openapi.Guide))

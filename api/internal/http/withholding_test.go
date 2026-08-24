@@ -67,7 +67,7 @@ func TestOnlyAnAdminCanWithholdAnAssetAndTheDecisionIsRecordedTogether(t *testin
 	}
 
 	clear := httptest.NewRequest(http.MethodDelete, "/v1/assets/"+assetID+"/withhold", nil)
-	clear.AddCookie(session)
+	authorized(clear, session)
 	cleared := send(t, router, clear)
 	if cleared.Code != http.StatusNoContent {
 		t.Fatalf("admin clear status = %d, want 204: %s", cleared.Code, cleared.Body.String())
@@ -237,7 +237,7 @@ func TestWithheldAssetRefusesCreatorMutations(t *testing.T) {
 	}
 
 	clear := httptest.NewRequest(http.MethodDelete, "/v1/assets/"+assetID+"/withhold", nil)
-	clear.AddCookie(session)
+	authorized(clear, session)
 	response := send(t, router, clear)
 	if response.Code != http.StatusForbidden {
 		t.Fatalf("creator clear status = %d, want 403: %s", response.Code, response.Body.String())

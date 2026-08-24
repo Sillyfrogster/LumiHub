@@ -93,8 +93,9 @@ func TestLoopbackPKCEReviewApprovalAndOneUseExchange(t *testing.T) {
 	for _, test := range csrfCases {
 		req := httptest.NewRequest(http.MethodPost, approveTarget, nil)
 		req.Header.Set("Origin", test.origin)
-		req.Header.Set(linkRequestHeader, test.header)
-		rec := send(t, r, authorized(req, session))
+		req.Header.Set(browserMutationHeader, test.header)
+		req.AddCookie(session)
+		rec := send(t, r, req)
 		assertNoStore(t, rec)
 		if rec.Code != http.StatusForbidden {
 			t.Errorf("approve with %s = %d, want 403", test.name, rec.Code)

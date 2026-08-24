@@ -3,6 +3,7 @@
 import { Plug, PlugZap, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { browserFetch } from "@/lib/api/browser-mutation";
 import type { components } from "@/lib/api/schema";
 import { useAuth } from "@/lib/auth";
 import { readableDate } from "@/lib/dates";
@@ -11,8 +12,6 @@ import styles from "./LinkedInstances.module.css";
 
 type Instance = components["schemas"]["ManagedInstance"];
 type Notice = { kind: "success" | "error"; message: string };
-
-const BROWSER_MUTATION_HEADER = { "X-Illarin-Request": "1" } as const;
 
 export function LinkedInstances() {
   const { account } = useAuth();
@@ -70,10 +69,9 @@ export function LinkedInstances() {
     setNotice(null);
     setRevoking(instance.id);
     try {
-      const response = await fetch(`/api/v1/instances/${instance.id}`, {
+      const response = await browserFetch(`/api/v1/instances/${instance.id}`, {
         method: "DELETE",
         credentials: "same-origin",
-        headers: BROWSER_MUTATION_HEADER,
       });
       const answer: unknown = await readJSON(response);
       if (!response.ok) {

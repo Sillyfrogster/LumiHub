@@ -203,7 +203,7 @@ func browserRequest(
 		req.Header.Set("Content-Type", "application/json")
 	}
 	req.Header.Set("Origin", testBrowserOrigin)
-	req.Header.Set(linkRequestHeader, "1")
+	req.Header.Set(browserMutationHeader, "1")
 	return authorized(req, session)
 }
 
@@ -334,7 +334,8 @@ func TestDeviceLinkingRequiresManualReviewAndReturnsATokenPair(t *testing.T) {
 		strings.NewReader(jsonText(t, map[string]string{"approvalToken": pending.ApprovalToken})),
 	)
 	withoutCSRF.Header.Set("Content-Type", "application/json")
-	rejected := send(t, r, authorized(withoutCSRF, session))
+	withoutCSRF.AddCookie(session)
+	rejected := send(t, r, withoutCSRF)
 	assertNoStore(t, rejected)
 	if rejected.Code != http.StatusForbidden {
 		t.Fatalf("approval without browser proof = %d, want 403", rejected.Code)

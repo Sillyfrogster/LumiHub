@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { type FormEvent, useState } from "react";
+import { browserFetch } from "@/lib/api/browser-mutation";
 import type { SignedInAccount } from "@/lib/auth";
 import { useAuth } from "@/lib/auth";
 import styles from "./AccountSettings.module.css";
@@ -50,7 +51,7 @@ export function AccountSettings({ discordNotice }: { discordNotice?: string }) {
     const form = new FormData(event.currentTarget);
 
     try {
-      const response = await fetch("/api/v1/account/password", {
+      const response = await browserFetch("/api/v1/account/password", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
@@ -79,7 +80,7 @@ export function AccountSettings({ discordNotice }: { discordNotice?: string }) {
     setDetachPending(true);
     setMessage("");
     try {
-      const response = await fetch("/api/v1/account/discord", {
+      const response = await browserFetch("/api/v1/account/discord", {
         method: "DELETE",
         credentials: "same-origin",
       });

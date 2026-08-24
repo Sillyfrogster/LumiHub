@@ -241,7 +241,7 @@ func TestDiscordCanDetachOnlyAfterAVerifiedEmailHasAPassword(t *testing.T) {
 	session := responseCookie(t, completeDiscordSignIn(t, r), sessionCookieName)
 
 	unsafeRequest := httptest.NewRequest(http.MethodDelete, "/v1/account/discord", nil)
-	unsafeRequest.AddCookie(session)
+	authorized(unsafeRequest, session)
 	unsafe := send(t, r, unsafeRequest)
 	if unsafe.Code != http.StatusConflict {
 		t.Fatalf("Discord-only detach status = %d, want 409. body: %s",
@@ -254,7 +254,7 @@ func TestDiscordCanDetachOnlyAfterAVerifiedEmailHasAPassword(t *testing.T) {
 	passwordRequest := httptest.NewRequest(http.MethodPut, "/v1/account/password",
 		strings.NewReader(`{"password":"a new private password"}`))
 	passwordRequest.Header.Set("Content-Type", "application/json")
-	passwordRequest.AddCookie(session)
+	authorized(passwordRequest, session)
 	password := send(t, r, passwordRequest)
 	if password.Code != http.StatusOK {
 		t.Fatalf("set password status = %d, want 200. body: %s",
@@ -263,14 +263,14 @@ func TestDiscordCanDetachOnlyAfterAVerifiedEmailHasAPassword(t *testing.T) {
 	replacementRequest := httptest.NewRequest(http.MethodPut, "/v1/account/password",
 		strings.NewReader(`{"password":"replacement attempt"}`))
 	replacementRequest.Header.Set("Content-Type", "application/json")
-	replacementRequest.AddCookie(session)
+	authorized(replacementRequest, session)
 	if replacement := send(t, r, replacementRequest); replacement.Code != http.StatusConflict {
 		t.Fatalf("replace password status = %d, want 409. body: %s",
 			replacement.Code, replacement.Body.String())
 	}
 
 	detachRequest := httptest.NewRequest(http.MethodDelete, "/v1/account/discord", nil)
-	detachRequest.AddCookie(session)
+	authorized(detachRequest, session)
 	detached := send(t, r, detachRequest)
 	if detached.Code != http.StatusOK {
 		t.Fatalf("safe detach status = %d, want 200. body: %s",
@@ -394,7 +394,7 @@ func TestOneAccountCanOwnSeveralDiscordIdentities(t *testing.T) {
 	}
 
 	detachRequest := httptest.NewRequest(http.MethodDelete, "/v1/account/discord", nil)
-	detachRequest.AddCookie(session)
+	authorized(detachRequest, session)
 	if detached := send(t, r, detachRequest); detached.Code != http.StatusOK {
 		t.Fatalf("detach all identities = %d, want 200. body: %s",
 			detached.Code, detached.Body.String())
@@ -422,7 +422,7 @@ func TestEmailVerificationReportsExistingDiscordAndPasswordMethods(t *testing.T)
 	change := httptest.NewRequest(http.MethodPatch, "/v1/account/email",
 		strings.NewReader(`{"email":"verify-methods@example.com"}`))
 	change.Header.Set("Content-Type", "application/json")
-	change.AddCookie(session)
+	authorized(change, session)
 	if changed := send(t, r, change); changed.Code != http.StatusOK {
 		t.Fatalf("change email = %d, want 200. body: %s", changed.Code, changed.Body.String())
 	}

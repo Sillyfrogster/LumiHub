@@ -108,7 +108,7 @@ func TestUploadIsCutOffWhenItsLengthIsUnknown(t *testing.T) {
 	// A sender that does not say how long the request is gets no free pass.
 	req := uploadRequest(t, exampleMetadata("Unstated"), bytes.Repeat([]byte("a"), 4096))
 	req.ContentLength = -1
-	req.AddCookie(session)
+	authorized(req, session)
 
 	rec := send(t, r, req)
 

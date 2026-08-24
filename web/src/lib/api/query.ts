@@ -1,4 +1,5 @@
 import { QueryClient } from "@tanstack/react-query";
+import { browserFetch } from "./browser-mutation";
 import { api } from "./client";
 import type { components, paths } from "./schema";
 
@@ -230,7 +231,7 @@ export async function addAssetImage(
   const body = new FormData();
   body.append("metadata", JSON.stringify({ role }));
   body.append("file", file, file.name);
-  const response = await fetch(`/api/v1/assets/${assetId}/media`, {
+  const response = await browserFetch(`/api/v1/assets/${assetId}/media`, {
     method: "POST",
     credentials: "same-origin",
     body,

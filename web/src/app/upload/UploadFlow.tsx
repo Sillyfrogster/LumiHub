@@ -18,6 +18,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { browserFetch } from "@/lib/api/browser-mutation";
 import {
   fetchPreservedNamespaces,
   type PreservedNamespace,
@@ -168,7 +169,7 @@ export function UploadFlow() {
     setPending(true);
     setMessage("");
     try {
-      const response = await fetch(path, init);
+      const response = await browserFetch(path, init);
       const answer = (await response.json()) as IngestOperation & ErrorAnswer;
       if (!response.ok) {
         setMessage(answer.error ?? refusal);

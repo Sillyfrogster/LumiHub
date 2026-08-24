@@ -73,7 +73,7 @@ func TestAnUploadArrivingSlowlyRunsToCompletion(t *testing.T) {
 		t.Fatalf("build request: %v", err)
 	}
 	req.Header.Set("Content-Type", built.Header.Get("Content-Type"))
-	req.AddCookie(session)
+	authorized(req, session)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("post: %v", err)

@@ -9,6 +9,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { browserFetch } from "@/lib/api/browser-mutation";
 import type { components } from "@/lib/api/schema";
 
 export type SignedInAccount = components["schemas"]["Account"];
@@ -49,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   const signOut = useCallback(async () => {
-    const response = await fetch("/api/v1/auth/sign-out", {
+    const response = await browserFetch("/api/v1/auth/sign-out", {
       method: "POST",
       credentials: "same-origin",
     });

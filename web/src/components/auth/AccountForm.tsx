@@ -4,6 +4,7 @@ import { MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
+import { browserFetch } from "@/lib/api/browser-mutation";
 import type { SignedInAccount } from "@/lib/auth";
 import { useAuth } from "@/lib/auth";
 import styles from "./AccountForm.module.css";
@@ -38,7 +39,7 @@ export function AccountForm({
     if (mode === "sign-up") body.handle = String(form.get("handle") ?? "");
 
     try {
-      const response = await fetch(
+      const response = await browserFetch(
         mode === "sign-up" ? "/api/v1/auth/sign-up" : "/api/v1/auth/sign-in",
         {
           method: "POST",

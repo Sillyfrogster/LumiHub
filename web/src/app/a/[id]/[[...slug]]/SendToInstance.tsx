@@ -9,14 +9,13 @@ import {
   Upload,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { browserFetch } from "@/lib/api/browser-mutation";
 import type { components } from "@/lib/api/schema";
 import { useAuth } from "@/lib/auth";
 import styles from "./SendToInstance.module.css";
 
 type Instance = components["schemas"]["AssetInstance"];
 type Delivery = components["schemas"]["QueuedDelivery"];
-
-const BROWSER_MUTATION_HEADER = { "X-Illarin-Request": "1" } as const;
 
 // A delivery is collected within one long-poll, so the page checks back a few times and stops.
 const WATCH_INTERVAL_MS = 8000;
@@ -93,12 +92,10 @@ export function SendToInstance({ assetId }: { assetId: string }) {
     setBusy(true);
     setFailure("");
     try {
-      const response = await fetch(path, {
+      const response = await browserFetch(path, {
         method,
         credentials: "same-origin",
-        headers: body
-          ? { ...BROWSER_MUTATION_HEADER, "Content-Type": "application/json" }
-          : BROWSER_MUTATION_HEADER,
+        headers: body ? { "Content-Type": "application/json" } : undefined,
         body: body ? JSON.stringify(body) : undefined,
       });
       if (!response.ok) {

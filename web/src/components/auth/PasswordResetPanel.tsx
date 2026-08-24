@@ -4,6 +4,7 @@ import { Check, KeyRound, Mail } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { type FormEvent, useState } from "react";
+import { browserFetch } from "@/lib/api/browser-mutation";
 import formStyles from "./AuthForm.module.css";
 import styles from "./PasswordResetPanel.module.css";
 
@@ -19,7 +20,7 @@ async function postJSON(
   fallbackError: string,
 ): Promise<SubmissionResult> {
   try {
-    const response = await fetch(endpoint, {
+    const response = await browserFetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

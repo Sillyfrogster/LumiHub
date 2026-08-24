@@ -4,6 +4,7 @@ import { Check, Mail } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { type FormEvent, useEffect, useRef, useState } from "react";
+import { browserFetch } from "@/lib/api/browser-mutation";
 import { useAuth } from "@/lib/auth";
 import { safeInternalReturnPath } from "@/lib/internal-return";
 import styles from "./VerificationPanel.module.css";
@@ -32,7 +33,7 @@ export function VerificationPanel() {
 
     async function verify() {
       try {
-        const response = await fetch("/api/v1/auth/verify-email", {
+        const response = await browserFetch("/api/v1/auth/verify-email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ token }),
@@ -70,7 +71,7 @@ export function VerificationPanel() {
     const form = new FormData(event.currentTarget);
 
     try {
-      const response = await fetch("/api/v1/account/email", {
+      const response = await browserFetch("/api/v1/account/email", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",

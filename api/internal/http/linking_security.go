@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	maxLinkBodyBytes  = 4 << 10
-	linkRequestHeader = "X-Illarin-Request"
+	maxLinkBodyBytes      = 4 << 10
+	browserMutationHeader = "X-Illarin-Request"
 )
 
 func readLinkJSON(c *gin.Context, destination any) bool {
@@ -42,11 +42,40 @@ func readBoundedJSON(c *gin.Context, destination any, limit int64, tooLargeMessa
 }
 
 func (h *Handlers) allowLinkBrowserMutation(c *gin.Context) bool {
-	if c.GetHeader(linkRequestHeader) != "1" || c.GetHeader("Origin") != h.links.BrowserOrigin() {
+	if !h.allowBrowserMutation(c) {
 		c.JSON(nethttp.StatusForbidden, gin.H{"error": "Open this action from Illarin and try again."})
 		return false
 	}
 	return true
+}
+
+func (h *Handlers) guardBrowserMutations() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.Request.Method == nethttp.MethodGet ||
+			c.Request.Method == nethttp.MethodHead ||
+			c.Request.Method == nethttp.MethodOptions {
+			c.Next()
+			return
+		}
+
+		_, err := c.Cookie(sessionCookieName)
+		if errors.Is(err, nethttp.ErrNoCookie) {
+			c.Next()
+			return
+		}
+		if err != nil || !h.allowBrowserMutation(c) {
+			c.AbortWithStatusJSON(nethttp.StatusForbidden, gin.H{
+				"error": "Open this action from Illarin and try again.",
+			})
+			return
+		}
+		c.Next()
+	}
+}
+
+func (h *Handlers) allowBrowserMutation(c *gin.Context) bool {
+	return c.GetHeader(browserMutationHeader) == "1" &&
+		c.GetHeader("Origin") == h.links.BrowserOrigin()
 }
 
 func noStoreLink(c *gin.Context) {

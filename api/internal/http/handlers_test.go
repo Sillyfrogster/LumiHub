@@ -285,6 +285,10 @@ func verifiedSignUp(
 
 func authorized(req *http.Request, session *http.Cookie) *http.Request {
 	req.AddCookie(session)
+	if req.Method != http.MethodGet && req.Method != http.MethodHead && req.Method != http.MethodOptions {
+		req.Header.Set("Origin", testBrowserOrigin)
+		req.Header.Set(browserMutationHeader, "1")
+	}
 	return req
 }
 

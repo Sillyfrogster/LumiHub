@@ -357,7 +357,7 @@ func TestAnUnverifiedAccountCanSignOutAndBackIn(t *testing.T) {
 	session := signUp(t, r, "Return.Reader@example.com", "return.reader")
 
 	signOutRequest := httptest.NewRequest(http.MethodPost, "/v1/auth/sign-out", nil)
-	signOutRequest.AddCookie(session)
+	authorized(signOutRequest, session)
 	signedOut := send(t, r, signOutRequest)
 	if signedOut.Code != http.StatusNoContent {
 		t.Fatalf("sign out status = %d, want 204. body: %s", signedOut.Code, signedOut.Body.String())
@@ -398,7 +398,7 @@ func TestRenamingAHandleRetiresTheOldProfileWithoutARedirect(t *testing.T) {
 	renameRequest := httptest.NewRequest(http.MethodPatch, "/v1/account/handle",
 		strings.NewReader(`{"handle":"second.handle"}`))
 	renameRequest.Header.Set("Content-Type", "application/json")
-	renameRequest.AddCookie(session)
+	authorized(renameRequest, session)
 	if unverified := send(t, r, renameRequest); unverified.Code != http.StatusForbidden {
 		t.Fatalf("unverified rename status = %d, want 403. body: %s",
 			unverified.Code, unverified.Body.String())
@@ -417,7 +417,7 @@ func TestRenamingAHandleRetiresTheOldProfileWithoutARedirect(t *testing.T) {
 	renamedRequest := httptest.NewRequest(http.MethodPatch, "/v1/account/handle",
 		strings.NewReader(`{"handle":"second.handle"}`))
 	renamedRequest.Header.Set("Content-Type", "application/json")
-	renamedRequest.AddCookie(session)
+	authorized(renamedRequest, session)
 	renamed := send(t, r, renamedRequest)
 	if renamed.Code != http.StatusOK {
 		t.Fatalf("rename status = %d, want 200. body: %s", renamed.Code, renamed.Body.String())
@@ -456,7 +456,7 @@ func TestOnlyAVerifiedAccountCanUpload(t *testing.T) {
 		t.Errorf("anonymous upload status = %d, want 401", withoutSession.Code)
 	}
 	unverifiedUpload := uploadRequest(t, exampleMetadata("Unverified"), []byte("file"))
-	unverifiedUpload.AddCookie(unverified)
+	authorized(unverifiedUpload, unverified)
 	if rec := send(t, r, unverifiedUpload); rec.Code != http.StatusForbidden {
 		t.Errorf("unverified upload status = %d, want 403. body: %s", rec.Code, rec.Body.String())
 	}
@@ -502,7 +502,7 @@ func TestAnUnverifiedAccountCanCorrectItsEmail(t *testing.T) {
 	change := httptest.NewRequest(http.MethodPatch, "/v1/account/email",
 		strings.NewReader(`{"email":"correct@example.com"}`))
 	change.Header.Set("Content-Type", "application/json")
-	change.AddCookie(session)
+	authorized(change, session)
 	changed := send(t, r, change)
 	if changed.Code != http.StatusOK {
 		t.Fatalf("change email status = %d, want 200. body: %s", changed.Code, changed.Body.String())
