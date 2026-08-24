@@ -1,0 +1,34 @@
+name: Suggestion
+description: An idea for something new, or a change to something that exists.
+labels: ["suggestion"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Suggestions are welcome from anyone using Illarin. Pull requests are
+        limited to the maintainers, so describe the idea and we will take it
+        from there.
+
+        A suggestion may be turned down or left open for a long time. That is
+        normal and it is not a reason to hold one back.
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you would like
+      description: Describe the change as you picture it.
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem it solves
+      description: What is awkward or missing today, and who it affects.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: How you work around it now
+      description: Whatever you do today instead, if anything.
+    validations:
+      required: false

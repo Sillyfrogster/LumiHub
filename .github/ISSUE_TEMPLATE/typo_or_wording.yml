@@ -1,0 +1,32 @@
+name: Typo or wording
+description: A spelling mistake, a broken link, or text that reads wrong.
+labels: ["wording"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Small fixes are worth reporting. Nothing here is too minor.
+
+        Pull requests are limited to the maintainers, so send the correction as
+        an issue and one of us will make the change.
+  - type: input
+    id: where
+    attributes:
+      label: Where the text is
+      description: The page address, or the file if you found it in the code.
+      placeholder: /legal/privacy
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: What it says now
+    validations:
+      required: true
+  - type: textarea
+    id: suggested
+    attributes:
+      label: What it should say
+      description: A rough suggestion is fine. So is saying only that it reads wrong.
+    validations:
+      required: false

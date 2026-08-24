@@ -1,0 +1,61 @@
+name: Bug report
+description: Something is broken or behaves the wrong way.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Anyone can open an issue here, and you do not need to have contributed
+        before. Pull requests are limited to the maintainers, so a clear report
+        is the most useful thing you can send.
+
+        Leave out passwords, session tokens, and anyone else's personal details.
+        Issues are public.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Say what you did and what the site did in response.
+      placeholder: I opened a character page and the description was empty.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to reproduce it
+      description: The steps someone else can follow to see the same thing.
+      placeholder: |
+        1. Sign in.
+        2. Open a character page.
+        3. The description area stays blank.
+    validations:
+      required: false
+  - type: input
+    id: where
+    attributes:
+      label: Where
+      description: The page address, or the part of the site it happened on.
+      placeholder: /characters/some-character
+    validations:
+      required: false
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and device
+      description: Only needed if the problem is in the interface.
+      placeholder: Firefox 141 on Linux
+    validations:
+      required: false
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots or anything else
+      description: Drag images straight into this box.
+    validations:
+      required: false
