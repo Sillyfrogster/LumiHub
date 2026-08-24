@@ -88,7 +88,7 @@ func recordReadEvents(result v1.Result, ledger *Ledger) error {
 		switch event.Kind {
 		case v1.RecoveredAlternateGreeting:
 			entry.Kind = "recovered_alternate_greeting"
-			entry.Detail = "one alternate greeting came back from the creator's surviving card"
+			entry.Detail = "an alternate greeting came back from the creator's surviving card"
 		case v1.RecoveredGalleryNames:
 			continue
 		case v1.GalleryAssetsMismatch:

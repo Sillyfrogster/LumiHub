@@ -20,7 +20,7 @@ test("lowercases the handle in either form", () => {
   expect(readProfileAddress("Garden.Keeper")?.handle).toBe("garden.keeper");
 });
 
-test("reads an all-digit handle, which three live accounts use", () => {
+test("reads an all-digit handle", () => {
   expect(readProfileAddress("@314159")).toEqual({
     form: "canonical",
     handle: "314159",

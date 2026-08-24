@@ -17,7 +17,7 @@ type Corpus struct {
 	ClaimedFiles []string
 }
 
-// ReadCorpus loads the v1 rows along with the theme fonts and the one recovered greeting the database never held.
+// ReadCorpus loads the v1 rows along with theme fonts and verified card recoveries.
 func ReadCorpus(ctx context.Context, source *pgxpool.Pool, backup *FileBackup) (Corpus, error) {
 	images, err := readCharacterImages(ctx, source)
 	if err != nil {
@@ -118,7 +118,7 @@ func readCharacters(
 		return nil, fmt.Errorf("read the v1 characters: %w", err)
 	}
 	defer rows.Close()
-	characters := make([]v1.Row, 0, 121)
+	var characters []v1.Row
 	for rows.Next() {
 		var common v1.CommonRow
 		var row v1.CharacterRow
@@ -247,7 +247,7 @@ func readPresets(
 		return nil, fmt.Errorf("read the v1 presets: %w", err)
 	}
 	defer rows.Close()
-	presets := make([]v1.Row, 0, 9)
+	var presets []v1.Row
 	for rows.Next() {
 		var common v1.CommonRow
 		var row v1.PresetRow
@@ -280,7 +280,7 @@ func readThemes(ctx context.Context, source *pgxpool.Pool) ([]v1.Row, error) {
 		return nil, fmt.Errorf("read the v1 themes: %w", err)
 	}
 	defer rows.Close()
-	themes := make([]v1.Row, 0, 11)
+	var themes []v1.Row
 	for rows.Next() {
 		var common v1.CommonRow
 		var row v1.ThemeRow
@@ -311,7 +311,7 @@ func readLorebooks(ctx context.Context, source *pgxpool.Pool) ([]v1.Row, error) 
 		return nil, fmt.Errorf("read the v1 lorebooks: %w", err)
 	}
 	defer rows.Close()
-	lorebooks := make([]v1.Row, 0, 2)
+	var lorebooks []v1.Row
 	for rows.Next() {
 		var common v1.CommonRow
 		var row v1.LorebookRow
@@ -343,7 +343,7 @@ func readPacks(ctx context.Context, source *pgxpool.Pool) ([]v1.Row, error) {
 		return nil, fmt.Errorf("read the v1 packs: %w", err)
 	}
 	defer rows.Close()
-	packs := make([]v1.Row, 0, 9)
+	var packs []v1.Row
 	for rows.Next() {
 		var common v1.CommonRow
 		var row v1.PackRow

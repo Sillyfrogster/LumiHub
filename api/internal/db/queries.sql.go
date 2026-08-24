@@ -1573,7 +1573,7 @@ type InsertLegacyCountersParams struct {
 	V1UpdatedAt pgtype.Timestamptz
 }
 
-// migrated_at defaults to the transaction clock, so all 152 rows share one cutover stamp.
+// migrated_at defaults to the transaction clock, so every row in a run shares one cutover stamp.
 func (q *Queries) InsertLegacyCounters(ctx context.Context, arg InsertLegacyCountersParams) error {
 	_, err := q.db.Exec(ctx, insertLegacyCounters,
 		arg.AssetID,

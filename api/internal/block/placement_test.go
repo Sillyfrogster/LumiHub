@@ -319,7 +319,7 @@ func TestExpressionsArePlacedWhereASourceCarriesThem(t *testing.T) {
 		t.Fatalf("the expressions block holds %v", roles(set))
 	}
 	// Free text, whatever the source called them. A closed vocabulary of
-	// emotions would have refused or mangled eleven of twelve real sets.
+	// Keep creator-defined expression names outside a closed vocabulary.
 	names := set.Elements[0].Content.(ImageSet).Images
 	if names[0].Name != "hey there. do you feel better now?" || names[1].Name != "Alexandra_neutral" {
 		t.Errorf("expression names came back as %q and %q", names[0].Name, names[1].Name)

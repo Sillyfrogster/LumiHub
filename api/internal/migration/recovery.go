@@ -18,7 +18,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// recoveryChunk names the one verified v1 data-loss case, where a chunk named for CCv3 holds a card declaring CCv2 and its alternate greetings were dropped on the way in.
+// recoveryChunk identifies the card shape eligible for greeting recovery.
 const recoveryChunk = "ccv3"
 
 // readVerifiedRecoveries returns the greetings a surviving card may put back into a row that has none.
@@ -57,7 +57,7 @@ func readVerifiedRecoveries(characters []v1.Row, backup *FileBackup) (v1.Recover
 	return allowlist, nil
 }
 
-// recoveredGreeting reports the single greeting the allowlist rule permits.
+// recoveredGreeting reports the greeting the allowlist rule permits.
 func recoveredGreeting(
 	body []byte,
 	row v1.CharacterRow,

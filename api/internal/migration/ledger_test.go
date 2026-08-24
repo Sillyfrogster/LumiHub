@@ -42,14 +42,15 @@ func TestAFatalAnomalyStopsTheRunAndIsNotRecorded(t *testing.T) {
 		t.Fatalf("declare the policy: %v", err)
 	}
 
+	const detail = "some source rows did not arrive"
 	raised := ledger.Raise(Exception{
-		Kind: "lost", Subject: "users.count", Detail: "1173 of 1174 arrived",
+		Kind: "lost", Subject: "users.count", Detail: detail,
 	})
 
 	if raised == nil {
 		t.Fatal("a fatal anomaly returned no error")
 	}
-	if !strings.Contains(raised.Error(), "1173 of 1174 arrived") {
+	if !strings.Contains(raised.Error(), detail) {
 		t.Errorf("error = %q, want it to name what happened", raised)
 	}
 	if entries := ledger.Entries(); len(entries) != 0 {
@@ -107,8 +108,9 @@ func TestTheLedgerPersistsWhatTheRunRecorded(t *testing.T) {
 	if err != nil {
 		t.Fatalf("declare the policy: %v", err)
 	}
+	const expectedDetail = "source rows held a refresh token"
 	if err := ledger.Raise(Exception{
-		Kind: "kept", Subject: "users.refresh_token", Detail: "1153 rows held one",
+		Kind: "kept", Subject: "users.refresh_token", Detail: expectedDetail,
 	}); err != nil {
 		t.Fatalf("record the drop: %v", err)
 	}
@@ -132,7 +134,7 @@ func TestTheLedgerPersistsWhatTheRunRecorded(t *testing.T) {
 	).Scan(&kind, &subject, &detail, &assetID); err != nil {
 		t.Fatalf("read the ledger: %v", err)
 	}
-	if kind != "kept" || subject != "users.refresh_token" || detail != "1153 rows held one" {
+	if kind != "kept" || subject != "users.refresh_token" || detail != expectedDetail {
 		t.Errorf("row = %s / %s / %s", kind, subject, detail)
 	}
 	if assetID != nil {

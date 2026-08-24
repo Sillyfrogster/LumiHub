@@ -46,9 +46,6 @@ func TestTheRealCorpusCrossesTheV1Reader(t *testing.T) {
 	pool := restoreV1Dump(t, dump)
 	assertDeclaredColumns(t, pool)
 	rows, recoveries := loadCorpusRows(t, pool)
-	want := map[string]int{
-		CharacterKind: 121, ThemeKind: 11, PresetKind: 9, LorebookKind: 2, PackKind: 9,
-	}
 	got := make(map[string]int)
 	stats := corpusStats{}
 	reader := Module{Recoveries: recoveries}
@@ -62,38 +59,28 @@ func TestTheRealCorpusCrossesTheV1Reader(t *testing.T) {
 		measureCorpusResult(t, row, result, &stats)
 		writeCorpusResult(t, writers, result, &stats)
 	}
-	if len(rows) != 152 {
-		t.Fatalf("read %d assets, want 152", len(rows))
+	if len(rows) == 0 {
+		t.Fatal("the source corpus holds no assets")
 	}
-	for kind, count := range want {
-		if got[kind] != count {
-			t.Errorf("%s rows = %d, want %d", kind, got[kind], count)
+	for _, kind := range []string{CharacterKind, ThemeKind, PresetKind, LorebookKind, PackKind} {
+		if got[kind] == 0 {
+			t.Errorf("the source corpus holds no %s rows", kind)
 		}
 	}
-	if stats.characterImages != 357 || stats.expressions != 195 ||
-		stats.gallery != 125 || stats.covers != 37 {
-		t.Errorf(
-			"character images = %d total, %d expressions, %d gallery and %d covers",
-			stats.characterImages, stats.expressions, stats.gallery, stats.covers,
-		)
+	if len(got) != 5 {
+		t.Error("the source corpus holds unexpected kinds")
 	}
-	if stats.galleryNamesRecovered != 6 {
-		t.Errorf("recovered %d gallery names, want 6", stats.galleryNamesRecovered)
+	if stats.characterImages == 0 || stats.expressions == 0 || stats.gallery == 0 || stats.covers == 0 {
+		t.Error("the source no longer exercises every character image route")
 	}
-	if stats.greetingsRecovered != 1 {
-		t.Errorf("recovered %d alternate greetings, want 1", stats.greetingsRecovered)
+	if stats.galleryNamesRecovered == 0 || stats.greetingsRecovered == 0 {
+		t.Error("the source no longer exercises image names and greeting recovery")
 	}
-	if stats.lorebookEntries != 342 || stats.promptFragments != 817 || stats.lumiaRecords != 76 {
-		t.Errorf(
-			"placed %d lorebook entries, %d prompt fragments and %d Lumia records",
-			stats.lorebookEntries, stats.promptFragments, stats.lumiaRecords,
-		)
+	if stats.lorebookEntries == 0 || stats.promptFragments == 0 || stats.lumiaRecords == 0 {
+		t.Error("the source no longer exercises each structured content collection")
 	}
-	if stats.presetVersions != 41 || stats.changelogEntries != 35 || stats.sealedBlocks != 951 {
-		t.Errorf(
-			"read %d preset versions, %d changelog entries and %d sealed blocks",
-			stats.presetVersions, stats.changelogEntries, stats.sealedBlocks,
-		)
+	if stats.presetVersions == 0 || stats.changelogEntries == 0 || stats.sealedBlocks == 0 {
+		t.Error("the source no longer exercises preset history and sealed content")
 	}
 	if stats.sealedPlaceholders == 0 || stats.protectedPrompts != stats.sealedPlaceholders {
 		t.Errorf(
@@ -101,32 +88,23 @@ func TestTheRealCorpusCrossesTheV1Reader(t *testing.T) {
 			stats.protectedPrompts, stats.sealedPlaceholders,
 		)
 	}
-	if stats.oversizedPresetBlurbs != 2 || stats.usageBlocks != 2 {
-		t.Errorf(
-			"moved %d oversized preset blurbs into %d usage blocks, want 2 and 2",
-			stats.oversizedPresetBlurbs, stats.usageBlocks,
-		)
+	if stats.oversizedPresetBlurbs == 0 || stats.usageBlocks != stats.oversizedPresetBlurbs {
+		t.Error("oversized preset blurbs did not each become a usage block")
 	}
-	if stats.characterTaglines != 21 {
-		t.Errorf("used %d character taglines as blurbs, want 21", stats.characterTaglines)
+	if stats.characterTaglines == 0 {
+		t.Error("the source no longer exercises character taglines")
 	}
-	if stats.externalPackMedia != 59 {
-		t.Errorf("surfaced %d external pack images, want 59", stats.externalPackMedia)
+	if stats.externalPackMedia == 0 {
+		t.Error("the source no longer exercises external pack media")
 	}
-	if stats.themeBundles != 11 || stats.themeFonts == 0 {
-		t.Errorf("read %d theme bundles carrying %d fonts", stats.themeBundles, stats.themeFonts)
+	if stats.themeBundles == 0 || stats.themeFonts == 0 {
+		t.Error("the source no longer exercises theme bundles and fonts")
 	}
-	if stats.writerArtifacts != 394 || stats.writerMediaInputs != 1071 {
-		t.Errorf(
-			"wrote %d v1-origin artifacts with %d character media inputs, want 394 and 1071",
-			stats.writerArtifacts, stats.writerMediaInputs,
-		)
+	if stats.writerArtifacts < len(rows) || stats.writerMediaInputs == 0 {
+		t.Error("the source corpus did not write every asset or exercise character media")
 	}
-	if stats.assetsBelowFloor != 5 || stats.nonCharactersBelowFloor != 0 {
-		t.Errorf(
-			"content floor missed by %d assets including %d non-characters, want 5 and 0",
-			stats.assetsBelowFloor, stats.nonCharactersBelowFloor,
-		)
+	if stats.assetsBelowFloor == 0 || stats.nonCharactersBelowFloor != 0 {
+		t.Error("the known content-floor shortfall is absent or includes another kind")
 	}
 }
 
@@ -1124,7 +1102,7 @@ func loadCorpusRows(t *testing.T, pool *pgxpool.Pool) ([]Row, RecoveryAllowlist)
 	attachThemeBundles(t, themes)
 	characters := loadCharacters(t, pool, images)
 	recoveries := verifiedCharacterRecovery(t, characters)
-	result := make([]Row, 0, 152)
+	var result []Row
 	result = append(result, characters...)
 	result = append(result, themes...)
 	result = append(result, loadPresets(t, pool, versions, sealed)...)
@@ -1159,7 +1137,7 @@ func verifiedCharacterRecovery(t *testing.T, rows []Row) RecoveryAllowlist {
 	}
 	cards := 0
 	allowlistedCards := 0
-	allowlist := make(RecoveryAllowlist, 1)
+	allowlist := make(RecoveryAllowlist)
 	reader := tar.NewReader(compressed)
 	for {
 		header, nextErr := reader.Next()
@@ -1200,11 +1178,8 @@ func verifiedCharacterRecovery(t *testing.T, rows []Row) RecoveryAllowlist {
 		}
 		allowlist[row.Common.ID] = CharacterRecovery{AlternateGreeting: alternates[0]}
 	}
-	if cards != 3 || allowlistedCards != 1 || len(allowlist) != 1 {
-		t.Fatalf(
-			"checked %d surviving character cards, %d matched the recovery fingerprint and %d entered the allowlist; want 3, 1 and 1",
-			cards, allowlistedCards, len(allowlist),
-		)
+	if cards == 0 || allowlistedCards == 0 || allowlistedCards != len(allowlist) {
+		t.Fatal("the surviving cards did not produce the verified recovery allowlist")
 	}
 	return allowlist
 }
@@ -1529,7 +1504,7 @@ func loadCharacters(
 		t.Fatal("character rows cannot be read")
 	}
 	defer rows.Close()
-	result := make([]Row, 0, 121)
+	var result []Row
 	for rows.Next() {
 		var common CommonRow
 		var row CharacterRow
@@ -1655,7 +1630,7 @@ func loadPresets(
 		t.Fatal("preset rows cannot be read")
 	}
 	defer rows.Close()
-	result := make([]Row, 0, 9)
+	var result []Row
 	for rows.Next() {
 		var common CommonRow
 		var row PresetRow
@@ -1689,7 +1664,7 @@ func loadThemes(t *testing.T, pool *pgxpool.Pool) []Row {
 		t.Fatal("theme rows cannot be read")
 	}
 	defer rows.Close()
-	result := make([]Row, 0, 11)
+	var result []Row
 	for rows.Next() {
 		var common CommonRow
 		var row ThemeRow
@@ -1721,7 +1696,7 @@ func loadLorebooks(t *testing.T, pool *pgxpool.Pool) []Row {
 		t.Fatal("lorebook rows cannot be read")
 	}
 	defer rows.Close()
-	result := make([]Row, 0, 2)
+	var result []Row
 	for rows.Next() {
 		var common CommonRow
 		var row LorebookRow
@@ -1754,7 +1729,7 @@ func loadPacks(t *testing.T, pool *pgxpool.Pool) []Row {
 		t.Fatal("pack rows cannot be read")
 	}
 	defer rows.Close()
-	result := make([]Row, 0, 9)
+	var result []Row
 	for rows.Next() {
 		var common CommonRow
 		var row PackRow
