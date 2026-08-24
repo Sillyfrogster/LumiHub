@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/Sillyfrogster/Illarin/api/internal/format"
+	v1 "github.com/Sillyfrogster/Illarin/api/internal/format/v1"
 	"github.com/Sillyfrogster/Illarin/api/internal/testdb"
 	"github.com/google/uuid"
 )
@@ -53,6 +54,26 @@ func TestAFatalAnomalyStopsTheRunAndIsNotRecorded(t *testing.T) {
 	}
 	if entries := ledger.Entries(); len(entries) != 0 {
 		t.Errorf("entries = %v, want none, because a fatal run commits nothing", entries)
+	}
+}
+
+func TestAnUnresolvedOwnerErrorKeepsSourceIdentityPrivate(t *testing.T) {
+	ledger, err := NewLedger(v1.Module{}.Declaration().Anomalies)
+	if err != nil {
+		t.Fatalf("declare the policy: %v", err)
+	}
+	ownerID := uuid.New()
+	const sourceName = "Private source title"
+	_, _, err = writeAssets(
+		context.Background(), nil, Settings{},
+		[]v1.Result{{OwnerID: ownerID, Parsed: format.Parsed{Header: format.Header{Name: sourceName}}}},
+		&Staged{}, map[uuid.UUID]string{}, ledger,
+	)
+	if err == nil {
+		t.Fatal("an asset with no migrated owner did not stop the run")
+	}
+	if strings.Contains(err.Error(), ownerID.String()) || strings.Contains(err.Error(), sourceName) {
+		t.Fatal("the fatal migration error exposed source identity")
 	}
 }
 

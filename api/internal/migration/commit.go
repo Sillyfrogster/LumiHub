@@ -91,8 +91,8 @@ func writeAssets(
 		handle, resolved := handles[result.OwnerID]
 		if !resolved {
 			return Report{}, nil, ledger.Raise(Exception{
-				Kind: "owner_unresolved", Subject: result.Parsed.Header.Name,
-				Detail: fmt.Sprintf("account %s is not in the migrated accounts", result.OwnerID),
+				Kind: "owner_unresolved", Subject: "a v1 asset",
+				Detail: "its owner is not in the migrated accounts",
 			})
 		}
 		one, err := placeAsset(result, staged, ledger)

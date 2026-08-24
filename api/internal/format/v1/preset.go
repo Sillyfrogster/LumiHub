@@ -78,7 +78,17 @@ func readPreset(ctx context.Context, row PresetRow) (readResult, error) {
 }
 
 func activateCurrentSealedPrompts(parsed *format.Parsed, row PresetRow) error {
-	seenPlaceholderKeys := map[string]bool{}
+	seenCurrentSourceKeys := make(map[string]bool, len(parsed.Protected.Prompts))
+	for _, prompt := range parsed.Protected.Prompts {
+		key := prompt.SourceKey
+		if key == "" || key != strings.TrimSpace(key) || len([]rune(key)) > 256 {
+			return fmt.Errorf("current sealed prompt has an invalid source key")
+		}
+		if seenCurrentSourceKeys[key] {
+			return fmt.Errorf("current sealed prompt source key appears more than once")
+		}
+		seenCurrentSourceKeys[key] = true
+	}
 	for elementIndex := range parsed.Elements {
 		element := &parsed.Elements[elementIndex]
 		list, ok := element.Content.(block.PromptList)
@@ -94,10 +104,10 @@ func activateCurrentSealedPrompts(parsed *format.Parsed, row PresetRow) error {
 			if key == "" || key != strings.TrimSpace(key) || len([]rune(key)) > 256 {
 				return fmt.Errorf("current sealed prompt has an invalid source key")
 			}
-			if seenPlaceholderKeys[key] {
+			if seenCurrentSourceKeys[key] {
 				return fmt.Errorf("current sealed prompt source key appears more than once")
 			}
-			seenPlaceholderKeys[key] = true
+			seenCurrentSourceKeys[key] = true
 			fragment.Protected = true
 			fragment.Text = ""
 			parsed.Protected.Prompts = append(parsed.Protected.Prompts, format.ProtectedPrompt{

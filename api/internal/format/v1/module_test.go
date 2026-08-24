@@ -500,6 +500,30 @@ func TestAPresetRowDoesNotActivateInlineTextWithoutAPreservedSource(t *testing.T
 	}
 }
 
+func TestAPresetRowRefusesAKeySharedByInlineTextAndAPlaceholder(t *testing.T) {
+	_, err := (Module{}).Read(context.Background(), PresetRow{
+		Common: CommonRow{
+			ID: uuid.New(), OwnerID: uuid.New(), Name: "Sealed preset", CreatedAt: time.Now(),
+		},
+		LatestVersion: "2",
+		Payload: json.RawMessage(`{
+			"schemaVersion":1,
+			"blocks":[
+				{"id":"fragment-1","content":"Inline private text","enabled":true,
+				 "sealed":true,"sealedKey":"private-rule"},
+				{"id":"fragment-2","content":"{{presetBlock::private-rule}}","enabled":true}
+			]
+		}`),
+		SealedBlocks: []SealedBlockRow{{
+			Version: pointerTo("2"), Key: "private-rule", Content: "Inline private text",
+			SHA256: "e4cf397dd83da2408b66a3f967098d5ad66dce9ccc747d0fabc4674d8b8e980f",
+		}},
+	})
+	if err == nil {
+		t.Fatal("activated two current prompts with the same preserved source key")
+	}
+}
+
 func TestAThemeRowRecoversOnlyFontsFromItsGeneratedBundle(t *testing.T) {
 	result, err := (Module{}).Read(context.Background(), ThemeRow{
 		Common: CommonRow{

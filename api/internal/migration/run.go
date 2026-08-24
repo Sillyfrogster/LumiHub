@@ -118,12 +118,12 @@ func placeAsset(
 		return asset.MigratedAsset{}, err
 	}
 	if err := block.ValidateContentLimits(elements); err != nil {
-		return asset.MigratedAsset{}, fmt.Errorf("v1 asset %s: %w", result.AssetID, err)
+		return asset.MigratedAsset{}, fmt.Errorf("v1 asset content exceeds its limits: %w", err)
 	}
 	blocks, err := block.Place(result.Parsed.Kind, elements)
 	if err != nil {
 		if raiseErr := ledger.Raise(Exception{
-			Kind: "core_role_unreadable", Subject: result.Parsed.Header.Name,
+			Kind: "core_role_unreadable", Subject: "a v1 asset",
 			Detail: err.Error(),
 		}); raiseErr != nil {
 			return asset.MigratedAsset{}, raiseErr
