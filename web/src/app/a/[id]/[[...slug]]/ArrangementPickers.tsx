@@ -16,6 +16,9 @@ import {
 } from "@/lib/page-arrangement";
 import styles from "./ArrangementPickers.module.css";
 
+// Inline pickers share this name so the browser keeps only one of them open.
+const INLINE_GROUP = "block-arrangement";
+
 const WIDTH_HINTS: Record<BlockWidth, string> = {
   full: "Uses all twelve columns.",
   two_thirds: `Uses eight columns, or Full if that would be under ${WIDTH_FLOORS_PX.two_thirds}px.`,
@@ -61,7 +64,7 @@ export function WidthPicker({
     <div className={styles.widthControl}>
       <details
         className={`${styles.picker} ${styles.widthPicker} ${inline ? styles.inline : ""}`}
-        name={inline ? "block-arrangement" : undefined}
+        name={inline ? INLINE_GROUP : undefined}
         ref={disclosure}
       >
         <summary
@@ -159,7 +162,7 @@ export function LayoutPicker({
   return (
     <details
       className={`${styles.picker} ${inline ? styles.inline : ""}`}
-      name={inline ? "block-arrangement" : undefined}
+      name={inline ? INLINE_GROUP : undefined}
       ref={disclosure}
     >
       <summary
