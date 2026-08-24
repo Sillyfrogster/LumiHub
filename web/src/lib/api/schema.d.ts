@@ -467,6 +467,108 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/v1/deliveries/collect": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Acknowledge finished deliveries and wait, briefly, for more. Illarin holds the request for 25 to 30 seconds and answers 204 when the wait ends empty. A second request supersedes the first rather than both hanging. This is a durable queue read and never carries an authorization result. */
+    post: operations["collectDeliveries"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/deliveries/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Drop one of the signed-in account's own deliveries. A released delivery loses the addresses it handed out with it. */
+    delete: operations["discardDelivery"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/library/sync": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Report what this instance has installed. A snapshot replaces the whole mirror for this instance; an incremental report adds, updates and removes what it names. Assets are named by immutable id, never by address. */
+    post: operations["syncLibrary"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/assets/{id}/instances": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Where the signed-in account could send this asset, what is already waiting, and what each of their instances reports having installed. */
+    get: operations["getAssetInstances"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/v1/assets/{id}/deliveries": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Queue this asset for one of the signed-in account's own instances. The instance chooses the format from what it declared it accepts. Sending twice returns the delivery already waiting. */
+    post: operations["sendAssetToInstance"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/delivery/{id}/export": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description The asset written in the format this delivery chose. The address is short-lived and signed, so a delivery never depends on the asset being publicly visible and a leaked address stops working with its lease. */
+    get: operations["downloadDeliveryExport"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/v1/profiles/{handle}": {
     parameters: {
       query?: never;
@@ -1016,7 +1118,7 @@ export interface components {
       revokedAt: string | null;
     };
     LinkedInstanceList: {
-      items: components["schemas"]["LinkedInstance"][];
+      items: components["schemas"]["ManagedInstance"][];
     };
     Account: {
       /** Format: uuid */
@@ -1806,6 +1908,111 @@ export interface components {
         | "wrong_kind"
         | "internal_failure";
       message: string;
+    };
+    ManagedInstance: components["schemas"]["LinkedInstance"] & {
+      /** @description How many assets this instance has reported having installed. It is zero without the library:sync scope. */
+      installed: number;
+      /** @description How many of those the creator has since changed, so a newer content generation exists here than the instance reported. */
+      updatesAvailable: number;
+    };
+    CollectDeliveries: {
+      /** @description The deliveries this instance has durably installed since its last request. Delivery is at least once, so treat the ids as stable and acknowledge only after the work is safely stored. */
+      acknowledge: string[];
+    };
+    DeliveryArtifact: {
+      /** @enum {string} */
+      kind: "export" | "picture";
+      /** @description A short-lived signed address fetched with an ordinary GET. */
+      url: string;
+      /** Format: uuid */
+      mediaId?: string;
+      role?: string;
+      isCover?: boolean;
+    };
+    DeliveryWork: {
+      /**
+       * Format: uuid
+       * @description The stable event id to acknowledge and to deduplicate on.
+       */
+      id: string;
+      /** Format: uuid */
+      assetId: string;
+      /** @description The update signal. Store it against the asset id; a newer one means the file changed. */
+      contentGeneration: number;
+      kind: string;
+      name: string;
+      /** @description The chosen export target, or raw for the creator's own uploaded file. */
+      format: string;
+      label: string;
+      /** Format: date-time */
+      queuedAt: string;
+      /**
+       * Format: date-time
+       * @description When the artifact addresses stop answering and the delivery becomes collectable again.
+       */
+      leaseExpiresAt: string;
+      artifacts: components["schemas"]["DeliveryArtifact"][];
+    };
+    DeliveryWorkList: {
+      deliveries: components["schemas"]["DeliveryWork"][];
+    };
+    LibraryEntry: {
+      /** Format: uuid */
+      assetId: string;
+      /** @description The generation this instance holds. Leave it out when the installation predates the counter; Illarin records the asset's current one rather than calling the install out of date. */
+      contentGeneration?: number;
+    };
+    LibraryReport: {
+      /** @description True to replace the whole mirror for this instance. A snapshot carries no removals, because anything absent from it is removed. */
+      snapshot: boolean;
+      entries: components["schemas"]["LibraryEntry"][];
+      removed?: string[];
+    };
+    LibraryReportResult: {
+      accepted: number;
+      removed: number;
+      /** @description Entries naming an asset Illarin cannot offer. */
+      ignored: number;
+    };
+    QueuedDelivery: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      instanceId: string;
+      /** Format: uuid */
+      assetId: string;
+      /** @enum {string} */
+      state: "queued" | "released" | "failed";
+      /**
+       * @description Why a failed delivery stopped.
+       * @enum {string|null}
+       */
+      reason?: "withdrawn" | "unsupported" | "abandoned" | null;
+      /** Format: date-time */
+      queuedAt: string;
+      /** Format: date-time */
+      expiresAt: string;
+    };
+    AssetInstance: {
+      /** Format: uuid */
+      instanceId: string;
+      applicationName: string;
+      instanceName: string;
+      /** Format: date-time */
+      lastSeenAt: string | null;
+      canReceive: boolean;
+      reportsLibrary: boolean;
+      delivery: components["schemas"]["QueuedDelivery"] | null;
+      installedGeneration: number | null;
+      updateAvailable: boolean;
+    };
+    AssetInstanceList: {
+      contentGeneration: number;
+      items: components["schemas"]["AssetInstance"][];
+    };
+    SendAssetRequest: {
+      /** Format: uuid */
+      instanceId: string;
     };
     LegacyAsset: {
       /** Format: uuid */
@@ -2992,6 +3199,339 @@ export interface operations {
         content?: never;
       };
       /** @description The account has no live instance with that id */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  collectDeliveries: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CollectDeliveries"];
+      };
+    };
+    responses: {
+      /** @description The work released to this instance */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeliveryWorkList"];
+        };
+      };
+      /** @description The wait ended with nothing queued */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The acknowledgement list is not valid */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The access token does not identify a live instance */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The instance was not granted asset:receive */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The request body is too large */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Too many collection requests came from this instance */
+      429: {
+        headers: {
+          "Retry-After"?: number;
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Too many instances are waiting for work at once */
+      503: {
+        headers: {
+          "Retry-After"?: number;
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  discardDelivery: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Illarin's browser request proof. The value must be 1. */
+        "X-Illarin-Request": components["parameters"]["IllarinRequest"];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The delivery is gone */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The id or browser-proof header parameter is malformed */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The browser origin or request proof is invalid */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No delivery of yours has that id */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  syncLibrary: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LibraryReport"];
+      };
+    };
+    responses: {
+      /** @description How much of the report was recorded */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LibraryReportResult"];
+        };
+      };
+      /** @description The report is not valid */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The access token does not identify a live instance */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The instance was not granted library:sync */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The report is larger than one request may carry */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Too many library reports came from this instance */
+      429: {
+        headers: {
+          "Retry-After"?: number;
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getAssetInstances: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The account's instances as they stand for this asset */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AssetInstanceList"];
+        };
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No asset that can be sent has that id */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  sendAssetToInstance: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Illarin's browser request proof. The value must be 1. */
+        "X-Illarin-Request": components["parameters"]["IllarinRequest"];
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SendAssetRequest"];
+      };
+    };
+    responses: {
+      /** @description The delivery waiting for that instance */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["QueuedDelivery"];
+        };
+      };
+      /** @description The request or the browser-proof header is malformed */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No account is signed in */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The browser proof is invalid, or that instance cannot receive assets */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No asset that can be sent, or no live instance of yours, has that id */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description That instance already holds as many waiting deliveries as it may, or accepts no format this asset can be written in */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Too many deliveries were queued */
+      429: {
+        headers: {
+          "Retry-After"?: number;
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  downloadDeliveryExport: {
+    parameters: {
+      query: {
+        /** @description When the signature runs out. */
+        expires: string;
+        /** @description The signature Illarin minted for this exact address. */
+        signature: string;
+      };
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The delivered file */
+      200: {
+        headers: {
+          "Content-Disposition": "attachment" | "inline";
+          "X-Content-Type-Options": "nosniff";
+          [name: string]: unknown;
+        };
+        content: {
+          "application/octet-stream": string;
+          "application/json": string;
+          "application/zip": string;
+          "image/png": string;
+        };
+      };
+      /** @description No live delivery artifact is at that address */
       404: {
         headers: {
           [name: string]: unknown;

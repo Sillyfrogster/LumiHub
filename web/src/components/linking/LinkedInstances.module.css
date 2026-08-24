@@ -415,3 +415,9 @@
     padding: 24px 20px;
   }
 }
+
+.library {
+  margin-top: 6px;
+  color: var(--color-text-secondary);
+  font-size: 0.74rem;
+}

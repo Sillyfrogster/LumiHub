@@ -19,6 +19,7 @@ import { AssetMedia } from "./AssetMedia";
 import { DownloadPanel } from "./DownloadPanel";
 import { DraftHeaderActions } from "./DraftHeaderActions";
 import styles from "./page.module.css";
+import { SendToInstance } from "./SendToInstance";
 import { WithholdNotice } from "./WithholdNotice";
 
 const loadAsset = cache(async (id: string): Promise<AssetDetail | null> => {
@@ -138,6 +139,8 @@ export default async function AssetPage({
                     images={asset.media}
                     holdsNothing={holdsNothing}
                   />
+
+                  {isDraft ? null : <SendToInstance assetId={asset.id} />}
                 </div>
               ) : null}
 

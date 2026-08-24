@@ -9,7 +9,7 @@ import { readableDate } from "@/lib/dates";
 import { describeScope } from "@/lib/scopes";
 import styles from "./LinkedInstances.module.css";
 
-type Instance = components["schemas"]["LinkedInstance"];
+type Instance = components["schemas"]["ManagedInstance"];
 type Notice = { kind: "success" | "error"; message: string };
 
 const BROWSER_MUTATION_HEADER = { "X-Illarin-Request": "1" } as const;
@@ -210,6 +210,9 @@ export function LinkedInstances() {
                     </p>
                     <ScopeList scopes={instance.scopes} />
                     {!isRevoked ? (
+                      <InstanceLibrary instance={instance} />
+                    ) : null}
+                    {!isRevoked ? (
                       <InstanceCompatibility instance={instance} />
                     ) : null}
                   </div>
@@ -265,6 +268,25 @@ export function LinkedInstances() {
         )}
       </div>
     </section>
+  );
+}
+
+function InstanceLibrary({ instance }: { instance: Instance }) {
+  if (!instance.scopes.includes("library:sync")) return null;
+  if (instance.installed === 0) {
+    return (
+      <p className={styles.library}>Nothing reported installed here yet.</p>
+    );
+  }
+  return (
+    <p className={styles.library}>
+      {instance.installed === 1
+        ? "1 asset installed"
+        : `${instance.installed} assets installed`}
+      {instance.updatesAvailable > 0
+        ? ` · ${instance.updatesAvailable} with a newer version here`
+        : " · all up to date"}
+    </p>
   );
 }
 
@@ -380,6 +402,8 @@ function isInstance(value: unknown): value is Instance {
     isStringArray(instance.acceptedTargets) &&
     typeof instance.prefix === "string" &&
     isStringArray(instance.scopes) &&
+    typeof instance.installed === "number" &&
+    typeof instance.updatesAvailable === "number" &&
     typeof instance.linkedAt === "string" &&
     (instance.lastSeenAt === null || typeof instance.lastSeenAt === "string") &&
     (instance.revokedAt === null || typeof instance.revokedAt === "string")
