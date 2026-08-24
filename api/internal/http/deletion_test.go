@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -74,6 +75,61 @@ func TestCreatorCanDeleteAndRestoreAnAssetDuringItsRecoveryWindow(t *testing.T) 
 	download := send(t, router, httptest.NewRequest(http.MethodGet, "/download/"+assetID, nil))
 	if download.Code != http.StatusOK || download.Header().Get("X-Accel-Redirect") == "" {
 		t.Fatalf("restored download = %d, headers %v", download.Code, download.Header())
+	}
+}
+
+func TestProtectedPromptsSurviveRecoveryAndLeaveAfterItExpires(t *testing.T) {
+	_, router, session, assets, pool := newVerifiedTestRoutersWithPool(t, 1<<20, DefaultDeadlines())
+	started := startPreset(t, router, session, "lumiverse")
+	coreBlock := blockNamed(t, started.Blocks, "preset_core")
+	core := editableBlock(coreBlock)
+	const privateText = "Recover this exact private prompt."
+	core.Elements[0].Content = json.RawMessage(`{"groups":[],"fragments":[
+		{"name":"Recoverable","role":"system","text":"` + privateText + `","protected":true,"enabled":true}
+	]}`)
+	apps := []string{"lumiverse"}
+	core.AllowedApps = &apps
+	if response := saveBlock(t, router, session, started.ID, coreBlock.ID, core); response.Code != http.StatusOK {
+		t.Fatalf("save sealed prompt: %d %s", response.Code, response.Body.String())
+	}
+
+	deleteAsset := func() {
+		t.Helper()
+		response := send(t, router, authorized(
+			httptest.NewRequest(http.MethodDelete, "/v1/assets/"+started.ID, nil), session,
+		))
+		if response.Code != http.StatusNoContent {
+			t.Fatalf("delete status = %d, want 204: %s", response.Code, response.Body.String())
+		}
+	}
+	deleteAsset()
+	if payloads, policies := protectedCounts(t, pool, started.ID); payloads != 1 || policies != 1 {
+		t.Fatalf("during recovery: %d payloads and %d policy rows, want 1 and 1", payloads, policies)
+	}
+
+	restored := send(t, router, authorized(
+		httptest.NewRequest(http.MethodPost, "/v1/assets/"+started.ID+"/restore", nil), session,
+	))
+	if restored.Code != http.StatusNoContent {
+		t.Fatalf("restore status = %d, want 204: %s", restored.Code, restored.Body.String())
+	}
+	owner := fetchStartedAsset(t, router, session, started.ID)
+	if !strings.Contains(string(owner.Blocks[0].Elements[0].Content), privateText) ||
+		!owner.LinkedInstallOnly || len(owner.AllowedApps) != 1 || owner.AllowedApps[0] != "lumiverse" {
+		t.Fatalf("restored protected asset lost its prompt or policy: %+v", owner)
+	}
+
+	deleteAsset()
+	if _, err := pool.Exec(t.Context(), `
+		update assets set recoverable_until = now() - interval '1 second' where id = $1
+	`, started.ID); err != nil {
+		t.Fatalf("expire recovery window: %v", err)
+	}
+	if _, err := assets.Sweep(t.Context()); err != nil {
+		t.Fatalf("sweep expired asset: %v", err)
+	}
+	if payloads, policies := protectedCounts(t, pool, started.ID); payloads != 0 || policies != 0 {
+		t.Fatalf("after recovery expired: %d payloads and %d policy rows, want none", payloads, policies)
 	}
 }
 

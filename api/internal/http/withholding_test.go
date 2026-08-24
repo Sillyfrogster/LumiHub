@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -240,6 +241,75 @@ func TestWithheldAssetRefusesCreatorMutations(t *testing.T) {
 	response := send(t, router, clear)
 	if response.Code != http.StatusForbidden {
 		t.Fatalf("creator clear status = %d, want 403: %s", response.Code, response.Body.String())
+	}
+}
+
+func TestWithheldAssetRefusesEveryProtectedPromptMutation(t *testing.T) {
+	_, router, session, _, pool := newVerifiedTestRoutersWithPool(t, 1<<20, DefaultDeadlines())
+	started := startPreset(t, router, session, "lumiverse")
+	coreBlock := blockNamed(t, started.Blocks, "preset_core")
+	core := editableBlock(coreBlock)
+	const privateText = "This prompt stays frozen."
+	core.Elements[0].Content = json.RawMessage(`{"groups":[],"fragments":[
+		{"name":"Frozen","role":"system","text":"` + privateText + `","protected":true,"enabled":true}
+	]}`)
+	apps := []string{"lumiverse"}
+	core.AllowedApps = &apps
+	if response := saveBlock(t, router, session, started.ID, coreBlock.ID, core); response.Code != http.StatusOK {
+		t.Fatalf("save sealed prompt: %d %s", response.Code, response.Body.String())
+	}
+	before := contentGeneration(t, pool, started.ID)
+	owner := fetchStartedAsset(t, router, session, started.ID)
+	core = editableBlock(blockNamed(t, owner.Blocks, "preset_core"))
+	if _, err := pool.Exec(t.Context(), `
+		update assets asset
+		   set withheld_at = now(), withheld_by = owner.id, withheld_reason = 'Review'
+		  from users owner
+		 where asset.id = $1 and owner.username = 'verified.creator'
+	`, started.ID); err != nil {
+		t.Fatalf("withhold asset: %v", err)
+	}
+
+	textChange := editableBlock(blockNamed(t, owner.Blocks, "preset_core"))
+	textChange.Elements[0].Content = json.RawMessage(strings.Replace(
+		string(core.Elements[0].Content), privateText, "This prompt tried to change.", 1,
+	))
+	stateChange := editableBlock(blockNamed(t, owner.Blocks, "preset_core"))
+	stateChange.Elements[0].Content = json.RawMessage(strings.Replace(
+		string(core.Elements[0].Content), `,"protected":true`, "", 1,
+	))
+	stateChange.AllowedApps = &[]string{}
+	policyChange := editableBlock(blockNamed(t, owner.Blocks, "preset_core"))
+	policyChange.AllowedApps = &[]string{}
+	mutations := map[string]saveBlockBody{
+		"protected text":   textChange,
+		"protection state": stateChange,
+		"allowed apps":     policyChange,
+	}
+
+	for name, mutation := range mutations {
+		t.Run(name, func(t *testing.T) {
+			response := saveBlock(t, router, session, started.ID, coreBlock.ID, mutation)
+			if response.Code != http.StatusConflict {
+				t.Fatalf("status = %d, want 409: %s", response.Code, response.Body.String())
+			}
+		})
+	}
+
+	var storedText string
+	if err := pool.QueryRow(t.Context(), `
+		select payload ->> 'text' from protected_content where asset_id = $1
+	`, started.ID).Scan(&storedText); err != nil {
+		t.Fatalf("read protected prompt after refused saves: %v", err)
+	}
+	if storedText != privateText {
+		t.Fatalf("protected prompt after refused saves = %q, want %q", storedText, privateText)
+	}
+	if payloads, policies := protectedCounts(t, pool, started.ID); payloads != 1 || policies != 1 {
+		t.Fatalf("after refused saves: %d payloads and %d policy rows, want 1 and 1", payloads, policies)
+	}
+	if got := contentGeneration(t, pool, started.ID); got != before {
+		t.Fatalf("content generation after refused saves = %d, want %d", got, before)
 	}
 }
 

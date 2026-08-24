@@ -81,3 +81,47 @@ func TestASealedPromptLeavesOnlyThroughAnAllowedLinkedInstance(t *testing.T) {
 		t.Fatalf("delivery did not contain one ordinary complete preset: %s", artifact.Body.String())
 	}
 }
+
+func TestAReplacementUploadRemovesProtectedContentWithoutAnOwningPrompt(t *testing.T) {
+	_, router, session, assets, pool := newVerifiedTestRoutersWithPool(t, 1<<20, DefaultDeadlines())
+	started := startPreset(t, router, session, "lumiverse")
+	coreBlock := blockNamed(t, started.Blocks, "preset_core")
+	core := editableBlock(coreBlock)
+	core.Elements[0].Content = json.RawMessage(`{"groups":[],"fragments":[
+		{"name":"Old sealed prompt","role":"system","text":"Private text with an old owner.","protected":true,"enabled":true}
+	]}`)
+	apps := []string{"lumiverse"}
+	core.AllowedApps = &apps
+	if response := saveBlock(t, router, session, started.ID, coreBlock.ID, core); response.Code != http.StatusOK {
+		t.Fatalf("save sealed prompt: %d %s", response.Code, response.Body.String())
+	}
+
+	replacement := []byte(`{
+		"schemaVersion": 1,
+		"name": "Replacement preset",
+		"blocks": [
+			{"id":"new-public-prompt","name":"New public prompt","role":"system","content":"Public replacement text.","enabled":true}
+		]
+	}`)
+	accepted := send(t, router, authorized(
+		revisionRequest(t, started.ID, "replacement.json", replacement), session,
+	))
+	if accepted.Code != http.StatusAccepted {
+		t.Fatalf("replacement upload status = %d, want 202: %s", accepted.Code, accepted.Body.String())
+	}
+	if processed, err := assets.ProcessNextIngest(t.Context()); err != nil || !processed {
+		t.Fatalf("process replacement = %t, %v; want true, nil", processed, err)
+	}
+	updated := pollIngestAsset(t, router, session, accepted.Header().Get("Location"))
+	if updated.ID != started.ID {
+		t.Fatalf("replacement asset = %s, want %s", updated.ID, started.ID)
+	}
+	if payloads, policies := protectedCounts(t, pool, started.ID); payloads != 0 || policies != 0 {
+		t.Fatalf("after replacement: %d payloads and %d policy rows, want none", payloads, policies)
+	}
+	owner := fetchStartedAsset(t, router, session, started.ID)
+	if owner.LinkedInstallOnly || len(owner.AllowedApps) != 0 {
+		t.Fatalf("replacement kept protected delivery policy: linked install only %t, apps %v",
+			owner.LinkedInstallOnly, owner.AllowedApps)
+	}
+}

@@ -13,6 +13,7 @@ import (
 	"github.com/Sillyfrogster/Illarin/api/internal/block"
 	"github.com/Sillyfrogster/Illarin/api/internal/format"
 	"github.com/Sillyfrogster/Illarin/api/internal/probe"
+	"github.com/Sillyfrogster/Illarin/api/internal/protected"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -525,6 +526,9 @@ func (s *Service) writeIngestResult(
 		}
 		if err := replacePreservedData(ctx, tx, job.Target.AssetID, prepared.Remainder); err != nil {
 			return uuid.Nil, err
+		}
+		if err := protected.SyncPromptFragments(ctx, tx, job.Target.AssetID, blocks, nil); err != nil {
+			return uuid.Nil, fmt.Errorf("reconcile protected prompts: %w", err)
 		}
 		if _, err := tx.Exec(ctx, `
 			update assets

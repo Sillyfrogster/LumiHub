@@ -23,6 +23,9 @@ type SweepResult struct {
 
 func (s *Service) Sweep(ctx context.Context) (SweepResult, error) {
 	now := s.now()
+	if err := s.releaseExpiredProtectedContent(ctx, now); err != nil {
+		return SweepResult{}, err
+	}
 	if _, err := s.store.RecordOrphans(ctx); err != nil {
 		return SweepResult{}, fmt.Errorf("record filesystem orphans: %w", err)
 	}
@@ -71,6 +74,52 @@ func (s *Service) Sweep(ctx context.Context) (SweepResult, error) {
 		}
 	}
 	return result, nil
+}
+
+func (s *Service) releaseExpiredProtectedContent(ctx context.Context, now time.Time) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin protected content cleanup: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	rows, err := tx.Query(ctx, `
+		select id from assets
+		 where deleted_at is not null and recoverable_until <= $1
+		   and (exists (select 1 from protected_content where asset_id = assets.id)
+		        or exists (select 1 from protected_delivery_apps where asset_id = assets.id))
+		 for update
+	`, now)
+	if err != nil {
+		return fmt.Errorf("lock expired assets for protected content cleanup: %w", err)
+	}
+	var expired []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return fmt.Errorf("read expired asset for protected content cleanup: %w", err)
+		}
+		expired = append(expired, id)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return fmt.Errorf("list expired assets for protected content cleanup: %w", err)
+	}
+	rows.Close()
+	if len(expired) == 0 {
+		return tx.Commit(ctx)
+	}
+	if _, err := tx.Exec(ctx, `delete from protected_content where asset_id = any($1)`, expired); err != nil {
+		return fmt.Errorf("remove expired protected content: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `delete from protected_delivery_apps where asset_id = any($1)`, expired); err != nil {
+		return fmt.Errorf("remove expired protected delivery policy: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit protected content cleanup: %w", err)
+	}
+	return nil
 }
 
 func (s *Service) resumePurges(ctx context.Context) error {

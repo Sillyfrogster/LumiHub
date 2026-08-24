@@ -80,6 +80,14 @@ func (s *Service) contentFingerprint(
 		if element.Content == nil || element.Content.Empty() {
 			continue
 		}
+		// A sealed marker changes access, not the complete artifact.
+		if prompts, ok := element.Content.(block.PromptList); ok {
+			prompts.Fragments = append([]block.PromptFragment(nil), prompts.Fragments...)
+			for index := range prompts.Fragments {
+				prompts.Fragments[index].Protected = false
+			}
+			element.Content = prompts
+		}
 		content, err := element.ContentJSON()
 		if err != nil {
 			return "", fmt.Errorf("fingerprint the %s element: %w", element.Role, err)
