@@ -80,7 +80,7 @@ func (s *Service) contentFingerprint(
 		if element.Content == nil || element.Content.Empty() {
 			continue
 		}
-		// A sealed marker changes access, not the complete artifact.
+		// Prompt protection does not change generated content.
 		if prompts, ok := element.Content.(block.PromptList); ok {
 			prompts.Fragments = append([]block.PromptFragment(nil), prompts.Fragments...)
 			for index := range prompts.Fragments {

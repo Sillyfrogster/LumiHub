@@ -23,7 +23,7 @@ type SweepResult struct {
 
 func (s *Service) Sweep(ctx context.Context) (SweepResult, error) {
 	now := s.now()
-	if err := s.releaseExpiredProtectedContent(ctx, now); err != nil {
+	if err := s.deleteExpiredProtectedContent(ctx, now); err != nil {
 		return SweepResult{}, err
 	}
 	if _, err := s.store.RecordOrphans(ctx); err != nil {
@@ -76,7 +76,7 @@ func (s *Service) Sweep(ctx context.Context) (SweepResult, error) {
 	return result, nil
 }
 
-func (s *Service) releaseExpiredProtectedContent(ctx context.Context, now time.Time) error {
+func (s *Service) deleteExpiredProtectedContent(ctx context.Context, now time.Time) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin protected content cleanup: %w", err)
