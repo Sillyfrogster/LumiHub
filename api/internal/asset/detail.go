@@ -15,8 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// DetailTag is one of the creator's tags twice over: as they wrote it, and as
-// browse matches it.
+// DetailTag holds a creator's tag and its normalized browse form.
 type DetailTag struct {
 	Label string
 	Value string

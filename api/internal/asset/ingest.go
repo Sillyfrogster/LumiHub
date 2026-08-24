@@ -667,9 +667,7 @@ func lockRevisionTarget(ctx context.Context, tx pgx.Tx, assetID, ownerID uuid.UU
 	return nil
 }
 
-// appendRevision adds a set of source bytes to an asset that already exists.
-// Catalog metadata is never re-seeded here: it was the creator's from the
-// moment the asset was made.
+// appendRevision adds source bytes without replacing creator metadata.
 func appendRevision(
 	ctx context.Context,
 	tx pgx.Tx,

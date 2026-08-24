@@ -19,10 +19,7 @@ type PreservedNamespace struct {
 	Bytes int
 }
 
-// PreservedNamespaces names what an asset is holding on its creator's behalf.
-// The namespace is a column, so this never opens a payload — except to ask the
-// module whether the namespace records anything, which is what keeps four dead
-// entries out of the panel.
+// PreservedNamespaces lists the nonempty preserved namespaces for an asset.
 func (s *Service) PreservedNamespaces(
 	ctx context.Context,
 	ownerID uuid.UUID,
@@ -123,10 +120,7 @@ func (s *Service) preservedAssetOrigin(
 	return *origin, nil
 }
 
-// dropUnownedPreservedData deletes the rows whose owner has gone from the
-// page. Deleting an entry deletes its preserved data with it, and so does
-// deleting the element or the block that held it — one reconciliation rather
-// than a rule written out again on every editing path.
+// dropUnownedPreservedData removes records detached by an editing operation.
 func dropUnownedPreservedData(
 	ctx context.Context,
 	tx pgx.Tx,

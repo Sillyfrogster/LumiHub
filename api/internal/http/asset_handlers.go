@@ -424,8 +424,7 @@ func (h *Handlers) AddMedia(c *gin.Context, id types.UUID) {
 	c.JSON(http.StatusCreated, toAPIMedia(added))
 }
 
-// readerVisibility is the reader's own preference for adult content: whatever
-// the request states, and otherwise whatever their account holds.
+// readerVisibility returns the request override or the account preference.
 func (h *Handlers) readerVisibility(
 	c *gin.Context,
 	requested *string,
@@ -573,8 +572,7 @@ func apiEligibleApps(apps []string) []AssetDetailEligibleApps {
 	return result
 }
 
-// toAPIDownloads serves the download menu: one line per format, each already
-// carrying what it does and does not take with it.
+// toAPIDownloads builds the available download choices.
 func toAPIDownloads(targets []format.Target) []DownloadTarget {
 	downloads := make([]DownloadTarget, 0, len(targets))
 	for _, target := range targets {

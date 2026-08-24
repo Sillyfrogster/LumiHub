@@ -10,9 +10,7 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
-// ListPreservedNamespaces names what an asset is holding on its creator's
-// behalf. Only the owner asks: preserved data belongs to the file, never to
-// the page, and nothing about it renders for a reader.
+// ListPreservedNamespaces lists the preserved data visible to an asset owner.
 func (h *Handlers) ListPreservedNamespaces(c *gin.Context, id openapi_types.UUID) {
 	owner, ok := h.verifiedAccount(c, "reading preserved data")
 	if !ok {

@@ -62,8 +62,6 @@ func TestContentFromANewerBuildIsRefusedRatherThanRead(t *testing.T) {
 }
 
 func TestAReaderUpgradesContentWrittenAtAnOlderVersion(t *testing.T) {
-	// Two versions of one element type: the first held a bare string, the
-	// second holds the object every reader wants.
 	versioned := schema{
 		upgrade: []func(json.RawMessage) (json.RawMessage, error){
 			func(old json.RawMessage) (json.RawMessage, error) {

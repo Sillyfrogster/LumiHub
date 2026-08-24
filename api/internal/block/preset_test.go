@@ -139,9 +139,6 @@ func TestThePresetRolesBindToTheirOwnElementTypes(t *testing.T) {
 	}
 }
 
-// A fragment count is worked out on the way out. Nothing anywhere counts
-// tokens: Illarin has no tokenizer, and the number would be a guess a creator
-// could act on.
 func TestAPromptListCountsItsFragmentsAndNeverItsTokens(t *testing.T) {
 	element := Element{
 		Type: TypePromptList,

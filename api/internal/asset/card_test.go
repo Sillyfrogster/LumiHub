@@ -16,9 +16,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// TestACardKeepsItsExactBytesWhileItsPictureIsExtracted is the round trip a
-// creator cares about: Illarin reads the card, takes a copy of the picture, and
-// hands back the file it was given.
 func TestACardKeepsItsExactBytesWhileItsPictureIsExtracted(t *testing.T) {
 	registry := format.NewRegistry()
 	for _, module := range character.Modules() {

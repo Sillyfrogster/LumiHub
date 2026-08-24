@@ -427,8 +427,6 @@ func testPNG(t *testing.T, width, height int, fill color.Color) []byte {
 	return encoded.Bytes()
 }
 
-// archiveWithImage builds the shape a module extracts media from: a card
-// payload the registry can claim beside a picture the probe can locate.
 func archiveWithImage(t *testing.T, picture []byte) []byte {
 	t.Helper()
 	var file bytes.Buffer

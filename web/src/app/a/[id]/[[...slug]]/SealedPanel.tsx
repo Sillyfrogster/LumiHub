@@ -3,7 +3,7 @@
 import { Lock } from "lucide-react";
 import styles from "./SealedPanel.module.css";
 
-/** Illarin kept every block LumiHub let a creator seal and rebuilt none of the machinery, so this is the one way out of the set. */
+/** Offers an owner the sealed content preserved during migration. */
 export function SealedPanel({
   assetId,
   count,
