@@ -88,7 +88,15 @@ func (s *Service) Detail(
 	viewerID *uuid.UUID,
 	visibility ContentVisibility,
 ) (Detail, error) {
-	queries := db.New(s.pool)
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{
+		IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly,
+	})
+	if err != nil {
+		return Detail{}, fmt.Errorf("begin asset page snapshot: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	queries := db.New(tx)
 	row, err := queries.AssetPage(ctx, db.AssetPageParams{
 		ID: uuidToPgtype(id), ViewerID: uuidToNullable(viewerID),
 	})
@@ -113,11 +121,11 @@ func (s *Service) Detail(
 		CreatedAt: timeFromPgtype(row.CreatedAt),
 		Media:     []DetailImage{},
 	}
-	found.Downloads, err = s.exportProjection(ctx, id)
+	found.Downloads, err = s.exportProjection(ctx, tx, id)
 	if err != nil {
 		return Detail{}, err
 	}
-	found.Blocks, err = readBlocks(ctx, s.pool, id)
+	found.Blocks, err = readBlocks(ctx, tx, id)
 	if err != nil {
 		return Detail{}, err
 	}
@@ -150,7 +158,7 @@ func (s *Service) Detail(
 		})
 	}
 	if found.IsOwner {
-		if err := protected.RestorePromptFragments(ctx, s.pool, id, found.Blocks); err != nil {
+		if err := protected.RestorePromptFragments(ctx, tx, id, found.Blocks); err != nil {
 			return Detail{}, err
 		}
 		if draft {
@@ -159,14 +167,14 @@ func (s *Service) Detail(
 			found.Readiness = MigratedShortfall(found.Kind, found.Name, found.IsNSFW, found.Blocks)
 		}
 		if viewerID != nil {
-			sealed, err := s.SealedBlockCount(ctx, *viewerID, id)
+			sealed, err := sealedBlockCount(ctx, tx, *viewerID, id)
 			if err != nil {
 				return Detail{}, err
 			}
 			found.SealedBlocks = sealed
 		}
 	}
-	found.AllowedApps, err = protected.Apps(ctx, s.pool, id)
+	found.AllowedApps, err = protected.Apps(ctx, tx, id)
 	if err != nil {
 		return Detail{}, err
 	}

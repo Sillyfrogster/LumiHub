@@ -92,10 +92,11 @@ func (s *Service) exportCapability(
 // computes compatibility per request.
 func (s *Service) exportProjection(
 	ctx context.Context,
+	q db.DBTX,
 	assetID uuid.UUID,
 ) ([]format.Target, error) {
 	var stored []byte
-	err := s.pool.QueryRow(ctx,
+	err := q.QueryRow(ctx,
 		`select export from asset_projections where asset_id = $1`, assetID,
 	).Scan(&stored)
 	if errors.Is(err, pgx.ErrNoRows) {

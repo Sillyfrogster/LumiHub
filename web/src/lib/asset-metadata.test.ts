@@ -83,3 +83,60 @@ test("asks not to be indexed while unlisted, and still invites following", () =>
   });
   expect(assetMetadata(asset()).robots).toBeUndefined();
 });
+
+test("does not copy protected prompt text into page or social metadata", () => {
+  const privateText = "metadata-disclosure-canary-1c7ed05b";
+  const metadata = assetMetadata(
+    asset({
+      kind: "preset",
+      linkedInstallOnly: true,
+      allowedApps: ["lumiverse"],
+      blocks: [
+        {
+          id: ID,
+          definition: "preset_core",
+          title: "Prompt",
+          titleIsDefault: true,
+          position: 0,
+          hidden: false,
+          layout: "single",
+          width: "full",
+          allowedLayouts: ["single"],
+          required: true,
+          hideable: false,
+          isEmpty: false,
+          elements: [
+            {
+              id: ID,
+              type: "prompt_list",
+              role: "prompt_fragments",
+              slot: "main",
+              label: "Prompt fragments",
+              pinned: true,
+              isEmpty: false,
+              facts: ["1 fragment"],
+              content: {
+                groups: [],
+                fragments: [
+                  {
+                    id: ID,
+                    name: "Private instructions",
+                    role: "system",
+                    text: privateText,
+                    protected: true,
+                    enabled: true,
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    }),
+  );
+
+  expect(JSON.stringify(metadata)).not.toContain(privateText);
+  expect(metadata.openGraph?.description).toBe(
+    "She closes the book on a ribbon.",
+  );
+});

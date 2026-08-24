@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Sillyfrogster/Illarin/api/internal/block"
+	"github.com/Sillyfrogster/Illarin/api/internal/db"
 	"github.com/Sillyfrogster/Illarin/api/internal/format"
 	"github.com/Sillyfrogster/Illarin/api/internal/protected"
 	"github.com/google/uuid"
@@ -57,11 +58,19 @@ func (s *Service) OpenExport(
 	viewerID *uuid.UUID,
 	target string,
 ) (Export, error) {
-	subject, err := s.exportSubject(ctx, assetID, viewerID)
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{
+		IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly,
+	})
+	if err != nil {
+		return Export{}, fmt.Errorf("begin export snapshot: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	subject, err := s.exportSubject(ctx, tx, assetID, viewerID)
 	if err != nil {
 		return Export{}, err
 	}
-	apps, err := protected.Apps(ctx, s.pool, assetID)
+	apps, err := protected.Apps(ctx, tx, assetID)
 	if err != nil {
 		return Export{}, err
 	}
@@ -80,6 +89,9 @@ func (s *Service) OpenExport(
 	writer, writes := module.(format.Writer)
 	if !writes {
 		return Export{}, ErrTargetNotOffered
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Export{}, fmt.Errorf("finish export snapshot: %w", err)
 	}
 	written, err := s.writeExport(ctx, subject, writer)
 	if err != nil {
@@ -102,18 +114,26 @@ func (s *Service) OpenExportForLinkedInstance(
 	assetID uuid.UUID,
 	target string,
 ) (Export, error) {
-	subject, err := s.exportSubject(ctx, assetID, nil)
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{
+		IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly,
+	})
+	if err != nil {
+		return Export{}, fmt.Errorf("begin linked export snapshot: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	subject, err := s.exportSubject(ctx, tx, assetID, nil)
 	if err != nil {
 		return Export{}, err
 	}
-	apps, err := protected.Apps(ctx, s.pool, assetID)
+	apps, err := protected.Apps(ctx, tx, assetID)
 	if err != nil {
 		return Export{}, err
 	}
 	if len(apps) > 0 && !targetAllowed(apps, subject.kind, target) {
 		return Export{}, ErrTargetNotOffered
 	}
-	if err := protected.RestorePromptFragments(ctx, s.pool, assetID, subject.blocks); err != nil {
+	if err := protected.RestorePromptFragments(ctx, tx, assetID, subject.blocks); err != nil {
 		return Export{}, err
 	}
 	if !offersTarget(s.reg.OfferedTargets(subject.capability()), target) {
@@ -126,6 +146,9 @@ func (s *Service) OpenExportForLinkedInstance(
 	writer, writes := module.(format.Writer)
 	if !writes {
 		return Export{}, ErrTargetNotOffered
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Export{}, fmt.Errorf("finish linked export snapshot: %w", err)
 	}
 	written, err := s.writeExport(ctx, subject, writer)
 	if err != nil {
@@ -206,13 +229,14 @@ func offersTarget(offered []format.Target, target string) bool {
 // to its owner alone, exactly as its page does.
 func (s *Service) exportSubject(
 	ctx context.Context,
+	q db.DBTX,
 	assetID uuid.UUID,
 	viewerID *uuid.UUID,
 ) (exportSubject, error) {
 	var subject exportSubject
 	var origin pgtype.Text
 	var ownerID, revisionID pgtype.UUID
-	err := s.pool.QueryRow(ctx, `
+	err := q.QueryRow(ctx, `
 		select asset.kind, asset.name, asset.blurb, asset.origin_format, asset.lifecycle,
 		       asset.asset_version, asset.credited_author, asset.nickname,
 		       asset.owner_id, asset.current_revision_id
@@ -236,7 +260,7 @@ func (s *Service) exportSubject(
 	subject.origin = origin.String
 	subject.ownerID = uuidOrNil(ownerID)
 	subject.revisionID = uuidOrNil(revisionID)
-	subject.blocks, err = readBlocks(ctx, s.pool, assetID)
+	subject.blocks, err = readBlocks(ctx, q, assetID)
 	if err != nil {
 		return exportSubject{}, err
 	}

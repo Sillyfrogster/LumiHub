@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 // sealedSourceTable is the v1 table the sealed blocks came out of, and the namespace they are kept under.
@@ -84,8 +85,19 @@ func (s *Service) SealedBlockCount(
 	ownerID uuid.UUID,
 	assetID uuid.UUID,
 ) (int, error) {
+	return sealedBlockCount(ctx, s.pool, ownerID, assetID)
+}
+
+func sealedBlockCount(
+	ctx context.Context,
+	q interface {
+		QueryRow(context.Context, string, ...any) pgx.Row
+	},
+	ownerID uuid.UUID,
+	assetID uuid.UUID,
+) (int, error) {
 	var count int
-	err := s.pool.QueryRow(ctx, `
+	err := q.QueryRow(ctx, `
 		select count(*)
 		  from migration_preserved_records record
 		  join assets owned on owned.id = record.asset_id

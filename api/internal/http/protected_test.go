@@ -82,6 +82,176 @@ func TestASealedPromptLeavesOnlyThroughAnAllowedLinkedInstance(t *testing.T) {
 	}
 }
 
+func TestPublicPresetResponsesCarrySealedShapeWithoutProtectedText(t *testing.T) {
+	router, session, _ := newLinkingRouter(t)
+	started := startPreset(t, router, session, "lumiverse")
+	core := editableBlock(blockNamed(t, started.Blocks, "preset_core"))
+	groupID := uuid.NewString()
+	const privateText = "disclosure-canary-7bb627e4"
+	core.Elements[0].Content = json.RawMessage(`{
+		"groups":[{"id":"` + groupID + `","name":"Reasoning"}],
+		"fragments":[
+			{"name":"Visible shape","role":"user","placement":"pre_history","text":"Public prompt.","enabled":true,"groupId":"` + groupID + `"},
+			{"name":"Private shape","role":"assistant","placement":"post_history","text":"` + privateText + `","protected":true,"enabled":false,"groupId":"` + groupID + `"}
+		]
+	}`)
+	apps := []string{"lumiverse"}
+	core.AllowedApps = &apps
+	if got := saveBlock(t, router, session, started.ID, started.Blocks[0].ID, core); got.Code != http.StatusOK {
+		t.Fatalf("save sealed prompt status = %d, want 200: %s", got.Code, got.Body.String())
+	}
+	if got := saveIdentity(t, router, session, started.ID, `{"name":"Reader-safe preset","isNsfw":false}`); got.Code != http.StatusNoContent {
+		t.Fatalf("save identity status = %d, want 204: %s", got.Code, got.Body.String())
+	}
+	if got := publishAsset(t, router, session, started.ID); got.Code != http.StatusOK {
+		t.Fatalf("publish status = %d, want 200: %s", got.Code, got.Body.String())
+	}
+
+	reader := send(t, router, httptest.NewRequest(http.MethodGet, "/v1/assets/"+started.ID, nil))
+	if reader.Code != http.StatusOK {
+		t.Fatalf("reader page status = %d, want 200: %s", reader.Code, reader.Body.String())
+	}
+	publicBody := reader.Body.String()
+	if strings.Contains(publicBody, privateText) {
+		t.Fatal("the complete reader response contains protected text")
+	}
+	for _, visible := range []string{
+		`"linkedInstallOnly":true`, `"allowedApps":["lumiverse"]`,
+		`"name":"Private shape"`, `"role":"assistant"`,
+		`"placement":"post_history"`, `"protected":true`,
+		`"enabled":false`, `"groupId":"` + groupID + `"`, `"text":""`,
+		`"facts":["2 fragments","1 switched on"]`, `"downloads":[]`,
+	} {
+		if !strings.Contains(publicBody, visible) {
+			t.Errorf("reader response is missing %s: %s", visible, publicBody)
+		}
+	}
+
+	strangerSession := signUp(t, router, "reader@example.com", "signed.reader")
+	stranger := send(t, router, authorized(
+		httptest.NewRequest(http.MethodGet, "/v1/assets/"+started.ID, nil), strangerSession,
+	))
+	if stranger.Code != http.StatusOK || strings.Contains(stranger.Body.String(), privateText) {
+		t.Fatalf("signed-in reader response = %d %s", stranger.Code, stranger.Body.String())
+	}
+
+	search := send(t, router, httptest.NewRequest(
+		http.MethodGet, "/v1/assets?q="+privateText, nil,
+	))
+	if search.Code != http.StatusOK {
+		t.Fatalf("search status = %d, want 200: %s", search.Code, search.Body.String())
+	}
+	var results struct {
+		Items []json.RawMessage `json:"items"`
+	}
+	if err := json.Unmarshal(search.Body.Bytes(), &results); err != nil {
+		t.Fatalf("decode search response: %v", err)
+	}
+	if len(results.Items) != 0 || strings.Contains(search.Body.String(), privateText) {
+		t.Fatalf("protected text matched or appeared in search: %s", search.Body.String())
+	}
+}
+
+func TestProtectedAssetsRefuseEveryOrdinaryExportWithoutRecordingAHandoff(t *testing.T) {
+	router, session, pool := newLinkingRouter(t)
+	started := startPreset(t, router, session, "lumiverse")
+	if len(started.Downloads) == 0 {
+		t.Fatal("the ordinary preset has no generated export target to protect")
+	}
+
+	core := editableBlock(blockNamed(t, started.Blocks, "preset_core"))
+	const privateText = "ordinary-export-canary-86fd7431"
+	core.Elements[0].Content = json.RawMessage(`{"groups":[],"fragments":[{
+		"name":"Private instructions","role":"system","text":"` + privateText + `","protected":true,"enabled":true
+	}]}`)
+	apps := []string{"lumiverse"}
+	core.AllowedApps = &apps
+	if got := saveBlock(t, router, session, started.ID, started.Blocks[0].ID, core); got.Code != http.StatusOK {
+		t.Fatalf("save sealed prompt status = %d, want 200: %s", got.Code, got.Body.String())
+	}
+	if got := saveIdentity(t, router, session, started.ID, `{"name":"No ordinary exports","isNsfw":false}`); got.Code != http.StatusNoContent {
+		t.Fatalf("save identity status = %d, want 204: %s", got.Code, got.Body.String())
+	}
+	if got := publishAsset(t, router, session, started.ID); got.Code != http.StatusOK {
+		t.Fatalf("publish status = %d, want 200: %s", got.Code, got.Body.String())
+	}
+
+	for _, target := range started.Downloads {
+		response := send(t, router, httptest.NewRequest(
+			http.MethodGet, "/download/"+started.ID+"/"+target.Format, nil,
+		))
+		if response.Code != http.StatusNotFound {
+			t.Errorf("%s export status = %d, want 404", target.Format, response.Code)
+		}
+		if response.Body.String() != `{"error":"no such download"}` ||
+			strings.Contains(response.Body.String(), privateText) {
+			t.Errorf("%s export refusal = %s", target.Format, response.Body.String())
+		}
+		for _, header := range []string{
+			"Content-Disposition", "X-Accel-Redirect", "X-Illarin-Export-Target",
+		} {
+			if value := response.Header().Get(header); value != "" {
+				t.Errorf("%s export set %s to %q", target.Format, header, value)
+			}
+		}
+	}
+
+	var events int
+	if err := pool.QueryRow(t.Context(),
+		`select count(*) from download_events where asset_id = $1`, started.ID,
+	).Scan(&events); err != nil {
+		t.Fatalf("count refused download events: %v", err)
+	}
+	if events != 0 {
+		t.Fatalf("refused ordinary exports recorded %d download events", events)
+	}
+}
+
+func TestAProtectedOriginalUploadIsRecoveryAccessForItsOwnerAlone(t *testing.T) {
+	router, ownerSession, assets, pool := newVerifiedIngestRouterWithPool(
+		t, lumiverseIngestRegistry(t),
+	)
+	metadata := exampleMetadata("Protected original")
+	metadata["filename"] = "protected-original.json"
+	finished := uploadAndFinish(t, router, ownerSession, assets, metadata, []byte(keyedSealedPreset))
+	assetID := assetIDFromIngest(t, finished)
+	readerSession := signUp(t, router, "original-reader@example.com", "original.reader")
+
+	for name, request := range map[string]*http.Request{
+		"signed out": httptest.NewRequest(http.MethodGet, "/download/"+assetID, nil),
+		"non-owner": authorized(
+			httptest.NewRequest(http.MethodGet, "/download/"+assetID, nil), readerSession,
+		),
+	} {
+		response := send(t, router, request)
+		if response.Code != http.StatusNotFound || response.Header().Get("X-Accel-Redirect") != "" ||
+			strings.Contains(response.Body.String(), "Exact private prompt.") {
+			t.Errorf("%s source response = %d, headers %v, body %s",
+				name, response.Code, response.Header(), response.Body.String())
+		}
+	}
+
+	owner := send(t, router, authorized(
+		httptest.NewRequest(http.MethodGet, "/download/"+assetID, nil), ownerSession,
+	))
+	if owner.Code != http.StatusOK || owner.Header().Get("X-Accel-Redirect") == "" || owner.Body.Len() != 0 {
+		t.Fatalf("owner recovery response = %d, headers %v, body %s",
+			owner.Code, owner.Header(), owner.Body.String())
+	}
+
+	var events int
+	var class string
+	if err := pool.QueryRow(t.Context(), `
+		select count(*), coalesce(max(authorization_class), '')
+		  from download_events where asset_id = $1
+	`, assetID).Scan(&events, &class); err != nil {
+		t.Fatalf("read protected source events: %v", err)
+	}
+	if events != 1 || class != "owner" {
+		t.Fatalf("protected source events = %d with class %q, want one owner recovery", events, class)
+	}
+}
+
 func TestAReplacementUploadRemovesProtectedContentWithoutAnOwningPrompt(t *testing.T) {
 	_, router, session, assets, pool := newVerifiedTestRoutersWithPool(t, 1<<20, DefaultDeadlines())
 	started := startPreset(t, router, session, "lumiverse")
