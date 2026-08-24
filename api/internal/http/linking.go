@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Sillyfrogster/Illarin/api/internal/delivery"
 	"github.com/Sillyfrogster/Illarin/api/internal/linking"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -259,9 +260,14 @@ func (h *Handlers) ListInstances(c *gin.Context) {
 		h.linkingError(c, err)
 		return
 	}
-	items := make([]LinkedInstance, 0, len(found))
+	counts, err := h.deliveries.LibraryCountsByInstance(c.Request.Context(), creator.ID)
+	if err != nil {
+		h.linkingError(c, err)
+		return
+	}
+	items := make([]ManagedInstance, 0, len(found))
 	for _, instance := range found {
-		items = append(items, toAPIInstance(instance))
+		items = append(items, toAPIManagedInstance(instance, counts[instance.ID]))
 	}
 	c.JSON(http.StatusOK, LinkedInstanceList{Items: items})
 }
@@ -508,6 +514,24 @@ func toAPIInstance(instance linking.Instance) LinkedInstance {
 		Prefix:             instance.Prefix, Scopes: toAPIScopes(instance.Scopes),
 		LinkedAt: instance.LinkedAt, LastSeenAt: instance.LastSeenAt,
 		RevokedAt: instance.RevokedAt,
+	}
+}
+
+// toAPIManagedInstance is the settings page's view of an instance: what it is,
+// plus how much of what it reports installing has moved on since.
+func toAPIManagedInstance(
+	instance linking.Instance,
+	counts delivery.LibraryCounts,
+) ManagedInstance {
+	base := toAPIInstance(instance)
+	return ManagedInstance{
+		Id: base.Id, ApplicationName: base.ApplicationName,
+		InstanceName: base.InstanceName, ApplicationVersion: base.ApplicationVersion,
+		ProtocolVersion: base.ProtocolVersion, Capabilities: base.Capabilities,
+		AcceptedTargets: base.AcceptedTargets, Prefix: base.Prefix,
+		Scopes: base.Scopes, LinkedAt: base.LinkedAt, LastSeenAt: base.LastSeenAt,
+		RevokedAt: base.RevokedAt, Installed: counts.Installed,
+		UpdatesAvailable: counts.UpdatesAvailable,
 	}
 }
 

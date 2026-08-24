@@ -828,6 +828,24 @@ components:
             - string
             - 'null'
           format: date-time
+    ManagedInstance:
+      allOf:
+        - $ref: '#/components/schemas/LinkedInstance'
+        - type: object
+          required:
+            - installed
+            - updatesAvailable
+          properties:
+            installed:
+              type: integer
+              description: >-
+                How many assets this instance has reported having installed.
+                It is zero without the library:sync scope.
+            updatesAvailable:
+              type: integer
+              description: >-
+                How many of those the creator has since changed, so a newer
+                content generation exists here than the instance reported.
     LinkedInstanceList:
       type: object
       required:
@@ -836,4 +854,4 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/LinkedInstance'
+            $ref: '#/components/schemas/ManagedInstance'

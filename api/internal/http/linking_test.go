@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sillyfrogster/Illarin/api/internal/delivery"
 	"github.com/Sillyfrogster/Illarin/api/internal/testdb"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -76,10 +77,18 @@ type pendingDeviceLink struct {
 
 func newLinkingRouter(t *testing.T) (*gin.Engine, *http.Cookie, *pgxpool.Pool) {
 	t.Helper()
+	return newLinkingRouterWith(t, testDeliverySettings())
+}
+
+func newLinkingRouterWith(
+	t *testing.T,
+	settings delivery.Settings,
+) (*gin.Engine, *http.Cookie, *pgxpool.Pool) {
+	t.Helper()
 	gin.SetMode(gin.TestMode)
 	pool := testdb.Connect(t)
 	outbox := &verificationOutbox{}
-	handlers := newTestHandlersWithPool(t, pool, 1<<20, outbox)
+	handlers := newTestHandlersWithDelivery(t, pool, 1<<20, outbox, settings)
 	router := registerTestRouter(t, handlers, DefaultDeadlines())
 
 	session := signUp(t, router, "creator@example.com", "linking.creator")

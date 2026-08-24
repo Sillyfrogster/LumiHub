@@ -16,16 +16,23 @@ const (
 )
 
 func readLinkJSON(c *gin.Context, destination any) bool {
+	return readBoundedJSON(c, destination, maxLinkBodyBytes, "The link request is too large.")
+}
+
+// readBoundedJSON refuses anything past its limit before parsing it, so an
+// oversized body costs the process the bytes it takes to notice rather than the
+// memory to hold it.
+func readBoundedJSON(c *gin.Context, destination any, limit int64, tooLargeMessage string) bool {
 	mediaType, _, err := mime.ParseMediaType(c.GetHeader("Content-Type"))
 	if err != nil || mediaType != "application/json" {
 		c.JSON(nethttp.StatusBadRequest, gin.H{"error": "Send JSON with the application/json content type."})
 		return false
 	}
-	body := nethttp.MaxBytesReader(c.Writer, c.Request.Body, maxLinkBodyBytes)
+	body := nethttp.MaxBytesReader(c.Writer, c.Request.Body, limit)
 	if err := decodeOneJSON(body, destination); err != nil {
 		var tooLarge *nethttp.MaxBytesError
 		if errors.As(err, &tooLarge) {
-			c.JSON(nethttp.StatusRequestEntityTooLarge, gin.H{"error": "The link request is too large."})
+			c.JSON(nethttp.StatusRequestEntityTooLarge, gin.H{"error": tooLargeMessage})
 			return false
 		}
 		c.JSON(nethttp.StatusBadRequest, gin.H{"error": "Send one valid JSON object."})
@@ -51,7 +58,11 @@ func noStoreLinkedInstanceResponses() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		path := c.FullPath()
 		if strings.HasPrefix(path, "/v1/link/") ||
-			path == "/v1/instances" || strings.HasPrefix(path, "/v1/instances/") {
+			path == "/v1/instances" || strings.HasPrefix(path, "/v1/instances/") ||
+			strings.HasPrefix(path, "/v1/deliveries") ||
+			path == "/v1/library/sync" ||
+			strings.HasSuffix(path, "/instances") ||
+			strings.HasSuffix(path, "/deliveries") {
 			noStoreLink(c)
 		}
 		c.Next()

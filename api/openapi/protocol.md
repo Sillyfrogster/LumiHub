@@ -7,9 +7,8 @@ All API paths below are relative to the exact Illarin base URL and include the
 public `/api` prefix.
 
 The current protocol links an application installation, rotates its credentials,
-records what it can accept, and lets its owner revoke it. Asset delivery and
-library sync are the next protocol phase; their intended shape is described near
-the end, but an implementation must not call a route until it appears in OpenAPI.
+records what it can accept, lets its owner send assets to it, mirrors what it has
+installed, and lets its owner revoke it.
 
 ## What one installation must keep
 
@@ -69,7 +68,9 @@ identity.
 6. Add declaration updates after application upgrades.
 7. Refresh once after an access-endpoint `401`; treat a refresh-endpoint `401`
    as terminal and offer to link again.
-8. Run the conformance checklist at the end of this guide.
+8. Run one delivery wait at a time and acknowledge only what you installed.
+9. Report your library incrementally, with an occasional full snapshot.
+10. Run the conformance checklist at the end of this guide.
 
 ## Describe the installation
 
@@ -105,8 +106,8 @@ Use a stable reverse-domain namespace for capabilities you own. A capability is
 only a claim about interoperability. It does not grant a permission, make an
 unknown server feature available, or cause Illarin to run application code.
 
-`acceptedTargets` is ordered from most to least preferred. It tells the delivery
-phase which Illarin exports your application can read. The `example_*` values in
+`acceptedTargets` is ordered from most to least preferred. It tells delivery
+which Illarin exports your application can read. The `example_*` values in
 this guide are placeholders, not registered targets. Declare only IDs backed by
 readers your application actually ships. Illarin exposes the formats currently
 offered for an asset in that asset's `downloads[].format` values; there is no
@@ -369,52 +370,126 @@ value freely, but Illarin must explicitly implement any behavior that consumes
 it. Unknown values remain inert. This seam gives platform developers room to add
 support without granting remote code or remote branding control.
 
+## Collect deliveries
+
+An owner presses send on an asset page and Illarin queues the asset for one of
+their installations. Illarin never calls out, so collection is a pull. It needs
+the `asset:receive` scope.
+
+```http
+POST /api/v1/deliveries/collect
+Authorization: Bearer ia1.…
+Content-Type: application/json
+
+{"acknowledge":["<delivery-id>","<delivery-id>"]}
+```
+
+Illarin holds the request for 25 to 30 seconds. It answers `200` as soon as
+there is work and `204` when the wait ends with nothing queued. Send
+`"acknowledge": []` when there is nothing to confirm; the field is required.
+
+This is a durable queue read, not authorization polling, and the two never share
+a request. Illarin checks the credential, the `asset:receive` scope and the
+asset's own visibility again at the moment work is released, so an asset
+withdrawn after it was queued never arrives.
+
+A `200` carries one entry per released delivery:
+
+```json
+{
+  "deliveries": [
+    {
+      "id": "…",
+      "assetId": "…",
+      "contentGeneration": 4,
+      "kind": "character",
+      "name": "…",
+      "format": "example_bundle_v2",
+      "label": "Example bundle",
+      "queuedAt": "2026-08-23T18:30:00Z",
+      "leaseExpiresAt": "2026-08-23T18:45:00Z",
+      "artifacts": [
+        {"kind": "export", "url": "https://…/delivery/…/export?expires=…&signature=…"},
+        {"kind": "picture", "url": "https://…/media/…", "mediaId": "…",
+         "role": "expression", "isCover": false}
+      ]
+    }
+  ]
+}
+```
+
+`format` is the first target in your declared order that Illarin can write for
+that asset, or `raw` for the creator's own uploaded file when nothing else fits.
+The addresses are short-lived and signed: fetch them with ordinary `GET`s, which
+makes a large file retryable rather than an all-or-nothing read. Every image the
+asset holds is listed, so a format that cannot carry one can still be installed
+with it; a format that embeds an image hands you those bytes twice.
+
+Rules for a conforming client:
+
+- Delivery is at least once. Deduplicate on `id`, install idempotently, and
+  acknowledge only after the work is durably stored.
+- An unacknowledged delivery comes back when its lease runs out. After a few
+  unacknowledged takes Illarin stops offering it, so acknowledge what you install.
+- Open one wait at a time. A second request supersedes the first, which then
+  answers `204`; two workers waiting for the same installation simply take turns.
+- After a failure, back off exponentially with jitter and honour `Retry-After`.
+  `429` is a rate limit and `503` means Illarin is holding as many waits as it will.
+- Store `contentGeneration` against `assetId`. A larger one later means the file
+  changed.
+
+## Report your library
+
+`library:sync` mirrors what an installation holds so the site can show its owner
+what is installed and what has moved on since. It is outbound only: Illarin never
+writes this and never sends it back to another installation.
+
+```http
+POST /api/v1/library/sync
+Authorization: Bearer ia1.…
+Content-Type: application/json
+
+{
+  "snapshot": false,
+  "entries": [{"assetId": "…", "contentGeneration": 4}],
+  "removed": ["…"]
+}
+```
+
+Set `snapshot` to `true` to replace the whole mirror for this installation;
+anything absent is removed, so a snapshot may not also carry `removed`. Leave it
+`false` to add, update and remove only what you name. At most 2000 entries and
+2000 removals per request, and at most 256 KiB of body.
+
+Leave `contentGeneration` out when an installation predates the counter. Illarin
+records the asset's current generation rather than calling the install out of
+date: an installation that cannot say which version it holds has not told us it
+is behind.
+
+Report immutable asset ids and never addresses, in both directions, so a creator
+renaming something cannot break your state. Send incremental reports as things
+change and a full snapshot occasionally, so a missed update repairs itself.
+The response counts what was recorded:
+
+```json
+{"accepted": 142, "removed": 3, "ignored": 1}
+```
+
+`ignored` counts entries naming an asset Illarin cannot offer, such as one that
+has since been deleted.
+
 ## Revocation and multiple instances
 
 The account settings page lists and revokes installations independently.
-Revocation immediately rejects that instance's access and refresh credentials,
-wipes its live declaration, and leaves every other installation usable.
+Revoking one invalidates both of its credential classes immediately, wipes its
+declaration, and deletes its pending deliveries and its library mirror. Another
+installation on the same account keeps all three.
 
 Your application should provide a local unlink action too. Until a public remote
 revocation endpoint is specified, local unlink removes local credentials and
 tells the owner to revoke the matching instance in Illarin settings. Match it by
 the server-issued instance ID and the displayed application/installation names,
 not by token prefix alone.
-
-## Prepare for delivery and library sync
-
-These routes are not part of the current OpenAPI contract yet. Keep their code
-behind an interface and ship it only after the contract is published.
-
-The delivery transport will be one authenticated, bounded 25–30 second HTTPS
-long-poll per installation. It is separate from authorization polling. The
-planned behavior is:
-
-- `asset:receive` is checked again immediately before work is released.
-- A wait returns queued metadata or `204` when empty.
-- A second wait supersedes the first instead of creating two consumers.
-- The chosen export target is the first supported target in the installation's
-  declared order, with `raw` as fallback.
-- Artifact bytes arrive through ordinary short-lived signed `GET` URLs, not in
-  the poll response.
-- Delivery is at least once, so process stable event IDs idempotently and persist
-  the cursor only after durable installation.
-- After failures, use jittered exponential backoff and honor `Retry-After`.
-
-`library:sync` will report immutable Illarin asset IDs and content generations,
-never slugs. Design the local library index around `(asset_id,
-content_generation)` and support both incremental reports and periodic full
-snapshots. Revocation will delete the server-side queue and mirror for only that
-installation.
-
-An install record that carries no content generation is current, not stale. Every
-asset migrated from LumiHub starts at generation 1 and none of the install
-records LumiHub kept stored a generation, so treating a missing one as out of
-date would report an update on day one for a change no creator made.
-
-Long-polling is intentional for low-volume outbound delivery: it crosses common
-proxies, needs no inbound connection, and avoids a private WebSocket protocol.
-It is not used for link authorization.
 
 ## Conformance checklist
 
@@ -437,6 +512,12 @@ Before calling an integration complete, verify all of these:
 - Two installations of the same application can link, refresh, update, and
   unlink without sharing state.
 - Unknown capabilities and targets produce no privileged behavior.
+- One delivery wait is open at a time, `204` is handled, artifacts are fetched
+  as ordinary retryable `GET`s, and deliveries are acknowledged only after they
+  are durably installed.
+- Delivery ids are deduplicated, so the same delivery arriving twice installs once.
+- Library reports name immutable asset ids, stay inside every bound, and a
+  snapshot carries no removals.
 - All tests use synthetic accounts, names, codes, and assets.
 
 For exact schemas, error bodies, and status codes, use `/openapi.yaml` as the

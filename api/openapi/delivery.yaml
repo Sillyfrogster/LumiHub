@@ -1,0 +1,511 @@
+paths:
+  /v1/deliveries/collect:
+    post:
+      operationId: collectDeliveries
+      description: >-
+        Acknowledge finished deliveries and wait, briefly, for more. Illarin
+        holds the request for 25 to 30 seconds and answers 204 when the wait
+        ends empty. A second request supersedes the first rather than both
+        hanging. This is a durable queue read and never carries an
+        authorization result.
+      security:
+        - instanceToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollectDeliveries'
+      responses:
+        '200':
+          description: The work released to this instance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryWorkList'
+        '204':
+          description: The wait ended with nothing queued
+        '400':
+          description: The acknowledgement list is not valid
+        '401':
+          description: The access token does not identify a live instance
+        '403':
+          description: The instance was not granted asset:receive
+        '413':
+          description: The request body is too large
+        '429':
+          description: Too many collection requests came from this instance
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+        '503':
+          description: Too many instances are waiting for work at once
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+  /v1/library/sync:
+    post:
+      operationId: syncLibrary
+      description: >-
+        Report what this instance has installed. A snapshot replaces the whole
+        mirror for this instance; an incremental report adds, updates and
+        removes what it names. Assets are named by immutable id, never by
+        address.
+      security:
+        - instanceToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LibraryReport'
+      responses:
+        '200':
+          description: How much of the report was recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LibraryReportResult'
+        '400':
+          description: The report is not valid
+        '401':
+          description: The access token does not identify a live instance
+        '403':
+          description: The instance was not granted library:sync
+        '413':
+          description: The report is larger than one request may carry
+        '429':
+          description: Too many library reports came from this instance
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+  /v1/assets/{id}/instances:
+    get:
+      operationId: getAssetInstances
+      description: >-
+        Where the signed-in account could send this asset, what is already
+        waiting, and what each of their instances reports having installed.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The account's instances as they stand for this asset
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssetInstanceList'
+        '401':
+          description: No account is signed in
+        '404':
+          description: No asset that can be sent has that id
+  /v1/assets/{id}/deliveries:
+    post:
+      operationId: sendAssetToInstance
+      description: >-
+        Queue this asset for one of the signed-in account's own instances. The
+        instance chooses the format from what it declared it accepts. Sending
+        twice returns the delivery already waiting.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: ./common.yaml#/components/parameters/IllarinRequest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendAssetRequest'
+      responses:
+        '202':
+          description: The delivery waiting for that instance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueuedDelivery'
+        '400':
+          description: The request or the browser-proof header is malformed
+        '401':
+          description: No account is signed in
+        '403':
+          description: >-
+            The browser proof is invalid, or that instance cannot receive assets
+        '404':
+          description: No asset that can be sent, or no live instance of yours, has that id
+        '409':
+          description: >-
+            That instance already holds as many waiting deliveries as it may, or
+            accepts no format this asset can be written in
+        '429':
+          description: Too many deliveries were queued
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+  /v1/deliveries/{id}:
+    delete:
+      operationId: discardDelivery
+      description: >-
+        Drop one of the signed-in account's own deliveries. A released delivery
+        loses the addresses it handed out with it.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: ./common.yaml#/components/parameters/IllarinRequest
+      responses:
+        '204':
+          description: The delivery is gone
+        '400':
+          description: The id or browser-proof header parameter is malformed
+        '401':
+          description: No account is signed in
+        '403':
+          description: The browser origin or request proof is invalid
+        '404':
+          description: No delivery of yours has that id
+  /delivery/{id}/export:
+    get:
+      operationId: downloadDeliveryExport
+      description: >-
+        The asset written in the format this delivery chose. The address is
+        short-lived and signed, so a delivery never depends on the asset being
+        publicly visible and a leaked address stops working with its lease.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: expires
+          in: query
+          required: true
+          description: When the signature runs out.
+          schema:
+            type: string
+        - name: signature
+          in: query
+          required: true
+          description: The signature Illarin minted for this exact address.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The delivered file
+          headers:
+            Content-Disposition:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - attachment
+                  - inline
+            X-Content-Type-Options:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - nosniff
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+            application/json:
+              schema:
+                type: string
+                format: binary
+            application/zip:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: No live delivery artifact is at that address
+components:
+  schemas:
+    CollectDeliveries:
+      type: object
+      additionalProperties: false
+      required:
+        - acknowledge
+      properties:
+        acknowledge:
+          type: array
+          maxItems: 32
+          uniqueItems: true
+          description: >-
+            The deliveries this instance has durably installed since its last
+            request. Delivery is at least once, so treat the ids as stable and
+            acknowledge only after the work is safely stored.
+          items:
+            type: string
+            format: uuid
+    DeliveryWorkList:
+      type: object
+      additionalProperties: false
+      required:
+        - deliveries
+      properties:
+        deliveries:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeliveryWork'
+    DeliveryWork:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - assetId
+        - contentGeneration
+        - kind
+        - name
+        - format
+        - label
+        - queuedAt
+        - leaseExpiresAt
+        - artifacts
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The stable event id to acknowledge and to deduplicate on.
+        assetId:
+          type: string
+          format: uuid
+        contentGeneration:
+          type: integer
+          minimum: 1
+          description: >-
+            The update signal. Store it against the asset id; a newer one means
+            the file changed.
+        kind:
+          type: string
+        name:
+          type: string
+        format:
+          type: string
+          description: >-
+            The chosen export target, or raw for the creator's own uploaded
+            file.
+        label:
+          type: string
+        queuedAt:
+          type: string
+          format: date-time
+        leaseExpiresAt:
+          type: string
+          format: date-time
+          description: >-
+            When the artifact addresses stop answering and the delivery becomes
+            collectable again.
+        artifacts:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeliveryArtifact'
+    DeliveryArtifact:
+      type: object
+      additionalProperties: false
+      required:
+        - kind
+        - url
+      properties:
+        kind:
+          type: string
+          enum:
+            - export
+            - picture
+        url:
+          type: string
+          description: A short-lived signed address fetched with an ordinary GET.
+        mediaId:
+          type: string
+          format: uuid
+        role:
+          type: string
+        isCover:
+          type: boolean
+    LibraryReport:
+      type: object
+      additionalProperties: false
+      required:
+        - snapshot
+        - entries
+      properties:
+        snapshot:
+          type: boolean
+          description: >-
+            True to replace the whole mirror for this instance. A snapshot
+            carries no removals, because anything absent from it is removed.
+        entries:
+          type: array
+          maxItems: 2000
+          items:
+            $ref: '#/components/schemas/LibraryEntry'
+        removed:
+          type: array
+          maxItems: 2000
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+    LibraryEntry:
+      type: object
+      additionalProperties: false
+      required:
+        - assetId
+      properties:
+        assetId:
+          type: string
+          format: uuid
+        contentGeneration:
+          type: integer
+          minimum: 1
+          description: >-
+            The generation this instance holds. Leave it out when the
+            installation predates the counter; Illarin records the asset's
+            current one rather than calling the install out of date.
+    LibraryReportResult:
+      type: object
+      additionalProperties: false
+      required:
+        - accepted
+        - removed
+        - ignored
+      properties:
+        accepted:
+          type: integer
+        removed:
+          type: integer
+        ignored:
+          type: integer
+          description: Entries naming an asset Illarin cannot offer.
+    SendAssetRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - instanceId
+      properties:
+        instanceId:
+          type: string
+          format: uuid
+    QueuedDelivery:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - instanceId
+        - assetId
+        - state
+        - queuedAt
+        - expiresAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        instanceId:
+          type: string
+          format: uuid
+        assetId:
+          type: string
+          format: uuid
+        state:
+          type: string
+          enum:
+            - queued
+            - released
+            - failed
+        reason:
+          type:
+            - string
+            - 'null'
+          enum:
+            - withdrawn
+            - unsupported
+            - abandoned
+            - null
+          description: Why a failed delivery stopped.
+        queuedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+    AssetInstanceList:
+      type: object
+      additionalProperties: false
+      required:
+        - contentGeneration
+        - items
+      properties:
+        contentGeneration:
+          type: integer
+          minimum: 1
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssetInstance'
+    AssetInstance:
+      type: object
+      additionalProperties: false
+      required:
+        - instanceId
+        - applicationName
+        - instanceName
+        - lastSeenAt
+        - canReceive
+        - reportsLibrary
+        - delivery
+        - installedGeneration
+        - updateAvailable
+      properties:
+        instanceId:
+          type: string
+          format: uuid
+        applicationName:
+          type: string
+        instanceName:
+          type: string
+        lastSeenAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        canReceive:
+          type: boolean
+        reportsLibrary:
+          type: boolean
+        delivery:
+          oneOf:
+            - $ref: '#/components/schemas/QueuedDelivery'
+            - type: 'null'
+        installedGeneration:
+          type:
+            - integer
+            - 'null'
+        updateAvailable:
+          type: boolean

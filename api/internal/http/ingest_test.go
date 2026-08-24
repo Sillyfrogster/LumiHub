@@ -271,7 +271,7 @@ func newVerifiedIngestRouterWithStore(
 	outbox := &verificationOutbox{}
 	accounts := account.NewService(pool, outbox, nil, "http://localhost:3000")
 	links := newTestLinkingService(pool)
-	handlers := NewHandlers(assets, accounts, links, 1<<20)
+	handlers := NewHandlers(assets, accounts, links, newTestDeliveryService(pool, assets, links), 1<<20)
 	setup := registerTestRouter(t, handlers, DefaultDeadlines())
 	session := signUp(t, setup, "verified@example.com", "verified.creator")
 	verificationURL, err := url.Parse(outbox.messages[0].link)

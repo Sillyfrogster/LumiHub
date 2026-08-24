@@ -44,6 +44,8 @@ func TestContractRequiresBrowserProofForCookieMutations(t *testing.T) {
 		{"/v1/link/authorizations/{requestCode}/approve", "post", "Email is unverified or the browser origin/request proof is invalid"},
 		{"/v1/link/authorizations/{requestCode}/deny", "post", "Email is unverified or the browser origin/request proof is invalid"},
 		{"/v1/instances/{id}", "delete", "The browser origin or request proof is invalid"},
+		{"/v1/deliveries/{id}", "delete", "The browser origin or request proof is invalid"},
+		{"/v1/assets/{id}/deliveries", "post", "The browser proof is invalid, or that instance cannot receive assets"},
 	}
 	paths := contractMap(t, document["paths"], "paths")
 	for _, mutation := range mutations {

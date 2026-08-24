@@ -17,6 +17,7 @@ import (
 	"github.com/Sillyfrogster/Illarin/api/internal/account"
 	"github.com/Sillyfrogster/Illarin/api/internal/asset"
 	"github.com/Sillyfrogster/Illarin/api/internal/config"
+	"github.com/Sillyfrogster/Illarin/api/internal/delivery"
 	"github.com/Sillyfrogster/Illarin/api/internal/discord"
 	"github.com/Sillyfrogster/Illarin/api/internal/format/modules"
 	apihttp "github.com/Sillyfrogster/Illarin/api/internal/http"
@@ -132,10 +133,18 @@ func run() error {
 	}
 	accounts := account.NewService(pool, verificationSender, discordProvider, cfg.SiteURL)
 	links := linking.NewService(pool, cfg.SiteURL, cfg.LinkingHMACKey)
+	deliveries := delivery.NewService(pool, svc, links, delivery.DefaultSettings())
+	background.Add(1)
+	go func() {
+		defer background.Done()
+		deliveries.RunSweeper(runtimeContext, func(err error) {
+			log.Printf("delivery sweeper: %v", err)
+		})
+	}()
 
 	r := gin.New()
 	r.Use(apihttp.Recovery(log.Default()))
-	handlers := apihttp.NewHandlers(svc, accounts, links, cfg.MaxUploadBytes)
+	handlers := apihttp.NewHandlers(svc, accounts, links, deliveries, cfg.MaxUploadBytes)
 	readiness := func(ctx context.Context) error {
 		if err := pool.Ping(ctx); err != nil {
 			return err

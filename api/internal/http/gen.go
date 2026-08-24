@@ -368,22 +368,22 @@ func (e AssetImageRole) Valid() bool {
 
 // Defines values for AssetListEmptyState.
 const (
-	Catalog     AssetListEmptyState = "catalog"
-	LessThannil AssetListEmptyState = "<nil>"
-	NoMatches   AssetListEmptyState = "no_matches"
-	Suppressed  AssetListEmptyState = "suppressed"
+	AssetListEmptyStateCatalog     AssetListEmptyState = "catalog"
+	AssetListEmptyStateLessThannil AssetListEmptyState = "<nil>"
+	AssetListEmptyStateNoMatches   AssetListEmptyState = "no_matches"
+	AssetListEmptyStateSuppressed  AssetListEmptyState = "suppressed"
 )
 
 // Valid indicates whether the value is a known member of the AssetListEmptyState enum.
 func (e AssetListEmptyState) Valid() bool {
 	switch e {
-	case Catalog:
+	case AssetListEmptyStateCatalog:
 		return true
-	case LessThannil:
+	case AssetListEmptyStateLessThannil:
 		return true
-	case NoMatches:
+	case AssetListEmptyStateNoMatches:
 		return true
-	case Suppressed:
+	case AssetListEmptyStateSuppressed:
 		return true
 	default:
 		return false
@@ -498,6 +498,24 @@ func (e DeletedAssetKind) Valid() bool {
 	case DeletedAssetKindPreset:
 		return true
 	case DeletedAssetKindTheme:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DeliveryArtifactKind.
+const (
+	Export  DeliveryArtifactKind = "export"
+	Picture DeliveryArtifactKind = "picture"
+)
+
+// Valid indicates whether the value is a known member of the DeliveryArtifactKind enum.
+func (e DeliveryArtifactKind) Valid() bool {
+	switch e {
+	case Export:
+		return true
+	case Picture:
 		return true
 	default:
 		return false
@@ -810,6 +828,51 @@ func (e PromptListContentFragmentsRole) Valid() bool {
 	case PromptListContentFragmentsRoleUser:
 		return true
 	case PromptListContentFragmentsRoleUserAppend:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for QueuedDeliveryReason.
+const (
+	QueuedDeliveryReasonAbandoned   QueuedDeliveryReason = "abandoned"
+	QueuedDeliveryReasonLessThannil QueuedDeliveryReason = "<nil>"
+	QueuedDeliveryReasonUnsupported QueuedDeliveryReason = "unsupported"
+	QueuedDeliveryReasonWithdrawn   QueuedDeliveryReason = "withdrawn"
+)
+
+// Valid indicates whether the value is a known member of the QueuedDeliveryReason enum.
+func (e QueuedDeliveryReason) Valid() bool {
+	switch e {
+	case QueuedDeliveryReasonAbandoned:
+		return true
+	case QueuedDeliveryReasonLessThannil:
+		return true
+	case QueuedDeliveryReasonUnsupported:
+		return true
+	case QueuedDeliveryReasonWithdrawn:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for QueuedDeliveryState.
+const (
+	QueuedDeliveryStateFailed   QueuedDeliveryState = "failed"
+	QueuedDeliveryStateQueued   QueuedDeliveryState = "queued"
+	QueuedDeliveryStateReleased QueuedDeliveryState = "released"
+)
+
+// Valid indicates whether the value is a known member of the QueuedDeliveryState enum.
+func (e QueuedDeliveryState) Valid() bool {
+	switch e {
+	case QueuedDeliveryStateFailed:
+		return true
+	case QueuedDeliveryStateQueued:
+		return true
+	case QueuedDeliveryStateReleased:
 		return true
 	default:
 		return false
@@ -1194,6 +1257,21 @@ func (e GetAssetParamsNsfw) Valid() bool {
 	}
 }
 
+// Defines values for SendAssetToInstanceParamsXIllarinRequest.
+const (
+	SendAssetToInstanceParamsXIllarinRequestN1 SendAssetToInstanceParamsXIllarinRequest = "1"
+)
+
+// Valid indicates whether the value is a known member of the SendAssetToInstanceParamsXIllarinRequest enum.
+func (e SendAssetToInstanceParamsXIllarinRequest) Valid() bool {
+	switch e {
+	case SendAssetToInstanceParamsXIllarinRequestN1:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BeginDiscordParamsIntent.
 const (
 	Attach BeginDiscordParamsIntent = "attach"
@@ -1206,6 +1284,21 @@ func (e BeginDiscordParamsIntent) Valid() bool {
 	case Attach:
 		return true
 	case SignIn:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DiscardDeliveryParamsXIllarinRequest.
+const (
+	DiscardDeliveryParamsXIllarinRequestN1 DiscardDeliveryParamsXIllarinRequest = "1"
+)
+
+// Valid indicates whether the value is a known member of the DiscardDeliveryParamsXIllarinRequest enum.
+func (e DiscardDeliveryParamsXIllarinRequest) Valid() bool {
+	switch e {
+	case DiscardDeliveryParamsXIllarinRequestN1:
 		return true
 	default:
 		return false
@@ -1532,6 +1625,25 @@ type AssetImage struct {
 // AssetImageRole defines model for AssetImage.Role.
 type AssetImageRole string
 
+// AssetInstance defines model for AssetInstance.
+type AssetInstance struct {
+	ApplicationName     string             `json:"applicationName"`
+	CanReceive          bool               `json:"canReceive"`
+	Delivery            *QueuedDelivery    `json:"delivery"`
+	InstalledGeneration *int               `json:"installedGeneration"`
+	InstanceId          openapi_types.UUID `json:"instanceId"`
+	InstanceName        string             `json:"instanceName"`
+	LastSeenAt          *time.Time         `json:"lastSeenAt"`
+	ReportsLibrary      bool               `json:"reportsLibrary"`
+	UpdateAvailable     bool               `json:"updateAvailable"`
+}
+
+// AssetInstanceList defines model for AssetInstanceList.
+type AssetInstanceList struct {
+	ContentGeneration int             `json:"contentGeneration"`
+	Items             []AssetInstance `json:"items"`
+}
+
 // AssetList defines model for AssetList.
 type AssetList struct {
 	EmptyState *AssetListEmptyState `json:"emptyState"`
@@ -1627,6 +1739,12 @@ type ChangeEmailRequest struct {
 	Email openapi_types.Email `json:"email"`
 }
 
+// CollectDeliveries defines model for CollectDeliveries.
+type CollectDeliveries struct {
+	// Acknowledge The deliveries this instance has durably installed since its last request. Delivery is at least once, so treat the ids as stable and acknowledge only after the work is safely stored.
+	Acknowledge []openapi_types.UUID `json:"acknowledge"`
+}
+
 // ColorSetContent A theme's named colours, grouped by the modes its source carries.
 type ColorSetContent struct {
 	Modes []struct {
@@ -1673,6 +1791,47 @@ type DeletedAssetKind string
 // DeletedAssetList defines model for DeletedAssetList.
 type DeletedAssetList struct {
 	Items []DeletedAsset `json:"items"`
+}
+
+// DeliveryArtifact defines model for DeliveryArtifact.
+type DeliveryArtifact struct {
+	IsCover *bool                `json:"isCover,omitempty"`
+	Kind    DeliveryArtifactKind `json:"kind"`
+	MediaId *openapi_types.UUID  `json:"mediaId,omitempty"`
+	Role    *string              `json:"role,omitempty"`
+
+	// Url A short-lived signed address fetched with an ordinary GET.
+	Url string `json:"url"`
+}
+
+// DeliveryArtifactKind defines model for DeliveryArtifact.Kind.
+type DeliveryArtifactKind string
+
+// DeliveryWork defines model for DeliveryWork.
+type DeliveryWork struct {
+	Artifacts []DeliveryArtifact `json:"artifacts"`
+	AssetId   openapi_types.UUID `json:"assetId"`
+
+	// ContentGeneration The update signal. Store it against the asset id; a newer one means the file changed.
+	ContentGeneration int `json:"contentGeneration"`
+
+	// Format The chosen export target, or raw for the creator's own uploaded file.
+	Format string `json:"format"`
+
+	// Id The stable event id to acknowledge and to deduplicate on.
+	Id    openapi_types.UUID `json:"id"`
+	Kind  string             `json:"kind"`
+	Label string             `json:"label"`
+
+	// LeaseExpiresAt When the artifact addresses stop answering and the delivery becomes collectable again.
+	LeaseExpiresAt time.Time `json:"leaseExpiresAt"`
+	Name           string    `json:"name"`
+	QueuedAt       time.Time `json:"queuedAt"`
+}
+
+// DeliveryWorkList defines model for DeliveryWorkList.
+type DeliveryWorkList struct {
+	Deliveries []DeliveryWork `json:"deliveries"`
 }
 
 // DeviceCode defines model for DeviceCode.
@@ -1842,6 +2001,32 @@ type LegacyAsset struct {
 	Name string             `json:"name"`
 }
 
+// LibraryEntry defines model for LibraryEntry.
+type LibraryEntry struct {
+	AssetId openapi_types.UUID `json:"assetId"`
+
+	// ContentGeneration The generation this instance holds. Leave it out when the installation predates the counter; Illarin records the asset's current one rather than calling the install out of date.
+	ContentGeneration *int `json:"contentGeneration,omitempty"`
+}
+
+// LibraryReport defines model for LibraryReport.
+type LibraryReport struct {
+	Entries []LibraryEntry        `json:"entries"`
+	Removed *[]openapi_types.UUID `json:"removed,omitempty"`
+
+	// Snapshot True to replace the whole mirror for this instance. A snapshot carries no removals, because anything absent from it is removed.
+	Snapshot bool `json:"snapshot"`
+}
+
+// LibraryReportResult defines model for LibraryReportResult.
+type LibraryReportResult struct {
+	Accepted int `json:"accepted"`
+
+	// Ignored Entries naming an asset Illarin cannot offer.
+	Ignored int `json:"ignored"`
+	Removed int `json:"removed"`
+}
+
 // LinkAuthorization defines model for LinkAuthorization.
 type LinkAuthorization struct {
 	// AuthorizationUrl The Illarin page to open in the system browser.
@@ -1910,7 +2095,7 @@ type LinkedInstance struct {
 
 // LinkedInstanceList defines model for LinkedInstanceList.
 type LinkedInstanceList struct {
-	Items []LinkedInstance `json:"items"`
+	Items []ManagedInstance `json:"items"`
 }
 
 // LinkedLinkPollResult defines model for LinkedLinkPollResult.
@@ -1926,6 +2111,30 @@ type LinkedLinkPollResult struct {
 
 // LinkedLinkPollResultStatus defines model for LinkedLinkPollResult.Status.
 type LinkedLinkPollResultStatus string
+
+// ManagedInstance defines model for ManagedInstance.
+type ManagedInstance struct {
+	AcceptedTargets    []string           `json:"acceptedTargets"`
+	ApplicationName    string             `json:"applicationName"`
+	ApplicationVersion *string            `json:"applicationVersion,omitempty"`
+	Capabilities       []string           `json:"capabilities"`
+	Id                 openapi_types.UUID `json:"id"`
+
+	// Installed How many assets this instance has reported having installed. It is zero without the library:sync scope.
+	Installed    int        `json:"installed"`
+	InstanceName string     `json:"instanceName"`
+	LastSeenAt   *time.Time `json:"lastSeenAt"`
+	LinkedAt     time.Time  `json:"linkedAt"`
+
+	// Prefix The readable prefix of the current refresh token.
+	Prefix          string     `json:"prefix"`
+	ProtocolVersion *int       `json:"protocolVersion"`
+	RevokedAt       *time.Time `json:"revokedAt"`
+	Scopes          []Scope    `json:"scopes"`
+
+	// UpdatesAvailable How many of those the creator has since changed, so a newer content generation exists here than the instance reported.
+	UpdatesAvailable int `json:"updatesAvailable"`
+}
 
 // Media defines model for Media.
 type Media struct {
@@ -2088,6 +2297,25 @@ type PublishRefusal struct {
 	Readiness *[]ReadinessItem `json:"readiness,omitempty"`
 }
 
+// QueuedDelivery defines model for QueuedDelivery.
+type QueuedDelivery struct {
+	AssetId    openapi_types.UUID `json:"assetId"`
+	ExpiresAt  time.Time          `json:"expiresAt"`
+	Id         openapi_types.UUID `json:"id"`
+	InstanceId openapi_types.UUID `json:"instanceId"`
+	QueuedAt   time.Time          `json:"queuedAt"`
+
+	// Reason Why a failed delivery stopped.
+	Reason *QueuedDeliveryReason `json:"reason,omitempty"`
+	State  QueuedDeliveryState   `json:"state"`
+}
+
+// QueuedDeliveryReason Why a failed delivery stopped.
+type QueuedDeliveryReason string
+
+// QueuedDeliveryState defines model for QueuedDelivery.State.
+type QueuedDeliveryState string
+
 // ReadinessItem One thing publication waits on, and whether the asset carries it.
 type ReadinessItem struct {
 	// BlockId The block a creator fills this in. Absent for a header field.
@@ -2214,6 +2442,11 @@ type ScriptListContentScriptsAffects string
 
 // ScriptListContentScriptsTargets defines model for ScriptListContent.Scripts.Targets.
 type ScriptListContentScriptsTargets string
+
+// SendAssetRequest defines model for SendAssetRequest.
+type SendAssetRequest struct {
+	InstanceId openapi_types.UUID `json:"instanceId"`
+}
 
 // SessionState defines model for SessionState.
 type SessionState struct {
@@ -2404,6 +2637,15 @@ type WithholdAssetRequest struct {
 // IllarinRequest defines model for IllarinRequest.
 type IllarinRequest string
 
+// DownloadDeliveryExportParams defines parameters for DownloadDeliveryExport.
+type DownloadDeliveryExportParams struct {
+	// Expires When the signature runs out.
+	Expires string `form:"expires" json:"expires"`
+
+	// Signature The signature Illarin minted for this exact address.
+	Signature string `form:"signature" json:"signature"`
+}
+
 // GetMediaVariantParams defines parameters for GetMediaVariant.
 type GetMediaVariantParams struct {
 	// Expires When the signature runs out. A draft's images are served against a short-lived signature at the same address they keep once published.
@@ -2462,6 +2704,15 @@ type GetAssetParams struct {
 // GetAssetParamsNsfw defines parameters for GetAsset.
 type GetAssetParamsNsfw string
 
+// SendAssetToInstanceParams defines parameters for SendAssetToInstance.
+type SendAssetToInstanceParams struct {
+	// XIllarinRequest Illarin's browser request proof. The value must be 1.
+	XIllarinRequest SendAssetToInstanceParamsXIllarinRequest `json:"X-Illarin-Request"`
+}
+
+// SendAssetToInstanceParamsXIllarinRequest defines parameters for SendAssetToInstance.
+type SendAssetToInstanceParamsXIllarinRequest string
+
 // AddMediaMultipartBody defines parameters for AddMedia.
 type AddMediaMultipartBody struct {
 	File     openapi_types.File `json:"file"`
@@ -2490,6 +2741,15 @@ type CompleteDiscordParams struct {
 	Code  *string `form:"code,omitempty" json:"code,omitempty"`
 	Error *string `form:"error,omitempty" json:"error,omitempty"`
 }
+
+// DiscardDeliveryParams defines parameters for DiscardDelivery.
+type DiscardDeliveryParams struct {
+	// XIllarinRequest Illarin's browser request proof. The value must be 1.
+	XIllarinRequest DiscardDeliveryParamsXIllarinRequest `json:"X-Illarin-Request"`
+}
+
+// DiscardDeliveryParamsXIllarinRequest defines parameters for DiscardDelivery.
+type DiscardDeliveryParamsXIllarinRequest string
 
 // RevokeInstanceParams defines parameters for RevokeInstance.
 type RevokeInstanceParams struct {
@@ -2566,6 +2826,9 @@ type SaveAssetBlockJSONRequestBody = SaveAssetBlockRequest
 // MoveAssetBlockContentJSONRequestBody defines body for MoveAssetBlockContent for application/json ContentType.
 type MoveAssetBlockContentJSONRequestBody = MoveAssetBlockContentRequest
 
+// SendAssetToInstanceJSONRequestBody defines body for SendAssetToInstance for application/json ContentType.
+type SendAssetToInstanceJSONRequestBody = SendAssetRequest
+
 // SetAssetDiscoveryJSONRequestBody defines body for SetAssetDiscovery for application/json ContentType.
 type SetAssetDiscoveryJSONRequestBody = AssetDiscoveryRequest
 
@@ -2596,8 +2859,14 @@ type SignUpJSONRequestBody = SignUpRequest
 // VerifyEmailJSONRequestBody defines body for VerifyEmail for application/json ContentType.
 type VerifyEmailJSONRequestBody = VerifyEmailRequest
 
+// CollectDeliveriesJSONRequestBody defines body for CollectDeliveries for application/json ContentType.
+type CollectDeliveriesJSONRequestBody = CollectDeliveries
+
 // UpdateInstanceJSONRequestBody defines body for UpdateInstance for application/json ContentType.
 type UpdateInstanceJSONRequestBody = UpdateInstance
+
+// SyncLibraryJSONRequestBody defines body for SyncLibrary for application/json ContentType.
+type SyncLibraryJSONRequestBody = LibraryReport
 
 // StartLinkAuthorizationJSONRequestBody defines body for StartLinkAuthorization for application/json ContentType.
 type StartLinkAuthorizationJSONRequestBody = StartLinkAuthorization
@@ -2724,6 +2993,9 @@ func (t *LinkPollResult) UnmarshalJSON(b []byte) error {
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 
+	// (GET /delivery/{id}/export)
+	DownloadDeliveryExport(c *gin.Context, id openapi_types.UUID, params DownloadDeliveryExportParams)
+
 	// (GET /download/{id})
 	DownloadSource(c *gin.Context, id openapi_types.UUID)
 
@@ -2775,11 +3047,17 @@ type ServerInterface interface {
 	// (POST /v1/assets/{id}/blocks/{blockId}/move-and-remove)
 	MoveAssetBlockContent(c *gin.Context, id openapi_types.UUID, blockId openapi_types.UUID)
 
+	// (POST /v1/assets/{id}/deliveries)
+	SendAssetToInstance(c *gin.Context, id openapi_types.UUID, params SendAssetToInstanceParams)
+
 	// (PUT /v1/assets/{id}/discovery)
 	SetAssetDiscovery(c *gin.Context, id openapi_types.UUID)
 
 	// (PUT /v1/assets/{id}/identity)
 	SetAssetIdentity(c *gin.Context, id openapi_types.UUID)
+
+	// (GET /v1/assets/{id}/instances)
+	GetAssetInstances(c *gin.Context, id openapi_types.UUID)
 
 	// (GET /v1/assets/{id}/media)
 	ListMedia(c *gin.Context, id openapi_types.UUID)
@@ -2838,6 +3116,12 @@ type ServerInterface interface {
 	// (POST /v1/auth/verify-email)
 	VerifyEmail(c *gin.Context)
 
+	// (POST /v1/deliveries/collect)
+	CollectDeliveries(c *gin.Context)
+
+	// (DELETE /v1/deliveries/{id})
+	DiscardDelivery(c *gin.Context, id openapi_types.UUID, params DiscardDeliveryParams)
+
 	// (GET /v1/ingests/{id})
 	GetIngest(c *gin.Context, id openapi_types.UUID)
 
@@ -2858,6 +3142,9 @@ type ServerInterface interface {
 
 	// (GET /v1/legacy-profiles/{discordId})
 	ResolveLegacyProfile(c *gin.Context, discordId string)
+
+	// (POST /v1/library/sync)
+	SyncLibrary(c *gin.Context)
 
 	// (POST /v1/link/authorizations)
 	StartLinkAuthorization(c *gin.Context)
@@ -2907,6 +3194,50 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(c *gin.Context)
+
+// DownloadDeliveryExport operation middleware
+func (siw *ServerInterfaceWrapper) DownloadDeliveryExport(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DownloadDeliveryExportParams
+
+	// ------------- Required query parameter "expires" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "expires", c.Request.URL.Query(), &params.Expires, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter expires: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Required query parameter "signature" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "signature", c.Request.URL.Query(), &params.Signature, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter signature: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DownloadDeliveryExport(c, id, params)
+}
 
 // DownloadSource operation middleware
 func (siw *ServerInterfaceWrapper) DownloadSource(c *gin.Context) {
@@ -3411,6 +3742,58 @@ func (siw *ServerInterfaceWrapper) MoveAssetBlockContent(c *gin.Context) {
 	siw.Handler.MoveAssetBlockContent(c, id, blockId)
 }
 
+// SendAssetToInstance operation middleware
+func (siw *ServerInterfaceWrapper) SendAssetToInstance(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SendAssetToInstanceParams
+
+	headers := c.Request.Header
+
+	// ------------- Required header parameter "X-Illarin-Request" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Illarin-Request")]; found {
+		var XIllarinRequest SendAssetToInstanceParamsXIllarinRequest
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Illarin-Request, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Illarin-Request", valueList[0], &XIllarinRequest, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Illarin-Request: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XIllarinRequest = XIllarinRequest
+
+	} else {
+		siw.ErrorHandler(c, fmt.Errorf("Header parameter X-Illarin-Request is required, but not found"), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.SendAssetToInstance(c, id, params)
+}
+
 // SetAssetDiscovery operation middleware
 func (siw *ServerInterfaceWrapper) SetAssetDiscovery(c *gin.Context) {
 
@@ -3459,6 +3842,31 @@ func (siw *ServerInterfaceWrapper) SetAssetIdentity(c *gin.Context) {
 	}
 
 	siw.Handler.SetAssetIdentity(c, id)
+}
+
+// GetAssetInstances operation middleware
+func (siw *ServerInterfaceWrapper) GetAssetInstances(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetAssetInstances(c, id)
 }
 
 // ListMedia operation middleware
@@ -3889,6 +4297,71 @@ func (siw *ServerInterfaceWrapper) VerifyEmail(c *gin.Context) {
 	siw.Handler.VerifyEmail(c)
 }
 
+// CollectDeliveries operation middleware
+func (siw *ServerInterfaceWrapper) CollectDeliveries(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CollectDeliveries(c)
+}
+
+// DiscardDelivery operation middleware
+func (siw *ServerInterfaceWrapper) DiscardDelivery(c *gin.Context) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", c.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter id: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DiscardDeliveryParams
+
+	headers := c.Request.Header
+
+	// ------------- Required header parameter "X-Illarin-Request" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Illarin-Request")]; found {
+		var XIllarinRequest DiscardDeliveryParamsXIllarinRequest
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandler(c, fmt.Errorf("Expected one value for X-Illarin-Request, got %d", n), http.StatusBadRequest)
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Illarin-Request", valueList[0], &XIllarinRequest, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter X-Illarin-Request: %w", err), http.StatusBadRequest)
+			return
+		}
+
+		params.XIllarinRequest = XIllarinRequest
+
+	} else {
+		siw.ErrorHandler(c, fmt.Errorf("Header parameter X-Illarin-Request is required, but not found"), http.StatusBadRequest)
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DiscardDelivery(c, id, params)
+}
+
 // GetIngest operation middleware
 func (siw *ServerInterfaceWrapper) GetIngest(c *gin.Context) {
 
@@ -4062,6 +4535,19 @@ func (siw *ServerInterfaceWrapper) ResolveLegacyProfile(c *gin.Context) {
 	}
 
 	siw.Handler.ResolveLegacyProfile(c, discordId)
+}
+
+// SyncLibrary operation middleware
+func (siw *ServerInterfaceWrapper) SyncLibrary(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.SyncLibrary(c)
 }
 
 // StartLinkAuthorization operation middleware
@@ -4493,6 +4979,12 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/v1/instances/me", wrapper.GetInstance)
 	router.PUT(options.BaseURL+"/v1/instances/me", wrapper.UpdateInstance)
 	router.DELETE(options.BaseURL+"/v1/instances/:id", wrapper.RevokeInstance)
+	router.POST(options.BaseURL+"/v1/deliveries/collect", wrapper.CollectDeliveries)
+	router.DELETE(options.BaseURL+"/v1/deliveries/:id", wrapper.DiscardDelivery)
+	router.POST(options.BaseURL+"/v1/library/sync", wrapper.SyncLibrary)
+	router.GET(options.BaseURL+"/v1/assets/:id/instances", wrapper.GetAssetInstances)
+	router.POST(options.BaseURL+"/v1/assets/:id/deliveries", wrapper.SendAssetToInstance)
+	router.GET(options.BaseURL+"/delivery/:id/export", wrapper.DownloadDeliveryExport)
 	router.GET(options.BaseURL+"/v1/profiles/:handle", wrapper.GetProfile)
 	router.GET(options.BaseURL+"/v1/legacy-profiles/:discordId", wrapper.ResolveLegacyProfile)
 	router.GET(options.BaseURL+"/v1/assets", wrapper.ListAssets)

@@ -17,6 +17,10 @@ type Deadlines struct {
 	JSON     time.Duration
 	Upload   time.Duration
 	Download time.Duration
+	// Deliver is the only route that waits on purpose. It has to outlast the
+	// longest hold the delivery queue takes, or the wait would end in a cut
+	// connection instead of an empty answer.
+	Deliver time.Duration
 }
 
 type Readiness func(context.Context) error
@@ -29,6 +33,7 @@ func DefaultDeadlines() Deadlines {
 		JSON:     5 * time.Second,
 		Upload:   15 * time.Minute,
 		Download: 15 * time.Minute,
+		Deliver:  45 * time.Second,
 	}
 }
 
@@ -59,6 +64,11 @@ func Register(r *gin.Engine, h *Handlers, d Deadlines, readiness Readiness) erro
 		routeKey(http.MethodGet, "/v1/instances/me"):                                d.JSON,
 		routeKey(http.MethodPut, "/v1/instances/me"):                                d.JSON,
 		routeKey(http.MethodDelete, "/v1/instances/:id"):                            d.JSON,
+		routeKey(http.MethodPost, "/v1/deliveries/collect"):                         d.Deliver,
+		routeKey(http.MethodDelete, "/v1/deliveries/:id"):                           d.JSON,
+		routeKey(http.MethodPost, "/v1/library/sync"):                               d.JSON,
+		routeKey(http.MethodGet, "/v1/assets/:id/instances"):                        d.JSON,
+		routeKey(http.MethodPost, "/v1/assets/:id/deliveries"):                      d.JSON,
 		routeKey(http.MethodPatch, "/v1/account/email"):                             d.JSON,
 		routeKey(http.MethodPatch, "/v1/account/handle"):                            d.JSON,
 		routeKey(http.MethodPut, "/v1/account/password"):                            d.JSON,
@@ -104,6 +114,7 @@ func Register(r *gin.Engine, h *Handlers, d Deadlines, readiness Readiness) erro
 		routeKey(http.MethodGet, "/download/:id"):                                 d.Download,
 		routeKey(http.MethodGet, "/download/:id/:target"):                         d.Download,
 		routeKey(http.MethodGet, "/media/:media_id/:variant/:derivative_version"): d.Download,
+		routeKey(http.MethodGet, "/delivery/:id/export"):                          d.Download,
 	}
 
 	routes := r.Group("", deadlineByRoute(limits), noStoreLinkedInstanceResponses())

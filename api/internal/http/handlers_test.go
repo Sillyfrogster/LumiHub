@@ -12,6 +12,7 @@ import (
 
 	"github.com/Sillyfrogster/Illarin/api/internal/account"
 	"github.com/Sillyfrogster/Illarin/api/internal/asset"
+	"github.com/Sillyfrogster/Illarin/api/internal/delivery"
 	"github.com/Sillyfrogster/Illarin/api/internal/format"
 	"github.com/Sillyfrogster/Illarin/api/internal/linking"
 	"github.com/Sillyfrogster/Illarin/api/internal/storage"
@@ -112,6 +113,17 @@ func newTestHandlersWithPool(
 	sender account.EmailSender,
 ) *Handlers {
 	t.Helper()
+	return newTestHandlersWithDelivery(t, pool, maxUploadBytes, sender, testDeliverySettings())
+}
+
+func newTestHandlersWithDelivery(
+	t *testing.T,
+	pool *pgxpool.Pool,
+	maxUploadBytes int64,
+	sender account.EmailSender,
+	settings delivery.Settings,
+) *Handlers {
+	t.Helper()
 	gin.SetMode(gin.TestMode)
 
 	blob, err := storage.NewStore(pool, t.TempDir())
@@ -121,8 +133,9 @@ func newTestHandlersWithPool(
 	svc := asset.NewService(pool, testRegistry(t), blob)
 	accounts := account.NewService(pool, sender, nil, "http://localhost:3000")
 	links := newTestLinkingService(pool)
+	deliveries := delivery.NewService(pool, svc, links, settings)
 
-	return NewHandlers(svc, accounts, links, maxUploadBytes)
+	return NewHandlers(svc, accounts, links, deliveries, maxUploadBytes)
 }
 
 func newTestRouterWithDiscord(
@@ -158,11 +171,32 @@ func newDiscordTestStack(
 	accounts := account.NewService(
 		pool, outbox, provider, "http://localhost:3000",
 	)
-	return registerTestRouter(t, NewHandlers(assets, accounts, newTestLinkingService(pool), 1<<20), DefaultDeadlines()), outbox, pool
+	links := newTestLinkingService(pool)
+	handlers := NewHandlers(assets, accounts, links, newTestDeliveryService(pool, assets, links), 1<<20)
+	return registerTestRouter(t, handlers, DefaultDeadlines()), outbox, pool
 }
 
 func newTestLinkingService(pool *pgxpool.Pool) *linking.Service {
 	return linking.NewService(pool, "http://localhost:3000", []byte("01234567890123456789012345678901"))
+}
+
+func newTestDeliveryService(
+	pool *pgxpool.Pool,
+	assets *asset.Service,
+	links *linking.Service,
+) *delivery.Service {
+	return delivery.NewService(pool, assets, links, testDeliverySettings())
+}
+
+// testDeliverySettings keep every bound the service runs under and shorten only
+// the waiting, so a test that queues nothing finishes rather than holding for
+// half a minute.
+func testDeliverySettings() delivery.Settings {
+	settings := delivery.DefaultSettings()
+	settings.HoldFloor = 50 * time.Millisecond
+	settings.HoldCeiling = 80 * time.Millisecond
+	settings.Recheck = 20 * time.Millisecond
+	return settings
 }
 
 func registerTestRouter(t *testing.T, handlers *Handlers, deadlines Deadlines) *gin.Engine {

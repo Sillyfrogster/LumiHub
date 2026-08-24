@@ -61,6 +61,18 @@ paths:
     $ref: ./linking.yaml#/paths/~1v1~1instances~1me
   /v1/instances/{id}:
     $ref: ./linking.yaml#/paths/~1v1~1instances~1{id}
+  /v1/deliveries/collect:
+    $ref: ./delivery.yaml#/paths/~1v1~1deliveries~1collect
+  /v1/deliveries/{id}:
+    $ref: ./delivery.yaml#/paths/~1v1~1deliveries~1{id}
+  /v1/library/sync:
+    $ref: ./delivery.yaml#/paths/~1v1~1library~1sync
+  /v1/assets/{id}/instances:
+    $ref: ./delivery.yaml#/paths/~1v1~1assets~1{id}~1instances
+  /v1/assets/{id}/deliveries:
+    $ref: ./delivery.yaml#/paths/~1v1~1assets~1{id}~1deliveries
+  /delivery/{id}/export:
+    $ref: ./delivery.yaml#/paths/~1delivery~1{id}~1export
   /v1/profiles/{handle}:
     $ref: ./accounts.yaml#/paths/~1v1~1profiles~1{handle}
   /v1/legacy-profiles/{discordId}:

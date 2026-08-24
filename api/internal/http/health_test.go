@@ -14,7 +14,7 @@ func TestLivenessDoesNotDependOnReadiness(t *testing.T) {
 	r := gin.New()
 	if err := Register(
 		r,
-		NewHandlers(nil, nil, nil, 1<<20),
+		NewHandlers(nil, nil, nil, nil, 1<<20),
 		DefaultDeadlines(),
 		func(context.Context) error { return errors.New("database password leaked here") },
 	); err != nil {
