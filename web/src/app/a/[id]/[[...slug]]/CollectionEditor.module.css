@@ -88,15 +88,30 @@
   overflow-wrap: anywhere;
 }
 
-.off {
-  align-self: flex-start;
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
   margin-top: 3px;
+}
+
+.off,
+.sealed {
   padding: 2px 7px;
   border-radius: var(--radius-pill);
-  background: var(--color-muted);
-  color: var(--color-text-secondary);
   font-size: 0.66rem;
   font-weight: 700;
+}
+
+.off {
+  background: var(--color-muted);
+  color: var(--color-text-secondary);
+}
+
+.sealed {
+  border: 1px solid var(--color-accent-border);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-strong);
 }
 
 .nothing {

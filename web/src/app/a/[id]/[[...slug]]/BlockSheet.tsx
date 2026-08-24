@@ -431,6 +431,7 @@ function hasSealedPrompts(elements: AssetElement[]): boolean {
   );
 }
 
+/** Whether this edit turns the last sealed fragment public. */
 function finalPromptWasUnsealed(
   previous: AssetElement,
   next: AssetElement,

@@ -136,6 +136,7 @@ export function PromptListEditor({
             ? groupNames.get(fragment.groupId)
             : undefined,
           off: !fragment.enabled,
+          sealed: fragment.protected ?? false,
           search: [
             fragmentName(fragment, index),
             fragment.text,

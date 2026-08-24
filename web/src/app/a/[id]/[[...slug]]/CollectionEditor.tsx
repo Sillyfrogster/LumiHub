@@ -8,6 +8,7 @@ export type CollectionRow = {
   name: string;
   detail?: string;
   off?: boolean;
+  sealed?: boolean;
   search: string;
 };
 
@@ -81,8 +82,15 @@ export function CollectionEditor({
                   {row.detail ? (
                     <span className={styles.entryKeys}>{row.detail}</span>
                   ) : null}
-                  {row.off ? (
-                    <span className={styles.off}>Switched off</span>
+                  {row.off || row.sealed ? (
+                    <span className={styles.badges}>
+                      {row.off ? (
+                        <span className={styles.off}>Switched off</span>
+                      ) : null}
+                      {row.sealed ? (
+                        <span className={styles.sealed}>Sealed</span>
+                      ) : null}
+                    </span>
                   ) : null}
                 </button>
               </li>

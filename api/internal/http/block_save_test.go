@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/Sillyfrogster/Illarin/api/internal/block"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type saveBlockElement struct {
@@ -633,4 +635,99 @@ func TestSwitchingThreeMessagesBackToStackTwoNamesTheStrandedElement(t *testing.
 			t.Errorf("refusal %q does not name %q", response.Body.String(), want)
 		}
 	}
+}
+
+func TestRemovingSealedPromptsDropsTheirPayloadsAndThenThePolicy(t *testing.T) {
+	_, r, session, _, pool := newVerifiedTestRoutersWithPool(t, 1<<20, DefaultDeadlines())
+	started := startPreset(t, r, session, "lumiverse")
+	core := editableBlock(blockNamed(t, started.Blocks, "preset_core"))
+	core.Elements[0].Content = json.RawMessage(`{"groups":[],"fragments":[
+		{"name":"Visible","role":"system","text":"Readers keep this one.","enabled":true},
+		{"name":"First sealed","role":"system","text":"Only allowed applications receive this first instruction.","protected":true,"enabled":true},
+		{"name":"Second sealed","role":"system","text":"Only allowed applications receive this second instruction.","protected":true,"enabled":true}
+	]}`)
+	apps := []string{"lumiverse"}
+	core.AllowedApps = &apps
+	if got := saveBlock(t, r, session, started.ID, started.Blocks[0].ID, core); got.Code != http.StatusOK {
+		t.Fatalf("seal two prompts status = %d, want 200: %s", got.Code, got.Body.String())
+	}
+	if payloads, policies := protectedCounts(t, pool, started.ID); payloads != 2 || policies != 1 {
+		t.Fatalf("after sealing: %d payloads and %d policy rows, want 2 and 1", payloads, policies)
+	}
+
+	owner := fetchStartedAsset(t, r, session, started.ID)
+	shorter := editableBlock(blockNamed(t, owner.Blocks, "preset_core"))
+	shorter.Elements[0].Content = withoutFragment(t, owner, "First sealed")
+	shorter.AllowedApps = &apps
+	if got := saveBlock(t, r, session, started.ID, started.Blocks[0].ID, shorter); got.Code != http.StatusOK {
+		t.Fatalf("remove one sealed prompt status = %d, want 200: %s", got.Code, got.Body.String())
+	}
+	if payloads, policies := protectedCounts(t, pool, started.ID); payloads != 1 || policies != 1 {
+		t.Fatalf("after one removal: %d payloads and %d policy rows, want 1 and 1", payloads, policies)
+	}
+
+	owner = fetchStartedAsset(t, r, session, started.ID)
+	shortest := editableBlock(blockNamed(t, owner.Blocks, "preset_core"))
+	shortest.Elements[0].Content = withoutFragment(t, owner, "Second sealed")
+	shortest.AllowedApps = &[]string{}
+	if got := saveBlock(t, r, session, started.ID, started.Blocks[0].ID, shortest); got.Code != http.StatusOK {
+		t.Fatalf("remove the final sealed prompt status = %d, want 200: %s", got.Code, got.Body.String())
+	}
+	if payloads, policies := protectedCounts(t, pool, started.ID); payloads != 0 || policies != 0 {
+		t.Fatalf("after the final removal: %d payloads and %d policy rows, want none", payloads, policies)
+	}
+
+	owner = fetchStartedAsset(t, r, session, started.ID)
+	if owner.LinkedInstallOnly || len(owner.AllowedApps) != 0 {
+		t.Fatalf("after the final removal: linked install only %t, allowed apps %v",
+			owner.LinkedInstallOnly, owner.AllowedApps)
+	}
+}
+
+// protectedCounts reads how many private payloads and delivery policy rows an asset still holds.
+func protectedCounts(t *testing.T, pool *pgxpool.Pool, assetID string) (int, int) {
+	t.Helper()
+	var payloads, policies int
+	err := pool.QueryRow(context.Background(), `
+		SELECT
+			(SELECT count(*) FROM protected_content WHERE asset_id = $1),
+			(SELECT count(*) FROM protected_delivery_apps WHERE asset_id = $1)
+	`, assetID).Scan(&payloads, &policies)
+	if err != nil {
+		t.Fatalf("count protected rows: %v", err)
+	}
+	return payloads, policies
+}
+
+// withoutFragment returns the preset's prompt content with one named fragment taken out.
+func withoutFragment(t *testing.T, owner startedAsset, name string) json.RawMessage {
+	t.Helper()
+	var content struct {
+		Groups    json.RawMessage   `json:"groups"`
+		Fragments []json.RawMessage `json:"fragments"`
+	}
+	if err := json.Unmarshal(owner.Blocks[0].Elements[0].Content, &content); err != nil {
+		t.Fatalf("decode prompt content: %v", err)
+	}
+	kept := make([]json.RawMessage, 0, len(content.Fragments))
+	for _, fragment := range content.Fragments {
+		var named struct {
+			Name string `json:"name"`
+		}
+		if err := json.Unmarshal(fragment, &named); err != nil {
+			t.Fatalf("decode fragment: %v", err)
+		}
+		if named.Name != name {
+			kept = append(kept, fragment)
+		}
+	}
+	if len(kept) == len(content.Fragments) {
+		t.Fatalf("no fragment named %q to remove", name)
+	}
+	content.Fragments = kept
+	rebuilt, err := json.Marshal(content)
+	if err != nil {
+		t.Fatalf("encode prompt content: %v", err)
+	}
+	return rebuilt
 }

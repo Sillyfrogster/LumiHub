@@ -159,6 +159,7 @@ func TestAssetPageShowsNoTotals(t *testing.T) {
 		"creator": true, "isNsfw": true, "discovery": true, "createdAt": true,
 		"lifecycle": true, "isOwner": true, "downloads": true, "original": true,
 		"blocks": true, "media": true, "preview": true, "visibility": true,
+		"linkedInstallOnly": true, "allowedApps": true, "eligibleApps": true,
 	}
 	for key := range body {
 		if !wantKeys[key] {
