@@ -91,6 +91,7 @@ paths:
         once. This browser-only operation requires Illarin's request header.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: userCode
           in: path
@@ -125,6 +126,7 @@ paths:
       description: Deny the reviewed device request and stop its polling installation.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: userCode
           in: path
@@ -206,6 +208,7 @@ paths:
       description: Approve once and return the validated loopback redirect.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: requestCode
           in: path
@@ -234,6 +237,7 @@ paths:
       description: Deny once and return the validated loopback error redirect.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: requestCode
           in: path
@@ -376,6 +380,7 @@ paths:
         stays.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path

@@ -3,6 +3,9 @@ openapi: 3.1.0
 info:
   title: Illarin API
   version: 0.1.0
+  description: >-
+    State-changing requests that use the session cookie also carry Illarin's
+    browser-mutation proof and exact browser origin.
 servers:
   - url: /api
 paths:
@@ -11,6 +14,7 @@ paths:
       operationId: detachDiscord
       security:
         - sessionCookie: []
+          browserMutation: []
       responses:
         '200':
           description: The account with Discord detached
@@ -27,6 +31,7 @@ paths:
       operationId: changeUnverifiedEmail
       security:
         - sessionCookie: []
+          browserMutation: []
       requestBody:
         required: true
         content:
@@ -51,6 +56,7 @@ paths:
       operationId: renameHandle
       security:
         - sessionCookie: []
+          browserMutation: []
       requestBody:
         required: true
         content:
@@ -77,6 +83,7 @@ paths:
       operationId: setPassword
       security:
         - sessionCookie: []
+          browserMutation: []
       requestBody:
         required: true
         content:
@@ -101,6 +108,7 @@ paths:
       operationId: setNsfwVisibility
       security:
         - sessionCookie: []
+          browserMutation: []
       requestBody:
         required: true
         content:
@@ -371,6 +379,7 @@ paths:
         once. This browser-only operation requires Illarin's request header.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: userCode
           in: path
@@ -405,6 +414,7 @@ paths:
       description: Deny the reviewed device request and stop its polling installation.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: userCode
           in: path
@@ -486,6 +496,7 @@ paths:
       description: Approve once and return the validated loopback redirect.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: requestCode
           in: path
@@ -514,6 +525,7 @@ paths:
       description: Deny once and return the validated loopback error redirect.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: requestCode
           in: path
@@ -656,6 +668,7 @@ paths:
         stays.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -729,6 +742,7 @@ paths:
         loses the addresses it handed out with it.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -820,6 +834,7 @@ paths:
         twice returns the delivery already waiting.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -1047,6 +1062,7 @@ paths:
       operationId: createAsset
       security:
         - sessionCookie: []
+          browserMutation: []
       description: >-
         Two ways to make an asset. Send form data to bring a file in, or send
         JSON naming a kind to start from nothing. The kind is asked for once,
@@ -1141,6 +1157,7 @@ paths:
       operationId: deleteAsset
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -1195,6 +1212,7 @@ paths:
         reads as a different kind is refused and the asset is left untouched.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -1246,6 +1264,7 @@ paths:
         the kind catalog's builder constraints.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -1291,6 +1310,7 @@ paths:
         Remaining positions are rewritten into one gapless page order.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -1324,6 +1344,7 @@ paths:
         repeat, are both refused.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -1361,6 +1382,7 @@ paths:
         the same transaction. Every current block must appear exactly once.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -1402,6 +1424,7 @@ paths:
         remove the emptied optional block. Both changes commit together.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -1480,6 +1503,7 @@ paths:
         permanent: the lossless rule binds Illarin, not the creator.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -1540,6 +1564,7 @@ paths:
       operationId: restoreAsset
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -1565,6 +1590,7 @@ paths:
         answers it on the creator's behalf. An edit is live when it saves.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -1602,6 +1628,7 @@ paths:
         missing.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -1635,6 +1662,7 @@ paths:
       operationId: setAssetDiscovery
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -1688,6 +1716,7 @@ paths:
       operationId: withholdAsset
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -1716,6 +1745,7 @@ paths:
       operationId: clearAssetWithhold
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -1864,6 +1894,7 @@ paths:
       operationId: addMedia
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -2009,6 +2040,13 @@ components:
       type: apiKey
       in: cookie
       name: illarin_session
+    browserMutation:
+      type: apiKey
+      in: header
+      name: X-Illarin-Request
+      description: >-
+        Required with the session cookie on state-changing browser requests. The
+        value must be 1 and the Origin must be Illarin's browser origin.
     instanceToken:
       type: http
       scheme: bearer

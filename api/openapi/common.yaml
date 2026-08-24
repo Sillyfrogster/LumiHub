@@ -4,6 +4,13 @@ components:
       type: apiKey
       in: cookie
       name: illarin_session
+    browserMutation:
+      type: apiKey
+      in: header
+      name: X-Illarin-Request
+      description: >-
+        Required with the session cookie on state-changing browser requests.
+        The value must be 1 and the Origin must be Illarin's browser origin.
     instanceToken:
       type: http
       scheme: bearer

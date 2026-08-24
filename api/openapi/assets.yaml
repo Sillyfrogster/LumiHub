@@ -85,6 +85,7 @@ paths:
       operationId: createAsset
       security:
         - sessionCookie: []
+          browserMutation: []
       description: >-
         Two ways to make an asset. Send form data to bring a file in, or send
         JSON naming a kind to start from nothing. The kind is asked for once,
@@ -179,6 +180,7 @@ paths:
       operationId: deleteAsset
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -233,6 +235,7 @@ paths:
         reads as a different kind is refused and the asset is left untouched.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -284,6 +287,7 @@ paths:
         the kind catalog's builder constraints.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -329,6 +333,7 @@ paths:
         Remaining positions are rewritten into one gapless page order.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -362,6 +367,7 @@ paths:
         that cannot repeat, are both refused.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -399,6 +405,7 @@ paths:
         the same transaction. Every current block must appear exactly once.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -440,6 +447,7 @@ paths:
         remove the emptied optional block. Both changes commit together.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -518,6 +526,7 @@ paths:
         permanent: the lossless rule binds Illarin, not the creator.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -578,6 +587,7 @@ paths:
       operationId: restoreAsset
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -603,6 +613,7 @@ paths:
         answers it on the creator's behalf. An edit is live when it saves.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -640,6 +651,7 @@ paths:
         missing.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -673,6 +685,7 @@ paths:
       operationId: setAssetDiscovery
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -726,6 +739,7 @@ paths:
       operationId: withholdAsset
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -754,6 +768,7 @@ paths:
       operationId: clearAssetWithhold
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -902,6 +917,7 @@ paths:
       operationId: addMedia
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path

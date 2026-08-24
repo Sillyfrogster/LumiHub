@@ -31,6 +31,9 @@ func TestContractNamesTheSessionCookieTheHandlersSet(t *testing.T) {
 				SessionCookie struct {
 					Name string `yaml:"name"`
 				} `yaml:"sessionCookie"`
+				BrowserMutation struct {
+					Name string `yaml:"name"`
+				} `yaml:"browserMutation"`
 			} `yaml:"securitySchemes"`
 		} `yaml:"components"`
 	}
@@ -39,5 +42,8 @@ func TestContractNamesTheSessionCookieTheHandlersSet(t *testing.T) {
 	}
 	if got := document.Components.SecuritySchemes.SessionCookie.Name; got != sessionCookieName {
 		t.Errorf("contract session cookie = %q, want %q", got, sessionCookieName)
+	}
+	if got := document.Components.SecuritySchemes.BrowserMutation.Name; got != browserMutationHeader {
+		t.Errorf("contract browser mutation header = %q, want %q", got, browserMutationHeader)
 	}
 }

@@ -2,6 +2,9 @@ openapi: 3.1.0
 info:
   title: Illarin API
   version: 0.1.0
+  description: >-
+    State-changing requests that use the session cookie also carry Illarin's
+    browser-mutation proof and exact browser origin.
 servers:
   - url: /api
 paths:
@@ -124,6 +127,8 @@ components:
   securitySchemes:
     sessionCookie:
       $ref: ./common.yaml#/components/securitySchemes/sessionCookie
+    browserMutation:
+      $ref: ./common.yaml#/components/securitySchemes/browserMutation
     instanceToken:
       $ref: ./common.yaml#/components/securitySchemes/instanceToken
   parameters:

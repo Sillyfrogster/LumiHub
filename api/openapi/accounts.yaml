@@ -4,6 +4,7 @@ paths:
       operationId: detachDiscord
       security:
         - sessionCookie: []
+          browserMutation: []
       responses:
         '200':
           description: The account with Discord detached
@@ -20,6 +21,7 @@ paths:
       operationId: changeUnverifiedEmail
       security:
         - sessionCookie: []
+          browserMutation: []
       requestBody:
         required: true
         content:
@@ -44,6 +46,7 @@ paths:
       operationId: renameHandle
       security:
         - sessionCookie: []
+          browserMutation: []
       requestBody:
         required: true
         content:
@@ -70,6 +73,7 @@ paths:
       operationId: setPassword
       security:
         - sessionCookie: []
+          browserMutation: []
       requestBody:
         required: true
         content:
@@ -94,6 +98,7 @@ paths:
       operationId: setNsfwVisibility
       security:
         - sessionCookie: []
+          browserMutation: []
       requestBody:
         required: true
         content:

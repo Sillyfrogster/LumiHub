@@ -117,6 +117,7 @@ paths:
         twice returns the delivery already waiting.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
@@ -165,6 +166,7 @@ paths:
         loses the addresses it handed out with it.
       security:
         - sessionCookie: []
+          browserMutation: []
       parameters:
         - name: id
           in: path
