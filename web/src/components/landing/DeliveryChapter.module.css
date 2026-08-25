@@ -1,0 +1,156 @@
+.chapter {
+  position: relative;
+  padding-block: clamp(88px, 10vw, 152px);
+  background: var(--color-background);
+}
+
+.stage {
+  display: grid;
+  align-items: center;
+  gap: clamp(44px, 5vw, 92px);
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+}
+
+.copy h2 {
+  max-width: 15ch;
+  font-family: var(--font-display);
+  font-size: var(--type-section-fluid);
+  font-weight: 560;
+  letter-spacing: -0.03em;
+  line-height: 0.98;
+  text-wrap: balance;
+}
+
+.copy p {
+  max-width: 48ch;
+  margin-top: 22px;
+  color: var(--color-text-secondary);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-leading);
+}
+
+.action {
+  display: inline-flex;
+  min-height: 46px;
+  align-items: center;
+  gap: 9px;
+  margin-top: 26px;
+  color: var(--color-text-primary);
+  font-size: var(--type-secondary-size);
+  font-weight: 600;
+  transition: color 180ms var(--ease);
+}
+
+.action:hover {
+  color: var(--color-link);
+}
+
+.action svg {
+  transition: transform 220ms var(--ease);
+}
+
+.action:hover svg {
+  transform: translateX(4px);
+}
+
+.paths {
+  display: grid;
+  gap: 22px;
+}
+
+/* A sequence rather than two equal boxes, so the hand-off reads in order */
+.route {
+  display: grid;
+  gap: 0;
+  list-style: none;
+}
+
+.stop {
+  display: grid;
+  align-items: center;
+  gap: 3px;
+  padding: 18px 20px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-elevated);
+  box-shadow: var(--shadow-card);
+}
+
+.stop[data-destination] {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  color: var(--color-text-secondary);
+  box-shadow: var(--shadow-lift);
+}
+
+.stop[data-destination] > span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.stop strong {
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: var(--type-lead-size);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.stop small {
+  color: var(--color-text-secondary);
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-leading);
+}
+
+/* The format is the middle term, so it sits quieter than either end */
+.stop[data-format] {
+  background: var(--color-surface);
+  box-shadow: none;
+}
+
+.wire {
+  position: relative;
+  width: 1px;
+  height: 34px;
+  justify-self: center;
+  background: var(--color-border);
+}
+
+.wire i {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-left: -4.5px;
+  background: var(--color-emphasis);
+  opacity: 0;
+}
+
+.baseline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: var(--type-secondary-size);
+  line-height: var(--type-secondary-leading);
+}
+
+.baseline svg {
+  flex: none;
+}
+
+@media (max-width: 1040px) {
+  .stage {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+
+  .copy h2 {
+    max-width: 20ch;
+  }
+}

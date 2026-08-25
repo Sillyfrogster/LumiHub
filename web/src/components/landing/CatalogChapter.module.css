@@ -1,0 +1,195 @@
+.chapter {
+  position: relative;
+  padding-block: clamp(88px, 10vw, 148px);
+  background: var(--color-background);
+}
+
+.stage {
+  display: grid;
+  gap: clamp(34px, 4vw, 54px);
+}
+
+.head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 30px;
+}
+
+.head h2 {
+  max-width: 16ch;
+  font-family: var(--font-display);
+  font-size: var(--type-section-fluid);
+  font-weight: 560;
+  letter-spacing: -0.03em;
+  line-height: 0.98;
+}
+
+.seeAll {
+  display: inline-flex;
+  min-height: 44px;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-primary);
+  font-size: var(--type-secondary-size);
+  font-weight: 600;
+  transition: color 180ms var(--ease);
+}
+
+.seeAll:hover {
+  color: var(--color-link);
+}
+
+.seeAll svg {
+  transition: transform 220ms var(--ease);
+}
+
+.seeAll:hover svg {
+  transform: translateX(4px);
+}
+
+/* One lead piece at twice the size, so the newest work is the one you see */
+.rank {
+  display: grid;
+  height: clamp(430px, 44vw, 570px);
+  grid-template-columns: 1.25fr 1fr 1fr;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: clamp(16px, 1.6vw, 26px);
+  list-style: none;
+}
+
+.rank > li[data-lead] {
+  grid-row: span 2;
+}
+
+.piece {
+  display: grid;
+  height: 100%;
+  gap: 12px;
+  grid-template-rows: minmax(0, 1fr) auto;
+  color: var(--color-text-primary);
+}
+
+.well {
+  position: relative;
+  display: block;
+  height: 100%;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--color-media-surface);
+  box-shadow: var(--shadow-card);
+  transition:
+    box-shadow 260ms var(--ease),
+    transform 260ms var(--ease);
+}
+
+.piece:hover .well {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lift);
+}
+
+/* Creator media keeps its own aspect inside a consistent frame */
+.image {
+  object-fit: contain;
+}
+
+.identity {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.identity strong {
+  display: -webkit-box;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: var(--type-lead-size);
+  font-weight: 600;
+  line-height: 1.24;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+[data-lead] .identity strong {
+  font-size: clamp(1.35rem, 1.9vw, 1.75rem);
+}
+
+.identity > span {
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: var(--type-secondary-size);
+  line-height: var(--type-secondary-leading);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.message {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 36px 0;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.message a {
+  display: inline-flex;
+  min-height: 44px;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-primary);
+  font-size: var(--type-secondary-size);
+  font-weight: 600;
+}
+
+.suppressed {
+  color: var(--color-text-secondary);
+  font-size: var(--type-secondary-size);
+  line-height: var(--type-secondary-leading);
+}
+
+@media (max-width: 900px) {
+  .rank {
+    height: auto;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: none;
+  }
+
+  .well {
+    height: auto;
+    aspect-ratio: 4 / 5;
+  }
+
+  [data-lead] .well {
+    aspect-ratio: 16 / 10;
+  }
+
+  .rank > li[data-lead] {
+    grid-column: span 2;
+    grid-row: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .head {
+    display: grid;
+    gap: 10px;
+  }
+
+  .rank {
+    grid-template-columns: 1fr;
+  }
+
+  .rank > li[data-lead] {
+    grid-column: auto;
+  }
+
+  .message {
+    display: grid;
+    gap: 14px;
+  }
+}

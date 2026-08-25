@@ -1,0 +1,349 @@
+.hero {
+  position: relative;
+  min-height: max(760px, calc(100svh - var(--header-height)));
+  overflow: clip;
+  background: var(--color-background);
+  isolation: isolate;
+}
+
+/* A scrim keeps the left of the frame quiet enough to read a display line over */
+.field {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  background-image: url("../../assets/art/full/illarin-landing-convergence-light-v1.webp");
+  background-position: center right;
+  background-repeat: no-repeat;
+  background-size: cover;
+  will-change: transform;
+}
+
+:global(:root[data-theme="dark"]) .field {
+  background-image: url("../../assets/art/full/illarin-landing-convergence-dark-v1.webp");
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme])) .field {
+    background-image: url("../../assets/art/full/illarin-landing-convergence-dark-v1.webp");
+  }
+}
+
+.hero::before {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  background: linear-gradient(
+    92deg,
+    var(--color-background) 0%,
+    var(--color-background) 34%,
+    color-mix(in srgb, var(--color-background) 88%, transparent) 52%,
+    color-mix(in srgb, var(--color-background) 40%, transparent) 72%,
+    transparent 92%
+  );
+  content: "";
+  pointer-events: none;
+}
+
+.stage {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  min-height: max(760px, calc(100svh - var(--header-height)));
+  align-items: center;
+  gap: clamp(32px, 4vw, 72px);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.92fr);
+  padding-block: clamp(48px, 6vw, 88px);
+}
+
+.copy {
+  width: min(660px, 100%);
+}
+
+.rail {
+  color: var(--color-text-secondary);
+  font-size: var(--type-label-size);
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  line-height: var(--type-label-leading);
+  text-transform: uppercase;
+}
+
+/* Held under the shared display size so the longer sentence keeps its line */
+.statement {
+  margin-top: 22px;
+  font-family: var(--font-display);
+  font-size: clamp(3.25rem, 5.6vw, 5.5rem);
+  font-weight: 560;
+  letter-spacing: -0.035em;
+  line-height: var(--type-display-fluid-leading);
+}
+
+.line {
+  display: block;
+}
+
+/* Each word rises out of its own mask, so the line arrives as type */
+.mask {
+  display: inline-flex;
+  overflow: hidden;
+  padding-block: 0.08em;
+  margin-block: -0.08em;
+  vertical-align: bottom;
+}
+
+.mask + .mask {
+  margin-left: 0.24em;
+}
+
+.word {
+  display: block;
+  will-change: transform;
+}
+
+.lede {
+  max-width: 52ch;
+  margin-top: 24px;
+  color: var(--color-text-secondary);
+  font-size: var(--type-lead-size);
+  font-weight: var(--type-lead-weight);
+  line-height: var(--type-lead-leading);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 30px;
+}
+
+/* Equal columns over the copy measure, so the three notes share one interval */
+.notes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 26px;
+  margin-top: 34px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-border);
+}
+
+.notes dt {
+  color: var(--color-text-primary);
+  font-size: var(--type-label-size);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: var(--type-label-leading);
+  text-transform: uppercase;
+}
+
+.notes dd {
+  margin-top: 6px;
+  color: var(--color-text-secondary);
+  font-size: var(--type-secondary-size);
+  line-height: var(--type-secondary-leading);
+}
+
+.shelf {
+  position: relative;
+  height: clamp(360px, 42vw, 470px);
+  perspective: 1400px;
+  perspective-origin: 50% 46%;
+}
+
+.depth {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+
+.plane {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: clamp(168px, 15vw, 216px);
+  margin: 0;
+  transform: translate3d(calc(-50% + var(--x)), -50%, var(--z))
+    rotateY(var(--rotate)) scale(var(--scale));
+  transform-style: preserve-3d;
+  opacity: 0.9;
+}
+
+.plane[data-focal] {
+  z-index: 2;
+  opacity: 1;
+}
+
+.plane[data-focal] .planeCard {
+  border-color: var(--color-emphasis-border);
+  box-shadow: var(--shadow-lightbox);
+}
+
+.plane:not([data-focal]) {
+  opacity: 0.9;
+  filter: blur(0.6px);
+}
+
+.plane:first-child,
+.plane:last-child {
+  opacity: 0.76;
+  filter: blur(1.6px);
+}
+
+/* Matte cards, because the backdrop is already made of glass planes */
+.planeCard {
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-elevated);
+  box-shadow: var(--shadow-panel);
+}
+
+.planeWell {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  aspect-ratio: 4 / 5;
+  border-radius: var(--radius-sm);
+  background: var(--color-media-surface);
+}
+
+.planeImage {
+  object-fit: cover;
+}
+
+.planeIdentity {
+  display: grid;
+  gap: 1px;
+  padding: 12px 4px 2px;
+}
+
+.planeIdentity small {
+  color: var(--color-text-secondary);
+  font-size: var(--type-label-size);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: var(--type-label-leading);
+  text-transform: uppercase;
+}
+
+.planeIdentity strong {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  font-size: var(--type-lead-size);
+  font-weight: 600;
+  line-height: 1.25;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.planeIdentity > span {
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-leading);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1180px) {
+  .stage {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr);
+  }
+
+  .plane {
+    width: clamp(140px, 13vw, 178px);
+  }
+}
+
+@media (max-width: 900px) {
+  .hero,
+  .stage {
+    min-height: 0;
+  }
+
+  .hero::before,
+  .field {
+    display: none;
+  }
+
+  .stage {
+    grid-template-columns: 1fr;
+    padding-block: 40px 34px;
+  }
+
+  .copy {
+    width: 100%;
+  }
+
+  .statement {
+    font-size: clamp(2.25rem, 11.5vw, var(--type-display-size));
+  }
+
+  .lede {
+    max-width: 40ch;
+    margin-top: 18px;
+    font-size: var(--type-body-size);
+    font-weight: 500;
+    line-height: var(--type-body-leading);
+  }
+
+  .actions {
+    flex-wrap: nowrap;
+    margin-top: 22px;
+  }
+
+  .actions a {
+    min-width: 0;
+    padding-inline: 16px;
+  }
+
+  .notes {
+    grid-template-columns: 1fr;
+    gap: 0;
+    margin-top: 26px;
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .notes div {
+    display: grid;
+    grid-template-columns: 108px minmax(0, 1fr);
+    gap: 14px;
+    align-items: baseline;
+    padding-block: 12px;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .notes dd {
+    margin-top: 0;
+  }
+
+  /* One flat plane on a phone, where the depth would sit off-screen */
+  .shelf {
+    height: auto;
+    margin-top: 30px;
+    perspective: none;
+  }
+
+  .depth {
+    position: relative;
+    inset: auto;
+    display: flex;
+    justify-content: center;
+    transform: none;
+  }
+
+  .plane {
+    position: relative;
+    top: auto;
+    left: auto;
+    width: min(220px, 62vw);
+    transform: none;
+    opacity: 1;
+  }
+
+  .plane:not([data-focal]) {
+    display: none;
+  }
+}

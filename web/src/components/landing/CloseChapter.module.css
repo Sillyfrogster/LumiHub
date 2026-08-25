@@ -1,0 +1,67 @@
+/* Inverted ground, closing the page against the field the hero opened on */
+.chapter {
+  position: relative;
+  display: grid;
+  min-height: min(78svh, 660px);
+  align-items: center;
+  padding-block: clamp(88px, 11vw, 160px);
+  background: var(--color-text-primary);
+  color: var(--color-background);
+}
+
+.stage {
+  display: grid;
+  justify-items: start;
+  gap: clamp(32px, 4vw, 52px);
+}
+
+.statement {
+  color: var(--color-background);
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 7.4vw, 7rem);
+  font-weight: 560;
+  letter-spacing: -0.04em;
+  line-height: 0.92;
+}
+
+.line {
+  display: block;
+}
+
+.mask {
+  display: inline-flex;
+  overflow: hidden;
+  padding-block: 0.08em;
+  margin-block: -0.08em;
+  vertical-align: bottom;
+}
+
+.mask + .mask {
+  margin-left: 0.24em;
+}
+
+.word {
+  display: block;
+  will-change: transform;
+}
+
+/* The action inverts with the ground so it stays the brightest thing here */
+.action a {
+  background: var(--color-background);
+  color: var(--color-text-primary);
+}
+
+.action a:hover {
+  background: var(--color-background);
+  color: var(--color-text-primary);
+}
+
+@media (max-width: 720px) {
+  .chapter {
+    min-height: 0;
+  }
+
+  .statement {
+    font-size: clamp(2.5rem, 11vw, 4rem);
+  }
+}

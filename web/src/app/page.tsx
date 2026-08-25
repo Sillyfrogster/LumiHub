@@ -4,11 +4,12 @@ import { fetchAssets } from "@/lib/api/query";
 
 export default async function LandingPage() {
   const cookie = (await cookies()).toString();
-  const latest = await fetchAssets({ limit: 4 }, cookie).catch(() => null);
+  const latest = await fetchAssets({ limit: 9 }, cookie).catch(() => null);
 
   return (
     <HostedLanding
       assets={latest?.items ?? []}
+      platforms={latest?.platforms ?? []}
       visibility={latest?.visibility ?? "blurred"}
       suppressed={latest?.suppressed ?? 0}
       emptyState={latest?.emptyState ?? null}
