@@ -34,8 +34,7 @@
 }
 
 .format {
-  padding-block: 14px;
-  border-top: 1px solid var(--color-border);
+  min-width: 0;
 }
 
 .label {
@@ -117,6 +116,7 @@
 }
 
 .otherFormats {
+  position: relative;
   margin-top: 16px;
   border-top: 1px solid var(--color-border);
 }
@@ -134,10 +134,6 @@
 .otherFormats > summary:hover,
 .otherFormats > summary:focus-visible {
   color: var(--color-accent-strong);
-}
-
-.formats {
-  list-style: none;
 }
 
 .losses {
@@ -252,4 +248,125 @@
   .takeOriginal:hover {
     transform: none;
   }
+}
+
+.choice {
+  margin-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.choice > summary {
+  display: flex;
+  min-height: 44px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  color: var(--color-accent);
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 800;
+  list-style: none;
+}
+
+.choice > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Flex layout drops the native marker. */
+.choice > summary::before {
+  display: inline-block;
+  content: "\25B8";
+  font-size: 0.9em;
+  line-height: 1;
+  transition: transform 160ms var(--ease);
+}
+
+.choice[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.choice > summary:hover,
+.choice > summary:focus-visible {
+  color: var(--color-accent-strong);
+}
+
+.stake {
+  color: var(--color-text-secondary);
+  font-weight: 400;
+}
+
+.pick {
+  display: block;
+  margin-top: 3px;
+  color: var(--color-text-secondary);
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.choices {
+  display: grid;
+  gap: 2px;
+  margin-top: 4px;
+  padding-bottom: 4px;
+  list-style: none;
+}
+
+.choiceRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px 14px;
+  padding: 12px 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.choiceName {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--color-text-primary);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.choiceRow .takeAlternative {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+}
+
+.choiceDiff {
+  display: grid;
+  gap: 2px;
+  grid-column: 1;
+  list-style: none;
+}
+
+.choiceDiff li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: var(--color-text-secondary);
+  font-size: 0.74rem;
+}
+
+.choiceDiff li span {
+  color: var(--color-text-primary);
+}
+
+.choiceDiff li[data-out] span {
+  color: var(--color-text-secondary);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
 }

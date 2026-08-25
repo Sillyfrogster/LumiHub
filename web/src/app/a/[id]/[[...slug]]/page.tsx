@@ -144,6 +144,7 @@ export default async function AssetPage({
                       original={asset.original}
                       images={asset.media}
                       holdsNothing={holdsNothing}
+                      isOwner={asset.isOwner}
                     />
                   ) : null}
 

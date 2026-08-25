@@ -15,18 +15,18 @@ function costs(role: RoleVerdict): boolean {
 function costLine(target: DownloadTarget, holdsNothing: boolean): string {
   const lost = target.roles.filter(costs).length;
   if (holdsNothing && lost === 0) return "There is nothing in it yet";
-  if (lost === 0) return "Everything travels";
-  return lost === 1
-    ? "1 thing does not travel"
-    : `${lost} things do not travel`;
+  if (lost === 0) return "Includes everything";
+  return lost === 1 ? "1 thing left out" : `${lost} things left out`;
 }
 
 function verdictLine(role: RoleVerdict): string {
-  if (role.verdict === "dropped") return "Not in this file.";
+  if (role.verdict === "dropped") return "Not included.";
   if (role.verdict === "reduced") {
-    return role.reason ? `Loses ${role.reason}.` : "Does not travel whole.";
+    return role.reason
+      ? `Included, without ${role.reason}.`
+      : "Included, but not in full.";
   }
-  return role.destination ? `Travels as ${role.destination}.` : "";
+  return role.destination ? `Included as ${role.destination}.` : "";
 }
 
 function itemCount(count: number): string {
@@ -50,12 +50,56 @@ function arrivalDate(when: string): string {
   });
 }
 
+type RoleRow = {
+  role: string;
+  label: string;
+  cells: (RoleVerdict | undefined)[];
+};
+
+function differingRoles(downloads: DownloadTarget[]): RoleRow[] {
+  const order: { role: string; label: string }[] = [];
+  for (const target of downloads) {
+    for (const role of target.roles) {
+      if (!order.some((seen) => seen.role === role.role)) {
+        order.push({ role: role.role, label: role.label });
+      }
+    }
+  }
+
+  return order
+    .map(({ role, label }) => ({
+      role,
+      label,
+      cells: downloads.map((target) =>
+        target.roles.find((entry) => entry.role === role),
+      ),
+    }))
+    .filter((row) => {
+      const shapes = row.cells.map((cell) =>
+        cell
+          ? `${cell.verdict}|${cell.reason ?? ""}|${cell.destination ?? ""}`
+          : "absent",
+      );
+      return new Set(shapes).size > 1;
+    });
+}
+
+function cellLine(cell: RoleVerdict | undefined): string {
+  if (!cell) return "Not included";
+  if (cell.verdict === "dropped") return "Not included";
+  if (cell.verdict === "reduced") {
+    return cell.reason ? `Without ${cell.reason}` : "Not in full";
+  }
+  return "Included";
+}
+
 export function DownloadPanel({
   assetId,
   downloads,
   original,
   images,
   holdsNothing,
+  isOwner,
 }: {
   assetId: string;
   downloads: DownloadTarget[];
@@ -63,6 +107,7 @@ export function DownloadPanel({
   images: AssetImage[];
   /** Whether the asset holds no content, so a format carries a shell of one. */
   holdsNothing: boolean;
+  isOwner: boolean;
 }) {
   if (downloads.length === 0 && !original) return null;
   const imagesById = new Map(images.map((image) => [image.id, image]));
@@ -84,25 +129,11 @@ export function DownloadPanel({
             primary
           />
           {alternatives.length > 0 ? (
-            <details className={styles.otherFormats}>
-              <summary>
-                {alternatives.length === 1
-                  ? "Another format"
-                  : `${alternatives.length} other formats`}
-              </summary>
-              <ul className={styles.formats}>
-                {alternatives.map((target) => (
-                  <li key={target.format}>
-                    <FormatLine
-                      assetId={assetId}
-                      target={target}
-                      imagesById={imagesById}
-                      holdsNothing={holdsNothing}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </details>
+            <FormatChoice
+              assetId={assetId}
+              downloads={downloads}
+              alternatives={alternatives}
+            />
           ) : null}
         </>
       ) : (
@@ -128,8 +159,73 @@ export function DownloadPanel({
           ) : null}
         </>
       )}
-      {original ? <Original assetId={assetId} original={original} /> : null}
+      {original && isOwner ? (
+        <Original assetId={assetId} original={original} />
+      ) : null}
     </section>
+  );
+}
+
+function FormatChoice({
+  assetId,
+  downloads,
+  alternatives,
+}: {
+  assetId: string;
+  downloads: DownloadTarget[];
+  alternatives: DownloadTarget[];
+}) {
+  const rows = differingRoles(downloads);
+
+  const stake =
+    rows.length === 0
+      ? "all carry the same content"
+      : rows.length === 1
+        ? `they differ on ${rows[0].label.toLowerCase()}`
+        : `they differ on ${rows.length} things`;
+
+  return (
+    <details className={styles.choice}>
+      <summary>
+        {alternatives.length === 1
+          ? "Another format"
+          : `${alternatives.length} other formats`}
+        <span className={styles.stake}>{stake}</span>
+      </summary>
+      <ul className={styles.choices}>
+        {alternatives.map((target) => (
+          <li key={target.format} className={styles.choiceRow}>
+            <p className={styles.choiceName}>
+              {target.label}
+              {target.recommended ? (
+                <span className={styles.pick}>Recommended</span>
+              ) : null}
+            </p>
+            {rows.length > 0 ? (
+              <ul className={styles.choiceDiff}>
+                {rows.map((row) => {
+                  const cell = row.cells[downloads.indexOf(target)];
+                  const out = !cell || cell.verdict === "dropped";
+                  return (
+                    <li key={row.role} data-out={out ? "" : undefined}>
+                      {row.label}
+                      <span>{cellLine(cell)}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : null}
+            <a
+              className={styles.takeAlternative}
+              href={`/download/${assetId}/${target.format}`}
+            >
+              <Download size={15} aria-hidden="true" />
+              Download
+            </a>
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }
 
@@ -163,10 +259,43 @@ function FormatLine({
           <Download size={15} aria-hidden="true" />
           Download {target.label}
         </a>
-      ) : (
-        <p className={styles.label}>{target.label}</p>
+      ) : null}
+      {primary ? null : (
+        <details className={styles.choice}>
+          <summary className={styles.label}>{target.label}</summary>
+          <div className={styles.choiceBody}>
+            {detail.length === 0 ? (
+              <p className={styles.cost}>{costLine(target, holdsNothing)}</p>
+            ) : (
+              <>
+                <p className={styles.cost}>{costLine(target, holdsNothing)}</p>
+                <ul className={styles.losses}>
+                  {detail.map((role) => (
+                    <li key={role.role}>
+                      <p className={styles.lossName}>
+                        {role.label}
+                        <span className={styles.lossCount}>
+                          — {itemCount(role.sample.count)}
+                        </span>
+                      </p>
+                      <p className={styles.lossWhy}>{verdictLine(role)}</p>
+                      <Sample role={role} imagesById={imagesById} />
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            <a
+              className={styles.takeAlternative}
+              href={`/download/${assetId}/${target.format}`}
+            >
+              <Download size={15} aria-hidden="true" />
+              Download {target.label}
+            </a>
+          </div>
+        </details>
       )}
-      {detail.length === 0 ? (
+      {!primary ? null : detail.length === 0 ? (
         <p className={styles.cost}>{costLine(target, holdsNothing)}</p>
       ) : (
         <details className={styles.detail}>
@@ -186,15 +315,6 @@ function FormatLine({
             ))}
           </ul>
         </details>
-      )}
-      {primary ? null : (
-        <a
-          className={styles.takeAlternative}
-          href={`/download/${assetId}/${target.format}`}
-        >
-          <Download size={15} aria-hidden="true" />
-          Download {target.label}
-        </a>
       )}
     </div>
   );
