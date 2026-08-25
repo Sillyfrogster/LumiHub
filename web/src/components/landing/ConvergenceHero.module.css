@@ -59,18 +59,8 @@
   width: min(660px, 100%);
 }
 
-.rail {
-  color: var(--color-text-secondary);
-  font-size: var(--type-label-size);
-  font-weight: 800;
-  letter-spacing: 0.16em;
-  line-height: var(--type-label-leading);
-  text-transform: uppercase;
-}
-
 /* Held under the shared display size so the longer sentence keeps its line */
 .statement {
-  margin-top: 22px;
   font-family: var(--font-display);
   font-size: clamp(3.25rem, 5.6vw, 5.5rem);
   font-weight: 560;
@@ -86,8 +76,8 @@
 .mask {
   display: inline-flex;
   overflow: hidden;
-  padding-block: 0.08em;
-  margin-block: -0.08em;
+  padding-block: 0.26em;
+  margin-block: -0.26em;
   vertical-align: bottom;
 }
 

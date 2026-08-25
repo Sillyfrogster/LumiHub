@@ -8,7 +8,6 @@ import styles from "./HostedLanding.module.css";
 
 type HostedLandingProps = {
   assets: BrowseAsset[];
-  platforms: BrowsePage["platforms"];
   visibility: NsfwVisibility;
   suppressed: number;
   emptyState: BrowsePage["emptyState"];
@@ -17,7 +16,6 @@ type HostedLandingProps = {
 
 export function HostedLanding({
   assets,
-  platforms,
   visibility,
   suppressed,
   emptyState,
@@ -25,7 +23,7 @@ export function HostedLanding({
 }: HostedLandingProps) {
   return (
     <div className={styles.page}>
-      <ConvergenceHero assets={assets} platforms={platforms} />
+      <ConvergenceHero assets={assets} />
       <CatalogChapter
         assets={assets}
         visibility={visibility}
@@ -34,7 +32,7 @@ export function HostedLanding({
         unavailable={unavailable}
       />
       <AssetPageChapter />
-      <DeliveryChapter platforms={platforms} />
+      <DeliveryChapter />
       <CloseChapter />
     </div>
   );

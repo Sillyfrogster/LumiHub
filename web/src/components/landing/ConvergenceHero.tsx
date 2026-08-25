@@ -8,7 +8,7 @@ import { useEffect, useRef } from "react";
 import { Shell } from "@/components/layout/Shell";
 import { DefaultCover } from "@/components/media/DefaultCover";
 import { Button } from "@/components/ui/Button";
-import type { BrowseAsset, BrowsePage } from "@/lib/api/query";
+import type { BrowseAsset } from "@/lib/api/query";
 import { KIND_LABELS } from "@/lib/kinds";
 import { withCoversFirst } from "@/lib/landing-work";
 import styles from "./ConvergenceHero.module.css";
@@ -44,10 +44,9 @@ const PLANE_SCATTER = [
 
 type ConvergenceHeroProps = {
   assets: BrowseAsset[];
-  platforms: BrowsePage["platforms"];
 };
 
-export function ConvergenceHero({ assets, platforms }: ConvergenceHeroProps) {
+export function ConvergenceHero({ assets }: ConvergenceHeroProps) {
   const root = useRef<HTMLElement>(null);
   const planes = pickPlanes(assets);
 
@@ -59,12 +58,6 @@ export function ConvergenceHero({ assets, platforms }: ConvergenceHeroProps) {
 
       <Shell className={styles.stage}>
         <div className={styles.copy}>
-          {platforms.length > 0 ? (
-            <p className={styles.rail} data-enter>
-              {platforms.map((platform) => platform.label).join(" · ")}
-            </p>
-          ) : null}
-
           <h1 className={styles.statement}>
             {HEADING_LINES.map((line) => (
               <span className={styles.line} key={line.join(" ")}>
@@ -80,8 +73,8 @@ export function ConvergenceHero({ assets, platforms }: ConvergenceHeroProps) {
           </h1>
 
           <p className={styles.lede} data-enter>
-            Characters, lorebooks, presets, themes and packs, whichever
-            application they were built for.
+            Characters, lorebooks, presets and themes, whichever application
+            they were built for.
           </p>
 
           <div className={styles.actions} data-enter>

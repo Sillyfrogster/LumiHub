@@ -9,7 +9,6 @@ export default async function LandingPage() {
   return (
     <HostedLanding
       assets={latest?.items ?? []}
-      platforms={latest?.platforms ?? []}
       visibility={latest?.visibility ?? "blurred"}
       suppressed={latest?.suppressed ?? 0}
       emptyState={latest?.emptyState ?? null}

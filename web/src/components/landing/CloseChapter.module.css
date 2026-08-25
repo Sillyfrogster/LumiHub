@@ -21,7 +21,7 @@
   font-size: clamp(3rem, 7.4vw, 7rem);
   font-weight: 560;
   letter-spacing: -0.04em;
-  line-height: 0.92;
+  line-height: 1;
 }
 
 .line {
@@ -31,8 +31,8 @@
 .mask {
   display: inline-flex;
   overflow: hidden;
-  padding-block: 0.08em;
-  margin-block: -0.08em;
+  padding-block: 0.26em;
+  margin-block: -0.26em;
   vertical-align: bottom;
 }
 

@@ -8,14 +8,8 @@ import { useEffect, useRef } from "react";
 import { Shell } from "@/components/layout/Shell";
 import styles from "./DeliveryChapter.module.css";
 
-type DeliveryChapterProps = {
-  /** Applications the catalog actually carries work for */
-  platforms: { label: string; value: string }[];
-};
-
-export function DeliveryChapter({ platforms }: DeliveryChapterProps) {
+export function DeliveryChapter() {
   const root = useRef<HTMLElement>(null);
-  const destination = platforms[0]?.label ?? "a linked application";
 
   useDeliveryReveal(root);
 
@@ -64,8 +58,8 @@ export function DeliveryChapter({ platforms }: DeliveryChapterProps) {
             <li className={styles.stop} data-destination>
               <Cable size={17} strokeWidth={1.4} aria-hidden="true" />
               <span>
-                <strong>{destination}</strong>
-                <small>Linked. It opens there, already in place.</small>
+                <strong>A linked application</strong>
+                <small>It opens there, already in place</small>
               </span>
             </li>
           </ol>
