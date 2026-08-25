@@ -36,10 +36,6 @@
   vertical-align: bottom;
 }
 
-.mask + .mask {
-  margin-left: 0.24em;
-}
-
 .word {
   display: block;
   will-change: transform;

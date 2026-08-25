@@ -13,9 +13,6 @@ ops/.production-secrets/
 # Logs
 *.log
 
-# Browser automation output
-.playwright-mcp/
-
 # Editor and operating system files
 .vscode/*
 !.vscode/extensions.json
@@ -28,3 +25,6 @@ api/uploads/
 
 # Irreplaceable local files: secrets, models, and original uploads
 .preserved/
+
+# md
+!CONTRIBUTING.md

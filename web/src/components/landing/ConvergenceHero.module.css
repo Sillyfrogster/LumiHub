@@ -55,14 +55,16 @@
   padding-block: clamp(48px, 6vw, 88px);
 }
 
+/* The display size is measured against this column, so it cannot outgrow it */
 .copy {
   width: min(660px, 100%);
+  container-type: inline-size;
 }
 
 /* Held under the shared display size so the longer sentence keeps its line */
 .statement {
   font-family: var(--font-display);
-  font-size: clamp(3.25rem, 5.6vw, 5.5rem);
+  font-size: clamp(2.25rem, 12cqw, 5.5rem);
   font-weight: 560;
   letter-spacing: -0.035em;
   line-height: var(--type-display-fluid-leading);
@@ -79,10 +81,6 @@
   padding-block: 0.26em;
   margin-block: -0.26em;
   vertical-align: bottom;
-}
-
-.mask + .mask {
-  margin-left: 0.24em;
 }
 
 .word {

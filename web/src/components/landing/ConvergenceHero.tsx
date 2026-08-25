@@ -4,7 +4,7 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ArrowRight } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useRef } from "react";
+import { Fragment, useEffect, useRef } from "react";
 import { Shell } from "@/components/layout/Shell";
 import { DefaultCover } from "@/components/media/DefaultCover";
 import { Button } from "@/components/ui/Button";
@@ -61,12 +61,15 @@ export function ConvergenceHero({ assets }: ConvergenceHeroProps) {
           <h1 className={styles.statement}>
             {HEADING_LINES.map((line) => (
               <span className={styles.line} key={line.join(" ")}>
-                {line.map((word) => (
-                  <span className={styles.mask} key={word}>
-                    <span className={styles.word} data-word>
-                      {word}
+                {line.map((word, index) => (
+                  <Fragment key={word}>
+                    {index > 0 ? " " : null}
+                    <span className={styles.mask}>
+                      <span className={styles.word} data-word>
+                        {word}
+                      </span>
                     </span>
-                  </span>
+                  </Fragment>
                 ))}
               </span>
             ))}
