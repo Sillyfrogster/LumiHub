@@ -26,8 +26,7 @@ The included deployment has these current integration requirements:
 
 - a container registry that holds `illarin-api` and `illarin-web` images tagged
   with full Git commit SHAs;
-- Microsoft Graph application credentials and one Microsoft 365 sender mailbox
-  for account email;
+- an SMTP relay or Microsoft Graph application credentials for account email;
 - a Datadog API key for the monitoring service in `compose.prod.yaml`;
 - an off-host, restic-compatible repository for production backups.
 
@@ -67,7 +66,12 @@ Generate `LINKING_HMAC_KEY` as 32 random bytes encoded as unpadded base64url.
 Use a separate, randomly generated PostgreSQL password and update both
 `POSTGRES_PASSWORD` and `DATABASE_URL` with the same value.
 
-The interactive helper covers the reference GitHub, Microsoft 365, Datadog,
+The API accepts one mail transport. For SMTP, set `SMTP_ADDR` and `SMTP_FROM`,
+and set `SMTP_USERNAME` and `SMTP_PASSWORD` when the relay needs a login. Leave
+the Microsoft 365 values empty. For Microsoft Graph, leave the SMTP values empty
+and install the Microsoft secret as shown above.
+
+The interactive helper covers the reference GitHub, Microsoft Graph, Datadog,
 SSH, and NPMPlus path:
 
 ```bash

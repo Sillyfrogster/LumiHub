@@ -105,7 +105,8 @@ prod-backup-check: ## Verify the configured off-box backup repository
 release-package: ## Package the production control files for a host
 	@test "$(VERSION)" != "" || { echo "Set VERSION to a full Git commit SHA."; exit 1; }
 	@git archive --format=tar.gz --output="$(OUTPUT)" "$(VERSION)" \
-		Makefile compose.prod.yaml compose.npmplus.yaml nginx/production.conf ops
+		Makefile compose.prod.yaml compose.microsoft365.yaml compose.npmplus.yaml \
+		nginx/production.conf ops
 
 # Checking
 

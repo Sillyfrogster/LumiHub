@@ -1,0 +1,13 @@
+services:
+  api:
+    environment:
+      MICROSOFT_365_TENANT_ID: "${MICROSOFT_365_TENANT_ID:?Set MICROSOFT_365_TENANT_ID}"
+      MICROSOFT_365_CLIENT_ID: "${MICROSOFT_365_CLIENT_ID:?Set MICROSOFT_365_CLIENT_ID}"
+      MICROSOFT_365_CLIENT_SECRET_FILE: /run/secrets/microsoft_365_client_secret
+      MICROSOFT_365_MAILBOX: "${MICROSOFT_365_MAILBOX:?Set MICROSOFT_365_MAILBOX}"
+    secrets:
+      - microsoft_365_client_secret
+
+secrets:
+  microsoft_365_client_secret:
+    file: "${ILLARIN_SECRETS_DIR:?Set ILLARIN_SECRETS_DIR}/microsoft-365-client-secret"

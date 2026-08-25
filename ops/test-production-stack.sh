@@ -6,6 +6,7 @@ OPS_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "$OPS_DIR/.." && pwd)"
 TEST_DIR="$(mktemp -d /tmp/illarin-stack.XXXXXX)"
 TEST_ENV="$TEST_DIR/production.env"
+MICROSOFT_TEST_ENV="$TEST_DIR/microsoft-production.env"
 TEST_PROJECT="illarin-smoke"
 TEST_PORT="${ILLARIN_TEST_PORT:-18080}"
 VERSION="$(git -C "$REPO_ROOT" rev-parse HEAD)"
@@ -15,6 +16,15 @@ compose_test() {
     --env-file "$TEST_ENV" \
     -p "$TEST_PROJECT" \
     -f "$REPO_ROOT/compose.prod.yaml" \
+    "$@"
+}
+
+compose_microsoft_test() {
+  docker compose \
+    --env-file "$MICROSOFT_TEST_ENV" \
+    -p "$TEST_PROJECT-microsoft" \
+    -f "$REPO_ROOT/compose.prod.yaml" \
+    -f "$REPO_ROOT/compose.microsoft365.yaml" \
     "$@"
 }
 
@@ -67,13 +77,19 @@ printf '%s' 'test-client-secret' >"$TEST_DIR/secrets/microsoft-365-client-secret
   printf 'POSTGRES_PASSWORD=illarin-test-password\n'
   printf 'DATABASE_URL=postgres://illarin:illarin-test-password@db:5432/illarin\n'
   printf 'LINKING_HMAC_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n'
-  printf 'MICROSOFT_365_TENANT_ID=test-tenant\n'
-  printf 'MICROSOFT_365_CLIENT_ID=test-client\n'
-  printf 'MICROSOFT_365_MAILBOX=mail@illarin.test\n'
+  printf 'SMTP_ADDR=smtp.illarin.test:25\n'
+  printf 'SMTP_FROM=mail@illarin.test\n'
   printf 'DD_API_KEY=00000000000000000000000000000000\n'
   printf 'BACKUPS_ENABLED=false\n'
 } >"$TEST_ENV"
+grep -v '^SMTP_' "$TEST_ENV" >"$MICROSOFT_TEST_ENV"
+{
+  printf 'MICROSOFT_365_TENANT_ID=test-tenant\n'
+  printf 'MICROSOFT_365_CLIENT_ID=test-client\n'
+  printf 'MICROSOFT_365_MAILBOX=mail@illarin.test\n'
+} >>"$MICROSOFT_TEST_ENV"
 chmod 0600 "$TEST_ENV"
+chmod 0600 "$MICROSOFT_TEST_ENV"
 set -a
 # shellcheck disable=SC1090
 source "$TEST_ENV"
@@ -83,6 +99,11 @@ docker tag illarin-api:local "local/illarin-api:$VERSION"
 docker tag illarin-web:local "local/illarin-web:$VERSION"
 
 compose_test config --quiet
+if ! compose_test config | grep -Fq 'SMTP_ADDR: smtp.illarin.test:25'; then
+  echo "The production stack did not pass SMTP settings to the API." >&2
+  exit 1
+fi
+compose_microsoft_test config --quiet
 compose_test up -d --wait --wait-timeout 180 db
 compose_test --profile tools run --rm migrate
 compose_test up -d --wait --wait-timeout 240 api web gateway

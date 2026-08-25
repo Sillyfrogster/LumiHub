@@ -94,17 +94,15 @@ services:
       STORAGE_FREE_SPACE_RESERVE_BYTES: "${STORAGE_FREE_SPACE_RESERVE_BYTES:-5368709120}"
       ACCOUNT_STORAGE_CAP_BYTES: "${ACCOUNT_STORAGE_CAP_BYTES:-1073741824}"
       LINKING_HMAC_KEY: "${LINKING_HMAC_KEY:?Set LINKING_HMAC_KEY}"
-      MICROSOFT_365_TENANT_ID: "${MICROSOFT_365_TENANT_ID:?Set MICROSOFT_365_TENANT_ID}"
-      MICROSOFT_365_CLIENT_ID: "${MICROSOFT_365_CLIENT_ID:?Set MICROSOFT_365_CLIENT_ID}"
-      MICROSOFT_365_CLIENT_SECRET_FILE: /run/secrets/microsoft_365_client_secret
-      MICROSOFT_365_MAILBOX: "${MICROSOFT_365_MAILBOX:?Set MICROSOFT_365_MAILBOX}"
+      SMTP_ADDR: "${SMTP_ADDR:-}"
+      SMTP_FROM: "${SMTP_FROM:-}"
+      SMTP_USERNAME: "${SMTP_USERNAME:-}"
+      SMTP_PASSWORD: "${SMTP_PASSWORD:-}"
       DISCORD_CLIENT_ID: "${DISCORD_CLIENT_ID:-}"
       DISCORD_CLIENT_SECRET: "${DISCORD_CLIENT_SECRET:-}"
       DD_ENV: production
       DD_SERVICE: illarin-api
       DD_VERSION: "${ILLARIN_VERSION:?Set ILLARIN_VERSION}"
-    secrets:
-      - microsoft_365_client_secret
     volumes:
       - "${ILLARIN_DATA_DIR:?Set ILLARIN_DATA_DIR}/uploads:/data/uploads"
     read_only: true
@@ -230,8 +228,6 @@ services:
       com.datadoghq.tags.service: datadog-agent
 
 secrets:
-  microsoft_365_client_secret:
-    file: "${ILLARIN_SECRETS_DIR:?Set ILLARIN_SECRETS_DIR}/microsoft-365-client-secret"
   restic_password:
     file: "${ILLARIN_SECRETS_DIR:?Set ILLARIN_SECRETS_DIR}/restic-password"
 

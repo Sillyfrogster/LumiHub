@@ -29,6 +29,9 @@ compose() {
     --env-file "$ILLARIN_ENV_FILE"
     -f "$REPO_ROOT/compose.prod.yaml"
   )
+  if [[ -n "${MICROSOFT_365_TENANT_ID:-}${MICROSOFT_365_CLIENT_ID:-}${MICROSOFT_365_MAILBOX:-}" ]]; then
+    files+=(-f "$REPO_ROOT/compose.microsoft365.yaml")
+  fi
   if [[ -n "${NPMPLUS_NETWORK:-}" ]]; then
     files+=(-f "$REPO_ROOT/compose.npmplus.yaml")
   fi
