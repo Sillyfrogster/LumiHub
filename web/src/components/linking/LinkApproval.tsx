@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   type FormEvent,
+  type ReactNode,
   useCallback,
   useEffect,
   useRef,
@@ -52,7 +53,9 @@ export function LinkApproval() {
     ? `/link?request=${encodeURIComponent(requestCode)}`
     : "/link";
   const [manualForRequest, setManualForRequest] = useState("");
-  const [stage, setStage] = useState<Stage>({ kind: "entry" });
+  const [stage, setStage] = useState<Stage>(() =>
+    requestCode ? { kind: "loading" } : { kind: "entry" },
+  );
   const [typed, setTyped] = useState("");
   const [notice, setNotice] = useState("");
   const looked = useRef("");
@@ -159,8 +162,24 @@ export function LinkApproval() {
     void loadReview({ kind: "authorization", requestCode });
   }, [requestCode, reviewingRequest, account, loadReview]);
 
+  const introduction = pageCopy(stage);
+  const frame = (panel: ReactNode) => (
+    <>
+      <header className={styles.introduction}>
+        <h1 className={styles.pageTitle}>Link an application</h1>
+        {introduction.lede ? (
+          <p className={styles.pageLede}>{introduction.lede}</p>
+        ) : null}
+        {introduction.orientation ? (
+          <p className={styles.orientation}>{introduction.orientation}</p>
+        ) : null}
+      </header>
+      <div className={styles.panelArea}>{panel}</div>
+    </>
+  );
+
   if (account === undefined) {
-    return (
+    return frame(
       <div
         ref={capturePanel}
         className={styles.panel}
@@ -168,12 +187,12 @@ export function LinkApproval() {
         aria-live="polite"
       >
         <p className={styles.waiting}>Checking who is signed in…</p>
-      </div>
+      </div>,
     );
   }
 
   if (!account) {
-    return (
+    return frame(
       <div
         ref={capturePanel}
         className={styles.panel}
@@ -191,12 +210,12 @@ export function LinkApproval() {
         >
           Sign in
         </Link>
-      </div>
+      </div>,
     );
   }
 
   if (!account.emailVerified) {
-    return (
+    return frame(
       <div
         ref={capturePanel}
         className={styles.panel}
@@ -214,12 +233,12 @@ export function LinkApproval() {
         >
           Verify email
         </Link>
-      </div>
+      </div>,
     );
   }
 
   if (stage.kind === "approved") {
-    return (
+    return frame(
       <div
         ref={capturePanel}
         className={styles.panel}
@@ -238,12 +257,12 @@ export function LinkApproval() {
         <Link className={styles.primary} href="/settings">
           See linked instances
         </Link>
-      </div>
+      </div>,
     );
   }
 
   if (stage.kind === "denied") {
-    return (
+    return frame(
       <div
         ref={capturePanel}
         className={styles.panel}
@@ -269,7 +288,7 @@ export function LinkApproval() {
         >
           Enter another code
         </button>
-      </div>
+      </div>,
     );
   }
 
@@ -280,7 +299,7 @@ export function LinkApproval() {
   ) {
     const review = stage.review;
     const decision = stage.kind === "confirm" ? null : stage.decision;
-    return (
+    return frame(
       <Confirmation
         review={review}
         decision={decision}
@@ -294,12 +313,12 @@ export function LinkApproval() {
           setTyped("");
           setStage({ kind: "entry" });
         }}
-      />
+      />,
     );
   }
 
   if (stage.kind === "loading") {
-    return (
+    return frame(
       <div
         ref={capturePanel}
         className={styles.panel}
@@ -308,12 +327,12 @@ export function LinkApproval() {
         aria-busy="true"
       >
         <p className={styles.waiting}>Reading the link request…</p>
-      </div>
+      </div>,
     );
   }
 
   if (stage.kind === "request-error" && reviewingRequest) {
-    return (
+    return frame(
       <div
         ref={capturePanel}
         className={styles.panel}
@@ -334,16 +353,6 @@ export function LinkApproval() {
             className={styles.primary}
             type="button"
             onClick={() => {
-              looked.current = requestCode;
-              void loadReview({ kind: "authorization", requestCode });
-            }}
-          >
-            Try again
-          </button>
-          <button
-            className={styles.secondary}
-            type="button"
-            onClick={() => {
               setManualForRequest(requestCode);
               setNotice("");
               setStage({ kind: "entry" });
@@ -351,12 +360,22 @@ export function LinkApproval() {
           >
             Enter a device code
           </button>
+          <button
+            className={styles.secondary}
+            type="button"
+            onClick={() => {
+              looked.current = requestCode;
+              void loadReview({ kind: "authorization", requestCode });
+            }}
+          >
+            Try again
+          </button>
         </div>
-      </div>
+      </div>,
     );
   }
 
-  return (
+  return frame(
     <form
       ref={capturePanel}
       className={styles.panel}
@@ -395,6 +414,7 @@ export function LinkApproval() {
         autoCapitalize="characters"
         spellCheck={false}
         maxLength={12}
+        enterKeyHint="go"
         required
         aria-describedby={notice ? "link-entry-notice" : undefined}
       />
@@ -406,8 +426,39 @@ export function LinkApproval() {
       >
         Continue
       </button>
-    </form>
+    </form>,
   );
+}
+
+/** The lede names the situation the reader is actually in, which differs by state. */
+function pageCopy(stage: Stage): { lede?: string; orientation?: string } {
+  if (stage.kind === "entry") {
+    return {
+      orientation:
+        "A desktop application opens this page for you. You only type a code when the installation cannot open a browser, such as a server or a terminal. Typing it yourself is what ties the code on your screen to the request being made.",
+    };
+  }
+
+  if (stage.kind === "request-error") {
+    return {
+      lede: "The application could not reopen its request. You can enter a device code instead.",
+    };
+  }
+
+  if (
+    stage.kind === "confirm" ||
+    stage.kind === "deciding" ||
+    stage.kind === "redirecting"
+  ) {
+    return {
+      lede:
+        stage.review.source.kind === "authorization"
+          ? "Approve a private connection between your Illarin account and the application that opened this page."
+          : "Approve a private connection between your Illarin account and the installation that showed you this code.",
+    };
+  }
+
+  return {};
 }
 
 function Gate({

@@ -13,18 +13,9 @@ export default function LinkPage() {
       <Shell className={styles.layout}>
         <div className={styles.desk}>
           <div className={styles.task}>
-            <header className={styles.introduction}>
-              <h1 className={styles.title}>Link an application</h1>
-              <p className={styles.lede}>
-                Approve a private connection between your Illarin account and an
-                application you opened.
-              </p>
-            </header>
-            <div className={styles.panelArea}>
-              <Suspense fallback={<p className={styles.opening}>Opening…</p>}>
-                <LinkApproval />
-              </Suspense>
-            </div>
+            <Suspense fallback={<p className={styles.opening}>Opening…</p>}>
+              <LinkApproval />
+            </Suspense>
             <p className={styles.note}>
               You can revoke a linked installation at any time from account
               settings.

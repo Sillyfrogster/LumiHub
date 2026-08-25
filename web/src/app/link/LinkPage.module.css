@@ -33,29 +33,6 @@
   background: var(--color-elevated);
 }
 
-.introduction {
-  max-width: 520px;
-  animation: lhRise 0.7s 0.08s var(--ease) both;
-}
-
-.title {
-  max-width: 10ch;
-  font-family: var(--font-display);
-  font-size: var(--type-display-size);
-  font-weight: 560;
-  letter-spacing: -0.035em;
-  line-height: 0.98;
-  text-wrap: balance;
-}
-
-.lede {
-  max-width: 52ch;
-  margin-top: 18px;
-  color: var(--color-text-secondary);
-  font-size: var(--type-body-size);
-  line-height: 1.7;
-}
-
 .note {
   max-width: 50ch;
   margin-top: 34px;
@@ -64,12 +41,6 @@
   color: var(--color-text-secondary);
   font-size: var(--type-secondary-size);
   line-height: 1.6;
-}
-
-.panelArea {
-  width: min(100%, 520px);
-  margin-top: clamp(34px, 5vw, 48px);
-  animation: lhRise 0.7s var(--ease) both;
 }
 
 .artwork {
@@ -147,11 +118,6 @@
 
   .task {
     padding: 34px 24px 38px;
-  }
-
-  .title {
-    max-width: 8ch;
-    font-size: var(--type-section-size);
   }
 
   .artwork {
