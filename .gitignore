@@ -1,0 +1,26 @@
+# Dependencies and build output
+node_modules
+.next/
+dist
+*.tsbuildinfo
+
+# Settings and secrets
+.env
+**/.env
+**/.env.local
+
+# Logs
+*.log
+
+# Editor and operating system files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.sw?
+
+# Uploaded files are runtime data
+api/uploads/
+
+# Irreplaceable local files: secrets, models, and original uploads
+.preserved/

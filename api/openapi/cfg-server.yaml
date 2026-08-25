@@ -1,0 +1,6 @@
+package: http
+output: ../internal/http/gen.go
+generate:
+  gin-server: true
+  models: true
+  strict-server: false

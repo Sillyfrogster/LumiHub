@@ -1,0 +1,126 @@
+.card {
+  display: block;
+  background: var(--surface);
+  border: 1px solid var(--line-card);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  color: inherit;
+  transition:
+    transform 0.35s var(--ease),
+    box-shadow 0.35s;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lift);
+  color: inherit;
+}
+
+.art {
+  aspect-ratio: 3 / 4;
+}
+
+.large .art {
+  aspect-ratio: 4 / 5;
+}
+
+.kind {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  padding: 3px 7px;
+  background: rgba(246, 248, 251, 0.94);
+  border: 1px solid rgba(167, 183, 214, 0.5);
+  border-radius: var(--radius-xs);
+  font-size: 8.5px;
+  font-weight: 900;
+  letter-spacing: 0.13em;
+  color: var(--ink-strong);
+}
+
+.large .kind {
+  left: 12px;
+  top: 12px;
+  padding: 4px 8px;
+  border-radius: 5px;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+}
+
+/** The curved lip that makes a card sit like a bound cover */
+.body {
+  position: relative;
+  margin-top: -14px;
+  padding: 13px 15px 15px;
+  background: var(--surface);
+  border-radius: 54% 44% 0 0 / 18px 12px 0 0;
+}
+
+.large .body {
+  margin-top: -16px;
+  padding: 16px 18px 17px;
+  border-radius: 52% 46% 0 0 / 20px 14px 0 0;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: 15.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.large .title {
+  font-size: 17px;
+}
+
+.author {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.large .author {
+  margin-top: 4px;
+  font-size: 11.5px;
+}
+
+.metrics {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 11px;
+  font-size: 10.5px;
+  color: var(--body);
+  list-style: none;
+}
+
+.large .metrics {
+  gap: 15px;
+  margin-top: 14px;
+  font-size: 11px;
+}
+
+.metric {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.large .metric {
+  gap: 5px;
+}
+
+.metric svg {
+  color: var(--muted);
+}
+
+.rating svg {
+  color: var(--star);
+  fill: var(--star);
+}
+
+.frontends {
+  color: var(--faint);
+}

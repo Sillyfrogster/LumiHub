@@ -1,0 +1,6 @@
+.art {
+  height: auto;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  user-select: none;
+}

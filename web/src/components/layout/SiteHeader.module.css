@@ -1,0 +1,136 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 80;
+  background: rgba(246, 248, 251, 0.86);
+  backdrop-filter: blur(14px) saturate(1.1);
+  border-bottom: 1px solid var(--line);
+}
+
+.bar {
+  height: var(--header-height);
+  display: flex;
+  align-items: center;
+  gap: 38px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: none;
+  color: var(--ink);
+}
+
+.wordmark {
+  font-family: var(--font-display);
+  font-size: 23px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  font-size: 13.5px;
+  color: var(--body);
+}
+
+.navLink {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 24px 0 23px;
+  color: inherit;
+}
+
+.navLink:hover {
+  color: var(--ink-strong);
+}
+
+.navLink[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--accent);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 250px;
+  height: 36px;
+  padding-inline: 11px;
+  background: var(--surface);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  font-size: 13px;
+  text-align: left;
+}
+
+.search:hover {
+  border-color: var(--faint);
+}
+
+.searchLabel {
+  flex: 1;
+}
+
+.kbd {
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: var(--faint);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  padding: 2px 4px;
+}
+
+.upload {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  padding-inline: 15px;
+  border-radius: var(--radius-md);
+  background: var(--action);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  box-shadow: var(--shadow-button);
+  transition: box-shadow 0.3s;
+}
+
+.upload:hover {
+  box-shadow: var(--shadow-button-hover);
+  color: #fff;
+}
+
+.iconButton {
+  display: flex;
+  color: var(--body);
+}
+
+.iconButton:hover {
+  color: var(--ink-strong);
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  background: var(--surface-frame);
+  flex: none;
+}

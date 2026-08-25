@@ -1,0 +1,54 @@
+.band {
+  position: relative;
+  margin-top: 80px;
+  padding: 64px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.washLeft {
+  position: absolute;
+  left: -4%;
+  top: -40%;
+  width: 70%;
+  animation: lhBreathe 16s ease-in-out infinite;
+}
+
+.washRight {
+  position: absolute;
+  right: -10%;
+  bottom: -60%;
+  width: 60%;
+  opacity: 0.4;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  position: relative;
+  list-style: none;
+}
+
+.stat {
+  text-align: center;
+  border-left: 1px solid rgba(167, 183, 214, 0.45);
+  padding-inline: 20px;
+}
+
+.value {
+  font-family: var(--font-display);
+  font-size: 46px;
+  font-weight: 600;
+  color: var(--ink-strong);
+  letter-spacing: -0.02em;
+}
+
+.label {
+  margin-top: 8px;
+  font-size: 10.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}

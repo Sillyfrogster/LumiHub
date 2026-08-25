@@ -1,0 +1,15 @@
+.section {
+  padding-top: 74px;
+}
+
+.rule {
+  margin: 6px 0 30px -14px;
+  opacity: 0.85;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 26px;
+  list-style: none;
+}

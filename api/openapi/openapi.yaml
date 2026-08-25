@@ -1,0 +1,102 @@
+openapi: 3.1.0
+info:
+  title: LumiHub API
+  version: 0.1.0
+paths:
+  /v1/assets:
+    get:
+      operationId: listAssets
+      parameters:
+        - { name: kind, in: query, schema: { type: string } }
+        - { name: platform, in: query, schema: { type: string } }
+        - { name: tag, in: query, schema: { type: array, items: { type: string } } }
+        - { name: facet, in: query, schema: { type: array, items: { type: string } } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
+        - name: before
+          in: query
+          description: >-
+            The made date of the last asset on the previous page. Send it with
+            beforeId or not at all.
+          schema: { type: string, format: date-time }
+        - name: beforeId
+          in: query
+          description: The id of that same asset
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Assets a visitor may see
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssetList"
+    post:
+      operationId: createAsset
+      requestBody:
+        required: true
+        description: >-
+          Send the metadata part before the file part. The file is read as it
+          arrives, so the catalog fields have to be known by then.
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [metadata, file]
+              properties:
+                metadata:
+                  $ref: "#/components/schemas/CreateAssetRequest"
+                file: { type: string, format: binary }
+      responses:
+        "201":
+          description: The asset that was created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset"
+  /v1/assets/{id}/original:
+    get:
+      operationId: downloadOriginal
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The uploaded file, byte for byte
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "404":
+          description: No such asset
+components:
+  schemas:
+    Asset:
+      type: object
+      required: [id, kind, format, name, description, tags, isNsfw, publication, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string }
+        platform: { type: [string, "null"] }
+        format: { type: string }
+        formatVersion: { type: string }
+        name: { type: string }
+        description: { type: string }
+        tags: { type: array, items: { type: string } }
+        isNsfw: { type: boolean }
+        publication: { type: string, enum: [public, unlisted] }
+        createdAt: { type: string, format: date-time }
+    AssetList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Asset" }
+    CreateAssetRequest:
+      type: object
+      required: [kind, filename, name]
+      properties:
+        kind: { type: string }
+        filename: { type: string }
+        name: { type: string }
+        description: { type: string }
+        tags: { type: array, items: { type: string } }
+        isNsfw: { type: boolean }
+        publication: { type: string, enum: [public, unlisted] }
