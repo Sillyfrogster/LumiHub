@@ -1,0 +1,85 @@
+.mark {
+  position: relative;
+  display: grid;
+  width: 76px;
+  aspect-ratio: 1;
+  place-items: center;
+  border-radius: 50% 50% var(--radius-md) var(--radius-md);
+  background: var(--color-text-primary);
+  box-shadow: var(--shadow-soft);
+  color: var(--color-background);
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.mark[data-tone="1"] {
+  background: color-mix(
+    in srgb,
+    var(--color-background) 10%,
+    var(--color-text-primary)
+  );
+}
+
+.mark[data-tone="2"] {
+  background: color-mix(
+    in srgb,
+    var(--color-background) 19%,
+    var(--color-text-primary)
+  );
+}
+
+.mark[data-tone="3"] {
+  background: color-mix(
+    in srgb,
+    var(--color-background) 28%,
+    var(--color-text-primary)
+  );
+}
+
+.figure {
+  position: absolute;
+  z-index: 0;
+  inset: 14%;
+  background: color-mix(in srgb, currentColor 16%, transparent);
+  clip-path: polygon(
+    50% 0,
+    61% 39%,
+    100% 50%,
+    61% 61%,
+    50% 100%,
+    39% 61%,
+    0 50%,
+    39% 39%
+  );
+  transform: rotate(var(--mark-angle));
+}
+
+.initial {
+  position: relative;
+  z-index: 1;
+  color: var(--color-background);
+  font-family: var(--font-display);
+  font-size: var(--type-section-size);
+  font-weight: 560;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.mark[data-compact] {
+  width: 40px;
+  border-radius: 50% 50% var(--radius-xs) var(--radius-xs);
+}
+
+.mark[data-compact] .initial {
+  font-size: var(--type-body-size);
+}
+
+@media (max-width: 720px) {
+  .mark {
+    width: 60px;
+  }
+
+  .initial {
+    font-size: var(--type-block-title-size);
+  }
+}

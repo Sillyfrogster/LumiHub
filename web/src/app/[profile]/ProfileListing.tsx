@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Shell } from "@/components/layout/Shell";
+import { CreatorMark } from "@/components/media/CreatorMark";
 import type {
   BrowseFilters,
   BrowsePage,
@@ -22,7 +23,6 @@ export function ProfileListing({
   deletedAssets: DeletedAsset[] | null;
 }) {
   const basePath = `/@${profile.handle}`;
-  const initial = profile.handle.slice(0, 1).toUpperCase();
   const isOwner = deletedAssets !== null;
 
   return (
@@ -30,9 +30,7 @@ export function ProfileListing({
       <header className={styles.profileHeader}>
         <div className={styles.profileArt} aria-hidden="true" />
         <Shell className={styles.profileHeaderInner}>
-          <div className={styles.portrait} aria-hidden="true">
-            <span>{initial}</span>
-          </div>
+          <CreatorMark handle={profile.handle} />
           <div className={styles.identity}>
             <h1 data-long={profile.handle.length > 20 || undefined}>
               @{profile.handle}
