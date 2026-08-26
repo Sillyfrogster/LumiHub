@@ -60,6 +60,9 @@ var socialPreviews = []Variant{
 	{Name: "og_blurred", MaxWidth: 1200, MaxHeight: 630, Blurred: true},
 }
 
+// previewField is the carbon every Illarin link preview sits on.
+var previewField = color.RGBA{R: 0x05, G: 0x05, B: 0x05, A: 0xff}
+
 func SocialPreviewByName(name string) (Variant, bool) {
 	for _, preview := range socialPreviews {
 		if preview.Name == name {
@@ -182,9 +185,7 @@ func (p *Processor) ComposeSocialPreview(
 		return Derivative{}, err
 	}
 	canvas := image.NewRGBA(image.Rect(0, 0, preview.MaxWidth, preview.MaxHeight))
-	draw.Draw(canvas, canvas.Bounds(), &image.Uniform{
-		C: color.RGBA{R: 0xf6, G: 0xf8, B: 0xfb, A: 0xff},
-	}, image.Point{}, draw.Src)
+	draw.Draw(canvas, canvas.Bounds(), &image.Uniform{C: previewField}, image.Point{}, draw.Src)
 	if preview.Blurred {
 		decoded = obscure(decoded)
 	}
