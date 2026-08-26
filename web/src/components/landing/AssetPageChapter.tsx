@@ -37,7 +37,9 @@ export function AssetPageChapter() {
           <div className={styles.preview}>
             <div className={styles.previewHead}>
               <span className={styles.previewTitle}>Your character</span>
-              <span className={styles.previewMeta}>@yourhandle · Character</span>
+              <span className={styles.previewMeta}>
+                @yourhandle · Character
+              </span>
             </div>
 
             <div className={styles.blocks}>
