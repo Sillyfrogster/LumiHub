@@ -1,6 +1,8 @@
 import { AuthPage } from "@/components/auth/AuthPage";
 import { PasswordResetRequestPanel } from "@/components/auth/PasswordResetPanel";
 
+export const metadata = { title: "Reset your password" };
+
 export default function ForgotPasswordPage() {
   return (
     <AuthPage

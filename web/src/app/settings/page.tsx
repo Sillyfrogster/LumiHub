@@ -12,6 +12,8 @@ const DISCORD_NOTICES: Record<string, string> = {
   failed: "Discord could not be attached. Please try again.",
 };
 
+export const metadata = { title: "Account settings" };
+
 export default async function SettingsPage({
   searchParams,
 }: {

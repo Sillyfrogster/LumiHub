@@ -1,9 +1,35 @@
+import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { notFound, permanentRedirect, redirect } from "next/navigation";
+import { cache } from "react";
 import { fetchAssets, fetchDeletedAssets, fetchProfile } from "@/lib/api/query";
 import { buildBrowseHref, readBrowseFilters } from "@/lib/browse-url";
 import { readProfileAddress } from "@/lib/profile-address";
+import { pageMetadata } from "@/lib/site-metadata";
 import { ProfileListing } from "./ProfileListing";
+
+const loadProfile = cache(async (segment: string) => {
+  const address = readProfileAddress(decodeURIComponent(segment));
+  return address
+    ? { address, profile: await fetchProfile(address.handle) }
+    : null;
+});
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ profile: string }>;
+}): Promise<Metadata> {
+  const found = await loadProfile((await params).profile);
+  if (!found?.profile) return { title: "Not found" };
+
+  const { profile } = found;
+  const metadata = pageMetadata(
+    `@${profile.handle}`,
+    `Characters, lorebooks, presets, themes and packs published by ${profile.handle} on Illarin.`,
+  );
+  return { ...metadata, alternates: { canonical: `/@${profile.handle}` } };
+}
 
 export default async function CreatorProfileListing({
   params,
@@ -14,15 +40,14 @@ export default async function CreatorProfileListing({
 }) {
   const { profile: encodedProfile } = await params;
   const requested = decodeURIComponent(encodedProfile);
-  const address = readProfileAddress(requested);
-  if (!address) notFound();
-
-  const [filters, profile, cookie] = await Promise.all([
+  const [filters, found, cookie] = await Promise.all([
     searchParams.then(readBrowseFilters),
-    fetchProfile(address.handle),
+    loadProfile(encodedProfile),
     cookies().then((value) => value.toString()),
   ]);
-  if (!profile) notFound();
+  if (!found?.profile) notFound();
+
+  const { address, profile } = found;
 
   const canonical = `@${profile.handle}`;
   const here = buildBrowseHref(filters, `/${canonical}`);

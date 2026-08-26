@@ -5,10 +5,9 @@ import {
   fetchAssets,
 } from "@/lib/api/query";
 import { assetHref } from "@/lib/asset-url";
+import { siteUrl } from "@/lib/site-metadata";
 
 export const dynamic = "force-dynamic";
-
-const siteUrl = process.env.SITE_URL ?? "http://localhost:8000";
 
 type ListSitemapAssets = (
   params: AssetListParams,

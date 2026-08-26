@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import { AuthPage } from "@/components/auth/AuthPage";
 import { PasswordResetCompletionPanel } from "@/components/auth/PasswordResetPanel";
 
+export const metadata = { title: "Choose a new password" };
+
 export default function ResetPasswordPage() {
   return (
     <AuthPage

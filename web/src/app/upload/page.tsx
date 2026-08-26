@@ -1,6 +1,12 @@
 import { Shell } from "@/components/layout/Shell";
+import { pageMetadata } from "@/lib/site-metadata";
 import { UploadFlow } from "./UploadFlow";
 import styles from "./UploadPage.module.css";
+
+export const metadata = pageMetadata(
+  "Publish an asset",
+  "Import a file you already have, or start a new character, lorebook, preset, theme or pack.",
+);
 
 export default function UploadPage() {
   return (

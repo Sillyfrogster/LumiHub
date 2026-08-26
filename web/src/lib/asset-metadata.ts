@@ -3,11 +3,13 @@ import type { AssetDetail } from "./api/query";
 import { assetDisplayName } from "./asset-name";
 import { assetHref } from "./asset-url";
 import { KIND_LABELS } from "./kinds";
+import { SITE_CARD, siteOpenGraph, siteTwitter } from "./site-metadata";
 
 /**
  * The tags a chat window reads when somebody pastes an asset's address. An
  * unlisted asset asks not to be indexed, which reduces discovery and is not a
- * boundary, so it still invites a crawler to follow its links.
+ * boundary, so it still invites a crawler to follow its links. Without an image
+ * of its own it falls back to the site card.
  */
 export function assetMetadata(asset: AssetDetail): Metadata {
   const name = assetDisplayName(asset.name);
@@ -16,7 +18,7 @@ export function assetMetadata(asset: AssetDetail): Metadata {
   const url = assetHref(asset.id, asset.name);
   const images = asset.preview
     ? [{ url: asset.preview, alt: name, width: 1200, height: 630 }]
-    : undefined;
+    : [SITE_CARD];
 
   return {
     title,
@@ -24,18 +26,18 @@ export function assetMetadata(asset: AssetDetail): Metadata {
     alternates: { canonical: url },
     robots: asset.discovery === "unlisted" ? { index: false } : undefined,
     openGraph: {
+      ...siteOpenGraph(),
       type: "article",
-      siteName: "Illarin",
       title,
       description,
       url,
       images,
     },
     twitter: {
-      card: asset.preview ? "summary_large_image" : "summary",
+      ...siteTwitter(),
       title,
       description,
-      images: asset.preview ? [asset.preview] : undefined,
+      images: [asset.preview ?? SITE_CARD.url],
     },
   };
 }

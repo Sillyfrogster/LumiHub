@@ -2,6 +2,8 @@ import { AccountForm } from "@/components/auth/AccountForm";
 import { AuthPage } from "@/components/auth/AuthPage";
 import { safeInternalReturnPath } from "@/lib/internal-return";
 
+export const metadata = { title: "Create an account" };
+
 export default async function SignUpPage({
   searchParams,
 }: {

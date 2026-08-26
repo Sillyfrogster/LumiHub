@@ -1,8 +1,7 @@
 import type { MetadataRoute } from "next";
+import { siteUrl } from "@/lib/site-metadata";
 
 export const dynamic = "force-dynamic";
-
-const siteUrl = process.env.SITE_URL ?? "http://localhost:8000";
 
 /** Asset pages stay crawlable on purpose. An unlisted one asks not to be indexed with a tag, and a crawler has to read the page to find it. */
 export function buildRobots(origin: string): MetadataRoute.Robots {

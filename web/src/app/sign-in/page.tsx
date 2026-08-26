@@ -9,6 +9,8 @@ const DISCORD_ERRORS: Record<string, string> = {
   failed: "Discord could not sign you in. Please try again.",
 };
 
+export const metadata = { title: "Sign in" };
+
 export default async function SignInPage({
   searchParams,
 }: {

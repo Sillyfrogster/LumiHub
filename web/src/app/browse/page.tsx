@@ -1,7 +1,27 @@
+import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { fetchAssets } from "@/lib/api/query";
 import { readBrowseFilters } from "@/lib/browse-url";
+import { KIND_LABELS } from "@/lib/kinds";
+import { pageMetadata } from "@/lib/site-metadata";
 import { CatalogListing } from "./CatalogListing";
+
+export async function generateMetadata({
+  searchParams,
+}: PageProps<"/browse">): Promise<Metadata> {
+  const filters = readBrowseFilters(await searchParams);
+  const subject = filters.kind
+    ? `${KIND_LABELS[filters.kind].toLowerCase()}s`
+    : "characters, lorebooks, presets, themes and packs";
+
+  if (filters.q) {
+    return pageMetadata(
+      `${filters.q} \u00b7 Browse`,
+      `Illarin ${subject} matching ${filters.q}.`,
+    );
+  }
+  return pageMetadata("Browse", `Every one of Illarin's ${subject}.`);
+}
 
 export default async function BrowsePage({
   searchParams,

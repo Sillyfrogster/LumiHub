@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import type { AssetDetail } from "./api/query";
 import { assetMetadata } from "./asset-metadata";
+import { SITE_CARD } from "./site-metadata";
 
 const ID = "0f6b7a4c-3d21-4a5e-9c8b-1f2e3d4c5b6a";
 
@@ -57,7 +58,7 @@ test("points the preview at the canonical address", () => {
   );
 });
 
-test("uses the composed social preview, and does not invent one without it", () => {
+test("uses the composed social preview, and the site card without it", () => {
   expect(assetMetadata(asset()).openGraph?.images).toEqual([
     {
       url: "/media/aaaa/og/1",
@@ -66,9 +67,9 @@ test("uses the composed social preview, and does not invent one without it", () 
       height: 630,
     },
   ]);
-  expect(
-    assetMetadata(asset({ preview: null })).openGraph?.images,
-  ).toBeUndefined();
+  expect(assetMetadata(asset({ preview: null })).openGraph?.images).toEqual([
+    SITE_CARD,
+  ]);
 });
 
 test("stands in a description when the creator wrote no blurb", () => {

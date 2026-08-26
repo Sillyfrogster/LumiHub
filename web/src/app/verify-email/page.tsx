@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import { AuthPage } from "@/components/auth/AuthPage";
 import { VerificationPanel } from "@/components/auth/VerificationPanel";
 
+export const metadata = { title: "Verify your email" };
+
 export default function VerifyEmailPage() {
   return (
     <AuthPage
