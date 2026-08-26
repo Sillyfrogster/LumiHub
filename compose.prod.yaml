@@ -133,6 +133,7 @@ services:
     restart: unless-stopped
     environment:
       API_URL: http://api:8080
+      SITE_URL: "${SITE_URL:?Set SITE_URL}"
       DD_ENV: production
       DD_SERVICE: illarin-web
       DD_VERSION: "${ILLARIN_VERSION:?Set ILLARIN_VERSION}"
