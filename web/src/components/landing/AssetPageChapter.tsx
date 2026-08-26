@@ -36,8 +36,8 @@ export function AssetPageChapter() {
         <div className={styles.workbench} data-workbench aria-hidden="true">
           <div className={styles.preview}>
             <div className={styles.previewHead}>
-              <span className={styles.previewTitle}>Narcissa Roux</span>
-              <span className={styles.previewMeta}>@devtest · Character</span>
+              <span className={styles.previewTitle}>Your character</span>
+              <span className={styles.previewMeta}>@yourhandle · Character</span>
             </div>
 
             <div className={styles.blocks}>

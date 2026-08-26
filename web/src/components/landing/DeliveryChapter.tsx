@@ -38,7 +38,7 @@ export function DeliveryChapter() {
         <div className={styles.paths} aria-hidden="true">
           <ol className={styles.route} data-route>
             <li className={styles.stop}>
-              <strong>Narcissa Roux</strong>
+              <strong>An asset</strong>
               <small>The work, as its creator uploaded it</small>
             </li>
 
