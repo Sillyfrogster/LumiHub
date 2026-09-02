@@ -1,10 +1,16 @@
 "use client";
 
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, ImagePlus } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { DefaultCover } from "@/components/media/DefaultCover";
-import type { AssetImage, BrowseKind, NsfwVisibility } from "@/lib/api/query";
+import {
+  type AssetImage,
+  addAssetImage,
+  type BrowseKind,
+  type NsfwVisibility,
+} from "@/lib/api/query";
 import { useAuth } from "@/lib/auth";
 import {
   readAssetReveal,
@@ -21,6 +27,7 @@ interface AssetMediaProps {
   // Null while a draft has not been asked the adult content question.
   isNsfw: boolean | null;
   visibility: NsfwVisibility;
+  isOwner: boolean;
 }
 
 export function AssetMedia({
@@ -30,8 +37,11 @@ export function AssetMedia({
   name,
   isNsfw,
   visibility,
+  isOwner,
 }: AssetMediaProps) {
+  const router = useRouter();
   const { account } = useAuth();
+  const fileInput = useRef<HTMLInputElement>(null);
   const presentationMedia = media.filter((image) => image.role !== "pack_item");
   const [chosen, setChosen] = useState<number | null>(() => {
     const cover = presentationMedia.findIndex((image) => image.isCover);
@@ -41,6 +51,12 @@ export function AssetMedia({
   const [revealed, setRevealed] = useState(false);
   const [signedOutVisibility, setSignedOutVisibility] =
     useState<NsfwVisibility>();
+  const [uploading, setUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<{
+    message: string;
+    failed: boolean;
+  }>();
+  const hasCover = presentationMedia.some((image) => image.isCover);
   const shown = chosen === null ? undefined : presentationMedia[chosen];
   const useFallback = failed || !shown;
   const showClear =
@@ -64,6 +80,28 @@ export function AssetMedia({
   function reveal() {
     setRevealed(true);
     writeAssetReveal(id);
+  }
+
+  async function replaceCover(file: File | null) {
+    if (!file || uploading) return;
+    setUploading(true);
+    setUploadStatus(undefined);
+    try {
+      await addAssetImage(id, file, "avatar");
+      setUploadStatus({ message: "Cover changed.", failed: false });
+      router.refresh();
+    } catch (error) {
+      setUploadStatus({
+        message:
+          error instanceof Error
+            ? error.message
+            : "The cover could not be changed. Try again.",
+        failed: true,
+      });
+    } finally {
+      setUploading(false);
+      if (fileInput.current) fileInput.current.value = "";
+    }
   }
 
   return (
@@ -133,6 +171,37 @@ export function AssetMedia({
             </li>
           ))}
         </ul>
+      ) : null}
+
+      {isOwner ? (
+        <div className={styles.coverActions}>
+          <label className={styles.coverUpload}>
+            <ImagePlus size={16} aria-hidden="true" />
+            {uploading
+              ? "Uploading…"
+              : hasCover
+                ? "Replace cover"
+                : "Add cover"}
+            <input
+              ref={fileInput}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              disabled={uploading}
+              onChange={(event) =>
+                void replaceCover(event.target.files?.[0] ?? null)
+              }
+            />
+          </label>
+          {uploadStatus ? (
+            <p
+              className={styles.uploadMessage}
+              data-error={uploadStatus.failed || undefined}
+              role={uploadStatus.failed ? "alert" : "status"}
+            >
+              {uploadStatus.message}
+            </p>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );

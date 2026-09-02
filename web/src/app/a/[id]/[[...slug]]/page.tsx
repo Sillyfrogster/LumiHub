@@ -154,12 +154,17 @@ export default async function AssetPage({
 
               <div className={styles.assetMediaSlot}>
                 <AssetMedia
+                  key={
+                    asset.media.find((image) => image.isCover)?.id ??
+                    "coverless"
+                  }
                   id={asset.id}
                   media={asset.media}
                   kind={asset.kind}
                   name={asset.name}
                   isNsfw={asset.isNsfw}
                   visibility={asset.visibility}
+                  isOwner={asset.isOwner}
                 />
               </div>
 
